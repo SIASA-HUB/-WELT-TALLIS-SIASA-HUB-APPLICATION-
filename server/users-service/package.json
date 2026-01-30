@@ -1,0 +1,46 @@
+{
+  "name": "leaders-service",
+  "version": "1.0.0",
+  "description": "The backend API powering Siasa Hub—where Kenyans engage, approve manifestos, and shape public dialogue.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:dev": "nodemon --inspect index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write .",
+    "lint": "eslint . --ext .js,.jsx,.txt --fix",
+    "fix": "eslint . --fix"
+  },
+  "keywords": [
+    "backend",
+    "api",
+    "sisasa",
+    "civic-engagement",
+    "kenya"
+  ],
+  "author": "Welt Tallis Cooperation, Nairobi, Kenya",
+  "contributors": [
+    {
+      "name": "Peter",
+      "email": "infowelttallis@gmail.com"
+    }
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-async-handler": "^1.2.0",
+    "express-http-proxy": "^2.1.2",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "luxon": "^3.7.2",
+    "mysql2": "^3.16.2",
+    "nodemon": "^3.1.11",
+    "validator": "^13.15.26",
+    "winston": "^3.19.0"
+  }
+}
