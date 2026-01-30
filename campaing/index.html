@@ -1,759 +1,121 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>  RP  -  MMS </title>
-
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-      crossorigin="anonymous"
-    />
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" href="/rest.png" />
-    <link rel="apple-touch-icon" href="/rest.png" />
-
-
-
-    <!-- In your index.html -->
-<link rel="preload" href="/register-deceased" as="document">
-<link rel="preload" href="/coffins" as="document">
-<link rel="preload" href="deceased-all" as="document">
-<link rel="preload" href="/invoices" as="document">
-<link rel="preload" href="/users" as="document">
-<link rel="preload" href="/notifications" as="document">
-<link rel="preload" href="/calender" as="document">
-
-<link rel="preload" href="/charge-settings" as="document">
-
-
-
+    <title>Siasa Hub | Kenya's Digital Campaign Platform</title>
+    <meta name="description" content="Siasa Hub is the premier digital space for Kenyan political engagement, community organizing, and online campaigning.">
+    <meta name="keywords" content="Siasa Hub, Kenya Politics, Online Campaigning Kenya, Digital Activism, Kenya Elections 2027">
+    <meta name="author" content="Siasa Hub Team">
+    
+    <meta property="og:title" content="Siasa Hub - Lead Your Campaign Online">
+    <meta property="og:description" content="Empowering Kenyans to organize and lead digital political movements.">
+    <meta property="og:image" content="/og-image.png">
+    <meta property="og:type" content="website">
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="RestPoint" />
+    <meta name="apple-mobile-web-app-title" content="SiasaHub" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
 
-    <link rel="manifest" href="/manifest.json" />
-  
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-      :root {
-        --primary-color: #00B894; /* Green */
-        --secondary-color: #2C3E50; /* Dark Blue */
-        --background-color: #F8F9FA; /* Light Grey */
-        --success-color: #4CAF50; /* Lighter Green */
-      }
-
-      body {
-    font-family: 'Roboto', 'Merriweather', serif;
-
-        margin: 0;
-        background-color: var(--background-color);
-      }
-
-      /* Enhanced Install Screen */
-      #install-screen {
-        position: fixed;
-        top: 0; 
-        left: 0;
-        width: 100%; 
-        height: 100%;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-        background-color: var(--background-color);
-        z-index: 9999;
-        color: var(--secondary-color);
-        opacity: 0; /* Start hidden for fade-in */
-        transition: opacity 0.5s ease-out;
-      }
-      
-      #install-screen.show {
-        opacity: 1;
-      }
-
-      #install-screen .logo-text {
-        font-size: 3rem; /* Slightly larger */
-        font-weight: 900; /* Extra bold */
-        margin-bottom: 0.5rem;
-        background: linear-gradient(90deg, var(--secondary-color) 0%, var(--primary-color) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        animation: fadeInDown 1s ease-out;
-      }
-      
-      #install-screen #install-status {
-          font-size: 1.1rem;
-          color: #6c757d;
-          margin-bottom: 0.5rem;
-          opacity: 0;
-          transition: opacity 0.5s 0.2s; /* Delayed fade in */
-      }
-
-      #install-screen .progress-bar {
-        margin-top: 2rem;
-        width: 90%; /* Wider on small screens */
-        max-width: 350px; /* Slightly wider */
-        height: 12px; /* Thinner */
-        border: none;
-        border-radius: 6px;
-        overflow: hidden;
-        background: #e9ecef;
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-      }
-
-      #install-screen .progress-bar-fill {
-        width: 0%;
-        height: 100%;
-        background: linear-gradient(90deg, var(--primary-color), #00a085);
-        transition: width 0.5s ease-in-out;
-        border-radius: 6px;
-        box-shadow: 0 0 10px rgba(0, 184, 148, 0.5); /* Subtle glowing effect */
-      }
-
-      #install-screen .success-message {
-        margin-top: 2.5rem;
-        font-size: 1.5rem; /* Larger success message */
-        font-weight: 700;
-        color: var(--success-color);
-        opacity: 0;
-        transform: scale(0.8);
-        transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); /* Bounce effect */
-      }
-
-      #install-screen .success-message.show {
-        opacity: 1;
-        transform: scale(1);
-      }
-      
-      /* Awesome Install Button */
-      #install-btn {
-        margin-top: 3rem; /* More space */
-        padding: 15px 40px; /* Larger hit area */
-        border: none;
-        border-radius: 50px; /* Pill shape */
-        background: linear-gradient(135deg, var(--primary-color), #00a085, #008f75);
-        background-size: 200% auto; /* For hover animation */
-        color: white;
-        font-size: 1.1rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: all 0.4s ease-out;
-        box-shadow: 0 8px 25px rgba(0, 184, 148, 0.4), 0 0 15px rgba(0, 184, 148, 0.2) inset;
-      }
-
-      #install-btn:hover {
-        background-position: right center; /* Shift gradient on hover */
-        transform: translateY(-3px) scale(1.05); /* Lift and grow slightly */
-        box-shadow: 0 12px 30px rgba(0, 184, 148, 0.6);
-      }
-      
-      #install-btn:active {
-        transform: translateY(0);
-        box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
-      }
-
-
-      /* Enhanced network status popup - (keeping original enhancements) */
-      #network-status-popup {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background-color: #FF6B6B;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 10px;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-        z-index: 10000;
-        display: none;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        transform: translateY(100px);
-        opacity: 0;
-        max-width: 320px;
-        align-items: center;
-        gap: 12px;
-        font-weight: 500;
-      }
-
-      #network-status-popup.show {
-        display: flex;
-        transform: translateY(0);
-        opacity: 1;
-      }
-
-      #network-status-popup.online {
-        background: linear-gradient(135deg, var(--success-color) 0%, #45a049 100%);
-      }
-
-      #network-status-popup.offline {
-        background: linear-gradient(135deg, #FF6B6B 0%, #ee5a52 100%);
-      }
-
-      #network-status-popup.offline-critical {
-        background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
-        max-width: 350px;
-      }
-
-      .wifi-icon {
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .wifi-offline::before {
-        content: "🚫"; /* Changed to clearer symbol */
-        font-size: 20px;
-        opacity: 0.8;
-      }
-
-      .wifi-online::before {
-        content: "✅"; /* Changed to clearer symbol */
-        font-size: 24px;
-      }
-
-      .wifi-full::before {
-        content: "📶";
-        font-size: 24px;
-        animation: pulse 2s infinite;
-      }
-
-      @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-      }
-
-      .offline-warning {
-        font-size: 0.85em;
-        opacity: 0.9;
-        margin-top: 4px;
-      }
-
-      .warning-icon {
-        margin-right: 4px;
-        font-size: 0.9em;
-      }
-
-      /* Data sync warning */
-      .data-warning {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 8px 12px;
-        border-radius: 6px;
-        margin-top: 8px;
-        font-size: 0.8em;
-      }
-
-      /* Awesome Auto install prompt (Banner) */
-      #auto-install-prompt {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background: white;
-        padding: 15px 20px;
-        border-radius: 12px; /* Softer corners */
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* Deeper shadow */
-        z-index: 9998;
-        display: none;
-        align-items: center;
-        gap: 15px; /* More spacing */
-        max-width: 340px;
-        border-left: 5px solid var(--primary-color); /* Thicker color accent */
-        transition: transform 0.5s ease-out, opacity 0.5s ease-out;
-        opacity: 0;
-        transform: translateX(-100px);
-      }
-
-      #auto-install-prompt.show {
-        display: flex;
-        transform: translateX(0);
-        opacity: 1;
-        animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy animation */
-      }
-
-      @keyframes slideInLeft {
-        from {
-          transform: translateX(-100px);
-          opacity: 0;
+        :root {
+            --kenya-green: #00662d;
+            --kenya-red: #bb0000;
+            --kenya-black: #060606;
+            --bg-light: #f8f9fa;
         }
-        to {
-          transform: translateX(0);
-          opacity: 1;
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--kenya-black);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
         }
-      }
 
-      .install-icon {
-        font-size: 28px; /* Larger icon */
-        color: var(--primary-color);
-        flex-shrink: 0;
-      }
+        /* Network Status Toast */
+        #network-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
 
-      .prompt-text {
-        flex: 1;
-      }
+        .online { background-color: var(--kenya-green); }
+        .offline { background-color: var(--kenya-red); }
 
-      .prompt-text strong {
-          color: var(--secondary-color);
-          font-size: 1rem;
-      }
-
-      .prompt-buttons {
-        display: flex;
-        flex-direction: column; /* Stack buttons for better mobile tap target */
-        gap: 8px;
-      }
-
-      .prompt-btn {
-        padding: 8px 15px; /* Larger padding */
-        border: none;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-weight: 600;
-        text-transform: capitalize;
-      }
-
-      .prompt-install {
-        background: var(--primary-color);
-        color: white;
-        box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);
-      }
-      
-      .prompt-install:hover {
-          background: #00a085;
-      }
-
-      .prompt-dismiss {
-        background: var(--background-color);
-        color: #6c757d;
-        border: 1px solid #dee2e6;
-      }
-      
-      .prompt-dismiss:hover {
-          background: #e9ecef;
-      }
+        /* Main Viewport Fix */
+        #root {
+            min-height: calc(var(--vh, 1vh) * 100);
+            display: flex;
+            flex-direction: column;
+        }
     </style>
-  </head>
-  <body>
-    <div id="auto-install-prompt">
-      <div class="install-icon">⚡</div>
-      <div class="prompt-text">
-        <strong>Rest-Point: Get the App!</strong>
-        <div style="font-size: 0.8rem; color: #6c757d;">Install for full offline & desktop experience.</div>
-      </div>
-      <div class="prompt-buttons">
-        <button class="prompt-btn prompt-install" id="auto-install-btn">Install Now</button>
-        <button class="prompt-btn prompt-dismiss" id="dismiss-prompt">No Thanks</button>
-      </div>
-    </div>
+</head>
+<body>
 
-    <div id="install-screen">
-      <h1 class="logo-text">Rest-Point</h1>
-      <p id="install-status">Optimizing App Files (0%)...</p>
-      <div class="progress-bar">
-        <div class="progress-bar-fill" id="progress-fill"></div>
-      </div>
-      <div class="success-message" id="success-message">
-        🎉 **Installation Complete!** Launching App...
-      </div>
-      <button id="install-btn" style="display: none;">Install App</button>
-    </div>
-
-    <div id="network-status-popup" class="offline">
-      <div class="wifi-icon">
-        <div class="wifi-offline" id="wifi-icon"></div>
-      </div>
-      <div>
-        <span id="network-status-text">You are offline !! </span>
-        <div id="offline-warning" class="offline-warning" style="display: none;">
-          <span class="warning-icon">⚠️</span>
-          <span>Data uploads disabled - working offline</span>
-        </div>
-        <div id="data-warning" class="data-warning" style="display: none;">
-          <span class="warning-icon">💾</span>
-          <span>Changes saved locally - will sync when online</span>
-        </div>
-      </div>
-    </div>
+    <div id="network-status"></div>
 
     <div id="root"></div>
 
-    
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="/src/main.jsx"></script>
 
     <script>
-      let deferredPrompt;
-      const installScreen = document.getElementById("install-screen");
-      const progressFill = document.getElementById("progress-fill");
-      const installStatus = document.getElementById("install-status");
-      const successMessage = document.getElementById("success-message");
-      const installBtn = document.getElementById("install-btn");
-      const networkPopup = document.getElementById("network-status-popup");
-      const networkText = document.getElementById("network-status-text");
-      const wifiIcon = document.getElementById("wifi-icon");
-      const offlineWarning = document.getElementById("offline-warning");
-      const dataWarning = document.getElementById("data-warning");
-      const autoInstallPrompt = document.getElementById("auto-install-prompt");
-      const autoInstallBtn = document.getElementById("auto-install-btn");
-      const dismissPrompt = document.getElementById("dismiss-prompt");
-
-      let criticalOfflineShown = false;
-      let offlineTimer = null;
-      let installPromptShown = false;
-      
-      const INSTALL_PROMPT_DISMISSED_KEY = 'installPromptDismissed';
-      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-      
-      // Update: Status messages during fake install
-      const installMessages = [
-          "Preparing core assets...", // 0-25%
-          "Downloading necessary resources...", // 25-50%
-          "Caching local storage data...", // 50-75%
-          "Finalizing configuration and startup scripts..." // 75-99%
-      ];
-      
-
-      // Clear all local storage data
-      function clearLocalStorage() {
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-          
-          if ('indexedDB' in window) {
-            indexedDB.databases().then(databases => {
-              databases.forEach(db => {
-                indexedDB.deleteDatabase(db.name);
-              });
-            });
-          }
-          
-          if ('caches' in window) {
-            caches.keys().then(cacheNames => {
-              cacheNames.forEach(cacheName => {
-                caches.delete(cacheName);
-              });
-            });
-          }
-          
-          console.log('All local storage cleared for fresh install');
-        } catch (error) {
-          console.log('Error clearing storage:', error);
+       // view  port height  
+        function updateHeight() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
         }
-      }
+        window.addEventListener('resize', updateHeight);
+        updateHeight();
 
-      // Enhanced PWA Installation with Auto Prompt
-      window.addEventListener("beforeinstallprompt", (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        // Show auto install prompt if not dismissed and after a delay
-        if (shouldShowInstallPrompt()) {
-            setTimeout(() => {
-              if (!installPromptShown) {
-                showAutoInstallPrompt();
-              }
-            }, 3000);
-        }
-      });
-      
-      // Listen for appinstalled event to confirm installation
-      window.addEventListener('appinstalled', () => {
-          console.log('Rest-Point PWA was successfully installed.');
-          // You might want to skip the fake progress here or just show a quick success
-          // For now, we run the progress to show the screen cleanly.
-          startInstallationProcess(); 
-          // Hide deferred prompt related UI
-          deferredPrompt = null;
-          hideAutoInstallPrompt();
-      });
 
-      function showAutoInstallPrompt() {
-        if (deferredPrompt && !installPromptShown) {
-          autoInstallPrompt.classList.add('show');
-          installPromptShown = true;
-        }
-      }
 
-      function hideAutoInstallPrompt() {
-        autoInstallPrompt.classList.remove('show');
-      }
+        //network monitot 
+        const statusEl = document.getElementById('network-status');
 
-      // Auto install button
-      autoInstallBtn.addEventListener('click', () => {
-        hideAutoInstallPrompt();
-        triggerInstallation();
-      });
-
-      // Dismiss prompt
-      dismissPrompt.addEventListener('click', () => {
-        hideAutoInstallPrompt();
-        // Set storage item to prevent showing again for 7 days
-        localStorage.setItem(INSTALL_PROMPT_DISMISSED_KEY, Date.now().toString());
-      });
-
-      // Manual install button
-      installBtn.addEventListener("click", triggerInstallation);
-
-      function triggerInstallation() {
-        if (deferredPrompt) {
-          // Clear all local data before installation
-          clearLocalStorage();
-          
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === "accepted") {
-              // The appinstalled event will now handle the successful installation flow
-              console.log('User accepted the install prompt');
-            } else {
-              console.log('User dismissed the install prompt');
-              // Optionally show a different message or the manual button
-              installBtn.style.display = "block";
-              installStatus.textContent = "Installation dismissed. You can install it later.";
-            }
-            deferredPrompt = null;
-            hideAutoInstallPrompt();
-          });
-        } else {
-          // Fallback if beforeinstallprompt wasn't fired (e.g., already installed or not supported)
-          console.log('Installation trigger failed: Deferred prompt not available.');
-          startInstallationProcess(true); // Run fake progress as a fallback visual cue
-        }
-      }
-
-      function startInstallationProcess(isFallback = false) {
-        // Show install screen with smooth fade-in
-        installScreen.style.display = "flex";
-        requestAnimationFrame(() => installScreen.classList.add('show'));
-        
-        installStatus.textContent = isFallback ? "Launching app..." : "Preparing for install...";
-        requestAnimationFrame(() => installStatus.style.opacity = '1');
-        
-        successMessage.classList.remove('show');
-        progressFill.style.width = "0%";
-        installBtn.style.display = "none";
-        
-        runFakeProgress();
-      }
-
-      function updateStatusText(progress) {
-          if (progress < 25) {
-              installStatus.textContent = `${installMessages[0]} (${Math.floor(progress)}%)...`;
-          } else if (progress < 50) {
-              installStatus.textContent = `${installMessages[1]} (${Math.floor(progress)}%)...`;
-          } else if (progress < 75) {
-              installStatus.textContent = `${installMessages[2]} (${Math.floor(progress)}%)...`;
-          } else if (progress < 99) {
-              installStatus.textContent = `${installMessages[3]} (${Math.floor(progress)}%)...`;
-          }
-      }
-
-      function runFakeProgress() {
-        let progress = 0;
-        const totalTime = 3000; // Faster install animation
-        const intervalTime = 50; 
-        const steps = totalTime / intervalTime;
-        const increment = 100 / steps;
-
-        const interval = setInterval(() => {
-          progress += increment;
-          if (progress >= 100) {
-            clearInterval(interval);
-            progressFill.style.width = "100%";
-            
-            // Show success message after completion
-            setTimeout(() => {
-              installStatus.textContent = "Installation complete!";
-              successMessage.classList.add('show');
-              
-              // Redirect to login page after showing success
-              setTimeout(() => {
-                // Remove install screen
-                installScreen.classList.remove('show');
-                installScreen.addEventListener('transitionend', () => {
-                    installScreen.style.display = 'none';
-                    // Force a hard refresh to ensure clean state after animation
-                    window.location.href = '/?fresh=true';
-                }, {once: true});
-              }, 1500);
-              
-            }, 300);
-          } else {
-            progressFill.style.width = progress + "%";
-            updateStatusText(progress);
-          }
-        }, intervalTime);
-      }
-
-      // Check if prompt was recently dismissed
-      function shouldShowInstallPrompt() {
-        const dismissedTime = localStorage.getItem(INSTALL_PROMPT_DISMISSED_KEY);
-        if (!dismissedTime) return true;
-        
-        return (Date.now() - parseInt(dismissedTime)) > SEVEN_DAYS_MS;
-      }
-
-      // Enhanced Network Status with Data Sync Warnings (Keeping your original logic for network)
-      function updateNetworkStatus() {
-        if (navigator.onLine) {
-          clearTimeout(offlineTimer);
-          criticalOfflineShown = false;
-          networkPopup.classList.remove('offline', 'offline-critical');
-          networkPopup.classList.add('online');
-          offlineWarning.style.display = 'none';
-          dataWarning.style.display = 'none';
-          networkText.textContent = 'Connected';
-          
-          setTimeout(() => {
-            wifiIcon.className = 'wifi-full';
-            networkText.textContent = 'Back online - Syncing data...';
-            setTimeout(() => {
-              networkText.textContent = 'All data synced ✓';
-              setTimeout(() => {
-                networkPopup.classList.remove('show');
-              }, 2000);
-            }, 2000);
-          }, 300); // Shorter delay for transition
-          
-        } else {
-          networkPopup.classList.remove('online');
-          networkPopup.classList.remove('offline-critical'); // Ensure critical is off initially
-          networkPopup.classList.add('offline');
-          wifiIcon.className = 'wifi-offline';
-          networkText.textContent = 'You are offline';
-          offlineWarning.style.display = 'block';
-          dataWarning.style.display = 'block';
-          networkPopup.classList.add('show');
-          
-          clearTimeout(offlineTimer);
-          offlineTimer = setTimeout(() => {
-            showCriticalOfflineMessage();
-          }, 10000);
-        }
-      }
-
-      function showCriticalOfflineMessage() {
-        if (!navigator.onLine && !criticalOfflineShown) {
-          criticalOfflineShown = true;
-          networkPopup.classList.add('offline-critical');
-          networkText.innerHTML = 'No Internet Connection';
-          offlineWarning.innerHTML = '<span class="warning-icon">⚠️</span> Cannot access cloud data';
-          dataWarning.innerHTML = '<span class="warning-icon">💾</span> Working with local data only';
-        }
-      }
-
-      // Initial status check
-      updateNetworkStatus();
-
-      // Network event listeners
-      window.addEventListener('online', updateNetworkStatus);
-      window.addEventListener('offline', updateNetworkStatus);
-
-      // Fixed Service Worker Registration
-      function registerServiceWorker() {
-        if ("serviceWorker" in navigator) {
-          const isLocalhost = window.location.hostname === 'localhost' || 
-                              window.location.hostname === '127.0.0.1';
-          
-          // Only register in production or if explicitly enabled in development
-          if (!isLocalhost || window.location.search.includes('sw=true')) {
-            navigator.serviceWorker.register('/service-worker.js')
-              .then(registration => {
-                console.log('Service Worker registered:', registration);
-                
-                registration.addEventListener('updatefound', () => {
-                  const newWorker = registration.installing;
-                  console.log('New Service Worker found:', newWorker);
-                });
-              })
-              .catch(error => {
-                console.log('Service Worker registration failed:', error);
-              });
-          } else {
-            console.log('Service Worker disabled in development');
-          }
-        }
-      }
-
-      // Register when ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', registerServiceWorker);
-      } else {
-        registerServiceWorker();
-      }
-
-      // Enhanced connectivity check
-      function checkRealConnectivity() {
-        if (navigator.onLine) {
-          fetch('https://httpbin.org/status/200', {
-            method: 'HEAD',
-            mode: 'no-cors',
-            cache: 'no-store'
-          }).catch(() => {
+        function toggleNetworkUI() {
             if (navigator.onLine) {
-              networkText.textContent = 'Limited connectivity';
-              offlineWarning.style.display = 'block';
-              offlineWarning.innerHTML = '<span class="warning-icon">⚠️</span> Some features may not work';
+                statusEl.textContent = "Back Online";
+                statusEl.className = "online";
+                statusEl.style.display = "block";
+                setTimeout(() => { statusEl.style.display = "none"; }, 3000);
+            } else {
+                statusEl.textContent = "Working Offline Mode";
+                statusEl.className = "offline";
+                statusEl.style.display = "block";
             }
-          });
         }
-      }
 
-      // Periodic connectivity checks
-      setInterval(checkRealConnectivity, 45000);
-      window.addEventListener('online', checkRealConnectivity);
+        window.addEventListener('online', toggleNetworkUI);
+        window.addEventListener('offline', toggleNetworkUI);
 
-      // Check for fresh install parameter
-      if (window.location.search.includes('fresh=true')) {
-        setTimeout(clearLocalStorage, 100);
-        
-        const url = new URL(window.location);
-        url.searchParams.delete('fresh');
-        window.history.replaceState({}, '', url);
-      }
+        // Check status on load
+        if (!navigator.onLine) toggleNetworkUI();
 
-      // Check if we should show install prompt on load
-      if (shouldShowInstallPrompt()) {
-        setTimeout(() => {
-          if (deferredPrompt && !installPromptShown) {
-            showAutoInstallPrompt();
-          }
-        }, 2000);
-      }
-
-
-      function setVh() {
-  const vh = window.innerHeight * 0.01;
-  document.documentElement.style.setProperty('--vh', `${vh}px`);
-}
-
-// Run on load
-setVh();
-
-// Update on resize (important for larger screens)
-window.addEventListener('resize', setVh);
-
+       
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .catch(err => console.error('SW registration failed:', err));
+            });
+        }
     </script>
-  </body>
+</body>
 </html>
