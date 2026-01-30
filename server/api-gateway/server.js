@@ -10,51 +10,36 @@ const Redis = require('ioredis');
 
 const app = express();
 
-/* ========================
-   BASIC CONFIG
-======================== */
+//configs 
 const PORT = process.env.PORT || 5004;
 const HOST = process.env.HOST || '0.0.0.0';
 
-/* ========================
-   REDIS CLIENT
-======================== */
+//redis client
 const redisClient = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
-/* ========================
-   SIMPLE LOGGER (replace later)
-======================== */
+//logger
 const Logger = {
   info: (msg, meta) => console.log(`[INFO] ${msg}`, meta || ''),
   warn: (msg, meta) => console.warn(`[WARN] ${msg}`, meta || ''),
   error: (msg, meta) => console.error(`[ERROR] ${msg}`, meta || ''),
 };
-
-/* ========================
-   MIDDLEWARES
-======================== */
+//middlewares
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-/* ========================
-   REQUEST LOGGING
-======================== */
-app.use((req, res, next) => {
+//request logs 
   Logger.info('Incoming Request', {
     method: req.method,
     path: req.originalUrl,
     ip: req.ip,
   });
   next();
-});
-
-/* ========================
-   RATE LIMITERS
-======================== */
+  
+///rate limitetrs
 
 // Global API limiter
 const apiLimiter = rateLimit({
@@ -90,10 +75,7 @@ const sensitiveLimiter = rateLimit({
 });
 
 app.use(apiLimiter);
-
-/* ========================
-   ROUTES (EXAMPLE)
-======================== */
+//  routes /
 app.get('/leaders', (req, res) => {
   res.json({ success: true, message: 'Leaders endpoint' });
 });
@@ -102,33 +84,14 @@ app.post('/leaders/vote', sensitiveLimiter, (req, res) => {
   res.json({ success: true, message: 'Vote submitted' });
 });
 
-/* ========================
-   AUTH PROXY
-======================== */
-app.use(
-  '/v1/auth',
-  sensitiveLimiter,
-  proxy(process.env.AUTH_SERVICE_URL, {
-    proxyReqPathResolver: (req) =>
-      req.originalUrl.replace('/v1/auth', '/api/auth'),
-
-    proxyErrorHandler: (err, res) => {
-      Logger.error('Auth proxy error', err);
-      res.status(502).json({
-        success: false,
-        message: 'Authentication service unavailable',
-      });
-    },
-  })
-);
 
 
 
 
 app.use(
-  "/v1/posts",
+  "/v1/profile",
   validateToken,
-  proxy(process.env.POST_SERVICE_URL, {
+  proxy(process.env.PROFILE_SERVICE_URL, {
     ...proxyOptions,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
       proxyReqOpts.headers["Content-Type"] = "application/json";
@@ -196,9 +159,7 @@ app.use(
 app.use(errorHandler);
 
 
-/* ========================
-   HEALTH CHECK
-======================== */
+//heath   cehcks  
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -207,9 +168,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-/* ========================
-   GLOBAL ERROR HANDLER
-======================== */
+//global  erro hanndler
 app.use((err, req, res, next) => {
   Logger.error('GLOBAL ERROR HANDLER', {
     message: err.message,
@@ -223,9 +182,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-/* ========================
-   PROCESS SAFETY
-======================== */
+//proces  saftey*/
 process.on('uncaughtException', (error) => {
   Logger.error('UNCAUGHT EXCEPTION', error);
   process.exit(1);
@@ -236,16 +193,12 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-/* ========================
-   START SERVER
-======================== */
+//start  server
 const server = app.listen(PORT, HOST, () => {
   Logger.info('Server running', { host: HOST, port: PORT });
 });
 
-/* ========================
-   GRACEFUL SHUTDOWN
-======================== */
+///shutdown 
 const shutdown = () => {
   Logger.info('Shutdown signal received');
   server.close(() => {
