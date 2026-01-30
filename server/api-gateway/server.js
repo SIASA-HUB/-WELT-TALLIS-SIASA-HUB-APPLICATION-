@@ -90,7 +90,7 @@ app.post('/leaders/vote', sensitiveLimiter, (req, res) => {
 
 app.use(
   "/v1/profile",
-  validateToken,
+  // validateToken,
   proxy(process.env.PROFILE_SERVICE_URL, {
     ...proxyOptions,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
@@ -112,7 +112,7 @@ app.use(
 //setting up proxy for our media service
 app.use(
   "/v1/media",
-  validateToken,
+  // validateToken,
   proxy(process.env.MEDIA_SERVICE_URL, {
     ...proxyOptions,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
@@ -137,7 +137,7 @@ app.use(
 //setting up proxy for our search service
 app.use(
   "/v1/search",
-  validateToken,
+  // validateToken,
   proxy(process.env.SEARCH_SERVICE_URL, {
     ...proxyOptions,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
