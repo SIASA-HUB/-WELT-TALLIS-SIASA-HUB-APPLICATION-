@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { 
   Map, Target, TrendingUp, TrendingDown, Users, 
-  AlertTriangle, CheckCircle, Award, BarChart2
+  AlertTriangle, CheckCircle, Award, BarChart2  ,   Octagon
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -685,7 +685,7 @@ const LeaderSupportMap = ({ leaderData }) => {
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Octagon />
               </PieChart>
             </ResponsiveContainer>
           </div>

@@ -1,1504 +1,920 @@
-import React, { useState, useRef } from 'react';
-import styled, { keyframes, css } from 'styled-components';
+// PostCard.js - COMPLETE UPDATED VERSION WITH IMPROVED SEARCH
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { ArrowDownToLine } from 'lucide-react';
+import PostHeader from './postHeader';
+import PostActions from './postActions';
+const VideoBackups = React.lazy(() => import('./videoBackups/videoBackUps'));
+const CommentsSection = React.lazy(() => import('./commentSection'));
+import { KENYA_COLORS } from './constants';
+import * as Styled from './styledComponents';
 
-// --- Kenyan Color Scheme ---
-const KENYA_THEME = {
-  primary: '#BB0000',        // Kenyan flag red
-  secondary: '#000000',      // Black
-  accent: '#006600',         // Green
-  highlight: '#FFFFFF',      // White
-  support: '#00A86B',        // Green for support
-  opposition: '#FF6B6B',     // Red for opposition
-  neutral: '#6B7280',        // Gray
-  trending: '#F59E0B',       // Amber for trending
-  background: '#F8FAFC',
-  border: '#E2E8F0',
-  text: {
-    primary: '#0F172A',
-    secondary: '#64748B',
-    light: '#94A3B8'
-  },
-  gradients: {
-    kenya: 'linear-gradient(135deg, #BB0000, #000000, #006600)',
-    support: 'linear-gradient(135deg, #00A86B, #34D399)',
-    opposition: 'linear-gradient(135deg, #FF6B6B, #EF4444)',
-    neutral: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
-  },
-  partyColors: {
-    'UDA': '#BB0000',
-    'ODM': '#006600',
-    'WIPER': '#8B5CF6',
-    'FORD-KENYA': '#10B981',
-    'NARC-KENYA': '#EC4899',
-    'INDEPENDENT': '#6B7280',
-    'NARC': '#8B5CF6'
+// Base URL
+const API_BASE_URL = 'http://localhost:8007';
+
+// Function to format timestamp to "X time ago"
+const formatTimeAgo = (timestamp) => {
+  if (!timestamp) return 'Just now';
+  
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Just now';
+    
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+    
+    if (diffSecs < 60) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+    if (diffMonths < 12) return `${diffMonths}mo ago`;
+    return `${diffYears}y ago`;
+  } catch (error) {
+    return 'Just now';
   }
 };
 
-// --- Animations ---
-const slideIn = keyframes`
-  from { 
-    transform: translateY(10px); 
-    opacity: 0; 
-  }
-  to { 
-    transform: translateY(0); 
-    opacity: 1; 
-  }
-`;
-
-const fadeIn = keyframes`
-  from { 
-    opacity: 0; 
-  }
-  to { 
-    opacity: 1; 
-  }
-`;
-
-const scaleUp = keyframes`
-  from { 
-    transform: scale(0.95); 
-    opacity: 0; 
-  }
-  to { 
-    transform: scale(1); 
-    opacity: 1; 
-  }
-`;
-
-const pulse = keyframes`
-  0% { 
-    transform: scale(1); 
-  }
-  50% { 
-    transform: scale(1.05); 
-  }
-  100% { 
-    transform: scale(1); 
-  }
-`;
-
-const glow = keyframes`
-  0%, 100% {
-    box-shadow: 0 0 5px ${KENYA_THEME.primary}40;
-  }
-  50% {
-    box-shadow: 0 0 15px ${KENYA_THEME.primary}60;
-  }
-`;
-
-// --- SVG Icon Component ---
-const SVGIcon = ({ name, size = 24, color = 'currentColor', fill, onClick }) => {
-  const icons = {
-    thumb_up: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-      </svg>
-    ),
-    thumb_down: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-      </svg>
-    ),
-    chat_bubble: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-    share: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="18" cy="5" r="3" />
-        <circle cx="6" cy="12" r="3" />
-        <circle cx="18" cy="19" r="3" />
-        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-      </svg>
-    ),
-    send: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13" />
-        <polygon points="22 2 15 22 11 13 2 9 22 2" />
-      </svg>
-    ),
-    emoji: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-        <line x1="9" y1="9" x2="9.01" y2="9" />
-        <line x1="15" y1="9" x2="15.01" y2="9" />
-      </svg>
-    ),
-    image: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-    x: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18" />
-        <line x1="6" y1="6" x2="18" y2="18" />
-      </svg>
-    ),
-    star: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || '#F59E0B'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-      </svg>
-    ),
-    crown: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || '#F59E0B'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" />
-      </svg>
-    ),
-    flag: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-        <line x1="4" y1="22" x2="4" y1="15" />
-      </svg>
-    ),
-    reply: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 10 4 15 9 20" />
-        <path d="M20 4v7a4 4 0 0 1-4 4H4" />
-      </svg>
-    ),
-    kenya_flag: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <rect x="2" y="2" width="20" height="20" rx="4" fill="#BB0000" />
-        <rect x="2" y="2" width="20" height="7" rx="4" fill="#000000" />
-        <rect x="2" y="15" width="20" height="7" rx="4" fill="#006600" />
-        <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" 
-          fill="#FFFFFF" stroke="#000000" strokeWidth="0.5" />
-      </svg>
-    ),
-    election: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-        <polyline points="17 21 17 13 7 13 7 21" />
-        <polyline points="7 3 7 8 15 8" />
-      </svg>
-    )
-  };
+const PostCard = ({ searchQuery = '' }) => {
+  const [allPosts, setAllPosts] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [backupVideosMap, setBackupVideosMap] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [showComments, setShowComments] = useState({});
+  const [showVideoBackups, setShowVideoBackups] = useState({});
+  const [postLikes, setPostLikes] = useState({});
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   
-  return (
-    <span 
-      onClick={onClick} 
-      style={{ 
-        cursor: onClick ? 'pointer' : 'default',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}
-    >
-      {icons[name] || <span>?</span>}
-    </span>
-  );
-};
-
-// --- Styled Components ---
-const Card = styled.div`
-  background: ${KENYA_THEME.background};
-  border-radius: 16px;
-  margin: 0px auto;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(187, 0, 0, 0.08);
-  animation: ${slideIn} 0.3s ease-out;
-  border: 2px solid ${KENYA_THEME.border};
-  max-width: 480px;
-  transition: all 0.3s ease;
-  position: relative;
-
-  &:hover {
-    box-shadow: 0 8px 32px rgba(187, 0, 0, 0.12);
-    border-color: ${KENYA_THEME.primary}40;
-    transform: translateY(-2px);
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: ${props => props.$party ? KENYA_THEME.partyColors[props.$party] : KENYA_THEME.gradients.kenya};
-    background-size: 200% 100%;
-    animation: wave 3s linear infinite;
-    
-    @keyframes wave {
-      0% { background-position: 0% 0; }
-      100% { background-position: 200% 0; }
-    }
-  }
-`;
-
-const AuthorHeader = styled.div`
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, rgba(187, 0, 0, 0.03), rgba(0, 102, 0, 0.03));
-  border-bottom: 1px solid ${KENYA_THEME.border};
-`;
-
-const AuthorAvatar = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: ${props => props.$party ? KENYA_THEME.partyColors[props.$party] : KENYA_THEME.gradients.kenya};
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
-  flex-shrink: 0;
-  border: 2px solid white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-const AuthorInfo = styled.div`
-  flex: 1;
-`;
-
-const AuthorName = styled.div`
-  font-weight: 700;
-  color: ${KENYA_THEME.text.primary};
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const AuthorBadge = styled.span`
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: ${props => props.$party ? KENYA_THEME.partyColors[props.$party] : KENYA_THEME.neutral};
-  color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const PostTime = styled.div`
-  font-size: 12px;
-  color: ${KENYA_THEME.text.secondary};
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const ContentBody = styled.div`
-  padding: 20px;
-  color: ${KENYA_THEME.text.primary};
-  line-height: 1.6;
-  font-size: 15px;
-  background: white;
-  
-  p {
-    margin: 0 0 12px 0;
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-`;
-
-const PostImage = styled.div`
-  margin: 0 -20px 20px;
-  overflow: hidden;
-  max-height: 320px;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 40px;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.1));
-  }
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.5s ease;
-  }
-  
-  &:hover img {
-    transform: scale(1.02);
-  }
-`;
-
-const ApprovalGraph = styled.div`
-  padding: 20px;
-  border-top: 1px solid ${KENYA_THEME.border};
-  background: linear-gradient(135deg, rgba(187, 0, 0, 0.02), rgba(0, 102, 0, 0.02));
-`;
-
-const GraphBar = styled.div`
-  height: 6px;
-  background: ${KENYA_THEME.border};
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 12px;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.3) 50%,
-      transparent 100%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 2s infinite;
-    
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-  }
-`;
-
-const ApprovalFill = styled.div`
-  width: ${props => props.percentage}%;
-  height: 100%;
-  background: ${props => props.$party ? 
-    KENYA_THEME.partyColors[props.$party] : 
-    KENYA_THEME.gradients.support};
-  border-radius: 3px;
-  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
-  position: relative;
-  z-index: 1;
-`;
-
-const GraphStats = styled.div`
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: ${KENYA_THEME.text.secondary};
-`;
-
-const StatItem = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`;
-
-const StatValue = styled.div`
-  font-weight: 700;
-  font-size: 16px;
-  color: ${props => props.type === 'support' ? KENYA_THEME.support : 
-    props.type === 'oppose' ? KENYA_THEME.opposition : 
-    KENYA_THEME.text.primary};
-  margin-bottom: 2px;
-`;
-
-const StatLabel = styled.div`
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const ActionFooter = styled.div`
-  padding: 16px 20px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  border-top: 1px solid ${KENYA_THEME.border};
-  background: white;
-`;
-
-const ActionButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  background: ${props => props.active ? 
-    (props.type === 'like' ? 
-      `${KENYA_THEME.support}20` : 
-      `${KENYA_THEME.opposition}20`) 
-    : 'transparent'};
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: ${props => props.active ? 
-    (props.type === 'like' ? KENYA_THEME.support : KENYA_THEME.opposition) 
-    : KENYA_THEME.text.secondary};
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  justify-content: center;
-
-  &:hover {
-    background: ${props => props.active ? 
-      (props.type === 'like' ? 
-        `${KENYA_THEME.support}30` : 
-        `${KENYA_THEME.opposition}30`) 
-      : `${KENYA_THEME.primary}10`};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const ShareButton = styled.button`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: ${KENYA_THEME.text.secondary};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  position: relative;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    color: ${KENYA_THEME.primary};
-    transform: rotate(15deg);
-  }
-`;
-
-const ShareDropdown = styled.div`
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  background: white;
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid ${KENYA_THEME.border};
-  z-index: 1000;
-  min-width: 160px;
-  animation: ${scaleUp} 0.2s ease-out;
-  transform-origin: bottom right;
-`;
-
-const ShareOption = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: none;
-  border-radius: 8px;
-  font-size: 14px;
-  color: ${KENYA_THEME.text.primary};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    color: ${KENYA_THEME.primary};
-  }
-`;
-
-const CommentsSection = styled.div`
-  border-top: 1px solid ${KENYA_THEME.border};
-  background: linear-gradient(135deg, rgba(187, 0, 0, 0.02), rgba(0, 102, 0, 0.02));
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const CommentInputContainer = styled.div`
-  padding: 20px;
-  border-bottom: 1px solid ${KENYA_THEME.border};
-  background: white;
-`;
-
-const CommentInputWrapper = styled.div`
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-`;
-
-const CommentTextarea = styled.textarea`
-  flex: 1;
-  padding: 12px 16px;
-  border: 2px solid ${KENYA_THEME.border};
-  border-radius: 12px;
-  font-size: 14px;
-  line-height: 1.4;
-  resize: none;
-  min-height: 44px;
-  max-height: 100px;
-  outline: none;
-  transition: all 0.3s ease;
-  background: ${KENYA_THEME.background};
-  color: ${KENYA_THEME.text.primary};
-  font-family: inherit;
-
-  &::placeholder {
-    color: ${KENYA_THEME.text.light};
-    font-size: 14px;
-  }
-
-  &:focus {
-    border-color: ${KENYA_THEME.primary};
-    background: white;
-    box-shadow: 0 0 0 3px ${KENYA_THEME.primary}20;
-  }
-`;
-
-const InputActions = styled.div`
-  display: flex;
-  gap: 8px;
-  align-items: center;
-`;
-
-const ActionIcon = styled.button`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: ${KENYA_THEME.text.light};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    color: ${KENYA_THEME.primary};
-  }
-`;
-
-const SendButton = styled.button`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: ${props => props.disabled ? KENYA_THEME.neutral : KENYA_THEME.gradients.kenya};
-  color: white;
-  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-
-  &:hover {
-    background: ${props => props.disabled ? KENYA_THEME.neutral : 'linear-gradient(135deg, #CC0000, #111111, #007700)'};
-    transform: ${props => props.disabled ? 'none' : 'scale(1.1)'};
-  }
-`;
-
-const CommentList = styled.div`
-  padding: 20px;
-  max-height: 400px;
-  overflow-y: auto;
-  background: white;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${KENYA_THEME.background};
-    border-radius: 3px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${KENYA_THEME.primary};
-    border-radius: 3px;
-    
-    &:hover {
-      background: #CC0000;
-    }
-  }
-`;
-
-const CommentItem = styled.div`
-  background: ${props => props.$featured ? 
-    'linear-gradient(135deg, #FFFBEB, #FEF3C7)' : 
-    KENYA_THEME.background};
-  border-radius: 12px;
-  padding: ${props => props.$featured ? '16px' : '14px'};
-  margin-bottom: 12px;
-  border: ${props => props.$featured ? 
-    `2px solid ${KENYA_THEME.trending}` : 
-    `1px solid ${KENYA_THEME.border}`};
-  animation: ${fadeIn} 0.3s ease-out;
-  position: relative;
-  
-  ${props => props.$featured && css`
-    animation: ${glow} 2s infinite;
-    
-    &::before {
-      content: '👑 Most Liked';
-      position: absolute;
-      top: -10px;
-      right: 12px;
-      background: ${KENYA_THEME.trending};
-      color: white;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 20px;
-      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-      z-index: 1;
-    }
-  `}
-
-  &:hover {
-    border-color: ${KENYA_THEME.primary}60;
-    transform: translateX(2px);
-  }
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const CommentHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-`;
-
-const CommentAuthor = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const CommentAuthorAvatar = styled.div`
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: ${props => props.$featured ? 
-    KENYA_THEME.trending : 
-    KENYA_THEME.gradients.kenya};
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 12px;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-`;
-
-const CommentAuthorName = styled.div`
-  font-weight: 600;
-  color: ${KENYA_THEME.text.primary};
-  font-size: 13px;
-`;
-
-const CommentMeta = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const CommentTime = styled.div`
-  font-size: 11px;
-  color: ${KENYA_THEME.text.light};
-`;
-
-const CommentLikes = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: ${props => props.$featured ? KENYA_THEME.trending : KENYA_THEME.support};
-  font-weight: 700;
-  background: ${props => props.$featured ? 
-    'rgba(245, 158, 11, 0.1)' : 
-    'rgba(0, 168, 107, 0.1)'};
-  padding: 2px 8px;
-  border-radius: 20px;
-`;
-
-const CommentContent = styled.div`
-  color: ${KENYA_THEME.text.primary};
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 10px;
-  word-break: break-word;
-`;
-
-const CommentImage = styled.div`
-  margin: 8px 0;
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: 200px;
-  border: 1px solid ${KENYA_THEME.border};
-  
-  img {
-    width: 100%;
-    height: auto;
-    max-height: 200px;
-    object-fit: cover;
-    border-radius: 8px;
-  }
-`;
-
-const StickerContainer = styled.div`
-  margin: 8px 0;
-  display: inline-block;
-  font-size: 32px;
-  transition: transform 0.3s ease;
-  
-  &:hover {
-    transform: scale(1.2);
-  }
-`;
-
-const CommentActions = styled.div`
-  display: flex;
-  gap: 16px;
-  padding-top: 10px;
-  border-top: 1px solid ${KENYA_THEME.border}80;
-`;
-
-const CommentAction = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 20px;
-  font-size: 12px;
-  color: ${KENYA_THEME.text.secondary};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    color: ${KENYA_THEME.primary};
-  }
-
-  &.active {
-    color: ${props => props.type === 'like' ? KENYA_THEME.support : KENYA_THEME.opposition};
-    background: ${props => props.type === 'like' ? 
-      'rgba(0, 168, 107, 0.1)' : 
-      'rgba(255, 107, 107, 0.1)'};
-  }
-`;
-
-const ReplyButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 20px;
-  font-size: 12px;
-  color: ${KENYA_THEME.text.secondary};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    color: ${KENYA_THEME.primary};
-  }
-`;
-
-const StickerPicker = styled.div`
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  background: white;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid ${KENYA_THEME.border};
-  z-index: 1000;
-  width: 320px;
-  max-height: 240px;
-  overflow-y: auto;
-  animation: ${scaleUp} 0.2s ease-out;
-`;
-
-const StickerGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-`;
-
-const StickerOption = styled.button`
-  width: 48px;
-  height: 48px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  padding: 4px;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-
-  &:hover {
-    background: ${KENYA_THEME.primary}10;
-    transform: scale(1.1);
-  }
-`;
-
-const ImagePreview = styled.div`
-  margin: 12px 0;
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: 150px;
-  border: 2px solid ${KENYA_THEME.border};
-  
-  img {
-    width: 100%;
-    height: auto;
-    max-height: 150px;
-    object-fit: cover;
-  }
-`;
-
-const RemoveImage = styled.button`
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.1);
-  }
-`;
-
-const EmptyComments = styled.div`
-  text-align: center;
-  padding: 40px 20px;
-  color: ${KENYA_THEME.text.light};
-  font-size: 14px;
-  
-  div:first-child {
-    font-size: 48px;
-    margin-bottom: 12px;
-    opacity: 0.5;
-  }
-`;
-
-const ReplyIndicator = styled.div`
-  font-size: 12px;
-  color: ${KENYA_THEME.primary};
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  background: ${KENYA_THEME.primary}10;
-  border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-// --- Sticker Library ---
-const STICKERS = [
-  '🇰🇪', '👍', '👎', '😂', '😍', '😡', '🤔', '👏', '🙌',
-  '🔥', '💯', '🎉', '✨', '💪', '❤️', '🤝', '🗳️', '🏛️',
-  '⚖️', '💰', '🏥', '🎓', '🚜', '💼', '📚', '🏆'
-];
-
-// --- Component ---
-export default function PostCard({ post, onUpdatePost }) {
-  const [showComments, setShowComments] = useState(false);
-  const [newComment, setNewComment] = useState('');
-  const [userVote, setUserVote] = useState(post.userVote || null);
-  const [showShareMenu, setShowShareMenu] = useState(false);
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [commentVotes, setCommentVotes] = useState({});
-  const [replyingTo, setReplyingTo] = useState(null);
-  const fileInputRef = useRef(null);
-  
-  if (!post) return null;
-
-  // Calculate approval metrics
-  const totalVotes = (post.likes || 0) + (post.dislikes || 0);
-  const approvalRate = totalVotes > 0 ? Math.round((post.likes / totalVotes) * 100) : 0;
-
-  // Sort comments by likes (most liked first)
-  const sortedComments = post.comments 
-    ? [...post.comments].sort((a, b) => (b.likes || 0) - (a.likes || 0))
-    : [];
-
-  const handleVote = (type) => {
-    if (!onUpdatePost) return;
-    
-    const newVote = userVote === type ? null : type;
-    setUserVote(newVote);
-    
-    const updatedPost = { ...post };
-    
-    if (newVote === 'like') {
-      updatedPost.likes = (updatedPost.likes || 0) + 1;
-      if (userVote === 'dislike') {
-        updatedPost.dislikes = Math.max(0, (updatedPost.dislikes || 0) - 1);
+  const observer = useRef();
+  const lastPostRef = useCallback(node => {
+    if (isFetchingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !isFetchingMore) {
+        loadMorePosts();
       }
-    } else if (newVote === 'dislike') {
-      updatedPost.dislikes = (updatedPost.dislikes || 0) + 1;
-      if (userVote === 'like') {
-        updatedPost.likes = Math.max(0, (updatedPost.likes || 0) - 1);
-      }
-    } else {
-      // Removing vote
-      if (userVote === 'like') {
-        updatedPost.likes = Math.max(0, (updatedPost.likes || 0) - 1);
-      } else if (userVote === 'dislike') {
-        updatedPost.dislikes = Math.max(0, (updatedPost.dislikes || 0) - 1);
-      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isFetchingMore, hasMore]);
+
+  // IMPROVED: Filter posts based on search query with word matching
+  const filterPosts = (query, posts) => {
+    if (!query || query.trim() === '') {
+      return posts;
     }
     
-    onUpdatePost(updatedPost);
-  };
-
-  const handleAddComment = () => {
-    if (!newComment.trim() && !selectedImage && !replyingTo?.sticker) return;
+    const searchTerm = query.toLowerCase().trim();
     
-    const comment = {
-      id: Date.now().toString(),
-      author: 'You',
-      content: newComment,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      likes: 0,
-      dislikes: 0,
-      image: selectedImage,
-      sticker: replyingTo?.sticker,
-      isReply: replyingTo ? true : false,
-      replyTo: replyingTo?.author
-    };
+    // Split search query into individual words
+    const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 2);
     
-    const updatedPost = {
-      ...post,
-      comments: [comment, ...(post.comments || [])]
-    };
-    
-    onUpdatePost(updatedPost);
-    setNewComment('');
-    setSelectedImage(null);
-    setReplyingTo(null);
-  };
-
-  const handleCommentVote = (commentId, type) => {
-    if (!onUpdatePost) return;
-    
-    const updatedPost = { ...post };
-    const commentIndex = updatedPost.comments.findIndex(c => c.id === commentId);
-    
-    if (commentIndex !== -1) {
-      const comment = updatedPost.comments[commentIndex];
-      
-      // Remove previous vote if exists
-      const prevVote = commentVotes[commentId];
-      if (prevVote === 'like') {
-        comment.likes = Math.max(0, (comment.likes || 0) - 1);
-      } else if (prevVote === 'dislike') {
-        comment.dislikes = Math.max(0, (comment.dislikes || 0) - 1);
+    return posts.filter(post => {
+      // If single word search or no word splitting needed
+      if (searchWords.length === 0) {
+        return basicSearch(searchTerm, post);
       }
       
-      // Add new vote if different
-      if (type !== prevVote) {
-        if (type === 'like') {
-          comment.likes = (comment.likes || 0) + 1;
-        } else if (type === 'dislike') {
-          comment.dislikes = (comment.dislikes || 0) + 1;
+      // For multi-word searches, check if ANY word matches
+      return searchWords.some(word => {
+        // Check title
+        if (post.title && post.title.toLowerCase().includes(word)) {
+          return true;
         }
-        setCommentVotes(prev => ({ ...prev, [commentId]: type }));
-      } else {
-        setCommentVotes(prev => ({ ...prev, [commentId]: null }));
+        
+        // Check content/description
+        if (post.content && post.content.toLowerCase().includes(word)) {
+          return true;
+        }
+        
+        // Check author
+        if (post.author && post.author.toLowerCase().includes(word)) {
+          return true;
+        }
+        
+        // Check party
+        if (post.party && post.party.toLowerCase().includes(word)) {
+          return true;
+        }
+        
+        // Check location
+        if (post.location && post.location.toLowerCase().includes(word)) {
+          return true;
+        }
+        
+        // Check hashtags
+        const hashtags = post.content?.match(/#\w+/g) || [];
+        if (hashtags.some(tag => tag.toLowerCase().includes(word))) {
+          return true;
+        }
+        
+        return false;
+      });
+    });
+    
+    // Helper function for basic single word search
+    function basicSearch(term, post) {
+      // Search in title
+      if (post.title && post.title.toLowerCase().includes(term)) {
+        return true;
       }
       
-      // Re-sort comments
-      updatedPost.comments.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+      // Search in content
+      if (post.content && post.content.toLowerCase().includes(term)) {
+        return true;
+      }
       
-      onUpdatePost(updatedPost);
+      // Search in author name
+      if (post.author && post.author.toLowerCase().includes(term)) {
+        return true;
+      }
+      
+      // Search in party
+      if (post.party && post.party.toLowerCase().includes(term)) {
+        return true;
+      }
+      
+      // Search in location
+      if (post.location && post.location.toLowerCase().includes(term)) {
+        return true;
+      }
+      
+      // Search in hashtags within content
+      const hashtags = post.content?.match(/#\w+/g) || [];
+      if (hashtags.some(tag => tag.toLowerCase().includes(term))) {
+        return true;
+      }
+      
+      // Check for similar words (fuzzy matching)
+      if (post.title) {
+        const titleWords = post.title.toLowerCase().split(/\s+/);
+        if (titleWords.some(word => calculateSimilarity(word, term) > 0.6)) {
+          return true;
+        }
+      }
+      
+      if (post.content) {
+        const contentWords = post.content.toLowerCase().split(/\s+/);
+        if (contentWords.some(word => calculateSimilarity(word, term) > 0.6)) {
+          return true;
+        }
+      }
+      
+      return false;
     }
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+  // Calculate similarity between two strings (Levenshtein distance based)
+  const calculateSimilarity = (str1, str2) => {
+    if (!str1 || !str2) return 0;
+    
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    // Check if shorter is a substring of longer
+    if (longer.includes(shorter)) return 1.0;
+    
+    // Simple similarity based on common characters
+    const set1 = new Set(str1);
+    const set2 = new Set(str2);
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    
+    return intersection.size / union.size;
   };
 
-  const handleStickerSelect = (sticker) => {
-    if (replyingTo) {
-      // Add sticker to reply
-      setNewComment(prev => prev + ` ${sticker}`);
+  // Update filtered posts when search query changes
+  useEffect(() => {
+    const filtered = filterPosts(searchQuery, allPosts);
+    setFilteredPosts(filtered);
+    
+    if (searchQuery.trim()) {
+      setHasMore(false);
     } else {
-      // Add sticker to new comment
-      setNewComment(prev => prev + ` ${sticker}`);
+      setHasMore(true);
     }
-    setShowStickerPicker(false);
+  }, [searchQuery, allPosts]);
+
+  // Toggle description expansion
+  const toggleDescription = (postId) => {
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
   };
 
-  const handleReply = (comment) => {
-    setReplyingTo(comment);
-    setShowComments(true);
-    setNewComment(`@${comment.author} `);
-  };
-
-  const handleShare = (platform) => {
-    const shareUrl = window.location.href;
-    const text = `🇰🇪 Check out this political post: "${post.content.substring(0, 100)}..."`;
+  // IMPROVED: Format content with better search highlighting
+  const formatContent = (content, postId, highlightSearch = false) => {
+    if (!content) return '';
     
-    let shareLink = '';
-    switch(platform) {
-      case 'twitter':
-        shareLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'facebook':
-        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'whatsapp':
-        shareLink = `https://wa.me/?text=${encodeURIComponent(text + ' ' + shareUrl)}`;
-        break;
-      case 'copy':
-        navigator.clipboard.writeText(shareUrl);
-        setShowShareMenu(false);
-        return;
-    }
+    const isExpanded = expandedDescriptions[postId];
+    const MAX_LENGTH = 150;
+    const shouldTruncate = content.length > MAX_LENGTH && !isExpanded;
     
-    window.open(shareLink, '_blank', 'noopener,noreferrer');
-    setShowShareMenu(false);
-  };
-
-  const mostLikedComment = sortedComments.length > 0 ? sortedComments[0] : null;
-
-  return (
-    <Card $party={post.party}>
-      {/* Author Header */}
-      <AuthorHeader>
-        <AuthorAvatar 
-          $party={post.party}
-          color={post.avatarColor}
-        >
-          {post.author?.[0]?.toUpperCase() || '🇰🇪'}
-        </AuthorAvatar>
-        <AuthorInfo>
-          <AuthorName>
-            {post.author || 'Political Candidate'}
-            {post.party && (
-              <AuthorBadge $party={post.party}>
-                {post.party}
-              </AuthorBadge>
-            )}
-          </AuthorName>
-          <PostTime>
-            <SVGIcon name="clock" size={12} color={KENYA_THEME.text.light} />
-            {post.timestamp || '2 hours ago'}
-            {post.location && (
-              <>
-                <span>•</span>
-                <span>{post.location}</span>
-              </>
-            )}
-          </PostTime>
-        </AuthorInfo>
-      </AuthorHeader>
-
-      {/* Content */}
-      <ContentBody>
-        {post.content}
-      </ContentBody>
-
-      {/* Image (if exists) */}
-      {post.image && (
-        <PostImage>
-          <img 
-            src={post.image} 
-            alt="Campaign" 
-            onError={(e) => {
-              e.target.style.display = 'none';
+    const displayContent = shouldTruncate 
+      ? content.substring(0, MAX_LENGTH) + '...' 
+      : content;
+    
+    // Split content into parts
+    const parts = displayContent.split(/(#\w+)/g);
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.startsWith('#')) {
+            return (
+              <span key={index} style={{ color: KENYA_COLORS.primary, fontWeight: 'bold' }}>
+                {part}
+              </span>
+            );
+          } else if (highlightSearch && searchQuery) {
+            // Split search query into words
+            const searchWords = searchQuery.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+            
+            // Highlight each matching word
+            let highlightedPart = part;
+            searchWords.forEach(word => {
+              if (highlightedPart.toLowerCase().includes(word)) {
+                const regex = new RegExp(`(${word})`, 'gi');
+                highlightedPart = highlightedPart.replace(regex, (match) => (
+                  `<span style="background-color: #FFEB3B; padding: 0 2px; border-radius: 2px; font-weight: bold">${match}</span>`
+                ));
+              }
+            });
+            
+            // If we found matches, render with dangerouslySetInnerHTML
+            if (highlightedPart !== part) {
+              return (
+                <span 
+                  key={index}
+                  dangerouslySetInnerHTML={{ __html: highlightedPart }}
+                />
+              );
+            }
+          }
+          return part;
+        })}
+        {content.length > MAX_LENGTH && (
+          <button
+            onClick={() => toggleDescription(postId)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: KENYA_COLORS.primary,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              padding: '0 4px',
+              marginLeft: '4px',
+              fontSize: '14px'
             }}
-          />
-        </PostImage>
-      )}
+          >
+            {isExpanded ? 'Read Less' : 'Read More'}
+          </button>
+        )}
+      </>
+    );
+  };
 
-      {/* Approval Graph */}
-      <ApprovalGraph>
-        <GraphBar>
-          <ApprovalFill 
-            percentage={approvalRate} 
-            $party={post.party}
-          />
-        </GraphBar>
-        <GraphStats>
-          <StatItem>
-            <StatValue type="support">👍 {post.likes || 0}</StatValue>
-            <StatLabel>Support</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatValue type="oppose">👎 {post.dislikes || 0}</StatValue>
-            <StatLabel>Oppose</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatValue>{totalVotes}</StatValue>
-            <StatLabel>Total Votes</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatValue type={approvalRate > 50 ? 'support' : 'oppose'}>
-              {approvalRate}%
-            </StatValue>
-            <StatLabel>Approval</StatLabel>
-          </StatItem>
-        </GraphStats>
-      </ApprovalGraph>
-
-      {/* Action Footer */}
-      <ActionFooter>
-        <ActionButton
-          onClick={() => handleVote('like')}
-          active={userVote === 'like'}
-          type="like"
-        >
-          <SVGIcon 
-            name="thumb_up" 
-            size={18} 
-            color={userVote === 'like' ? KENYA_THEME.support : KENYA_THEME.text.secondary}
-            fill={userVote === 'like' ? KENYA_THEME.support : 'none'}
-          />
-          {post.likes || 0}
-        </ActionButton>
-        
-        <ActionButton
-          onClick={() => handleVote('dislike')}
-          active={userVote === 'dislike'}
-          type="dislike"
-        >
-          <SVGIcon 
-            name="thumb_down" 
-            size={18} 
-            color={userVote === 'dislike' ? KENYA_THEME.opposition : KENYA_THEME.text.secondary}
-            fill={userVote === 'dislike' ? KENYA_THEME.opposition : 'none'}
-          />
-          {post.dislikes || 0}
-        </ActionButton>
-        
-        <ActionButton onClick={() => setShowComments(!showComments)}>
-          <SVGIcon 
-            name="chat_bubble" 
-            size={18} 
-            color={showComments ? KENYA_THEME.primary : KENYA_THEME.text.secondary}
-          />
-          {post.comments?.length || 0}
-        </ActionButton>
-        
-        <div style={{ position: 'relative' }}>
-          <ShareButton onClick={() => setShowShareMenu(!showShareMenu)}>
-            <SVGIcon 
-              name="share" 
-              size={18} 
-              color={showShareMenu ? KENYA_THEME.primary : KENYA_THEME.text.secondary}
-            />
-          </ShareButton>
-          {showShareMenu && (
-            <ShareDropdown>
-              <ShareOption onClick={() => handleShare('twitter')}>
-                <SVGIcon name="twitter" size={16} color="#1DA1F2" />
-                Twitter
-              </ShareOption>
-              <ShareOption onClick={() => handleShare('facebook')}>
-                <SVGIcon name="facebook" size={16} color="#1877F2" />
-                Facebook
-              </ShareOption>
-              <ShareOption onClick={() => handleShare('whatsapp')}>
-                <SVGIcon name="whatsapp" size={16} color="#25D366" />
-                WhatsApp
-              </ShareOption>
-              <ShareOption onClick={() => handleShare('copy')}>
-                <SVGIcon name="link" size={16} color={KENYA_THEME.primary} />
-                Copy Link
-              </ShareOption>
-            </ShareDropdown>
-          )}
-        </div>
-      </ActionFooter>
-
-      {/* Comments Section */}
-      {showComments && (
-        <CommentsSection>
-          <CommentInputContainer>
-            {replyingTo && (
-              <ReplyIndicator>
-                <span>Replying to @{replyingTo.author}</span>
-                <button
-                  onClick={() => setReplyingTo(null)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: KENYA_THEME.text.light,
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    fontWeight: '600'
-                  }}
-                >
-                  Cancel
-                </button>
-              </ReplyIndicator>
-            )}
-            
-            {selectedImage && (
-              <ImagePreview>
-                <img src={selectedImage} alt="Preview" />
-                <RemoveImage onClick={() => setSelectedImage(null)}>
-                  <SVGIcon name="x" size={14} color="white" />
-                </RemoveImage>
-              </ImagePreview>
-            )}
-            
-            <CommentInputWrapper>
-              <CommentTextarea
-                placeholder={replyingTo ? `Reply to @${replyingTo.author}...` : "Add your comment..."}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                rows="1"
-              />
-              
-              <InputActions>
-                <ActionIcon onClick={() => setShowStickerPicker(!showStickerPicker)}>
-                  <SVGIcon name="emoji" size={20} />
-                </ActionIcon>
-                
-                <ActionIcon onClick={() => fileInputRef.current?.click()}>
-                  <SVGIcon name="image" size={20} />
-                </ActionIcon>
-                
-                <SendButton 
-                  onClick={handleAddComment}
-                  disabled={!newComment.trim() && !selectedImage && !replyingTo?.sticker}
-                >
-                  <SVGIcon name="send" size={18} color="white" />
-                </SendButton>
-              </InputActions>
-              
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
-              
-              {showStickerPicker && (
-                <StickerPicker>
-                  <StickerGrid>
-                    {STICKERS.map((sticker, index) => (
-                      <StickerOption
-                        key={index}
-                        onClick={() => handleStickerSelect(sticker)}
-                      >
-                        {sticker}
-                      </StickerOption>
-                    ))}
-                  </StickerGrid>
-                </StickerPicker>
-              )}
-            </CommentInputWrapper>
-          </CommentInputContainer>
-          
-          <CommentList>
-            {sortedComments.length > 0 ? (
-              sortedComments.map((comment, index) => {
-                const isMostLiked = index === 0 && comment.likes > 0;
-                const userVote = commentVotes[comment.id];
-                
-                return (
-                  <CommentItem key={comment.id} $featured={isMostLiked}>
-                    <CommentHeader>
-                      <CommentAuthor>
-                        <CommentAuthorAvatar $featured={isMostLiked}>
-                          {comment.author?.[0]?.toUpperCase() || '👤'}
-                        </CommentAuthorAvatar>
-                        <CommentAuthorName>
-                          {comment.author}
-                          {isMostLiked && (
-                            <SVGIcon name="crown" size={12} color={KENYA_THEME.trending} fill={KENYA_THEME.trending} />
-                          )}
-                        </CommentAuthorName>
-                      </CommentAuthor>
-                      <CommentMeta>
-                        {comment.likes > 0 && (
-                          <CommentLikes $featured={isMostLiked}>
-                            <SVGIcon name="thumb_up" size={10} color={isMostLiked ? KENYA_THEME.trending : KENYA_THEME.support} />
-                            {comment.likes}
-                          </CommentLikes>
-                        )}
-                        <CommentTime>{comment.timestamp}</CommentTime>
-                      </CommentMeta>
-                    </CommentHeader>
-                    
-                    {comment.isReply && (
-                      <div style={{
-                        fontSize: '12px',
-                        color: KENYA_THEME.primary,
-                        marginBottom: '6px',
-                        padding: '4px 8px',
-                        background: `${KENYA_THEME.primary}10`,
-                        borderRadius: '6px',
-                        fontStyle: 'italic'
-                      }}>
-                        ↪ Replying to @{comment.replyTo}
-                      </div>
-                    )}
-                    
-                    <CommentContent>
-                      {comment.content}
-                    </CommentContent>
-                    
-                    {comment.image && (
-                      <CommentImage>
-                        <img src={comment.image} alt="Comment attachment" />
-                      </CommentImage>
-                    )}
-                    
-                    {comment.sticker && (
-                      <StickerContainer>
-                        {comment.sticker}
-                      </StickerContainer>
-                    )}
-                    
-                    <CommentActions>
-                      <CommentAction 
-                        onClick={() => handleCommentVote(comment.id, 'like')}
-                        className={userVote === 'like' ? 'active' : ''}
-                        type="like"
-                      >
-                        <SVGIcon 
-                          name="thumb_up" 
-                          size={12} 
-                          color={userVote === 'like' ? KENYA_THEME.support : KENYA_THEME.text.secondary}
-                        />
-                        {comment.likes || 0}
-                      </CommentAction>
-                      <CommentAction 
-                        onClick={() => handleCommentVote(comment.id, 'dislike')}
-                        className={userVote === 'dislike' ? 'active' : ''}
-                        type="dislike"
-                      >
-                        <SVGIcon 
-                          name="thumb_down" 
-                          size={12} 
-                          color={userVote === 'dislike' ? KENYA_THEME.opposition : KENYA_THEME.text.secondary}
-                        />
-                        {comment.dislikes || 0}
-                      </CommentAction>
-                      <ReplyButton onClick={() => handleReply(comment)}>
-                        <SVGIcon name="reply" size={12} />
-                        Reply
-                      </ReplyButton>
-                    </CommentActions>
-                  </CommentItem>
-                );
-              })
-            ) : (
-              <EmptyComments>
-                <div>💬</div>
-                <div>No comments yet. Be the first to share your thoughts!</div>
-              </EmptyComments>
-            )}
-          </CommentList>
-        </CommentsSection>
-      )}
-    </Card>
-  );
-}
-
-// Example usage with Kenyan data
-export function ExamplePostCard() {
-  const [post, setPost] = useState({
-    id: '1',
-    author: 'William Ruto',
-    party: 'UDA',
-    location: 'Nairobi, Kenya',
-    content: 'Our Bottom-Up Economic Model is transforming Kenya. We are creating opportunities for every Kenyan, from the grassroots to the national level. 🇰🇪 Together, we can build a prosperous nation!',
-    likes: 2450,
-    dislikes: 320,
-    comments: [
-      {
-        id: 'c1',
-        author: 'Sarah M.',
-        content: 'Finally, someone focusing on the common mwananchi! The hustler nation is rising.',
-        timestamp: '2:45 PM',
-        likes: 42,
-        dislikes: 2
-      },
-      {
-        id: 'c2',
-        author: 'John K.',
-        content: 'Promises are good, but we need action. Show us the implementation plan.',
-        timestamp: '3:20 PM',
-        likes: 28,
-        dislikes: 5
+  // Optimized fetch for backup videos (only when needed)
+  const fetchBackupVideos = async (postId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/backup/${postId}`);
+      
+      if (!response.ok) {
+        return [];
       }
-    ],
-    timestamp: '2 hours ago',
-    avatarColor: '#BB0000',
-    image: 'https://images.unsplash.com/photo-1581272170836-9a04d4331e09?w=400&h=300&fit=crop'
-  });
+      
+      const data = await response.json();
+      
+      let videosArray = [];
+      if (data.success && Array.isArray(data.videos)) {
+        videosArray = data.videos;
+      } else if (Array.isArray(data)) {
+        videosArray = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        videosArray = data.data;
+      } else if (data.videos && Array.isArray(data.videos)) {
+        videosArray = data.videos;
+      }
+      
+      const transformedVideos = videosArray.map((video, index) => ({
+        id: video.id || video._id || video.public_id || `video_${postId}_${index}_${Date.now()}`,
+        title: video.title || `Backup Video ${index + 1}`,
+        views: video.views || video.view_count || "0",
+        likes: video.likes || video.like_count || "0",
+        duration: video.duration || "0:30",
+        thumbnail: video.thumbnail_url || video.thumbnail || '',
+        url: video.video_url || video.url || '',
+        type: 'video',
+        description: video.description || '',
+        pinned: video.pinned || false,
+      }));
+      
+      return transformedVideos;
+    } catch (error) {
+      console.error(`Error fetching backup videos for post ${postId}:`, error);
+      return [];
+    }
+  };
 
-  const handleUpdatePost = (updatedPost) => {
-    setPost(updatedPost);
+  const transformPostData = (rawPost) => {
+    if (!rawPost) return null;
+    
+    const extractParty = () => {
+      if (!rawPost.title && !rawPost.description) return 'Independent';
+      const text = (rawPost.title || '') + ' ' + (rawPost.description || '');
+      if (text.includes('ODM') || text.includes('odm')) return 'ODM';
+      if (text.includes('UDA') || text.includes('uda')) return 'UDA';
+      if (text.includes('ANC') || text.includes('anc')) return 'ANC';
+      return 'Independent';
+    };
+    
+    const postId = rawPost.post_id || rawPost.id || rawPost._id || `post_${Date.now()}_${Math.random()}`;
+    const timestamp = rawPost.created_at || rawPost.timestamp || new Date().toISOString();
+    const timeAgo = formatTimeAgo(timestamp);
+    
+    return {
+      id: postId,
+      post_id: postId,
+      author: rawPost.author || `User ${rawPost.user_id?.slice(-4) || 'Unknown'}`,
+      party: extractParty(),
+      title: rawPost.title || '',
+      content: rawPost.description || rawPost.title || rawPost.content || '',
+      timestamp: timestamp,
+      timeAgo: timeAgo,
+      location: rawPost.location || 'Kenya',
+      isLive: rawPost.isLive || false,
+      media: rawPost.image_url ? {
+        url: rawPost.image_url,
+        type: 'image'
+      } : (rawPost.media || null),
+      likes: rawPost.likes || 0,
+      dislikes: rawPost.dislikes || 0,
+      comments: rawPost.comments || [],
+      shares: rawPost.shares || 0,
+      downloads: rawPost.downloads || 0,
+    };
+  };
+
+  // Fetch posts with pagination
+  const fetchPosts = async (pageNum = 1, isLoadMore = false) => {
+    if (searchQuery.trim() && isLoadMore) return;
+    
+    if (isLoadMore) {
+      setIsFetchingMore(true);
+    } else {
+      setIsLoading(true);
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/posts/get?page=${pageNum}&limit=10`);
+      const data = await response.json();
+      
+      let fetchedPosts = [];
+      
+      if (data.success && Array.isArray(data.posts)) {
+        fetchedPosts = data.posts;
+        setHasMore(data.posts.length === 10 && !searchQuery.trim());
+      } else if (Array.isArray(data)) {
+        fetchedPosts = data;
+        setHasMore(data.length === 10 && !searchQuery.trim());
+      } else if (data.data && Array.isArray(data.data)) {
+        fetchedPosts = data.data;
+        setHasMore(data.data.length === 10 && !searchQuery.trim());
+      } else if (data.posts && Array.isArray(data.posts)) {
+        fetchedPosts = data.posts;
+        setHasMore(data.posts.length === 10 && !searchQuery.trim());
+      }
+      
+      const transformedPosts = fetchedPosts.map(transformPostData).filter(Boolean);
+      
+      if (isLoadMore) {
+        const updatedAllPosts = [...allPosts, ...transformedPosts];
+        setAllPosts(updatedAllPosts);
+        const filtered = filterPosts(searchQuery, updatedAllPosts);
+        setFilteredPosts(filtered);
+        setPage(prev => prev + 1);
+      } else {
+        setAllPosts(transformedPosts);
+        const filtered = filterPosts(searchQuery, transformedPosts);
+        setFilteredPosts(filtered);
+        setPage(2);
+        setInitialLoadDone(true);
+      }
+      
+      const newPosts = isLoadMore ? transformedPosts : transformedPosts;
+      const newCommentStates = {};
+      const newBackupStates = {};
+      const newLikes = {};
+      const newExpandedStates = {};
+      
+      newPosts.forEach(post => {
+        if (post.post_id) {
+          newCommentStates[post.post_id] = false;
+          newBackupStates[post.post_id] = false;
+          newLikes[post.post_id] = post.likes || 0;
+          newExpandedStates[post.post_id] = false;
+        }
+      });
+      
+      setShowComments(prev => ({ ...prev, ...newCommentStates }));
+      setShowVideoBackups(prev => ({ ...prev, ...newBackupStates }));
+      setPostLikes(prev => ({ ...prev, ...newLikes }));
+      setExpandedDescriptions(prev => ({ ...prev, ...newExpandedStates }));
+      
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      setHasMore(false);
+    } finally {
+      if (isLoadMore) {
+        setIsFetchingMore(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const loadMorePosts = () => {
+    if (!hasMore || isFetchingMore || searchQuery.trim()) return;
+    fetchPosts(page, true);
+  };
+
+  useEffect(() => {
+    fetchPosts(1, false);
+  }, []);
+
+  // Post action handlers (keep as is)
+  const handlePostLike = (postId) => {
+    const newLikes = (postLikes[postId] || 0) + 1;
+    setPostLikes(prev => ({ ...prev, [postId]: newLikes }));
+    setAllPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.post_id === postId ? { ...post, likes: newLikes } : post
+      )
+    );
+    setFilteredPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.post_id === postId ? { ...post, likes: newLikes } : post
+      )
+    );
+  };
+
+  const handlePostDislike = (postId) => {
+    setAllPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.post_id === postId ? { ...post, dislikes: (post.dislikes || 0) + 1 } : post
+      )
+    );
+    setFilteredPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.post_id === postId ? { ...post, dislikes: (post.dislikes || 0) + 1 } : post
+      )
+    );
+  };
+
+  const handleShare = (postId, post) => {
+    if (navigator.share) {
+      navigator.share({
+        title: `Post by ${post.author}`,
+        text: post.content?.substring(0, 100) + '...' || '',
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
+    
+    setAllPosts(prevPosts => 
+      prevPosts.map(p => 
+        p.post_id === postId ? { ...p, shares: (p.shares || 0) + 1 } : p
+      )
+    );
+    setFilteredPosts(prevPosts => 
+      prevPosts.map(p => 
+        p.post_id === postId ? { ...p, shares: (p.shares || 0) + 1 } : p
+      )
+    );
+  };
+
+  const handleDownload = (postId, post) => {
+    const media = post.media;
+    if (!media || !media.url) {
+      alert('No media to download');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = media.url;
+    link.download = `post-${post.id}-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setAllPosts(prevPosts => 
+      prevPosts.map(p => 
+        p.post_id === postId ? { ...p, downloads: (p.downloads || 0) + 1 } : p
+      )
+    );
+    setFilteredPosts(prevPosts => 
+      prevPosts.map(p => 
+        p.post_id === postId ? { ...p, downloads: (p.downloads || 0) + 1 } : p
+      )
+    );
+  };
+
+  const handleAddComment = (postId, newComment) => {
+    setAllPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post.post_id === postId) {
+          const updatedComments = [...(post.comments || []), newComment];
+          return { ...post, comments: updatedComments };
+        }
+        return post;
+      })
+    );
+    setFilteredPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post.post_id === postId) {
+          const updatedComments = [...(post.comments || []), newComment];
+          return { ...post, comments: updatedComments };
+        }
+        return post;
+      })
+    );
+  };
+
+  const handleAddBackupVideo = (postId, newVideo) => {
+    setBackupVideosMap(prev => {
+      const currentVideos = prev[postId] || [];
+      return {
+        ...prev,
+        [postId]: [...currentVideos, newVideo]
+      };
+    });
+  };
+
+  const handleToggleBackups = async (postId) => {
+    const newState = !showVideoBackups[postId];
+    
+    if (newState && !backupVideosMap[postId]) {
+      const videos = await fetchBackupVideos(postId);
+      if (videos.length > 0) {
+        setBackupVideosMap(prev => ({
+          ...prev,
+          [postId]: videos
+        }));
+      }
+    }
+    
+    setShowVideoBackups(prev => ({
+      ...prev,
+      [postId]: newState
+    }));
+  };
+
+  const renderMedia = (post) => {
+    const media = post.media;
+    
+    if (!media || !media.url) {
+      return (
+        <div style={{
+          padding: '20px',
+          textAlign: 'center',
+          color: '#666',
+          background: '#f5f5f5',
+          borderRadius: '8px',
+          margin: '10px 0'
+        }}>
+          No media attached to this post
+        </div>
+      );
+    }
+
+    return (
+      <Styled.MediaContainer>
+        <Styled.MainImage>
+          <Styled.MainImageContent 
+            src={media.url} 
+            alt="Post content" 
+            loading="lazy"
+          />
+        </Styled.MainImage>
+      </Styled.MediaContainer>
+    );
+  };
+
+  // Loading state for initial load
+  if (isLoading && !initialLoadDone) {
+    return (
+      <>
+        {[...Array(3)].map((_, index) => (
+          <Styled.Card key={`skeleton_${index}`} style={{ marginBottom: '20px' }}>
+            <div style={{ padding: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: '#e0e0e0',
+                  marginRight: '10px'
+                }}></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    width: '60%',
+                    height: '16px',
+                    background: '#e0e0e0',
+                    marginBottom: '5px',
+                    borderRadius: '4px'
+                  }}></div>
+                  <div style={{
+                    width: '40%',
+                    height: '12px',
+                    background: '#e0e0e0',
+                    borderRadius: '4px'
+                  }}></div>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{
+                  width: '100%',
+                  height: '14px',
+                  background: '#e0e0e0',
+                  marginBottom: '8px',
+                  borderRadius: '4px'
+                }}></div>
+                <div style={{
+                  width: '80%',
+                  height: '14px',
+                  background: '#e0e0e0',
+                  marginBottom: '8px',
+                  borderRadius: '4px'
+                }}></div>
+                <div style={{
+                  width: '60%',
+                  height: '14px',
+                  background: '#e0e0e0',
+                  borderRadius: '4px'
+                }}></div>
+              </div>
+              
+              <div style={{
+                width: '100%',
+                height: '200px',
+                background: '#e0e0e0',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}></div>
+              
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                paddingTop: '10px',
+                borderTop: '1px solid #eee'
+              }}>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} style={{
+                    width: '40px',
+                    height: '20px',
+                    background: '#e0e0e0',
+                    borderRadius: '4px'
+                  }}></div>
+                ))}
+              </div>
+            </div>
+          </Styled.Card>
+        ))}
+      </>
+    );
+  }
+
+  const displayPosts = searchQuery.trim() ? filteredPosts : allPosts;
+
+  if (displayPosts.length === 0 && initialLoadDone) {
+    if (searchQuery.trim()) {
+      return (
+        <Styled.Card>
+          <div style={{ 
+            padding: '40px 20px', 
+            textAlign: 'center', 
+            color: '#666',
+            background: '#f9f9f9',
+            borderRadius: '8px'
+          }}>
+        
+            <h3>No search results</h3>
+            <p style={{ fontSize: '14px', color: '#888', marginBottom: '20px' }}>
+              No posts found for "{searchQuery}"
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: KENYA_COLORS.primary,
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Clear Search & Show All Posts
+            </button>
+          </div>
+        </Styled.Card>
+      );
+    } else {
+      return (
+        <Styled.Card>
+          <div style={{ 
+            padding: '40px 20px', 
+            textAlign: 'center', 
+            color: '#666',
+            background: '#f9f9f9',
+            borderRadius: '8px'
+          }}>
+   
+            <h3>No posts available</h3>
+            <p style={{ fontSize: '14px', color: '#888' }}>
+              There are no posts to display at the moment.
+            </p>
+          </div>
+        </Styled.Card>
+      );
+    }
+  }
+
+  const renderSearchHeader = () => {
+    if (!searchQuery.trim()) return null;
+    
+    return (
+      <div style={{
+        padding: '10px 16px',
+        background: '#E8F5E9',
+        borderBottom: `2px solid ${KENYA_COLORS.accent}`,
+        marginBottom: '15px',
+        borderRadius: '8px 8px 0 0'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+      
+       
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div style={{ 
-      maxWidth: '480px', 
-      margin: '0 auto', 
-      padding: '20px',
-      background: KENYA_THEME.background,
-      minHeight: '100vh'
-    }}>
-      <PostCard
-        post={post}
-        onUpdatePost={handleUpdatePost}
-      />
-    </div>
+    <>
+      {renderSearchHeader()}
+      
+      {displayPosts.map((post, index) => {
+        const currentPostLikes = postLikes[post.post_id] || post.likes || 0;
+        const backupVideos = backupVideosMap[post.post_id] || [];
+        const backupCount = backupVideos.length;
+        const isLastPost = index === displayPosts.length - 1 && !searchQuery.trim();
+        
+        return (
+          <Styled.Card 
+            key={`post_${post.id}`} 
+            style={{ marginBottom: '20px' }}
+            ref={isLastPost ? lastPostRef : null}
+          >
+            <PostHeader 
+              title={post.title}
+              author={post.author}
+              party={post.party}
+              timestamp={post.timeAgo}
+              location={post.location}
+              isLive={post.isLive}
+            />
+
+            <Styled.Content>
+              <div style={{ 
+                whiteSpace: 'pre-wrap',
+                marginBottom: '15px',
+                fontSize: '14px',
+                lineHeight: '1.5',
+                color: '#333',
+                padding: '0 5px'
+              }}>
+                {formatContent(post.content, post.post_id, true)}
+              </div>
+
+              {renderMedia(post)}
+            </Styled.Content>
+
+            <PostActions
+              likes={currentPostLikes}
+              dislikes={post.dislikes || 0}
+              comments={post.comments?.length || 0}
+              shares={post.shares || 0}
+              downloads={post.downloads || 0}
+              backups={backupCount}
+              onLike={() => handlePostLike(post.post_id)}
+              onDislike={() => handlePostDislike(post.post_id)}
+              onComment={() => setShowComments(prev => ({
+                ...prev,
+                [post.post_id]: !prev[post.post_id]
+              }))}
+              onShare={() => handleShare(post.post_id, post)}
+              onToggleBackups={() => handleToggleBackups(post.post_id)}
+              onDownload={() => handleDownload(post.post_id, post)}
+            />
+
+            {showVideoBackups[post.post_id] && (
+              <Suspense fallback={
+                <div style={{ 
+                  padding: '20px', 
+                  textAlign: 'center', 
+                  color: KENYA_COLORS.primary 
+                }}>
+                  Loading video backups...
+                </div>
+              }>
+                <VideoBackups 
+                  postId={post.post_id}
+                  videos={backupVideos}
+                  onAddVideo={(newVideo) => handleAddBackupVideo(post.post_id, newVideo)}
+                  onClose={() => setShowVideoBackups(prev => ({
+                    ...prev,
+                    [post.post_id]: false
+                  }))}
+                />
+              </Suspense>
+            )}
+
+            {showComments[post.post_id] && (
+              <CommentsSection 
+                comments={post.comments || []}
+                onAddComment={(newComment) => handleAddComment(post.post_id, newComment)}
+                onClose={() => setShowComments(prev => ({
+                  ...prev,
+                  [post.post_id]: false
+                }))}
+              />
+            )}
+          </Styled.Card>
+        );
+      })}
+
+      {isFetchingMore && !searchQuery.trim() && (
+        <Styled.Card>
+          <div style={{ 
+            padding: '20px', 
+            textAlign: 'center', 
+            color: KENYA_COLORS.primary
+          }}>
+            <div style={{
+              width: '30px',
+              height: '30px',
+              border: `2px solid ${KENYA_COLORS.primary}20`,
+              borderTopColor: KENYA_COLORS.primary,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto'
+            }}></div>
+            <p style={{ marginTop: '10px', fontSize: '14px' }}>Loading more posts...</p>
+          </div>
+        </Styled.Card>
+      )}
+
+      {!hasMore && displayPosts.length > 0 && !searchQuery.trim() && (
+        <Styled.Card>
+          <div style={{ 
+            padding: '20px', 
+            textAlign: 'center', 
+            color: '#666',
+            background: '#f9f9f9',
+            borderRadius: '8px'
+          }}>
+            <p style={{ fontSize: '14px' }}>No more posts to load</p>
+          </div>
+        </Styled.Card>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+    </>
   );
-}
+};
+
+export default PostCard;

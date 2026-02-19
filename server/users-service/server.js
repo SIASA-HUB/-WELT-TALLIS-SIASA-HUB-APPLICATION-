@@ -1,128 +1,105 @@
-require('dotenv').config(); 
+require('dotenv').config();
 
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 
-const Logger = require('./src/utils/logger/logger');
+const redis = require('./src/utils/redis/redis'); // ioredis client
 const { initDB } = require('./src/configurations/db');
-const leaderRoutes = require('./src/routes/leaderRoutes');
-const { apiLimiter } = require('./src/helpers/ratelimit/rateLimit');
+const userRoutes = require('./src/routes/users');
+const { corsOptions } = require('./src/helpers/cors/corsConfig'); // your CORS file
 
 const app = express();
+app.use(cors(corsOptions));
+console.log('sevre')
 
-//process   erro   handler 
-process.on('uncaughtException', (error) => {
-  Logger.error('UNCAUGHT EXCEPTION', {
-    message: error.message,
-    stack: error.stack,
-  });
+/* =====================================================
+   PROCESS-LEVEL ERRORS
+===================================================== */
+process.on('uncaughtException', (err) => {
+  console.error('🔥 [UNCAUGHT EXCEPTION]');
+  console.error(err);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  Logger.error('UNHANDLED PROMISE REJECTION', {
-    stack: reason?.stack || reason,
-  });
+  console.error('🔥 [UNHANDLED REJECTION]');
+  console.error(reason);
   setTimeout(() => process.exit(1), 1000);
 });
 
-//middlewares 
+/* =====================================================
+   REDIS DEBUG LOGS (keep for now)
+===================================================== */
+console.log('➡️ Initializing Redis listeners...');
+
+redis.on('connect', () => {
+  console.log('✅ [Redis] Connected');
+});
+
+redis.on('ready', () => {
+  console.log('🟢 [Redis] Ready');
+});
+
+redis.on('error', (err) => {
+  console.error('❌ [Redis] Error');
+  console.error(err);
+});
+
+redis.on('close', () => {
+  console.warn('⚠️ [Redis] Connection closed');
+});
+
+/* =====================================================
+   GLOBAL MIDDLEWARES
+===================================================== */
+console.log('➡️ Registering middlewares...');
+
+app.set('trust proxy', true);
 app.use(helmet());
-app.use(cors());
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-//  request logging for dev/prod
-app.use((req, res, next) => {
-  Logger.info('Incoming Request', {
-    method: req.method,
-    path: req.originalUrl,
-    ip: req.ip,
-  });
-  next();
-});
 
-//routes 
-
-app.use('/leaders', apiLimiter, leaderRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: Date.now(),
-  });
-});
-
-//global  erro handler 
-app.use((err, req, res, next) => {
-  Logger.error('GLOBAL ERROR HANDLER', {
-    message: err.message,
-    stack: err.stack,
-    path: req.originalUrl,
-  });
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    timestamp: Date.now(),
-  });
-});
+console.log('➡️ Registering routes...');
+app.use('/api/v1/users', userRoutes);
 
 
-//ddos  protection and  rate  limiting  
-const    rateLimiter   =   newRateLimiterRedis({
-    storeClient:   redisClient,
-    keyPrefix:   'middleware',
-    points: 20,
-    duration:  1
-});
 
-app.use((req , res , next)=>{
-    rateLimiter.consume(req.ip).then(()=>{
-        next()
-    })
-
-    Logger.warn(`Limit reached `)
-    res.status().json()
-})
-
-//server   configurations 
+/* =====================================================
+   SERVER STARTUP
+===================================================== */
 const PORT = process.env.PORT || 9000;
 const HOST = process.env.HOST || '0.0.0.0';
-//start  server  and  database 
+
 (async () => {
   try {
-    Logger.info('Starting database', { action: 'start_database' });
+    console.log('🚀 [Server] Starting...');
+    console.log('➡️ Initializing database...');
+
     await initDB();
 
+    console.log('✅ Database initialized');
+
     const server = app.listen(PORT, HOST, () => {
-      Logger.info('Server running', {
-        host: HOST,
-        port: PORT,
-        action: 'server_started',
-      });
+      console.log(`✅ Server running at http://${HOST}:${PORT}`);
     });
 
-    //shutdown 
     const shutdown = () => {
-      Logger.info('Shutdown signal received. Closing server...');
-      server.close(async () => {
-        Logger.info('Server closed.');
+      console.warn('🛑 Shutdown signal received');
+      server.close(() => {
+        console.log('✅ Server closed cleanly');
         process.exit(0);
       });
     };
 
-    process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
-  } catch (error) {
-    Logger.error('Failed to start application', {
-      message: error.message,
-      stack: error.stack,
-      action: 'startup_failed',
-    });
+    process.on('SIGTERM', shutdown);
+
+  } catch (err) {
+    console.error('❌ [Server] Startup failed');
+    console.error(err);
     process.exit(1);
   }
 })();

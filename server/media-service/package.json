@@ -5,13 +5,19 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:dev": "nodemon --inspect index.js",
+    "start:dev": "nodemon  server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.txt --fix",
     "fix": "eslint . --fix"
   },
-  "keywords": ["backend", "api", "sisasa", "civic-engagement", "kenya"],
+  "keywords": [
+    "backend",
+    "api",
+    "sisasa",
+    "civic-engagement",
+    "kenya"
+  ],
   "author": "Welt Tallis Cooperation, Nairobi, Kenya",
   "contributors": [
     {
@@ -21,11 +27,20 @@
   ],
   "license": "ISC",
   "dependencies": {
+    "cloudinary": "^2.9.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
+    "ioredis": "^5.9.2",
     "multer": "^2.0.2",
-    "uuid": "^13.0.0"
+    "mysql2": "^3.16.2",
+    "nodemon": "^3.1.11",
+    "rate-limit-redis": "^4.3.1",
+    "sharp": "^0.34.5",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0"
   }
 }

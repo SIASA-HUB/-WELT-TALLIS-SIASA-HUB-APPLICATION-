@@ -5,7 +5,9 @@
 
 const allowedOrigins = [
   'http://localhost:5174',
-  'http://localhost:3001'
+  'http://localhost:3002',
+  'https://substantially-alliance-prerequisite-drew.trycloudflare.com',
+  'https://achieve-profiles-celtic-carmen.trycloudflare.com'
 ];
  
 const corsOptions = {

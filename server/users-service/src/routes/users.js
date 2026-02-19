@@ -1,20 +1,16 @@
 const express = require('express');
 const router = express.Router();
 
-const { createUser, loginUser, refreshToken,logoutUser } = require('../controllers/users');
+const   { createUser   ,   updateUser   }  = require('../controllers/createUser');
+const { refreshToken,  loginUser } = require('../controllers/loginUser');
 
-// const usersRateLimiter = require('../middlewares/usersRateLimiter');
-
-// ---------- USER CREATION (ANONYMOUS SIGNUP) ----------
-router.post( '/create',   createUser);
+// ---------- CREATE USER ----------
+router.post('/register', createUser);
 
 // ---------- LOGIN ----------
-router.post( '/login',  loginUser);
+router.post('/login', loginUser);
 
-// ---------- REFRESH TOKEN ----------
-router.post(  '/refresh',  refreshToken);
 
-// ---------- LOGOUT ----------
-router.post( '/logout',  logoutUser);
+
 
 module.exports = router;

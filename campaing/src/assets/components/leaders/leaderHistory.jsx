@@ -41,7 +41,7 @@ const HistoryItem = styled.div`
   }
 `;
 
-const LeaderHistorySwahili = ({ leaderId, leaderData }) => {
+const LeaderHistory = ({ leaderId, leaderData }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -408,4 +408,4 @@ const LeaderHistorySwahili = ({ leaderId, leaderData }) => {
   );
 };
 
-export default LeaderHistorySwahili;
+export default LeaderHistory;

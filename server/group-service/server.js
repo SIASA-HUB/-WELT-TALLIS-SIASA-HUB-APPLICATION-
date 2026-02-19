@@ -81,7 +81,7 @@ const HOST = process.env.HOST || '0.0.0.0';
     await initDB();
 
     const server = app.listen(PORT, HOST, () => {
-      Logger.info('Server running', {
+      Logger.info('Server is  up and  running', {
         host: HOST,
         port: PORT,
         action: 'server_started',

@@ -1,16 +1,15 @@
 {
-  "id": "/",
-  "name": "LEE FEUNERAL HOME",
-  "short_name": "MMS LEE FH",
-  "description": "Mortuary and funeral home management software",
+  "id": "SIASA",
+  "name": "SIASA - Political Platform",
+  "short_name": "SIASA",
+  "description": "Campaign Political Platform",
   "version": "1.0.4",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#005A59",  
-  "theme_color": "#005A59",
+  "background_color": "#F8FAFC",
+  "theme_color": "#BB0000",
   "orientation": "portrait-primary",
-  "prefer_related_applications": false,
-  "categories": ["business", "health", "management", "utility"],
+  "categories": ["politics", "government", "social", "utility"],
   "icons": [
     {
       "src": "./image/logo.png",

@@ -3,7 +3,6 @@ require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-
 const Logger = require('./src/utils/logger/logger');
 const { initDB } = require('./src/configurations/db');
 const leaderRoutes = require('./src/routes/leaderRoutes');

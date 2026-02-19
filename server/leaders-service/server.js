@@ -7,7 +7,10 @@ const cors = require('cors');
 const Logger = require('./src/utils/logger/logger');
 const { initDB } = require('./src/configurations/db');
 const leaderRoutes = require('./src/routes/leaderRoutes');
-const { apiLimiter } = require('./src/helpers/ratelimit/rateLimit');
+const { corsOptions } = require('./src/helpers/cors/corsConfig'); // your CORS file
+
+
+
 
 const app = express();
 
@@ -30,6 +33,7 @@ process.on('unhandledRejection', (reason) => {
 //middlewares 
 app.use(helmet());
 app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -45,7 +49,7 @@ app.use((req, res, next) => {
 
 //routes 
 
-app.use('/leaders', apiLimiter, leaderRoutes);
+app.use('/api/v1/leaders',  leaderRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -72,11 +76,14 @@ app.use((err, req, res, next) => {
 });
 
 //server   configurations 
-const PORT = process.env.PORT || 5004;
+const PORT = process.env.PORT || 8006;
 const HOST = process.env.HOST || '0.0.0.0';
 //start  server  and  database 
 (async () => {
   try {
+    console.log({
+      port:    PORT
+    })
     Logger.info('Starting database', { action: 'start_database' });
     await initDB();
 

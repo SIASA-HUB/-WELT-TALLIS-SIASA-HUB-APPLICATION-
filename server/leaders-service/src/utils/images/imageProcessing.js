@@ -1,37 +1,37 @@
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const multer = require('multer');
-const Logger  = require('../logger/logger');
+const Logger = require('../logger/logger');
 
-// cloudinary  configurtions 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-//multer  memory  storage 
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 100 * 1024 * 1024, 
-    },
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
-            return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE'));
+            return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE'), false);
         }
         cb(null, true);
     },
 });
 
-//uploader  helper 
 const uploadToCloudinary = (buffer) =>
     new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
             {
                 folder: 'leaders_profiles',
-                format: 'webp',
                 resource_type: 'image',
+                // This is the secret sauce for quality:
+                transformation: [
+                    { width: 1600, crop: "limit" }, // Don't upsample, but allow large size
+                    { quality: "auto:good" },      // 'good' is often sharper than 'best' which can be too heavy
+                    { fetch_format: "auto" }       // Cloudinary picks WebP/Avif automatically
+                ]
             },
             (error, result) => {
                 if (error) return reject(error);
@@ -41,22 +41,21 @@ const uploadToCloudinary = (buffer) =>
         stream.end(buffer);
     });
 
-//middle ware
 const processAndUploadImages = async (req, res, next) => {
-    if (!req.files || req.files.length === 0) {
-        return next();
-    }
+    if (!req.files || req.files.length === 0) return next();
 
     try {
         const uploadedImages = await Promise.all(
             req.files.map(async (file) => {
                 const buffer = await sharp(file.buffer)
-                    .resize(800, 800, {
-                        fit: 'cover',
-                        position: sharp.strategy.entropy,
-                        withoutEnlargement: true,
+                    .rotate() 
+                    .resize(1600, 1600, { 
+                        fit: 'cover',               // Fills the frame completely
+                        position: 'entropy',        // Focuses on the most interesting part (the face)
+                        withoutEnlargement: true 
                     })
-                    .webp({ quality: 90 })
+                    .sharpen()                      // Default sharpening is optimized for screens
+                    .png({ compressionLevel: 0 })   // Send LOSSLESS data to Cloudinary
                     .toBuffer();
 
                 const result = await uploadToCloudinary(buffer);
@@ -68,36 +67,24 @@ const processAndUploadImages = async (req, res, next) => {
             })
         );
 
-        // Attach to body for controller
         req.body.images = uploadedImages;
-
         next();
     } catch (error) {
-        Logger.error('Multiple image upload failed', {
-            message: error.message,
-            stack: error.stack,
-        });
-
-        res.status(500).json({
-            message: 'Image upload failed',
-        });
+        Logger.error('Image upload failed', { error: error.message });
+        res.status(500).json({ success: false, message: 'Image processing failed' });
     }
 };
 
-
-
 const deleteMediaFromCloudinary = async (publicId) => {
-  try {
-    await cloudinary.uploader.destroy(publicId);
-  } catch (error) {
-    console.log(error);
-    throw new Error("failed to delete assest from cloudinary");
-  }
+    try {
+        await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+        Logger.error("Delete failed", { publicId, error });
+    }
 };
 
-
-//exports
 module.exports = {
-    uploadMultiple: upload.array('images', 6), // max 6 images
+    uploadMultiple: upload.array('images', 6),
     processAndUploadImages,
+    deleteMediaFromCloudinary
 };

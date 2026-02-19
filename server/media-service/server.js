@@ -1,17 +1,21 @@
-require('dotenv').config(); 
+require('dotenv').config();
 
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 
 const Logger = require('./src/utils/logger/logger');
-const { initDB } = require('./src/configurations/db');
-const leaderRoutes = require('./src/routes/leaderRoutes');
-const { apiLimiter } = require('./src/helpers/ratelimit/rateLimit');
+const { initDB, closeDB } = require('./src/configurations/db');
+
+const postRoutes = require('./src/routes/posts');
+const backupRoutes = require('./src/routes/backup');
+const {  apiLimiter , mediaLimiter,  } = require('./src/helpers/ratelimit/rateLimit');
 
 const app = express();
 
-//process   erro   handler 
+
+//proces   eror  handler
+
 process.on('uncaughtException', (error) => {
   Logger.error('UNCAUGHT EXCEPTION', {
     message: error.message,
@@ -22,18 +26,21 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason) => {
   Logger.error('UNHANDLED PROMISE REJECTION', {
-    stack: reason?.stack || reason,
+    reason: JSON.stringify(reason),
+    stack: reason?.stack,
   });
   setTimeout(() => process.exit(1), 1000);
 });
 
-//middlewares 
+
+//middlewares
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-//  request logging for dev/prod
+// Request logging
 app.use((req, res, next) => {
   Logger.info('Incoming Request', {
     method: req.method,
@@ -43,9 +50,11 @@ app.use((req, res, next) => {
   next();
 });
 
-//routes 
 
-app.use('/leaders', apiLimiter, leaderRoutes);
+//routes
+
+app.use('/api/v1/posts', apiLimiter, postRoutes);
+app.use('/api/v1/backup', apiLimiter, backupRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -56,7 +65,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-//global  erro handler 
+// 404 handler
+app.use((req, res, next) => {
+  const error = new Error('Route not found');
+  error.status = 404;
+  next(error);
+});
+
+// Global error handler
 app.use((err, req, res, next) => {
   Logger.error('GLOBAL ERROR HANDLER', {
     message: err.message,
@@ -71,15 +87,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-//server   configurations 
+// ======================
+// Server & Database Startup
+// ======================
+
 const PORT = process.env.PORT || 8007;
 const HOST = process.env.HOST || '0.0.0.0';
-//start  server  and  database 
+
 (async () => {
   try {
     Logger.info('Starting database', { action: 'start_database' });
     await initDB();
-
+    console.log({
+      port:   PORT
+    })
     const server = app.listen(PORT, HOST, () => {
       Logger.info('Server running', {
         host: HOST,
@@ -88,10 +109,11 @@ const HOST = process.env.HOST || '0.0.0.0';
       });
     });
 
-    //shutdown 
-    const shutdown = () => {
+    // Graceful shutdown
+    const shutdown = async () => {
       Logger.info('Shutdown signal received. Closing server...');
-      server.close(async () => {
+      await closeDB();
+      server.close(() => {
         Logger.info('Server closed.');
         process.exit(0);
       });

@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:dev": "nodemon --inspect index.js",
+    "start:dev": "nodemon --inspect server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.txt --fix",
@@ -27,6 +27,8 @@
   ],
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.13.4",
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
@@ -35,11 +37,14 @@
     "express-async-handler": "^1.2.0",
     "express-http-proxy": "^2.1.2",
     "express-rate-limit": "^8.2.1",
+    "express-session": "^1.19.0",
     "helmet": "^8.1.0",
+    "ioredis": "^5.9.2",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
-    "mysql2": "^3.16.2",
+    "mysql2": "^3.16.3",
     "nodemon": "^3.1.11",
+    "rate-limiter-flexible": "^9.1.0",
     "validator": "^13.15.26",
     "winston": "^3.19.0"
   }
