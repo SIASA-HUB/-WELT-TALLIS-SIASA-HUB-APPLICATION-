@@ -8,7 +8,7 @@ const knex = require("knex");
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/leaderRoutes");
-const { corsOptions } = require("./src/helpers/cors/corsConfig"); // your CORS file
+const { corsOptions } = require("./src/helpers/cors/corsConfig");
 
 const app = express();
 
