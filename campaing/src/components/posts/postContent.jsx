@@ -1,10 +1,10 @@
-import React from 'react';
-import styled from 'styled-components';
+import React from "react";
+import styled from "styled-components";
 
 const KENYA_THEME = {
   text: {
-    primary: '#0F172A',
-  }
+    primary: "#0F172A",
+  },
 };
 
 const Content = styled.div`
@@ -13,7 +13,7 @@ const Content = styled.div`
   line-height: 1.6;
   font-size: 15px;
   background: white;
-  
+
   p {
     margin: 0;
   }

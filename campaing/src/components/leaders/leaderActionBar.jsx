@@ -64,10 +64,6 @@ const ActionButton = styled.button`
   }
 `;
 
-// ============================================
-// ACTION BAR COMPONENT
-// ============================================
-
 const LeaderActionBar = ({ isFollowing, onFollow, onShare, leaderName }) => {
   const handleShare = () => {
     if (navigator.share) {

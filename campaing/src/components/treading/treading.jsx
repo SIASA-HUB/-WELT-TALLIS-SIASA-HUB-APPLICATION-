@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
+import TrendingHashtagsModal from "./tredingHashtagModal";
+import TrendingSearchesModal from "./treadingSearchModal";
+
 import {
   Users,
   Eye,
