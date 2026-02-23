@@ -1,22 +1,17 @@
-
-
-
-
-
 const allowedOrigins = [
-  'http://localhost:5174',
-  'http://localhost:3002',
-  'https://substantially-alliance-prerequisite-drew.trycloudflare.com',
-  'https://achieve-profiles-celtic-carmen.trycloudflare.com'
+  "http://localhost:5174",
+  "http://localhost:3002",
+  "https://substantially-alliance-prerequisite-drew.trycloudflare.com",
+  "https://achieve-profiles-celtic-carmen.trycloudflare.com",
+  "https://nathan-already-downloadable-sic.trycloudflare.com",
+  "https://goals-acquire-image-energy.trycloudflare.com",
 ];
- 
+
 const corsOptions = {
-
   origin: function (origin, callback) {
-
     if (!origin) return callback(null, true);
 
-    const normalizedOrigin = origin.replace(/\/$/, '');
+    const normalizedOrigin = origin.replace(/\/$/, "");
 
     if (!allowedOrigins.includes(normalizedOrigin)) {
       console.warn(`Blocked CORS request from origin: ${origin}`);
@@ -25,11 +20,11 @@ const corsOptions = {
 
     return callback(null, true);
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Disposition'], 
-  credentials: true, 
-  optionsSuccessStatus: 200, 
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Content-Disposition"],
+  credentials: true,
+  optionsSuccessStatus: 200,
 };
 
 module.exports = { allowedOrigins, corsOptions };

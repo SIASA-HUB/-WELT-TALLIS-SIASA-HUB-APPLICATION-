@@ -1,28 +1,23 @@
-import { StrictMode, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
+import { StrictMode, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.jsx";
 
-import './index.css'
-import App from './App.jsx'
-
-// Helper component to handle the transition
 const RootComponent = () => {
   useEffect(() => {
-    // This runs once the React component is mounted
-    const hideLoader = () => {
-      document.body.classList.add('loaded');
-    };
+    // requestAnimationFrame waits for the very first browser paint
+    const handle = requestAnimationFrame(() => {
+      document.body.classList.add("loaded");
+    });
 
-    // Small delay ensures the browser has rendered the initial React frame
-    const timer = setTimeout(hideLoader, 100);
-
-    return () => clearTimeout(timer);
+    return () => cancelAnimationFrame(handle);
   }, []);
 
   return <App />;
-}
+};
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
-      <RootComponent />
-  </StrictMode>
-)
+    <RootComponent />
+  </StrictMode>,
+);

@@ -6,8 +6,8 @@
   "version": "1.0.4",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#F8FAFC",
-  "theme_color": "#BB0000",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "orientation": "portrait-primary",
   "categories": ["politics", "government", "social", "utility"],
   "icons": [
@@ -47,7 +47,11 @@
       "short_name": "New Entry",
       "url": "/funerals/new",
       "icons": [
-        { "src": "/icons/shortcut-add.png", "sizes": "96x96", "type": "image/png" }
+        {
+          "src": "/icons/shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
       ]
     },
     {
@@ -55,7 +59,11 @@
       "short_name": "Dashboard",
       "url": "/dashboard",
       "icons": [
-        { "src": "/icons/shortcut-dashboard.png", "sizes": "96x96", "type": "image/png" }
+        {
+          "src": "/icons/shortcut-dashboard.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
       ]
     }
   ]

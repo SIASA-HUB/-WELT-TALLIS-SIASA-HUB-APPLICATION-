@@ -1,77 +1,118 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { compression } from 'vite-plugin-compression2'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { compression } from "vite-plugin-compression2";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      fastRefresh: true,
+      babel: {
+        plugins: [
+          ["@babel/plugin-transform-react-jsx", { runtime: "automatic" }],
+        ],
+      },
+    }),
     compression({
-      algorithm: 'brotliCompress',
+      algorithm: "brotliCompress",
       exclude: [/\.(br)$/, /\.(gz)$/],
       threshold: 1024,
     }),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
       manifest: {
-        name: 'SIASA - Political Platform',
-        short_name: 'SIASA',
-        description: 'Campaign Political Platform',
-        theme_color: '#BB0000',
-        background_color: '#F8FAFC',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        name: "SIASA Hub 🇰🇪",
+        short_name: "SIASA",
+        description: "Kenya's Leading Political Platform",
+        theme_color: "#0f172a",
+        background_color: "#0f172a",
+        display: "standalone",
+        orientation: "portrait",
+        start_url: "/",
         icons: [
           {
-            src: 'image/apple-touch-icon.png', // Ensure this path is correct in your public folder
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
+            src: "image/apple-touch-icon.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
           },
           {
-            src: 'image/apple-touch-icon.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
+            src: "image/apple-touch-icon.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ],
-        shortcuts: [
-          {
-            name: "View Dashboard",
-            short_name: "Dashboard",
-            url: "/dashboard",
-            icons: [{ src: "/icons/shortcut-dashboard.png", sizes: "96x96" }]
-          }
-        ]
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
-      }
-    })
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        maximumFileSizeToCacheInBytes: 5000000,
+        runtimeCaching: [
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|woff2)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "static-assets",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+        ],
+      },
+    }),
   ],
   server: {
     port: 3002,
-    allowedHosts: ['achieve-profiles-celtic-carmen.trycloudflare.com']
+    strictPort: true,
+    allowedHosts: ["goals-acquire-image-energy.trycloudflare.com"],
+    hmr: {
+      host: "goals-acquire-image-energy.trycloudflare.com",
+      protocol: "wss",
+      clientPort: 443,
+
+      overlay: true,
+      timeout: 60000,
+    },
+
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
   },
   build: {
+    minify: "esbuild",
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'chart-vendor': ['react-chartjs-2', 'chart.js'],
-          'react-vendor': ['react', 'react-dom'],
-          'ui-vendor': ['lucide-react', 'styled-components']
-        }
-      }
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react")) return "vendor-react";
+            if (id.includes("lucide")) return "vendor-icons";
+            if (id.includes("chart") || id.includes("recharts"))
+              return "vendor-charts";
+            return "vendor";
+          }
+        },
+      },
     },
     chunkSizeWarningLimit: 1000,
-    cssCodeSplit: true,
-    minify: 'terser', 
-    terserOptions: {
-      compress: { drop_console: true }
-    }
-  }
-})
+    target: "esnext",
+  },
+  esbuild: {
+    drop: ["console", "debugger"],
+
+    jsx: "automatic",
+  },
+
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-router-dom", "styled-components"],
+    exclude: [],
+    esbuildOptions: {
+      target: "es2020",
+    },
+  },
+});

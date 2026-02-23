@@ -1,63 +1,116 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const { uploadMultiple, processAndUploadImages } = require('../utils/images/imageProcessing');
-const { createLeader, getAllLeaders, getLeaderById, editLeader } = require('../controllers/createLeader');
-const { createManifesto, editManifesto, getManifestoByLeaderId ,   voteOnManifesto,  getManifestoStats  ,   createManifestoComment ,  getManifestoComments  }=require('../controllers/manifesto');
-const { likeLeader, dislikeLeader, incrementLeaderViews, followLeader, getLeaderStats } = require('../controllers/leaderViews');
+const {
+  uploadMultiple,
+  processAndUploadImages,
+} = require("../utils/images/imageProcessing");
 
+const {
+  createLeader,
+  getAllLeaders,
+  getLeaderById,
+  searchLeaders,
+  getLeadersByParty,
+  getLeadersByCounty,
+  updateLeader,
+  deleteLeader,
+
+  getFeaturedLeaders,
+} = require("../controllers/leaderController");
+
+const {
+  createManifesto,
+  editManifesto,
+  getManifestoByLeaderId,
+  voteOnManifesto,
+  getManifestoStats,
+  createManifestoComment,
+  getManifestoComments,
+} = require("../controllers/manifesto");
+
+const {
+  handleInteraction,
+  postComment,
+} = require("../controllers/leaderInteractionController");
+// ================================
+// LEADERS PUBLIC ROUTES
+// ================================
+
+// SEARCH LEADERS (should be before /:leaderId to avoid conflict)
+router.get("/leaders/search", searchLeaders);
+
+// GET FEATURED LEADERS
+router.get("/leaders/featured", getFeaturedLeaders);
+
+// GET LEADERS BY PARTY
+router.get("/leaders/party/:party", getLeadersByParty);
+
+// GET LEADERS BY COUNTY
+router.get("/leaders/county/:county", getLeadersByCounty);
+
+// GET ALL LEADERS (with pagination)
+router.get("/leaders", getAllLeaders);
+
+// GET SINGLE LEADER
+router.get("/leaders/:leaderId", getLeaderById);
 
 // ================================
-// LEADERS
+// LEADERS PROTECTED ROUTES (Add auth middleware)
 // ================================
 
 // CREATE LEADER
-router.post('/leaders/create', uploadMultiple, processAndUploadImages, createLeader);
+router.post(
+  "/leaders/create",
+  uploadMultiple,
+  processAndUploadImages,
+  createLeader,
+);
 
-// GET ALL LEADERS
-router.get('/leaders', getAllLeaders);
+// UPDATE LEADER
+router.put(
+  "/leaders/:leaderId",
+  uploadMultiple,
+  processAndUploadImages,
+  updateLeader,
+);
 
-// GET SINGLE LEADER
-router.get('/:leaderId', getLeaderById);
-
-// EDIT LEADER
-router.put('/leaders/:id', uploadMultiple, processAndUploadImages, editLeader);
-
-// ================================
-// LEADER INTERACTIONS
-// ================================
-
-router.post('/like', likeLeader);
-router.post('/dislike', dislikeLeader);
-router.post('/view', incrementLeaderViews);
-router.post('/follow', followLeader);
-router.get('/:leader_id/stats', getLeaderStats);
+router.post("/leaders/interact", handleInteraction);
+router.post("/leaders/comment", postComment);
 
 // ================================
 // MANIFESTOS
 // ================================
 
 // CREATE MANIFESTO
-router.post('/manifestos/create', createManifesto);
+router.post("/manifestos/create", createManifesto);
 
 // EDIT MANIFESTO
-router.put('/manifestos/:manifesto_id', editManifesto);
+router.put("/manifestos/:manifestoId", editManifesto);
 
 // GET MANIFESTO BY LEADER ID
-router.get('/manifestos/leader/:leader_id', getManifestoByLeaderId);
+router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
 
+// VOTE ON MANIFESTO
+router.post("/manifestos/:manifestoId/vote", voteOnManifesto);
 
+// GET MANIFESTO STATS
+router.get("/manifestos/:manifestoId/stats", getManifestoStats);
 
-router.post('/manifestos/:manifesto_id/vote', voteOnManifesto);
+// CREATE MANIFESTO COMMENT (fixed typo)
+router.post("/manifestos/:manifestoId/comments", createManifestoComment);
 
-// Get manifesto vote statistics
-router.get('/manifestos/:manifesto_id/stats', getManifestoStats);
+// GET MANIFESTO COMMENTS (fixed typo)
+router.get("/manifestos/:manifestoId/comments", getManifestoComments);
 
+// ================================
+// ADDITIONAL USEFUL ROUTES
+// ================================
 
-router.post('/manifestos/:manifesto_id/coment'   ,  createManifestoComment )
+// BULK CREATE LEADERS (for admin/import)
+// router.post("/leaders/bulk", uploadMultiple, bulkCreateLeaders);
 
-
- router.get('/manifestos/:manifesto_id/coments'  ,   getManifestoComments)
-
+// GET LEADER INTERACTION STATS (if different from main stats)
+// router.get("/leaders/:leaderId/interaction-stats", getLeaderInteractionStats);
 
 module.exports = router;
