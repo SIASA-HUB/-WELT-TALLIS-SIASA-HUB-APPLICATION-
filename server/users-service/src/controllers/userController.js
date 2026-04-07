@@ -1,77 +1,145 @@
 const asyncHandler = require("express-async-handler");
-const UserModel = require("../models/useModel");
+const UserModel = require("../models/userModel");
 
-/**
- * @desc    Create a new user
- * @route   POST /api/v1/users
- * @access  Public
- */
+// ============================================
+// CREATE USER
+// ============================================
 const createUser = asyncHandler(async (req, res) => {
-  const { gender, age_bracket, county, ward, voter_card, will_vote, password } =
-    req.body;
+  const {
+    real_name,
+    username,
+    gender,
+    age_bracket,
+    county,
+    ward,
+    voter_card,
+    will_vote,
+    password,
+    political_party,
+    employment_status,
+  } = req.body;
 
-  // ===== VALIDATION =====
+  // Required fields validation
   if (!password) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Password is required" });
+  }
+  if (!real_name) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Real name is required" });
+  }
+  if (real_name.trim().length < 3) {
     return res.status(400).json({
       success: false,
-      message: "Password is required",
+      message: "Real name must be at least 3 characters",
+    });
+  }
+  if (!gender) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Gender is required" });
+  }
+  if (!age_bracket) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Age bracket is required" });
+  }
+  if (!county) {
+    return res
+      .status(400)
+      .json({ success: false, message: "County is required" });
+  }
+  if (!voter_card) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Voter card status is required" });
+  }
+  if (!will_vote) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Voting intention is required" });
+  }
+
+  // ✅ NO USERNAME RESTRICTIONS - Just check it exists
+  if (!username) {
+    return res.status(400).json({
+      success: false,
+      message: "Username is required",
     });
   }
 
-  if (age_bracket && !UserModel.isValidAgeBracket(age_bracket)) {
+  // Only check length (database limit)
+  if (username.length > 100) {
     return res.status(400).json({
       success: false,
-      message:
-        "Invalid age bracket. Must be one of: 18-25, 26-35, 36-45, 46-55, 56+",
+      message: "Username is too long (max 100 characters)",
     });
   }
 
+  // Validate county
   if (!UserModel.isValidCounty(county)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid county name" });
+  }
+
+  // Validate age bracket
+  if (!UserModel.isValidAgeBracket(age_bracket)) {
     return res.status(400).json({
       success: false,
-      message: "Invalid county name",
+      message: "Invalid age bracket. Must be: 18-25, 26-35, 36-45, 46-55, 56+",
     });
   }
 
   try {
-    // Generate unique username
-    const anonymous_username = await UserModel.generateAnonymousUserName();
+    // Handle username
+    let finalUsername = username;
+    if (!finalUsername) {
+      finalUsername = await UserModel.generateAnonymousUserName();
+    } else {
+      const existingUser = await UserModel.findByUsername(finalUsername);
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Username already taken. Please choose another one.",
+        });
+      }
+    }
 
-    // Get generation label
-    const generation = age_bracket
-      ? UserModel.getGenerationLabel(age_bracket)
-      : null;
-
-    // Hash password
+    const generation = UserModel.getGenerationLabel(age_bracket);
     const password_hash = await UserModel.hashPassword(password);
 
-    // Convert form values to DB format
+    // Convert form values
     const voterCardInt = voter_card === "Yes" ? 1 : 0;
     const willVoteVal = will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
 
-    // Create user
+    // Create user with all fields
     const user_id = await UserModel.create({
-      anonymous_username,
+      real_name: real_name.trim(),
+      anonymous_username: finalUsername,
       gender,
       age_bracket,
       generation,
       county,
-      ward,
+      ward: ward || null,
       voter_card: voterCardInt,
       will_vote: willVoteVal,
       password_hash,
+      political_party: political_party || "Undecided",
+      employment_status: employment_status || "Prefer not to say",
     });
 
-    // Log user creation (optional)
-    console.log(`[User Created] ${anonymous_username} (${user_id})`);
+    console.log(`[User Created] ${finalUsername} - ${user_id}`);
 
     return res.status(201).json({
       success: true,
       message: "User created successfully",
       data: {
         user_id,
-        username: anonymous_username,
-        message: "Please save your username for future logins",
+        username: finalUsername,
+        real_name: real_name.trim(),
       },
     });
   } catch (error) {
@@ -83,38 +151,33 @@ const createUser = asyncHandler(async (req, res) => {
   }
 });
 
-/**
- * @desc    Get user by ID
- * @route   GET /api/v1/users/:userId
- * @access  Private
- */
+// ============================================
+// GET USER BY ID
+// ============================================
 const getUserById = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   if (!userId) {
-    return res.status(400).json({
-      success: false,
-      message: "User ID is required",
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: "User ID is required" });
   }
 
   try {
-    const user = await UserModel.findByIdWithDetails(userId);
+    const user = await UserModel.findById(userId);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
-    // Get user stats
     const stats = await UserModel.getUserStats(userId);
 
-    // Prepare response
     const userData = {
       user_id: user.user_id,
       username: user.anonymous_username,
+      real_name: user.real_name,
       gender: user.gender,
       age_bracket: user.age_bracket,
       generation: user.generation,
@@ -123,108 +186,120 @@ const getUserById = asyncHandler(async (req, res) => {
       voter_card: user.voter_card === 1,
       will_vote:
         user.will_vote === 1 ? true : user.will_vote === 0 ? false : null,
-      voter_status:
-        user.voter_card === 1 ? "Registered Voter" : "Not Registered",
-      voting_intention:
-        user.will_vote === 1
-          ? "Will Vote"
-          : user.will_vote === 0
-            ? "Will Not Vote"
-            : "Undecided",
+      political_party: user.political_party,
+      employment_status: user.employment_status,
       is_verified: user.is_verified === 1,
       member_since: user.created_at,
       stats,
     };
 
-    return res.status(200).json({
-      success: true,
-      data: userData,
-    });
+    return res.status(200).json({ success: true, data: userData });
   } catch (error) {
     console.error("[getUserById] Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch user",
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch user" });
   }
 });
 
-/**
- * @desc    Update user
- * @route   PUT /api/v1/users/:userId
- * @access  Private
- */
+// ============================================
+// UPDATE USER
+// ============================================
 const updateUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { anonymous_username, county, ward, gender, age_bracket } = req.body;
+  const {
+    real_name,
+    username,
+    county,
+    ward,
+    gender,
+    age_bracket,
+    political_party,
+    employment_status,
+    voter_card,
+    will_vote,
+  } = req.body;
 
   if (!userId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "User ID is required" });
+  }
+
+  // Validate fields if provided
+  if (real_name && real_name.trim().length < 3) {
     return res.status(400).json({
       success: false,
-      message: "User ID is required",
+      message: "Real name must be at least 3 characters",
     });
   }
 
-  // Validate county if provided
+  // ✅ NO USERNAME RESTRICTIONS - Just check length
+  if (username) {
+    if (username.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Username is too long (max 100 characters)",
+      });
+    }
+  }
+
   if (county && !UserModel.isValidCounty(county)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid county name",
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid county name" });
   }
 
-  // Validate age bracket if provided
   if (age_bracket && !UserModel.isValidAgeBracket(age_bracket)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid age bracket",
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid age bracket" });
   }
 
   try {
-    // Check if user exists
-    const exists = await UserModel.exists(userId);
-    if (!exists) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Check username availability if changing
+    if (username && username !== user.anonymous_username) {
+      const existingUser = await UserModel.findByUsername(username);
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Username already taken" });
+      }
     }
 
     // Prepare update data
     const updateData = {};
-    if (anonymous_username)
-      updateData.anonymous_username = anonymous_username.trim();
+    if (real_name) updateData.real_name = real_name.trim();
+    if (username) updateData.anonymous_username = username.trim();
     if (county) updateData.county = county.trim();
     if (ward) updateData.ward = ward.trim();
     if (gender) updateData.gender = gender;
+    if (political_party) updateData.political_party = political_party;
+    if (employment_status) updateData.employment_status = employment_status;
+    if (voter_card) updateData.voter_card = voter_card === "Yes" ? 1 : 0;
+    if (will_vote)
+      updateData.will_vote =
+        will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
+
     if (age_bracket) {
       updateData.age_bracket = age_bracket;
       updateData.generation = UserModel.getGenerationLabel(age_bracket);
     }
 
-    // Check if username is already taken (if updating)
-    if (updateData.anonymous_username) {
-      const existingUser = await UserModel.findByUsername(
-        updateData.anonymous_username,
-      );
-      if (existingUser && existingUser.user_id !== userId) {
-        return res.status(400).json({
-          success: false,
-          message: "Username already taken",
-        });
-      }
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No fields to update" });
     }
 
-    // Perform update
-    const updated = await UserModel.update(userId, updateData);
-
-    if (!updated) {
-      return res.status(400).json({
-        success: false,
-        message: "No fields to update",
-      });
-    }
+    await UserModel.update(userId, updateData);
 
     return res.status(200).json({
       success: true,
@@ -232,132 +307,72 @@ const updateUser = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error("[updateUser] Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update user",
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to update user" });
   }
 });
 
-/**
- * @desc    Get user statistics
- * @route   GET /api/v1/users/:userId/stats
- * @access  Private
- */
-const getUserStats = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+// ============================================
+// CHECK USERNAME AVAILABILITY - NO RESTRICTIONS!
+// ============================================
+const checkUsernameAvailability = asyncHandler(async (req, res) => {
+  const { username } = req.params;
 
-  if (!userId) {
+  if (!username) {
     return res.status(400).json({
       success: false,
-      message: "User ID is required",
+      message: "Username is required",
+    });
+  }
+
+  // ✅ NO REGEX VALIDATION - Just check length
+  if (username.length > 100) {
+    return res.status(400).json({
+      success: false,
+      message: "Username is too long (max 100 characters)",
     });
   }
 
   try {
-    const user = await UserModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    // Check if username exists in database
+    const existingUser = await UserModel.findByUsername(username);
 
-    const stats = await UserModel.getUserStats(userId);
+    // Check reserved usernames (optional, can remove if not needed)
+    const reservedUsernames = [
+      "admin",
+      "root",
+      "system",
+      "support",
+      "help",
+      "info",
+    ];
+    const isReserved = reservedUsernames.includes(username.toLowerCase());
 
-    return res.status(200).json({
-      success: true,
-      data: stats,
-    });
-  } catch (error) {
-    console.error("[getUserStats] Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch user stats",
-    });
-  }
-});
-
-/**
- * @desc    Get all users (admin only)
- * @route   GET /api/v1/users
- * @access  Private/Admin
- */
-const getAllUsers = asyncHandler(async (req, res) => {
-  const { limit = 50, offset = 0 } = req.query;
-
-  try {
-    const users = await UserModel.getAll(parseInt(limit), parseInt(offset));
+    const available = !existingUser && !isReserved;
 
     return res.status(200).json({
       success: true,
-      data: users,
-      pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        count: users.length,
-      },
+      available: available,
+      message: available
+        ? "Username is available"
+        : existingUser
+          ? "Username is already taken"
+          : "Username is reserved",
     });
   } catch (error) {
-    console.error("[getAllUsers] Error:", error);
+    console.error("[checkUsernameAvailability] Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch users",
+      message: "Failed to check username availability",
     });
   }
 });
 
-/**
- * @desc    Get users by county
- * @route   GET /api/v1/users/county/:county
- * @access  Public
- */
-
-const getUsersByCountyCount = asyncHandler(async (req, res) => {
-  // read county from query param
-  const { county } = req.query;
-
-  if (!county) {
-    return res.status(400).json({
-      success: false,
-      message: "County is required",
-    });
-  }
-
-  if (!UserModel.isValidCounty(county)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid county name",
-    });
-  }
-
-  const totalUsers = await UserModel.getCountByCounty(county);
-
-  return res.status(200).json({
-    success: true,
-    county,
-    count: totalUsers,
-  });
-});
-
-//  get  all users   count by e cah county
-
-const getAllUserCountsByCounty = asyncHandler(async (req, res) => {
-  const counts = await UserModel.getUserCountsByCounty();
-
-  return res.status(200).json({
-    success: true,
-    data: counts,
-    totalCounties: counts.length,
-  });
-});
-
-/**
- * @desc    Get demographic statistics
- * @route   GET /api/v1/users/stats/demographics
- * @access  Public
- */
-const getDemographicStats = asyncHandler(async (req, res) => {
+// ============================================
+// GET ANALYTICS (Demographic Stats)
+// ============================================
+const getAnalytics = asyncHandler(async (req, res) => {
   try {
     const stats = await UserModel.getDemographicStats();
 
@@ -366,10 +381,48 @@ const getDemographicStats = asyncHandler(async (req, res) => {
       data: stats,
     });
   } catch (error) {
-    console.error("[getDemographicStats] Error:", error);
+    console.error("[getAnalytics] Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch demographic stats",
+      message: "Failed to fetch analytics",
+    });
+  }
+});
+
+// In your userController.js - Add this function
+const getCountyStats = asyncHandler(async (req, res) => {
+  try {
+    // Get county-wise user statistics
+    const countyStats = await UserModel.getCountyStats();
+
+    // Calculate total users
+    const totalUsers = countyStats.reduce(
+      (sum, county) => sum + county.total_users,
+      0,
+    );
+
+    // Add percentage to each county
+    const countyStatsWithPercentage = countyStats.map((county) => ({
+      ...county,
+      percentage: totalUsers > 0 ? (county.total_users / totalUsers) * 100 : 0,
+    }));
+
+    // Sort by total_users descending
+    countyStatsWithPercentage.sort((a, b) => b.total_users - a.total_users);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        countyStats: countyStatsWithPercentage,
+        totalUsers,
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getCountyStats] Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch county statistics",
     });
   }
 });
@@ -378,9 +431,7 @@ module.exports = {
   createUser,
   getUserById,
   updateUser,
-  getUserStats,
-  getAllUsers,
-  getUsersByCountyCount,
-  getDemographicStats,
-  getAllUserCountsByCounty,
+  checkUsernameAvailability,
+  getAnalytics,
+  getCountyStats,
 };

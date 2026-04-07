@@ -4,35 +4,43 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover"
     />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      http-equiv="Cache-Control"
-      content="max-age=31536000, must-revalidate"
-    />
-
-    <title>Siasa Hub 🇰🇪 | Kenya's Digital Political Engagement</title>
-
+    <title>Siasa Hub 🇰🇪 - Your Political Campaign Command Center</title>
+    <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Connect with Kenyan political leaders and participate in real-time polls."
+      content="Track political leaders, campaigns, and voter engagement in Kenya"
     />
-    <meta property="og:title" content="Siasa Hub 🇰🇪" />
-    <meta property="og:image" content="/image/og-banner.png" />
-    <meta name="theme-color" content="#0f172a" />
-
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="preconnect"
-      href="https://bundle-unexpected-sustainability-idol.trycloudflare.com"
-      crossorigin
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
     />
 
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="Siasa Hub 🇰🇪 - Official Candidate Profiles"
+    />
+    <meta
+      property="og:description"
+      content="Explore manifestos and real-time analytics for the 2027 Kenyan General Election."
+    />
+    <meta property="og:image" content="/icons/og-image.png" />
 
-    <link rel="modulepreload" href="/src/main.jsx" />
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Siasa Hub 🇰🇪" />
+    <meta name="geo.region" content="KE" />
+    <meta name="geo.placename" content="Nairobi" />
+    <meta
+      property="twitter:description"
+      content="The Command Center for Kenyan Campaigns."
+    />
+    <meta property="twitter:image" content="/icons/og-image.png" />
+    <meta name="apple-mobile-web-app-title" content="Siasa Hub" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="manifest" href="/manifest.json" />
 
     <style>
       * {
@@ -40,90 +48,424 @@
         padding: 0;
         box-sizing: border-box;
       }
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: #f8fafc;
+
+      body,
+      html {
+        background: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
         overflow-x: hidden;
+        color: white;
+        font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+        -webkit-tap-highlight-color: transparent;
       }
+
+      #top-loader-line {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 0%;
+        height: 3px;
+        background: linear-gradient(90deg, #bb0000, #ff4444);
+        z-index: 10001;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 10px rgba(187, 0, 0, 0.5);
+      }
+
       #initial-loader {
         position: fixed;
         inset: 0;
-        background: #f8fafc;
-        z-index: 9999;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        background: #000;
+        z-index: 10000;
         transition:
-          opacity 0.2s ease-out,
-          visibility 0.2s;
+          opacity 0.4s ease-out,
+          visibility 0.4s ease-out;
+        backdrop-filter: blur(0px);
       }
-      .loader-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid rgba(187, 0, 0, 0.1);
-        border-top: 3px solid #bb0000;
+
+      .loader-logo {
+        font-size: 32px;
+        font-weight: 900;
+        letter-spacing: 3px;
+        background: linear-gradient(135deg, #fff 0%, #bb0000 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: fadeInUp 0.6s ease-out;
+      }
+
+      .loader-logo span {
+        -webkit-text-fill-color: #bb0000;
+        background: none;
+      }
+
+      .loader-sub {
+        font-size: 10px;
+        color: #666;
+        margin-top: 12px;
+        letter-spacing: 2px;
+        font-weight: 600;
+        text-transform: uppercase;
+        animation: fadeInUp 0.6s ease-out 0.2s both;
+      }
+
+      .loader-dots {
+        display: flex;
+        gap: 8px;
+        margin-top: 24px;
+        animation: fadeInUp 0.6s ease-out 0.4s both;
+      }
+
+      .loader-dots span {
+        width: 6px;
+        height: 6px;
+        background: #bb0000;
         border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-        margin-bottom: 15px;
+        animation: bounce 1.4s infinite ease-in-out both;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
+
+      .loader-dots span:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .loader-dots span:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.6);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
         }
       }
-      body.loaded #initial-loader {
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .loaded #initial-loader {
         opacity: 0;
         visibility: hidden;
-        pointer-events: none;
+      }
+
+      .loaded #top-loader-line {
+        width: 100% !important;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      /* PWA BANNER - Enhanced */
+      #pwa-banner {
+        position: fixed;
+        bottom: 70px;
+        left: 16px;
+        right: 16px;
+        background: rgba(17, 17, 17, 0.98);
+        backdrop-filter: blur(20px);
+        padding: 16px 18px;
+        border-radius: 16px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border: 1px solid rgba(187, 0, 0, 0.3);
+        z-index: 9999;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: bottom;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .pwa-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .pwa-icon {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, #bb0000, #8b0000);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+
+      .pwa-text {
+        flex: 1;
+      }
+
+      .pwa-title {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 2px;
+        color: #fff;
+      }
+
+      .pwa-desc {
+        font-size: 11px;
+        color: #aaa;
+        line-height: 1.3;
+      }
+
+      .pwa-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      #pwa-btn {
+        background: linear-gradient(135deg, #bb0000, #8b0000);
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(187, 0, 0, 0.3);
+      }
+
+      #pwa-btn:hover {
+        transform: scale(1.02);
+        background: linear-gradient(135deg, #cc0000, #9b0000);
+      }
+
+      #pwa-btn:active {
+        transform: scale(0.98);
+      }
+
+      #pwa-close {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        width: 32px;
+        height: 32px;
+      }
+
+      #pwa-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* iOS specific */
+      @supports (-webkit-touch-callout: none) {
+        #pwa-banner {
+          bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+      }
+
+      /* Hide banner on desktop */
+      @media (min-width: 768px) and (pointer: fine) {
+        #pwa-banner {
+          max-width: 400px;
+          left: auto;
+          right: 20px;
+        }
+      }
+
+      .hide-banner {
+        display: none !important;
       }
     </style>
   </head>
   <body>
+    <div id="top-loader-line"></div>
     <div id="initial-loader">
-      <div class="loader-spinner"></div>
-      <h1
-        style="
-          font-size: 1.4rem;
-          font-weight: 900;
-          letter-spacing: -1px;
-          color: #0f172a;
-          font-family: sans-serif;
-        "
-      >
-        SIASA HUB
-      </h1>
+      <div class="loader-logo"><span>S</span>IASA HUB</div>
+      <div class="loader-sub">CAMPAIGN COMMAND CENTER</div>
+      <div class="loader-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div id="pwa-banner">
+      <div class="pwa-info">
+        <div class="pwa-icon">🇰🇪</div>
+        <div class="pwa-text">
+          <div class="pwa-title">Add Siasa Hub to Home Screen</div>
+          <div class="pwa-desc">
+            Get faster access, offline support, and app-like experience
+          </div>
+        </div>
+      </div>
+      <div class="pwa-actions">
+        <button id="pwa-btn">Install</button>
+        <button id="pwa-close">✕</button>
+      </div>
     </div>
 
     <div id="root"></div>
-
-    <script type="module" src="/src/main.jsx"></script>
-
     <script>
-      (function () {
-        const hideLoader = () => document.body.classList.add("loaded");
+      // ==================== PWA INSTALL HANDLER (Improved) ====================
+      let deferredPrompt;
+      let isPwaInstalled = localStorage.getItem("pwa-installed") === "true";
+      let installPromptShown = false;
+
+      // Check if already installed
+      if (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+      ) {
+        isPwaInstalled = true;
+        localStorage.setItem("pwa-installed", "true");
+      }
+
+      // Listen for beforeinstallprompt
+      window.addEventListener("beforeinstallprompt", (e) => {
+        console.log("✅ PWA install prompt available");
+        e.preventDefault();
+        deferredPrompt = e;
+
+        // Only show banner if not installed and not dismissed recently
+        const bannerDismissed = localStorage.getItem("pwa-banner-dismissed");
+        const dismissedTime = bannerDismissed ? parseInt(bannerDismissed) : 0;
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
 
         if (
-          document.readyState === "interactive" ||
-          document.readyState === "complete"
+          !isPwaInstalled &&
+          !installPromptShown &&
+          (!bannerDismissed || Date.now() - dismissedTime > oneWeek)
         ) {
-          hideLoader();
+          installPromptShown = true;
+          // Show banner after 2 seconds
+          setTimeout(() => {
+            const banner = document.getElementById("pwa-banner");
+            if (banner && banner.style.display !== "flex") {
+              banner.style.display = "flex";
+              console.log("📱 Showing PWA install banner");
+            }
+          }, 2000);
+        }
+      });
+
+      // Handle install button
+      const installBtn = document.getElementById("pwa-btn");
+      if (installBtn) {
+        installBtn.addEventListener("click", async () => {
+          console.log("🔧 Install button clicked");
+
+          if (!deferredPrompt) {
+            console.log("⚠️ No install prompt available");
+            showInstallInstructions();
+            return;
+          }
+
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`📱 User response: ${outcome}`);
+
+          if (outcome === "accepted") {
+            console.log("✅ PWA installed successfully");
+            localStorage.setItem("pwa-installed", "true");
+            hidePwaBanner();
+          }
+
+          deferredPrompt = null;
+        });
+      }
+
+      // Handle close button
+      const closeBtn = document.getElementById("pwa-close");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+          console.log("❌ User dismissed PWA banner");
+          localStorage.setItem("pwa-banner-dismissed", Date.now().toString());
+          hidePwaBanner();
+        });
+      }
+
+      function hidePwaBanner() {
+        const banner = document.getElementById("pwa-banner");
+        if (banner) {
+          banner.style.opacity = "0";
+          setTimeout(() => {
+            banner.style.display = "none";
+            banner.style.opacity = "";
+          }, 300);
+        }
+      }
+
+      function showInstallInstructions() {
+        const banner = document.getElementById("pwa-banner");
+        if (!banner) return;
+
+        const pwaText = banner.querySelector(".pwa-desc");
+        const originalText = pwaText.innerText;
+
+        if (
+          navigator.userAgent.includes("iPhone") ||
+          navigator.userAgent.includes("iPad")
+        ) {
+          pwaText.innerText = "📱 Tap Share → Add to Home Screen";
+        } else if (navigator.userAgent.includes("Android")) {
+          pwaText.innerText = "📲 Tap Menu → Install App";
         } else {
-          document.addEventListener("DOMContentLoaded", hideLoader);
+          pwaText.innerText = "🔽 Click the install icon in the address bar";
         }
 
-        // SW Registration
-        if ("serviceWorker" in navigator) {
-          window.addEventListener("load", () => {
-            navigator.serviceWorker
-              .register("/service_worker.js")
-              .catch((err) => console.error("SW failed:", err));
-          });
-        }
+        setTimeout(() => {
+          pwaText.innerText = originalText;
+        }, 5000);
+      }
 
-        setTimeout(hideLoader, 3500);
-      })();
+      // Listen for successful installation
+      window.addEventListener("appinstalled", () => {
+        console.log("🎉 App installed successfully!");
+        localStorage.setItem("pwa-installed", "true");
+        hidePwaBanner();
+      });
+
+      // Hide banner if already running as PWA
+      if (window.matchMedia("(display-mode: standalone)").matches) {
+        const banner = document.getElementById("pwa-banner");
+        if (banner) banner.style.display = "none";
+      }
     </script>
+
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

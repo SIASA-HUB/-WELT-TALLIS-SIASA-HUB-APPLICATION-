@@ -1,90 +1,70 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, memo, lazy, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
+import theme from "../../utils/theme";
 
-import TrendingSection from "../treading/treading";
-import PostCard from "../posts/postCard";
+// 1. LAZY LOAD TRENDING
+const TrendingSection = lazy(() => import("../treading/treading"));
 
-const shimmer = keyframes`
-  0% { background-position: -468px 0 }
-  100% { background-position: 468px 0 }
+const progressMove = keyframes`
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
 `;
 
-const Container = styled.div`
-  background: #f8fafc;
+// --- CLEAN TOP LOADER ---
+const TopLoader = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: ${theme.colors.primary || "#bb0000"};
+  z-index: 9999;
+  animation: ${progressMove} 2s ease-in-out infinite;
+  box-shadow: 0 0 10px ${theme.colors.primary || "#bb0000"};
+`;
+
+const HomePageWrapper = styled.div`
   min-height: 100vh;
-  max-width: 480px;
+  max-width: 1200px;
   margin: 0 auto;
   font-family:
     "Inter",
     -apple-system,
     sans-serif;
-`;
-
-const SearchHeader = styled.div`
-  padding: 10px 16px;
-  background: #f0fdf4;
-  border-bottom: 1px solid #bbf7d0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-const SkeletonBase = styled.div`
-  background: #f6f7f8;
-  background-image: linear-gradient(
-    to right,
-    #f6f7f8 0%,
-    #edeef1 20%,
-    #f6f7f8 40%,
-    #f6f7f8 100%
-  );
-  background-repeat: no-repeat;
-  background-size: 800px 100%;
-  display: inline-block;
+  overflow-x: hidden;
+  width: 100%;
   position: relative;
-  animation: ${shimmer} 1.2s linear infinite forwards;
-  border-radius: 12px;
-  margin: 16px;
-  width: calc(100% - 32px);
 `;
 
-const Loader = () => <SkeletonBase style={{ height: "200px" }} />;
+const MainContent = styled.main`
+  padding-top: 0px;
+`;
 
-export default function SiasaApp({ searchQuery = "", onClearSearch }) {
-  const isSearching = searchQuery?.trim().length > 0;
+// --- EMPTY FALLBACK ---
+const EmptyFallback = () => <TopLoader />;
+
+const SiasaApp = () => {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+
+    // Signal to index.html that React is ready
+    if (window.markAsLoaded) {
+      window.markAsLoaded();
+    }
+  }, []);
 
   return (
-    <Container>
-      <main style={{ paddingBottom: "20px" }}>
-        {isSearching && (
-          <SearchHeader>
-            <div
-              style={{ fontSize: "13px", fontWeight: "700", color: "#166534" }}
-            >
-              <span style={{ color: "#0f172a" }}>"{searchQuery}"</span>
-            </div>
-            <button
-              onClick={onClearSearch}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#166534",
-                fontSize: "12px",
-                fontWeight: "600",
-                textDecoration: "underline",
-              }}
-            >
-              Clear
-            </button>
-          </SearchHeader>
-        )}
-
-        <TrendingSection />
-
-        <PostCard searchQuery={searchQuery} />
-
-        <Suspense fallback={<Loader />}></Suspense>
-      </main>
-    </Container>
+    <HomePageWrapper>
+      <MainContent>
+        {/* Only Rendering Trending Section now. 
+          Search cards and query headers have been completely removed.
+        */}
+        <Suspense fallback={<EmptyFallback />}>
+          <TrendingSection />
+        </Suspense>
+      </MainContent>
+    </HomePageWrapper>
   );
-}
+};
+
+export default memo(SiasaApp);

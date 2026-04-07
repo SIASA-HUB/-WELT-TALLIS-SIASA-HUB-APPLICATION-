@@ -1,31 +1,26 @@
-const allowedOrigins = [
-  "http://localhost:5174",
-  "http://localhost:3002",
-  "https://substantially-alliance-prerequisite-drew.trycloudflare.com",
-  "https://achieve-profiles-celtic-carmen.trycloudflare.com",
-  "https://nathan-already-downloadable-sic.trycloudflare.com",
-  "https://goals-acquire-image-energy.trycloudflare.com",
-  "https://goals-acquire-image-energy.trycloudflare.com",
-];
-
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const normalizedOrigin = origin.replace(/\/$/, "");
-
-    if (!allowedOrigins.includes(normalizedOrigin)) {
-      console.warn(`Blocked CORS request from origin: ${origin}`);
-      return callback(new Error(`CORS origin ${origin} not allowed`), false);
-    }
-
-    return callback(null, true);
-  },
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    // Add your production domains here
+    "https://yourdomain.com",
+    "https://www.yourdomain.com",
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["Content-Disposition"],
-  credentials: true,
-  optionsSuccessStatus: 200,
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+    "Access-Control-Allow-Origin",
+  ],
+  credentials: true, // Allow cookies to be sent
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
 };
 
-module.exports = { allowedOrigins, corsOptions };
+module.exports = { corsOptions };

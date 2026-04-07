@@ -1,18 +1,68 @@
-:root {
-  --font-primary:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, system-ui, sans-serif;
+/* 1. Global Reset - FIXED TO ALLOW SCROLL DETECTION */
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background-color: var(--bg-main);
+  font-family: var(--font-primary);
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  /* Ensure the html doesn't trap the height */
+  height: auto;
 }
 
 body {
-  font-family: var(--font-primary);
-  overscroll-behavior-y: contain;
-
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  /* CRITICAL: Use min-height so the window can scroll */
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  overflow-x: hidden;
+  position: relative;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
+/* --- HIDE SCROLLBARS COMPLETELY --- */
+
+/* Chrome, Safari, and Opera */
+body::-webkit-scrollbar,
+html::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* IE, Edge, and Firefox */
+html,
+body {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Native app feel */
 * {
-  padding: 0 auto !important;
-  box-sizing: border-box !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove default browser styles */
+button,
+a {
+  -webkit-touch-callout: none;
+}
+
+/* Add native-like transitions */
+.page-transition {
+  transition: opacity 0.2s ease;
+}
+
+/* iOS-style haptic feedback (where supported) */
+button:active {
+  transform: scale(0.97);
+  transition: transform 0.05s;
 }

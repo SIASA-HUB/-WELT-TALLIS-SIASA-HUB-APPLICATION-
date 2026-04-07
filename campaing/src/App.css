@@ -1,0 +1,14 @@
+const COLORS = {
+  primary: "#ff5c01",
+  secondary: "#ff006e",
+  tertiary: "#8338ec",
+  shareRed: "#ef4444",
+  success: "#10b981",
+  warning: "#f59e0b",
+  dark: "#0a0a0a",
+  darkLight: "#111111",
+  gray: "#94a3b8",
+  border: "rgba(255, 255, 255, 0.08)",
+  glass: "rgba(255, 255, 255, 0.03)",
+  gradient: "linear-gradient(135deg, #ff5c01, #ff006e, #8338ec)",
+};

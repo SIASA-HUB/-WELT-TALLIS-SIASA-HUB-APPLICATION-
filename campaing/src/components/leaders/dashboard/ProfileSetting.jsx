@@ -1,0 +1,577 @@
+// ProfileSettingsSection.js - Clean, Professional Profile Settings
+import React, { useState, useEffect } from "react";
+import styled from "styled-components";
+import axios from "axios";
+import {
+  User,
+  MapPin,
+  Briefcase,
+  Mail,
+  Phone,
+  Save,
+  Camera,
+  X,
+  CheckCircle,
+  AlertCircle,
+  Edit2,
+} from "lucide-react";
+
+const API_URL = "http://localhost:8004"; // Leaders service
+
+const Card = styled.div`
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+`;
+
+const CardHeader = styled.div`
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+  background: #fafbfc;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a2e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #6c757d;
+  }
+`;
+
+const CardBody = styled.div`
+  padding: 24px;
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: 20px;
+`;
+
+const Label = styled.label`
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #1e293b;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+  }
+
+  &:disabled {
+    background: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+`;
+
+const TextArea = styled.textarea`
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  min-height: 100px;
+  resize: vertical;
+  transition: all 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+  }
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const AvatarSection = styled.div`
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+`;
+
+const AvatarWrapper = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const Avatar = styled.img`
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #1e3c72;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+`;
+
+const ChangePhotoButton = styled.label`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #1e3c72;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s;
+  border: 2px solid white;
+
+  &:hover {
+    background: #152c54;
+    transform: scale(1.05);
+  }
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e9ecef;
+`;
+
+const SaveButton = styled.button`
+  padding: 12px 32px;
+  background: #1e3c72;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #152c54;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const CancelButton = styled.button`
+  padding: 12px 32px;
+  background: white;
+  color: #6c757d;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f8f9fa;
+    border-color: #dee2e6;
+  }
+`;
+
+const Message = styled.div`
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+  }
+
+  &.error {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+  }
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: ${(props) =>
+    props.status === "active"
+      ? "#e8f5e9"
+      : props.status === "pending"
+        ? "#fff3e0"
+        : "#ffebee"};
+  color: ${(props) =>
+    props.status === "active"
+      ? "#2e7d32"
+      : props.status === "pending"
+        ? "#ed6c02"
+        : "#c62828"};
+`;
+
+const ProfileSettingsSection = ({ leader, onUpdate }) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    party: "",
+    position: "",
+    county: "",
+    constituency: "",
+    ward: "",
+    email: "",
+    phone: "",
+    bio: "",
+    slogan: "",
+  });
+
+  const [avatar, setAvatar] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (leader) {
+      setFormData({
+        name: leader.name || "",
+        party: leader.party || "",
+        position: leader.position || leader.position_running_for || "",
+        county: leader.county || "",
+        constituency: leader.constituency || "",
+        ward: leader.ward || "",
+        email: leader.email || "",
+        phone: leader.phone || "",
+        bio: leader.bio || "",
+        slogan: leader.slogan || "",
+      });
+      setAvatar(leader.image_url || leader.primary_image || null);
+    }
+  }, [leader]);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage({ type: "error", text: "Image must be less than 5MB" });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAvatar(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      // Get token from localStorage
+      const token = localStorage.getItem("leaderToken");
+
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+
+      // Update profile
+      const response = await axios.put(
+        `${API_URL}/api/v1/leaders/profile/update`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.data.success) {
+        setMessage({ type: "success", text: "Profile updated successfully!" });
+        setIsEditing(false);
+        if (onUpdate) onUpdate(formData);
+
+        // Clear message after 3 seconds
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        throw new Error(response.data.message || "Update failed");
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || "Failed to update profile",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusLabel = () => {
+    if (leader?.status === "active")
+      return { text: "Active", icon: <CheckCircle size={12} /> };
+    if (leader?.status === "pending")
+      return { text: "Pending Approval", icon: <AlertCircle size={12} /> };
+    return { text: "Inactive", icon: <X size={12} /> };
+  };
+
+  const status = getStatusLabel();
+
+  return (
+    <Card>
+      <CardHeader>
+        <h3>
+          <User size={18} /> Profile Settings
+        </h3>
+        <p>Manage your campaign profile and personal information</p>
+      </CardHeader>
+
+      <CardBody>
+        <form onSubmit={handleSubmit}>
+          <AvatarSection>
+            <AvatarWrapper>
+              <Avatar
+                src={
+                  avatar ||
+                  `https://ui-avatars.com/api/?name=${formData.name}&background=1e3c72&color=fff&size=120&bold=true`
+                }
+                alt={formData.name}
+              />
+              {isEditing && (
+                <ChangePhotoButton>
+                  <Camera size={16} />
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                  />
+                </ChangePhotoButton>
+              )}
+            </AvatarWrapper>
+
+            <div style={{ marginTop: "12px" }}>
+              <StatusBadge status={leader?.status}>
+                {status.icon} {status.text}
+              </StatusBadge>
+            </div>
+          </AvatarSection>
+
+          {message && (
+            <Message className={message.type}>
+              {message.type === "success" ? (
+                <CheckCircle size={16} />
+              ) : (
+                <AlertCircle size={16} />
+              )}
+              {message.text}
+            </Message>
+          )}
+
+          {!isEditing ? (
+            // View Mode
+            <>
+              <Grid>
+                <div>
+                  <Label>Full Name</Label>
+                  <Input value={formData.name} disabled />
+                </div>
+                <div>
+                  <Label>Political Party</Label>
+                  <Input value={formData.party || "Not specified"} disabled />
+                </div>
+                <div>
+                  <Label>Position</Label>
+                  <Input value={formData.position} disabled />
+                </div>
+                <div>
+                  <Label>County</Label>
+                  <Input value={formData.county} disabled />
+                </div>
+                <div>
+                  <Label>Constituency</Label>
+                  <Input
+                    value={formData.constituency || "Not specified"}
+                    disabled
+                  />
+                </div>
+                <div>
+                  <Label>Ward</Label>
+                  <Input value={formData.ward || "Not specified"} disabled />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input value={formData.email || "Not provided"} disabled />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input value={formData.phone || "Not provided"} disabled />
+                </div>
+              </Grid>
+
+              <div>
+                <Label>Campaign Slogan</Label>
+                <TextArea value={formData.slogan || "No slogan set"} disabled />
+              </div>
+
+              <ButtonGroup>
+                <SaveButton type="button" onClick={() => setIsEditing(true)}>
+                  <Edit2 size={16} />
+                  Edit Profile
+                </SaveButton>
+              </ButtonGroup>
+            </>
+          ) : (
+            // Edit Mode
+            <>
+              <Grid>
+                <FormGroup>
+                  <Label>Full Name *</Label>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Political Party</Label>
+                  <Input
+                    name="party"
+                    value={formData.party}
+                    onChange={handleChange}
+                    placeholder="e.g., UDA, ODM, Independent"
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Position *</Label>
+                  <Input
+                    name="position"
+                    value={formData.position}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g., Governor, Senator, MP, MCA"
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>County *</Label>
+                  <Input
+                    name="county"
+                    value={formData.county}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Constituency</Label>
+                  <Input
+                    name="constituency"
+                    value={formData.constituency}
+                    onChange={handleChange}
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Ward</Label>
+                  <Input
+                    name="ward"
+                    value={formData.ward}
+                    onChange={handleChange}
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Email</Label>
+                  <Input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>Phone</Label>
+                  <Input
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </FormGroup>
+              </Grid>
+
+              <FormGroup>
+                <Label>Campaign Slogan</Label>
+                <TextArea
+                  name="slogan"
+                  value={formData.slogan}
+                  onChange={handleChange}
+                  placeholder="Your campaign slogan..."
+                />
+              </FormGroup>
+
+              <ButtonGroup>
+                <CancelButton type="button" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </CancelButton>
+                <SaveButton type="submit" disabled={loading}>
+                  <Save size={16} />
+                  {loading ? "Saving..." : "Save Changes"}
+                </SaveButton>
+              </ButtonGroup>
+            </>
+          )}
+        </form>
+      </CardBody>
+    </Card>
+  );
+};
+
+export default ProfileSettingsSection;

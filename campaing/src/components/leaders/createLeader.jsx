@@ -351,7 +351,7 @@ const LeaderRegistration = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:8006/api/v1/leaders/leaders/create",
+        "http://localhost:8009/api/v1/leaders/leaders/create",
         formData,
         {
           headers: {

@@ -1,9 +1,8 @@
 const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3002",
-  "https://substantially-alliance-prerequisite-drew.trycloudflare.com",
-  "https://achieve-profiles-celtic-carmen.trycloudflare.com",
-  "https://nathan-already-downloadable-sic.trycloudflare.com",
+  "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
+
   "https://goals-acquire-image-energy.trycloudflare.com",
 ];
 

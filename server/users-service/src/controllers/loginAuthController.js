@@ -1,14 +1,32 @@
+// controllers/authController.js
 const asyncHandler = require("express-async-handler");
 const AuthModel = require("../models/userAuthModel");
 const Logger = require("../utils/logger/logger");
 
-// Environment variables
-const ACCESS_TOKEN_EXPIRES = "15m";
-const REFRESH_TOKEN_EXPIRES = "7d";
+// Import global auth utilities (use correct paths)
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+  setCsrfSecretCookie,
+  setUserInfoCookie,
+  clearAuthCookies,
+  generateCsrfSecret,
+  generateCsrfToken,
+} = require("../../../global/index");
 
-//login users
+// ============================================
+// LOGIN USER
+// ============================================
+// controllers/authController.js - Update the login function
+
 const loginUser = asyncHandler(async (req, res) => {
   const { anonymous_username, password } = req.body;
+
+  console.log("📝 Login attempt:", { anonymous_username, password: "***" });
 
   if (!anonymous_username || !password) {
     return res.status(400).json({
@@ -18,7 +36,6 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Find user for authentication
     const user = await AuthModel.findUserForAuth(anonymous_username);
 
     if (!user) {
@@ -28,11 +45,11 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Verify password
     const isPasswordValid = await AuthModel.verifyPassword(
       password,
       user.password_hash,
     );
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -40,63 +57,87 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate tokens
-    const accessToken = AuthModel.generateAccessToken(user);
-    const refreshToken = AuthModel.generateRefreshToken(user);
-
-    // Set secure cookies
-    const cookieOptions = AuthModel.getCookieOptions();
-
-    res.cookie("access_token", accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    res.cookie("refresh_token", refreshToken, {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    // Prepare user data for frontend
-    const userData = AuthModel.prepareUserData(user);
-    userData.last_login = new Date().toISOString();
-
-    // Set public user info cookie
-    res.cookie("user_info", AuthModel.createUserInfoCookie(user), {
-      ...AuthModel.getPublicCookieOptions(),
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // Update last login timestamp
-    await AuthModel.updateLastLogin(user.user_id);
-
-    Logger.info(`User ${user.anonymous_username} logged in successfully`, {
+    // Prepare user payload
+    const userPayload = {
+      userId: user.user_id,
+      username: user.anonymous_username,
+      real_name: user.real_name,
       county: user.county,
+      ageBracket: user.age_bracket,
+      generation: user.generation,
+      role: user.role || "user",
+      voterCard: user.voter_card === 1,
+      willVote: user.will_vote,
+      political_party: user.political_party,
+      employment_status: user.employment_status,
+    };
+
+    // Generate tokens
+    const accessToken = generateAccessToken(userPayload);
+    const refreshToken = generateRefreshToken(userPayload);
+
+    // Generate CSRF protection - FIXED: use await
+    console.log("🔐 Generating CSRF secret...");
+    const csrfSecret = await generateCsrfSecret(); // ← AWAIT HERE
+    console.log("✅ CSRF secret generated:", csrfSecret ? "yes" : "no");
+
+    const csrfToken = generateCsrfToken(csrfSecret); // ← Now secret is defined
+    console.log("✅ CSRF token generated:", csrfToken ? "yes" : "no");
+
+    // Set cookies
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+    setCsrfSecretCookie(res, csrfSecret); // Store secret in cookie
+
+    // Set user info cookie
+    const userInfo = {
+      user_id: user.user_id,
+      username: user.anonymous_username,
+      real_name: user.real_name,
+      county: user.county,
+      ward: user.ward,
       age_bracket: user.age_bracket,
       role: user.role,
-    });
+      political_party: user.political_party,
+      employment_status: user.employment_status,
+    };
+    setUserInfoCookie(res, userInfo);
+
+    // Update last login
+    await AuthModel.updateLastLogin(user.user_id);
+
+    console.log(`✅ Login successful for ${user.anonymous_username}`);
+    Logger.info(`User ${user.anonymous_username} logged in`);
 
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      user: userData,
+      user: userInfo,
+      csrfToken,
     });
   } catch (error) {
+    console.error("❌ Login error DETAILS:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     Logger.error("Login error", {
       error: error.message,
       stack: error.stack,
+      name: error.name,
     });
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
 
-/* =============================
-   2️⃣ REFRESH TOKEN
-   ============================= */
-const refreshUserToken = asyncHandler(async (req, res) => {
+// ============================================
+// REFRESH TOKEN
+// ============================================
+const refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies.refresh_token;
 
   if (!token) {
@@ -107,8 +148,7 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Verify refresh token
-    const decoded = AuthModel.verifyRefreshToken(token);
+    const decoded = verifyRefreshToken(token);
 
     if (!decoded) {
       return res.status(403).json({
@@ -117,7 +157,6 @@ const refreshUserToken = asyncHandler(async (req, res) => {
       });
     }
 
-    // Find user
     const user = await AuthModel.findUserById(decoded.userId);
 
     if (!user) {
@@ -127,28 +166,26 @@ const refreshUserToken = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate new access token
-    const newAccessToken = AuthModel.generateAccessToken(user);
+    const userPayload = {
+      userId: user.user_id,
+      username: user.anonymous_username,
+      real_name: user.real_name,
+      county: user.county,
+      ageBracket: user.age_bracket,
+      role: user.role || "user",
+    };
 
-    // Set new access token cookie
-    res.cookie("access_token", newAccessToken, {
-      ...AuthModel.getCookieOptions(),
-      maxAge: 15 * 60 * 1000,
-    });
+    const newAccessToken = generateAccessToken(userPayload);
+    const csrfSecret = generateCsrfSecret();
+    const csrfToken = generateCsrfToken(csrfSecret);
 
-    // Update user info cookie
-    res.cookie("user_info", AuthModel.createUserInfoCookie(user), {
-      ...AuthModel.getPublicCookieOptions(),
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setAccessTokenCookie(res, newAccessToken);
+    setCsrfSecretCookie(res, csrfSecret);
 
     res.status(200).json({
       success: true,
-      username: user.anonymous_username,
-      county: user.county,
-      age_bracket: user.age_bracket,
-      will_vote: user.will_vote === 1,
-      role: user.role || "user",
+      message: "Token refreshed",
+      csrfToken,
     });
   } catch (error) {
     Logger.error("Refresh error", { error: error.message });
@@ -159,23 +196,21 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   }
 });
 
-/* =============================
-   3️⃣ LOGOUT
-   ============================= */
+// ============================================
+// LOGOUT
+// ============================================
 const logoutUser = asyncHandler(async (req, res) => {
-  res.clearCookie("access_token");
-  res.clearCookie("refresh_token");
-  res.clearCookie("user_info");
-
+  clearAuthCookies(res);
+  Logger.info("User logged out");
   res.status(200).json({
     success: true,
     message: "Logged out successfully",
   });
 });
 
-/* =============================
-   4️⃣ VERIFY TOKEN (Middleware helper)
-   ============================= */
+// ============================================
+// VERIFY TOKEN
+// ============================================
 const verifyToken = asyncHandler(async (req, res) => {
   const token = req.cookies.access_token;
 
@@ -186,7 +221,7 @@ const verifyToken = asyncHandler(async (req, res) => {
     });
   }
 
-  const decoded = AuthModel.verifyAccessToken(token);
+  const decoded = verifyAccessToken(token);
 
   if (!decoded) {
     return res.status(403).json({
@@ -195,18 +230,9 @@ const verifyToken = asyncHandler(async (req, res) => {
     });
   }
 
-  // Find user to ensure they still exist
-  const user = await AuthModel.findUserById(decoded.userId);
-
-  if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "User not found",
-    });
-  }
-
   res.status(200).json({
     success: true,
+    message: "Token is valid",
     user: {
       userId: decoded.userId,
       username: decoded.username,
@@ -216,9 +242,89 @@ const verifyToken = asyncHandler(async (req, res) => {
   });
 });
 
+// ============================================
+// GET USER FROM COOKIE
+// ============================================
+const getUserFromCookie = asyncHandler(async (req, res) => {
+  const userInfo = req.cookies.user_info;
+
+  if (!userInfo) {
+    return res.status(404).json({
+      success: false,
+      message: "No user info cookie found",
+    });
+  }
+
+  try {
+    const userData =
+      typeof userInfo === "string" ? JSON.parse(userInfo) : userInfo;
+    return res.status(200).json({
+      success: true,
+      user: userData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error parsing user info",
+    });
+  }
+});
+
+// ============================================
+// CHECK AUTH STATUS
+// ============================================
+const checkAuthStatus = asyncHandler(async (req, res) => {
+  const accessToken = req.cookies.access_token;
+  const userInfoCookie = req.cookies.user_info;
+
+  if (!accessToken || !userInfoCookie) {
+    return res.status(401).json({
+      success: false,
+      isAuthenticated: false,
+    });
+  }
+
+  const decoded = verifyAccessToken(accessToken);
+
+  if (!decoded) {
+    return res.status(401).json({
+      success: false,
+      isAuthenticated: false,
+    });
+  }
+
+  const userInfo =
+    typeof userInfoCookie === "string"
+      ? JSON.parse(userInfoCookie)
+      : userInfoCookie;
+
+  return res.status(200).json({
+    success: true,
+    isAuthenticated: true,
+    user: userInfo,
+  });
+});
+
+// ============================================
+// GET CSRF TOKEN
+// ============================================
+const getCsrfToken = asyncHandler(async (req, res) => {
+  const csrfSecret = generateCsrfSecret();
+  const csrfToken = generateCsrfToken(csrfSecret);
+  setCsrfSecretCookie(res, csrfSecret);
+
+  res.status(200).json({
+    success: true,
+    csrfToken,
+  });
+});
+
 module.exports = {
   loginUser,
-  refreshToken: refreshUserToken,
+  refreshToken,
   logoutUser,
   verifyToken,
+  getUserFromCookie,
+  checkAuthStatus,
+  getCsrfToken,
 };

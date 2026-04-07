@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 
 const {
   uploadMultiple,
+  uploadSingle,
   processAndUploadImages,
 } = require("../utils/images/imageProcessing");
 
@@ -10,107 +12,128 @@ const {
   createLeader,
   getAllLeaders,
   getLeaderById,
+  registerAspirant,
+  loginAspirant,
+  getMyProfile,
+  updateMyProfile,
   searchLeaders,
   getLeadersByParty,
   getLeadersByCounty,
+  getLeadersByConstituency,
+  getLeadersByWard,
   updateLeader,
   deleteLeader,
-
+  getLeaderStats,
+  getPopularLeaders,
+  boostLeader,
   getFeaturedLeaders,
 } = require("../controllers/leaderController");
 
 const {
   createManifesto,
+  getTrendingManifestos,
   editManifesto,
   getManifestoByLeaderId,
-  voteOnManifesto,
   getManifestoStats,
-  createManifestoComment,
-  getManifestoComments,
+  voteOnManifesto,
+  deleteManifesto,
 } = require("../controllers/manifesto");
 
 const {
   handleInteraction,
-  postComment,
 } = require("../controllers/leaderInteractionController");
-// ================================
-// LEADERS PUBLIC ROUTES
-// ================================
-
-// SEARCH LEADERS (should be before /:leaderId to avoid conflict)
-router.get("/leaders/search", searchLeaders);
-
-// GET FEATURED LEADERS
-router.get("/leaders/featured", getFeaturedLeaders);
-
-// GET LEADERS BY PARTY
-router.get("/leaders/party/:party", getLeadersByParty);
-
-// GET LEADERS BY COUNTY
-router.get("/leaders/county/:county", getLeadersByCounty);
-
-// GET ALL LEADERS (with pagination)
-router.get("/leaders", getAllLeaders);
-
-// GET SINGLE LEADER
-router.get("/leaders/:leaderId", getLeaderById);
 
 // ================================
-// LEADERS PROTECTED ROUTES (Add auth middleware)
+// ASPIRANT ONBOARDING & AUTH (PUBLIC)
 // ================================
 
-// CREATE LEADER
+/**
+ * @route   POST /api/v1/leaders/register
+ * @desc    Self-registration for new aspirants (Single file upload)
+ */
 router.post(
-  "/leaders/create",
-  uploadMultiple,
+  "/register",
+  uploadSingle,
   processAndUploadImages,
-  createLeader,
+  registerAspirant,
 );
 
-// UPDATE LEADER
-router.put(
-  "/leaders/:leaderId",
-  uploadMultiple,
-  processAndUploadImages,
-  updateLeader,
-);
-
-router.post("/leaders/interact", handleInteraction);
-router.post("/leaders/comment", postComment);
+/**
+ * @route   POST /api/v1/leaders/login
+ * @desc    Login for aspirants
+ */
+router.post("/login", loginAspirant);
 
 // ================================
-// MANIFESTOS
+// MANIFESTOS ROUTES (ALL SPECIFIC ROUTES FIRST)
 // ================================
 
-// CREATE MANIFESTO
 router.post("/manifestos/create", createManifesto);
-
-// EDIT MANIFESTO
 router.put("/manifestos/:manifestoId", editManifesto);
-
-// GET MANIFESTO BY LEADER ID
 router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
-
-// VOTE ON MANIFESTO
 router.post("/manifestos/:manifestoId/vote", voteOnManifesto);
-
-// GET MANIFESTO STATS
 router.get("/manifestos/:manifestoId/stats", getManifestoStats);
-
-// CREATE MANIFESTO COMMENT (fixed typo)
-router.post("/manifestos/:manifestoId/comments", createManifestoComment);
-
-// GET MANIFESTO COMMENTS (fixed typo)
-router.get("/manifestos/:manifestoId/comments", getManifestoComments);
+router.delete("/manifestos/:manifestoId", deleteManifesto);
+router.get("/manifestos/trending", getTrendingManifestos); // ← MOVED THIS UP
 
 // ================================
-// ADDITIONAL USEFUL ROUTES
+// LEADERS PUBLIC ROUTES (SPECIFIC PATHS BEFORE PARAMETERS)
 // ================================
 
-// BULK CREATE LEADERS (for admin/import)
-// router.post("/leaders/bulk", uploadMultiple, bulkCreateLeaders);
+// Search and Discovery (specific paths first)
+router.get("/search", searchLeaders);
+router.get("/featured", getFeaturedLeaders);
+router.get("/popular", getPopularLeaders);
 
-// GET LEADER INTERACTION STATS (if different from main stats)
-// router.get("/leaders/:leaderId/interaction-stats", getLeaderInteractionStats);
+// Filtered Lists (specific paths)
+router.get("/party/:party", getLeadersByParty);
+router.get("/county/:county", getLeadersByCounty);
+router.get("/constituency/:constituency", getLeadersByConstituency);
+router.get("/ward/:ward", getLeadersByWard);
+
+// Directory - Get all leaders
+router.get("/", getAllLeaders);
+
+// ================================
+// ROUTES WITH PARAMETERS (PUT THESE LAST)
+// ================================
+
+// Boost a leader (deduct from wallet)
+router.post("/:leaderId/boost", boostLeader);
+
+// Get leader stats (public)
+router.get("/:leaderId/stats", getLeaderStats);
+
+// Get single leader by ID (ALWAYS LAST)
+router.get("/:leaderId", getLeaderById);
+
+// ================================
+// PROTECTED ROUTES (AUTH REQUIRED)
+// ================================
+
+// Get authenticated user profile
+router.get("/profile/me", getMyProfile);
+
+// Update authenticated user profile
+router.put("/profile/me", updateMyProfile);
+
+// ================================
+// ADMIN ROUTES
+// ================================
+
+// Admin/Manual Create Leader (Multiple files)
+router.post("/create", uploadMultiple, processAndUploadImages, createLeader);
+
+// Update any leader (Admin) - Multiple files
+router.put("/:leaderId", uploadMultiple, processAndUploadImages, updateLeader);
+
+// Delete leader (Admin)
+router.delete("/:leaderId", deleteLeader);
+
+// ================================
+// SOCIAL INTERACTIONS
+// ================================
+
+router.post("/interact", handleInteraction);
 
 module.exports = router;

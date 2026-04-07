@@ -7,11 +7,9 @@ const {
   createUser,
   getUserById,
   updateUser,
-  getUserStats,
-  getAllUsers,
-  getUsersByCountyCount,
-  getDemographicStats,
-  getAllUserCountsByCounty,
+  checkUsernameAvailability,
+  getAnalytics,
+  getCountyStats,
 } = require("../controllers/userController");
 
 // Auth controllers
@@ -19,36 +17,170 @@ const {
   loginUser,
   refreshToken,
   logoutUser,
-  verifyToken,
+  verifyToken: verifyTokenController,
+  getUserFromCookie,
+  checkAuthStatus,
+  getCsrfToken,
 } = require("../controllers/loginAuthController");
 
-// ------------------ AUTH ROUTES ------------------ //
-router.post("/auth/login", loginUser);
+// Import UserModel for the /me route
+const UserModel = require("../models/userModel");
+
+// Import global auth middleware (rename to avoid conflict)
+const {
+  authenticate,
+  authorize,
+  csrfProtection,
+} = require("../../../global/index");
+
+// ============================================
+// AUTH ROUTES (Public)
+// ============================================
+router.post("/login", loginUser);
 router.post("/auth/refresh", refreshToken);
-router.post("/auth/logout", logoutUser);
-router.get("/auth/verify", verifyToken);
+router.get("/auth/verify", verifyTokenController);
+router.get("/auth/status", checkAuthStatus);
 
-// ------------------ USER ROUTES ------------------ //
-// Create a new user
-router.post("/users/register", createUser);
+// ============================================
+// PROTECTED AUTH ROUTES (With CSRF)
+// ============================================
+router.post("/auth/logout", csrfProtection, logoutUser);
+router.get("/auth/csrf-token", authenticate, getCsrfToken);
 
-// Get user stats
-router.get("/users/:userId/stats", getUserStats);
-router.get("/analytics", getAllUserCountsByCounty);
+// ============================================
+// PUBLIC ROUTES (No auth required)
+// ============================================
 
-// Get total number of users in a county (count-only)
-router.get("/county", getUsersByCountyCount);
+// Check username availability
+router.get("/check-username/:username", checkUsernameAvailability);
 
-// Get demographic stats
-router.get("/demographics/stats", getDemographicStats);
+// Register new user
+router.post("/register", createUser);
 
-// Dynamic route to get a single user by ID (must be AFTER specific routes!)
+// Get analytics/demographics (public data)
+router.get("/analytics", getAnalytics);
+router.get("/county/stats", getCountyStats);
+
+// ============================================
+// PROTECTED ROUTES (Authentication required)
+// ============================================
+
+// Get current user profile (from token)
+router.get("/me", authenticate, async (req, res) => {
+  try {
+    // req.user is set by authenticate middleware
+    const user = await UserModel.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user_id: user.user_id,
+        username: user.anonymous_username,
+        real_name: user.real_name,
+        gender: user.gender,
+        age_bracket: user.age_bracket,
+        county: user.county,
+        ward: user.ward,
+        voter_card: user.voter_card === 1,
+        will_vote: user.will_vote,
+        political_party: user.political_party,
+        employment_status: user.employment_status,
+        role: user.role,
+        is_verified: user.is_verified === 1,
+        member_since: user.created_at,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching current user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user data",
+    });
+  }
+});
+
+// Update current user profile (with CSRF protection)
+router.put("/me", authenticate, csrfProtection, async (req, res) => {
+  try {
+    const updateData = req.body;
+    const userId = req.user.userId;
+
+    // Validate update data
+    if (updateData.username) {
+      const existingUser = await UserModel.findByUsername(updateData.username);
+      if (existingUser && existingUser.user_id !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Username already taken",
+        });
+      }
+    }
+
+    await UserModel.update(userId, updateData);
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update profile",
+    });
+  }
+});
+
+// ============================================
+// PROTECTED ROUTES (Admin only)
+// ============================================
+
+// Get all users (admin only)
+router.get("/", authenticate, authorize("admin"), async (req, res) => {
+  try {
+    const users = await UserModel.getAll(req.query.limit, req.query.offset);
+    res.json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    });
+  }
+});
+
+// ============================================
+// DYNAMIC ROUTES (Must be at the end)
+// ============================================
+
+// Get user by ID (public - limited data)
 router.get("/:userId", getUserById);
 
-// Update user
-router.put("/:userId", updateUser);
+// Update user by ID (admin only or self with CSRF)
+router.put("/:userId", authenticate, csrfProtection, async (req, res) => {
+  const { userId } = req.params;
+  const currentUser = req.user;
 
-// Get all users
-router.get("/", getAllUsers);
+  // Check if user is updating themselves or is admin
+  if (currentUser.userId !== userId && currentUser.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "You don't have permission to update this user",
+    });
+  }
+
+  // Call updateUser controller
+  await updateUser(req, res);
+});
 
 module.exports = router;

@@ -1,70 +1,97 @@
 {
-  "id": "SIASA",
-  "name": "SIASA - Political Platform",
-  "short_name": "SIASA",
-  "description": "Campaign Political Platform",
-  "version": "1.0.4",
-  "start_url": "/?source=pwa",
+  "name": "Siasa Hub",
+  "short_name": "SiasaHub",
+  "description": "Kenya's Political Campaign Command Center",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "orientation": "portrait-primary",
-  "categories": ["politics", "government", "social", "utility"],
+  "display_override": ["window-controls-overlay", "standalone"],
+  "theme_color": "#bb0000",
+  "background_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["news", "social", "productivity"],
   "icons": [
     {
-      "src": "./image/logo.png",
+      "src": "/image/logo.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./image/logo.png",
+      "src": "/image/logo.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/image/logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "./image/logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/screen1.png",
-      "sizes": "640x480",
-      "type": "image/png"
-    },
-    {
-      "src": "/screenshots/screen2.png",
-      "sizes": "640x480",
-      "type": "image/png"
     }
   ],
   "shortcuts": [
     {
-      "name": "New Funeral Entry",
-      "short_name": "New Entry",
-      "url": "/funerals/new",
-      "icons": [
-        {
-          "src": "/icons/shortcut-add.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
+      "name": "Marketplace",
+      "short_name": "Shop",
+      "description": "Browse campaign merchandise",
+      "url": "/marketplace",
+      "icons": [{ "src": "/image/logo.png", "sizes": "96x96" }]
     },
     {
-      "name": "View Dashboard",
-      "short_name": "Dashboard",
-      "url": "/dashboard",
-      "icons": [
-        {
-          "src": "/icons/shortcut-dashboard.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
+      "name": "Leaders",
+      "short_name": "Leaders",
+      "description": "View political leaders",
+      "url": "/leaders",
+      "icons": [{ "src": "/image/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Profile",
+      "short_name": "Profile",
+      "description": "Your profile",
+      "url": "/profile",
+      "icons": [{ "src": "/image/logo.png", "sizes": "96x96" }]
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home Screen"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
 }

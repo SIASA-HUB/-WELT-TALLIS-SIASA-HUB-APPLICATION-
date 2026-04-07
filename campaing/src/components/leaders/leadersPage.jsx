@@ -1,484 +1,690 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  Suspense,
+  lazy,
+} from "react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
-import {
-  Container,
-  Row,
-  Col,
-  Dropdown,
-  Button,
-  Spinner,
-  Alert,
-} from "react-bootstrap";
-import {
-  Search,
-  ChevronDown,
-  MapPin,
-  Briefcase,
-  Flag,
-  Sparkles,
-  Clock,
-  X,
-  LogIn,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-} from "lucide-react";
+import styled, { keyframes } from "styled-components";
+import LoadingBar from "react-top-loading-bar";
 import axios from "axios";
-import LeaderCard from "./leadersCard";
-import LeaderInsightPage from "./leaderInsights";
-import CampaignMarketplace from "../marketplace/market";
+import { useCounty } from "../../context/countyContext";
+import theme from "../../utils/theme";
+import stringSimilarity from "string-similarity";
+import { Search, X, TrendingUp, UserPlus, Clock } from "lucide-react";
+import BattleArena from "./battle/batlleArena";
+import TrendingManifestos from "./manifestos/TredingManifestos";
 
-// ============================================
-// NEW STYLED COMPONENTS FOR MARKETPLACE POSITIONING
-// ============================================
+// Lazy load non-critical components
+const LeaderCard = lazy(() => import("./leadersCard"));
 
-const MarketplaceHeader = styled.div`
-  margin-bottom: 2rem;
-  padding: 1rem;
-  background: #000;
-
-  overflow: hidden;
-  border: 1px solid #1e293b;
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
-// ============================================
-// EXISTING STYLED COMPONENTS
-// ============================================
+const pulse = keyframes`
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+`;
 
-const FilterBar = styled.div`
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  padding-bottom: 60px;
+`;
+
+const LoadingWrapper = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  pointer-events: none;
+`;
+
+// Sticky Search Bar
+const StickySearchWrapper = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   background: white;
-  border-radius: 20px;
-  padding: 1.2rem 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-  margin-bottom: 2rem;
-  border: 1px solid #f1f5f9;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: ${(props) =>
+    props.$hasScroll ? "0 2px 8px rgba(0, 0, 0, 0.05)" : "none"};
+  transition: box-shadow 0.2s ease;
 `;
 
-const SearchWrapper = styled.div`
-  flex: 2;
-  min-width: 280px;
+const SearchContainer = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 12px 20px;
   display: flex;
+  gap: 12px;
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 0 12px;
-  transition: all 0.2s ease;
-  &:focus-within {
-    border-color: #ff5c01;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(255, 92, 1, 0.1);
-  }
 `;
 
-const StyledInput = styled.input`
-  border: none;
-  background: transparent;
+const SearchInputWrapper = styled.div`
+  position: relative;
+  flex: 1;
+`;
+
+const SearchIcon = styled.div`
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+`;
+
+const SearchInput = styled.input`
   width: 100%;
-  padding: 12px 8px;
-  font-size: 0.95rem;
-  color: #1e293b;
-  outline: none;
-  &::placeholder {
-    color: #94a3b8;
-  }
-`;
-
-const FilterGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-`;
-
-const FilterChip = styled.button`
-  background: ${(props) => (props.active ? "#FF5C01" : "white")};
-  color: ${(props) => (props.active ? "white" : "#64748b")};
-  border: 1px solid ${(props) => (props.active ? "#FF5C01" : "#e2e8f0")};
-  border-radius: 40px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
+  padding: 8px 35px 8px 32px;
+  font-size: 13px;
   font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  border: 1.5px solid ${(props) => (props.$focused ? "#000" : "#e5e7eb")};
+  border-radius: 20px;
+  background: ${(props) => (props.$focused ? "#ffffff" : "#f9fafb")};
   transition: all 0.2s ease;
-  cursor: pointer;
-  &:hover {
-    border-color: #ff5c01;
-    transform: translateY(-1px);
-  }
-`;
+  outline: none;
 
-const StyledDropdown = styled(Dropdown)`
-  .dropdown-toggle {
-    display: none !important;
+  &::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+    font-size: 12px;
   }
-  .dropdown-menu {
-    border-radius: 16px !important;
-    border: 1px solid #e2e8f0 !important;
-    padding: 8px !important;
-    min-width: 200px !important;
-    max-height: 300px;
-    overflow-y: auto;
+
+  &:focus {
+    background: #ffffff;
+    border-color: #000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
 `;
 
 const ClearButton = styled.button`
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
-  color: #94a3b8;
-  padding: 8px;
-  border-radius: 50%;
+  cursor: pointer;
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-`;
+  color: #9ca3af;
+  transition: all 0.2s;
+  border-radius: 50%;
 
-const ActiveFiltersRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed #e2e8f0;
-`;
-
-const ActiveFilterBadge = styled.div`
-  background: #fff1e6;
-  color: #ff5c01;
-  padding: 4px 12px;
-  border-radius: 40px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  button {
-    background: none;
-    border: none;
-    color: #ff5c01;
+  &:hover {
+    color: #000;
+    background: rgba(0, 0, 0, 0.05);
   }
 `;
 
-const StatsRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 1rem 0 1.5rem;
-`;
-
-const CountBadge = styled.div`
+const RegisterButton = styled.button`
+  background: #000;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #1e293b;
-  background: #f8fafc;
-  padding: 6px 14px;
-  border-radius: 40px;
-  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #333;
+    transform: translateY(-1px);
+  }
+
   svg {
-    color: #ff5c01;
+    width: 16px;
+    height: 16px;
   }
 `;
 
-const TrendingSection = styled.div`
+const FilterChips = styled.div`
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 1rem;
-  padding: 0.5rem 1rem;
-  background: #fff9f5;
-  border-radius: 40px;
-  width: fit-content;
+  gap: 8px;
+  padding: 10px 20px 12px 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
-const TrendingBadge = styled.div`
+const FilterChip = styled.button`
+  padding: 5px 14px;
+  background: ${(props) => (props.$active ? "#000" : "#f3f4f6")};
+  color: ${(props) => (props.$active ? "#fff" : "#4b5563")};
+  border: none;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${(props) => (props.$active ? "#000" : "#e5e7eb")};
+    transform: translateY(-1px);
+  }
+`;
+
+const SearchResult = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  background: #f9fafb;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+`;
+
+const ResultText = styled.div`
+  font-size: 13px;
+  color: #6b7280;
   display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  strong {
+    color: #000;
+    font-weight: 700;
+  }
+
+  .highlight {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+`;
+
+const FeedContainer = styled.div`
+  max-width: 1200px;
+  padding-bottom: 80px;
+  margin: 0 auto;
+`;
+
+const Section = styled.div`
+  margin-bottom: 30px;
+  animation: ${fadeIn} 0.5s ease-out both;
+  animation-delay: ${(props) => props.$delay || "0s"};
+`;
+
+const SectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  margin-bottom: 12px;
+  margin-top: 16px;
+
+  h2 {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #000;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .count {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+    background: #f5f5f5;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+`;
+
+const Tray = styled.div`
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 20px 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  & > * {
+    flex-shrink: 0;
+  }
+`;
+
+const SkeletonCard = styled.div`
+  width: 260px;
+  height: 140px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: ${pulse} 1.5s ease-in-out infinite;
+  border-radius: 12px;
+  flex-shrink: 0;
+`;
+
+const SkeletonLeaderCard = styled.div`
+  width: 200px;
+  height: 120px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: ${pulse} 1.5s ease-in-out infinite;
+  border-radius: 10px;
+  flex-shrink: 0;
+`;
+
+const EmptyState = styled.div`
+  padding: 80px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+
+  svg {
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 8px 0;
+  }
+
+  .suggestion {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 8px;
+  }
+`;
+
+const PendingBadge = styled.div`
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #ff5c01;
-  font-size: 0.8rem;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
   font-weight: 600;
+  margin-left: 8px;
 `;
 
-const TrendingTag = styled.button`
-  background: white;
-  border: 1px solid #ffe4d6;
-  border-radius: 30px;
-  padding: 4px 12px;
-  font-size: 0.75rem;
-  color: #64748b;
-  &:hover {
-    background: #ff5c01;
-    color: white;
+// Position categories
+const POSITION_CATEGORIES = [
+  { name: "President", keywords: ["president", "presidential"], order: 1 },
+  { name: "Governor", keywords: ["governor", "gov"], order: 2 },
+  { name: "Senator", keywords: ["senator", "senate"], order: 3 },
+  {
+    name: "Women Rep",
+    keywords: ["women rep", "woman rep", "women representative"],
+    order: 4,
+  },
+  { name: "MP", keywords: ["mp", "member of parliament"], order: 5 },
+  { name: "MCA", keywords: ["mca", "county assembly"], order: 6 },
+  { name: "Other", keywords: [], order: 7 },
+];
+
+const findCategory = (str) => {
+  if (!str) return { name: "Other", order: 7 };
+  const clean = str.toLowerCase().trim();
+
+  for (const category of POSITION_CATEGORIES) {
+    for (const keyword of category.keywords) {
+      if (clean.includes(keyword)) {
+        return { name: category.name, order: category.order };
+      }
+    }
   }
-`;
+  return { name: "Other", order: 7 };
+};
 
-const LoginButton = styled(Button)`
-  border-radius: 40px;
-  padding: 0.4rem 1.2rem;
-  background: white;
-  color: #ff5c01;
-  border: 1px solid #ff5c01;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 10;
-  &:hover {
-    background: #ff5c01;
-    color: white;
-  }
-`;
+const getDisplayName = (category) => {
+  if (category === "President") return "Presidential Candidates";
+  if (category === "Other") return "Other Aspirants";
+  return category + "s";
+};
 
-const PaginationContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2.5rem;
-`;
+// Search function
+const searchLeaders = (leaders, searchTerm) => {
+  if (!searchTerm.trim()) return leaders;
 
-const PageButton = styled(Button)`
-  background: ${(props) => (props.active ? "#FF5C01" : "white")};
-  color: ${(props) => (props.active ? "white" : "#64748b")};
-  border: 1px solid ${(props) => (props.active ? "#FF5C01" : "#e2e8f0")};
-  border-radius: 10px;
-  padding: 6px 12px;
-`;
+  const term = searchTerm.toLowerCase().trim();
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
+  return leaders.filter((leader) => {
+    const name = (leader.name || "").toLowerCase();
+    if (name.includes(term)) return true;
+    if (leader.party?.toLowerCase().includes(term)) return true;
+    const position = (
+      leader.position_running_for ||
+      leader.position ||
+      ""
+    ).toLowerCase();
+    if (position.includes(term)) return true;
+    if (leader.county?.toLowerCase().includes(term)) return true;
+    const similarity = stringSimilarity.compareTwoStrings(name, term);
+    if (similarity > 0.65) return true;
+    return false;
+  });
+};
 
 const LeadersPage = () => {
   const navigate = useNavigate();
   const [leaders, setLeaders] = useState([]);
-  const [filteredLeaders, setFilteredLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPosition, setSelectedPosition] = useState("All");
-  const [selectedCounty, setSelectedCounty] = useState("All");
-  const [selectedParty, setSelectedParty] = useState("All");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const loadingBarRef = useRef(null);
+  const { selectedCounty } = useCounty();
+  const dataFetchedRef = useRef(false);
 
-  const [trendingSearches, setTrendingSearches] = useState([]);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [selectedLeader, setSelectedLeader] = useState(null);
-  const [showInsights, setShowInsights] = useState(false);
-  const [likedLeaders, setLikedLeaders] = useState(new Set());
-  const [dislikedLeaders, setDislikedLeaders] = useState(new Set());
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(12);
-
-  const API_BASE_URL =
-    "https://bundle-unexpected-sustainability-idol.trycloudflare.com/api/v1/leaders";
-
-  // Fetch Logic
   useEffect(() => {
-    const fetchLeaders = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/leaders`);
-        const data = response.data.data || response.data;
-        setLeaders(data);
-        setFilteredLeaders(data);
-      } catch (err) {
-        setError("Unable to load data");
-      } finally {
-        setLoading(false);
-      }
+    const handleScroll = () => {
+      setHasScrolled(window.scrollY > 10);
     };
-    fetchLeaders();
-    setIsLoggedIn(localStorage.getItem("isAuthenticated") === "true");
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Filter Logic
+  // Fetch leaders
+  // Fetch leaders - Show ALL aspirants (no status filter)
   useEffect(() => {
-    let results = [...leaders];
-    if (searchTerm) {
-      results = results.filter((l) =>
-        l.name?.toLowerCase().includes(searchTerm.toLowerCase()),
-      );
-    }
-    if (selectedPosition !== "All")
-      results = results.filter((l) => l.position === selectedPosition);
-    if (selectedCounty !== "All")
-      results = results.filter((l) => l.county === selectedCounty);
-    if (selectedParty !== "All")
-      results = results.filter((l) => l.party === selectedParty);
-    setFilteredLeaders(results);
-  }, [searchTerm, selectedPosition, selectedCounty, selectedParty, leaders]);
+    const fetchLeaders = async () => {
+      if (dataFetchedRef.current) return;
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 400, behavior: "smooth" });
+      if (loadingBarRef.current) {
+        loadingBarRef.current.continuousStart(30);
+      }
+
+      try {
+        const res = await axios.get("http://localhost:8002/api/v1/leaders", {
+          timeout: 8000,
+        });
+
+        if (res.data?.data) {
+          // Show ALL leaders - no status filter
+          setLeaders(res.data.data);
+          setError(null);
+        } else {
+          setLeaders([]);
+          setError("No data available");
+        }
+
+        dataFetchedRef.current = true;
+      } catch (err) {
+        console.error("Error fetching leaders:", err);
+        setError(err.message || "Failed to load leaders");
+        setLeaders([]);
+      } finally {
+        setLoading(false);
+        if (loadingBarRef.current) {
+          loadingBarRef.current.complete();
+        }
+      }
+    };
+
+    fetchLeaders();
+  }, []);
+
+  // Get unique positions from active leaders only
+  const uniquePositions = useMemo(() => {
+    const positions = new Set();
+    leaders.forEach((leader) => {
+      const pos = leader.position_running_for || leader.position;
+      if (pos) {
+        const category = findCategory(pos).name;
+        if (category !== "Other") {
+          positions.add(category);
+        }
+      }
+    });
+    return ["All", ...Array.from(positions).sort()];
+  }, [leaders]);
+
+  // Filter leaders
+  const filteredLeaders = useMemo(() => {
+    if (!leaders.length) return [];
+
+    const isNational =
+      !selectedCounty || ["Kenya", "All"].includes(selectedCounty);
+
+    let filtered = isNational
+      ? leaders
+      : leaders.filter(
+          (l) => l.county?.toLowerCase() === selectedCounty.toLowerCase(),
+        );
+
+    filtered = searchLeaders(filtered, searchTerm);
+
+    if (selectedPosition !== "All") {
+      filtered = filtered.filter((leader) => {
+        const pos = leader.position_running_for || leader.position;
+        return findCategory(pos).name === selectedPosition;
+      });
+    }
+
+    return filtered;
+  }, [leaders, selectedCounty, searchTerm, selectedPosition]);
+
+  // Group by position
+  const groupedData = useMemo(() => {
+    if (!filteredLeaders.length) return [];
+
+    const groups = {};
+
+    filteredLeaders.forEach((leader) => {
+      const position = leader.position_running_for || leader.position || "";
+      const category = findCategory(position);
+
+      if (!groups[category.name]) {
+        groups[category.name] = {
+          title: category.name,
+          list: [],
+          order: category.order,
+          displayName: getDisplayName(category.name),
+        };
+      }
+      groups[category.name].list.push(leader);
+    });
+
+    return Object.values(groups).sort((a, b) => a.order - b.order);
+  }, [filteredLeaders]);
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setSelectedPosition("All");
   };
 
-  if (showInsights && selectedLeader) {
+  const handleRegisterClick = () => {
+    navigate("/register-aspirant");
+  };
+
+  if (loading) {
     return (
-      <LeaderInsightPage
-        leaderId={selectedLeader.id}
-        onBack={() => setShowInsights(false)}
-      />
+      <PageWrapper>
+        <LoadingWrapper>
+          <LoadingBar ref={loadingBarRef} color="#000" height={2} />
+        </LoadingWrapper>
+        <StickySearchWrapper>
+          <SearchContainer>
+            <SearchInputWrapper>
+              <SearchIcon>
+                <Search size={14} />
+              </SearchIcon>
+              <SearchInput
+                type="text"
+                placeholder="Search aspirant..."
+                disabled
+                style={{ background: "#f0f0f0" }}
+              />
+            </SearchInputWrapper>
+            <RegisterButton disabled style={{ opacity: 0.5 }}>
+              <UserPlus size={14} /> Register
+            </RegisterButton>
+          </SearchContainer>
+        </StickySearchWrapper>
+        <FeedContainer>
+          {[1, 2, 3].map((i) => (
+            <Section key={i}>
+              <SectionHeader>
+                <h2>Loading...</h2>
+                <span className="count">—</span>
+              </SectionHeader>
+              <Tray>
+                <SkeletonCard />
+                <SkeletonLeaderCard />
+                <SkeletonLeaderCard />
+              </Tray>
+            </Section>
+          ))}
+        </FeedContainer>
+      </PageWrapper>
     );
   }
 
   return (
-    <Container className="py-4" style={{ position: "relative" }}>
-      {!isLoggedIn && (
-        <LoginButton onClick={() => navigate("/login")}>
-          <LogIn size={14} className="me-1" /> Login
-        </LoginButton>
+    <PageWrapper>
+      <LoadingWrapper>
+        <LoadingBar ref={loadingBarRef} color="#000" height={2} />
+      </LoadingWrapper>
+
+      <StickySearchWrapper $hasScroll={hasScrolled}>
+        <SearchContainer>
+          <SearchInputWrapper>
+            <SearchIcon>
+              <Search size={14} />
+            </SearchIcon>
+            <SearchInput
+              type="text"
+              placeholder="Search aspirant..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              $focused={isSearchFocused}
+            />
+            {searchTerm && (
+              <ClearButton onClick={clearSearch}>
+                <X size={12} />
+              </ClearButton>
+            )}
+          </SearchInputWrapper>
+          <RegisterButton onClick={handleRegisterClick}>
+            <UserPlus size={14} /> Register Aspirant
+          </RegisterButton>
+        </SearchContainer>
+
+        <TrendingManifestos leaders={leaders} compact={true} />
+
+        {uniquePositions.length > 1 && (
+          <FilterChips>
+            {uniquePositions.map((pos) => (
+              <FilterChip
+                key={pos}
+                $active={selectedPosition === pos}
+                onClick={() => setSelectedPosition(pos)}
+              >
+                {pos === "All" ? "All" : pos}
+              </FilterChip>
+            ))}
+          </FilterChips>
+        )}
+      </StickySearchWrapper>
+
+      {searchTerm && (
+        <SearchResult>
+          <ResultText>
+            <TrendingUp size={14} />
+            Found <strong>{filteredLeaders.length}</strong> aspirant
+            {filteredLeaders.length !== 1 ? "s" : ""} matching "
+            <strong>{searchTerm}</strong>"
+          </ResultText>
+        </SearchResult>
       )}
 
-      {/* 1. CAMPAIGN MARKETPLACE AT THE TOP */}
-      <MarketplaceHeader>
-        <CampaignMarketplace />
-      </MarketplaceHeader>
+      <FeedContainer>
+        {groupedData.length > 0 ? (
+          groupedData.map((group, index) => (
+            <Section key={group.title} $delay={`${index * 0.1}s`}>
+              <SectionHeader>
+                <h2>
+                  {group.displayName}
+                  {group.list.some((l) => l.status === "pending") && (
+                    <PendingBadge>
+                      <Clock size={10} /> Pending Approval
+                    </PendingBadge>
+                  )}
+                </h2>
+                <span className="count">{group.list.length}</span>
+              </SectionHeader>
 
-      {/* 2. MAIN FILTER BAR */}
-      <FilterBar>
-        <SearchWrapper>
-          <Search size={18} color="#94a3b8" />
-          <StyledInput
-            placeholder="Search leaders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {searchTerm && (
-            <ClearButton onClick={() => setSearchTerm("")}>
-              <X size={16} />
-            </ClearButton>
-          )}
-        </SearchWrapper>
+              <Tray>
+                <Suspense fallback={<SkeletonCard />}></Suspense>
 
-        <FilterGroup>
-          <StyledDropdown>
-            <Dropdown.Toggle id="pos-drop" />
-            <FilterChip
-              active={selectedPosition !== "All"}
-              onClick={() => document.getElementById("pos-drop").click()}
-            >
-              <Briefcase size={14} />{" "}
-              {selectedPosition === "All" ? "Position" : selectedPosition}{" "}
-              <ChevronDown size={12} />
-            </FilterChip>
-            <Dropdown.Menu>
-              {["All", ...new Set(leaders.map((l) => l.position))].map((p) => (
-                <Dropdown.Item key={p} onClick={() => setSelectedPosition(p)}>
-                  {p}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </StyledDropdown>
-
-          <StyledDropdown>
-            <Dropdown.Toggle id="cty-drop" />
-            <FilterChip
-              active={selectedCounty !== "All"}
-              onClick={() => document.getElementById("cty-drop").click()}
-            >
-              <MapPin size={14} />{" "}
-              {selectedCounty === "All" ? "County" : selectedCounty}{" "}
-              <ChevronDown size={12} />
-            </FilterChip>
-            <Dropdown.Menu>
-              {["All", ...new Set(leaders.map((l) => l.county))].map((c) => (
-                <Dropdown.Item key={c} onClick={() => setSelectedCounty(c)}>
-                  {c}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </StyledDropdown>
-
-          {(searchTerm ||
-            selectedPosition !== "All" ||
-            selectedCounty !== "All") && (
-            <FilterChip
-              style={{ background: "#f1f5f9" }}
-              onClick={() => {
-                setSearchTerm("");
-                setSelectedPosition("All");
-                setSelectedCounty("All");
-              }}
-            >
-              <X size={14} /> Clear
-            </FilterChip>
-          )}
-        </FilterGroup>
-      </FilterBar>
-
-      {/* 3. RESULTS STATS */}
-      <StatsRow>
-        <CountBadge>
-          <Sparkles size={14} /> {filteredLeaders.length} leaders found
-        </CountBadge>
-        <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
-          <Clock size={12} /> {new Date().toLocaleDateString()}
-        </div>
-      </StatsRow>
-
-      {/* 4. LEADERS GRID */}
-      {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" style={{ color: "#FF5C01" }} />
-        </div>
-      ) : (
-        <>
-          <Row className="g-4">
-            {filteredLeaders
-              .slice(
-                (currentPage - 1) * itemsPerPage,
-                currentPage * itemsPerPage,
-              )
-              .map((leader) => (
-                <Col key={leader.id} xs={12} sm={6} lg={4} xl={3}>
-                  <LeaderCard
-                    leader={leader}
-                    onViewInsights={() => {
-                      setSelectedLeader(leader);
-                      setShowInsights(true);
-                    }}
-                    isLiked={likedLeaders.has(leader.id)}
-                    isDisliked={dislikedLeaders.has(leader.id)}
-                  />
-                </Col>
-              ))}
-          </Row>
-
-          {/* Pagination */}
-          {filteredLeaders.length > itemsPerPage && (
-            <PaginationContainer>
-              <PageButton
-                disabled={currentPage === 1}
-                onClick={() => handlePageChange(currentPage - 1)}
-              >
-                <ChevronLeft size={16} />
-              </PageButton>
-              <PageButton active>{currentPage}</PageButton>
-              <PageButton
-                disabled={currentPage * itemsPerPage >= filteredLeaders.length}
-                onClick={() => handlePageChange(currentPage + 1)}
-              >
-                <ChevronRight size={16} />
-              </PageButton>
-            </PaginationContainer>
-          )}
-        </>
-      )}
-    </Container>
+                {group.list.map((leader) => (
+                  <Suspense
+                    key={leader.leader_id}
+                    fallback={<SkeletonLeaderCard />}
+                  >
+                    <LeaderCard leader={leader} />
+                  </Suspense>
+                ))}
+              </Tray>
+            </Section>
+          ))
+        ) : (
+          <EmptyState>
+            <Search size={48} strokeWidth={1.5} />
+            <p>No aspirant found</p>
+            {searchTerm && (
+              <>
+                <p>We couldn't find "{searchTerm}"</p>
+                <p className="suggestion">
+                  Try checking the spelling or use just first/last name
+                </p>
+                <button
+                  onClick={clearSearch}
+                  style={{
+                    marginTop: 20,
+                    padding: "8px 20px",
+                    background: "#000",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 20,
+                    cursor: "pointer",
+                    fontSize: "13px",
+                  }}
+                >
+                  Clear search
+                </button>
+              </>
+            )}
+          </EmptyState>
+        )}
+      </FeedContainer>
+    </PageWrapper>
   );
 };
 

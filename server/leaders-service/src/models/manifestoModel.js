@@ -1,102 +1,156 @@
 const { safeQuery } = require("../configurations/db");
 const { getKenyaTimeISO } = require("../utils/timestamps/timeStamp");
-
-//  manifesto     model
+const crypto = require("crypto");
 
 class ManifestoModel {
-  /**
-   * Generate a unique manifesto ID
-   */
-  static generateManifestoId() {
-    const prefix = "MAN";
-    const randomPart = Math.random()
-      .toString(36)
-      .substring(2, 10)
-      .toUpperCase();
-
-    return `${prefix}-${randomPart}`;
+  static generateUUID() {
+    return crypto.randomUUID();
   }
 
-  /**
-   * Create a new manifesto
-   */
-  static async create(leader_id, main_agenda, agenda_items) {
-    const created_at = getKenyaTimeISO();
+  static generateAgendaItemId() {
+    return crypto.randomUUID();
+  }
 
-    const result = await safeQuery(
-      `INSERT INTO manifestos (leader_id, main_agenda, agenda_items, created_at)
-       VALUES (?, ?, ?, ?)`,
-      [leader_id, main_agenda, JSON.stringify(agenda_items), created_at],
+  static async create(leader_id, main_agenda, agenda_items) {
+    const manifesto_id = this.generateUUID();
+    const now = getKenyaTimeISO();
+
+    // Add unique IDs to each agenda item
+    const agendaItemsWithIds = agenda_items.map((item, index) => ({
+      id: this.generateAgendaItemId(),
+      index: index,
+      title: item.title,
+      description: item.description,
+    }));
+
+    await safeQuery(
+      `INSERT INTO manifestos (manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        manifesto_id,
+        leader_id,
+        main_agenda,
+        JSON.stringify(agendaItemsWithIds), // Store as JSON string
+        now,
+        now,
+      ],
     );
 
     return {
-      manifesto_id: result.insertId,
+      manifesto_id,
       leader_id,
       main_agenda,
-      agenda_items,
-      created_at,
+      agenda_items: agendaItemsWithIds,
+      created_at: now,
     };
   }
 
-  /**
-   * Update an existing manifesto
-   */
   static async update(manifesto_id, main_agenda, agenda_items) {
+    const now = getKenyaTimeISO();
+
+    const agendaItemsWithIds = agenda_items.map((item, index) => ({
+      id: item.id || this.generateAgendaItemId(),
+      index: index,
+      title: item.title,
+      description: item.description,
+    }));
+
     await safeQuery(
       `UPDATE manifestos
-       SET main_agenda = ?, agenda_items = ?
+       SET main_agenda = ?, agenda_items = ?, updated_at = ?
        WHERE manifesto_id = ?`,
-      [main_agenda, JSON.stringify(agenda_items), manifesto_id],
+      [main_agenda, JSON.stringify(agendaItemsWithIds), now, manifesto_id],
     );
-
-    return { manifesto_id, main_agenda, agenda_items };
+    return { manifesto_id, main_agenda, agenda_items: agendaItemsWithIds };
   }
 
-  /**
-   * Find manifesto by leader ID
-   */
   static async findByLeaderId(leader_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at
+      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at
        FROM manifestos
-       WHERE leader_id = ?`,
+       WHERE leader_id = ?
+       ORDER BY created_at DESC`,
       [leader_id],
     );
 
-    return rows.map((item) => ({
-      ...item,
-      agenda_items:
-        typeof item.agenda_items === "string"
-          ? JSON.parse(item.agenda_items)
-          : item.agenda_items,
-    }));
+    if (!rows || rows.length === 0) return [];
+
+    return rows.map((item) => {
+      let agendaItems = item.agenda_items;
+
+      // Parse if it's a string
+      if (typeof agendaItems === "string") {
+        try {
+          agendaItems = JSON.parse(agendaItems);
+        } catch (e) {
+          console.error("Error parsing agenda_items:", e);
+          agendaItems = [];
+        }
+      }
+
+      // Handle case where agenda_items might be an array of strings
+      if (Array.isArray(agendaItems) && agendaItems.length > 0) {
+        agendaItems = agendaItems.map((agendaItem) => {
+          // If agenda item is a string, parse it
+          if (typeof agendaItem === "string") {
+            try {
+              return JSON.parse(agendaItem);
+            } catch (e) {
+              return agendaItem;
+            }
+          }
+          return agendaItem;
+        });
+      }
+
+      return {
+        ...item,
+        agenda_items: agendaItems,
+      };
+    });
   }
 
-  /**
-   * Find manifesto by manifesto ID
-   */
   static async findById(manifesto_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at
+      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at
        FROM manifestos
        WHERE manifesto_id = ?`,
       [manifesto_id],
     );
-
     if (rows.length === 0) return null;
+
+    let agendaItems = rows[0].agenda_items;
+
+    // Parse if it's a string
+    if (typeof agendaItems === "string") {
+      try {
+        agendaItems = JSON.parse(agendaItems);
+      } catch (e) {
+        console.error("Error parsing agenda_items:", e);
+        agendaItems = [];
+      }
+    }
+
+    // Handle case where agenda_items might be an array of strings
+    if (Array.isArray(agendaItems) && agendaItems.length > 0) {
+      agendaItems = agendaItems.map((agendaItem) => {
+        if (typeof agendaItem === "string") {
+          try {
+            return JSON.parse(agendaItem);
+          } catch (e) {
+            return agendaItem;
+          }
+        }
+        return agendaItem;
+      });
+    }
 
     return {
       ...rows[0],
-      agenda_items:
-        typeof rows[0].agenda_items === "string"
-          ? JSON.parse(rows[0].agenda_items)
-          : rows[0].agenda_items,
+      agenda_items: agendaItems,
     };
   }
 
-  /**
-   * Check if manifesto exists
-   */
   static async exists(manifesto_id) {
     const rows = await safeQuery(
       `SELECT 1 FROM manifestos WHERE manifesto_id = ?`,
@@ -105,9 +159,6 @@ class ManifestoModel {
     return rows.length > 0;
   }
 
-  /**
-   * Delete manifesto (if needed)
-   */
   static async delete(manifesto_id) {
     await safeQuery(`DELETE FROM manifestos WHERE manifesto_id = ?`, [
       manifesto_id,

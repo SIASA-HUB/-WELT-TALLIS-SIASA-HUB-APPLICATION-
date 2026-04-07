@@ -36,7 +36,7 @@ const LeaderService = {
       youtube,
       website,
       primary_image = 0,
-      images: processedImages, // This will come from the image processing middleware
+      images: processedImages,
     } = data;
 
     // Validate required fields
@@ -92,12 +92,12 @@ const LeaderService = {
       JSON.stringify(tagsData),
       education || null,
       experience || null,
-      "active",
+      "pending",
       now,
       now,
     ]);
 
-    // Handle image uploads - USING THE PROCESSED IMAGES FROM MIDDLEWARE
+    // Handle image uploads
     const imageUrls = [];
     if (processedImages && processedImages.length > 0) {
       for (let i = 0; i < processedImages.length; i++) {
@@ -109,7 +109,6 @@ const LeaderService = {
             img.is_primary || i === parseInt(primary_image) ? 1 : 0;
           const imageId = `img_${Date.now()}_${i}`;
 
-          // Store all image versions and metadata
           await safeQuery(
             `INSERT INTO leader_images (
               image_id, leader_id, image_url, public_id, 
@@ -136,18 +135,14 @@ const LeaderService = {
           Logger.error("Image upload error:", uploadError);
         }
       }
-    }
-    // FALLBACK: If no processed images but files exist (direct upload without middleware)
-    else if (files && files.length > 0) {
+    } else if (files && files.length > 0) {
       Logger.warn(
         "Files provided but not processed by middleware - using fallback upload",
       );
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-          // Upload to cloudinary using your enhanced function
           const result = await uploadToCloudinary(file.buffer);
-
           imageUrls.push(result.url);
 
           const isPrimary = i === parseInt(primary_image) ? 1 : 0;
@@ -219,13 +214,11 @@ const LeaderService = {
     };
   },
 
-  // ===== GET ALL LEADERS WITH CACHE =====
-
+  // ===== GET ALL LEADERS WITH CACHE (No likes/comments) =====
   async getAllLeaders(redisClient, Logger) {
     const cacheKey = `leaders:all:simple`;
 
     try {
-      // Try to get from cache first
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         Logger.info(`[CACHE HIT] getAllLeaders`);
@@ -234,47 +227,61 @@ const LeaderService = {
 
       Logger.info(`[CACHE MISS] getAllLeaders`);
 
-      // Simple query - get ALL leaders, no filters, no pagination
       const leaders = await safeQuery(
         `SELECT 
-        leader_id, name, party, position, slogan, 
-        county, constituency, ward, location,
-        image_url, verification, education, status, created_at
-      FROM leaders
-      ORDER BY created_at DESC`,
+          leader_id, name, party, position, slogan, 
+          county, constituency, ward, location,
+          image_url, verification, education, experience, status, created_at
+        FROM leaders
+        WHERE status = 'active'
+        ORDER BY created_at DESC`,
         [],
       );
 
-      // Optional: Add like counts if tables exist (but don't break if they don't)
+      // Only get views and followers counts
       try {
-        // Get like counts for all leaders in one query
         const leaderIds = leaders.map((l) => l.leader_id);
 
         if (leaderIds.length > 0) {
           const placeholders = leaderIds.map(() => "?").join(",");
 
-          const likeCounts = await safeQuery(
+          const viewCounts = await safeQuery(
             `SELECT leader_id, COUNT(*) as count 
-           FROM leader_likes 
-           WHERE leader_id IN (${placeholders})
-           GROUP BY leader_id`,
+             FROM leader_views 
+             WHERE leader_id IN (${placeholders})
+             GROUP BY leader_id`,
             leaderIds,
           );
 
-          const likesMap = {};
-          likeCounts.forEach((item) => {
-            likesMap[item.leader_id] = item.count;
+          const followerCounts = await safeQuery(
+            `SELECT leader_id, COUNT(*) as count 
+             FROM leader_followers 
+             WHERE leader_id IN (${placeholders})
+             GROUP BY leader_id`,
+            leaderIds,
+          );
+
+          const viewsMap = {};
+          const followersMap = {};
+
+          viewCounts.forEach((item) => {
+            viewsMap[item.leader_id] = item.count;
+          });
+
+          followerCounts.forEach((item) => {
+            followersMap[item.leader_id] = item.count;
           });
 
           leaders.forEach((leader) => {
-            leader.likes = likesMap[leader.leader_id] || 0;
+            leader.views = viewsMap[leader.leader_id] || 0;
+            leader.followers = followersMap[leader.leader_id] || 0;
           });
         }
       } catch (err) {
-        // If likes table doesn't exist, just set to 0
-        Logger.warn("Could not fetch like counts:", err.message);
+        Logger.warn("Could not fetch view/follower counts:", err.message);
         leaders.forEach((leader) => {
-          leader.likes = 0;
+          leader.views = 0;
+          leader.followers = 0;
         });
       }
 
@@ -283,7 +290,6 @@ const LeaderService = {
         count: leaders.length,
       };
 
-      // Cache for 10 minutes
       await redisClient.set(cacheKey, JSON.stringify(result), { EX: 600 });
 
       return result;
@@ -293,12 +299,11 @@ const LeaderService = {
     }
   },
 
-  // ===== GET LEADER BY ID WITH CACHE =====
+  // ===== GET LEADER BY ID WITH CACHE (No likes/comments) =====
   async getLeaderById(leaderId, redisClient, Logger) {
     const cacheKey = `leader:${leaderId}`;
 
     try {
-      // Try to get from cache first
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         Logger.info(`[CACHE HIT] getLeaderById: ${leaderId}`);
@@ -307,7 +312,6 @@ const LeaderService = {
 
       Logger.info(`[CACHE MISS] getLeaderById: ${leaderId}`);
 
-      // Get leader details
       const leader = await safeQueryOne(
         `SELECT 
           leader_id, name, party, slogan, motto, position, position_running_for,
@@ -322,16 +326,8 @@ const LeaderService = {
         return null;
       }
 
-      // Get stats
-      const [likes, dislikes, views, followers] = await Promise.all([
-        safeQueryOne(
-          `SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`,
-          [leaderId],
-        ),
-        safeQueryOne(
-          `SELECT COUNT(*) as count FROM leader_dislikes WHERE leader_id = ?`,
-          [leaderId],
-        ),
+      // Only get views and followers stats
+      const [views, followers] = await Promise.all([
         safeQueryOne(
           `SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`,
           [leaderId],
@@ -386,8 +382,6 @@ const LeaderService = {
       const result = {
         ...leader,
         stats: {
-          likes: likes?.count || 0,
-          dislikes: dislikes?.count || 0,
           views: views?.count || 0,
           followers: followers?.count || 0,
         },
@@ -398,7 +392,6 @@ const LeaderService = {
         parsed_tags: parsedTags,
       };
 
-      // Cache for 10 minutes (600 seconds)
       await redisClient.set(cacheKey, JSON.stringify(result), { EX: 600 });
 
       return result;
@@ -415,14 +408,12 @@ const LeaderService = {
     const cacheKey = `leaders:search:${query}:page=${page}`;
 
     try {
-      // Try cache first
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         Logger.info(`[CACHE HIT] searchLeaders: ${query}`);
         return JSON.parse(cachedData);
       }
 
-      // Get total count
       const countResult = await safeQueryOne(
         `SELECT COUNT(*) as total FROM leaders 
          WHERE status = 'active' 
@@ -443,14 +434,14 @@ const LeaderService = {
       );
       const total = countResult?.total || 0;
 
-      // Search leaders with relevance ranking
       const leaders = await safeQuery(
         `SELECT 
           l.leader_id, l.name, l.party, l.position, l.slogan,
           l.county, l.constituency, l.ward, l.image_url,
           l.verification, l.created_at,
           (SELECT thumbnail_url FROM leader_images WHERE leader_id = l.leader_id AND is_primary = 1 LIMIT 1) as thumbnail_image,
-          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) as likes,
+          (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as views,
+          (SELECT COUNT(*) FROM leader_followers WHERE leader_id = l.leader_id) as followers,
           CASE 
             WHEN l.name LIKE ? THEN 3
             WHEN l.party LIKE ? THEN 2
@@ -496,7 +487,6 @@ const LeaderService = {
         },
       };
 
-      // Cache for 5 minutes
       await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
 
       return result;
@@ -528,7 +518,8 @@ const LeaderService = {
           leader_id, name, party, position, county, constituency,
           image_url, verification, created_at,
           (SELECT thumbnail_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1) as thumbnail_image,
-          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = leaders.leader_id) as likes
+          (SELECT COUNT(*) FROM leader_views WHERE leader_id = leaders.leader_id) as views,
+          (SELECT COUNT(*) FROM leader_followers WHERE leader_id = leaders.leader_id) as followers
         FROM leaders
         WHERE status = 'active' AND party = ?
         ORDER BY created_at DESC
@@ -576,7 +567,9 @@ const LeaderService = {
         `SELECT 
           leader_id, name, party, position, constituency, ward,
           image_url, verification, created_at,
-          (SELECT thumbnail_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1) as thumbnail_image
+          (SELECT thumbnail_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1) as thumbnail_image,
+          (SELECT COUNT(*) FROM leader_views WHERE leader_id = leaders.leader_id) as views,
+          (SELECT COUNT(*) FROM leader_followers WHERE leader_id = leaders.leader_id) as followers
         FROM leaders
         WHERE status = 'active' AND county = ?
         ORDER BY created_at DESC
@@ -624,7 +617,6 @@ const LeaderService = {
       const updates = [];
       const values = [];
 
-      // Allowed fields for update
       const allowedFields = [
         "name",
         "party",
@@ -666,7 +658,6 @@ const LeaderService = {
       const query = `UPDATE leaders SET ${updates.join(", ")} WHERE leader_id = ?`;
       await safeQuery(query, values);
 
-      // Clear all related caches
       await this.clearLeaderCaches(leaderId, redisClient);
 
       return { leader_id: leaderId, ...updateData };
@@ -693,7 +684,6 @@ const LeaderService = {
         [getKenyaTimeISO(), leaderId],
       );
 
-      // Clear all related caches
       await this.clearLeaderCaches(leaderId, redisClient);
 
       return true;
@@ -711,15 +701,9 @@ const LeaderService = {
         [leaderId, type, url],
       );
 
-      // Clear leader cache
       await redisClient.del(`leader:${leaderId}`);
 
-      return {
-        id: result.insertId,
-        leader_id: leaderId,
-        type,
-        url,
-      };
+      return { id: result.insertId, leader_id: leaderId, type, url };
     } catch (error) {
       Logger.error("Error in addSocialLink service:", error);
       throw error;
@@ -734,7 +718,6 @@ const LeaderService = {
         [leaderId, linkId],
       );
 
-      // Clear leader cache
       await redisClient.del(`leader:${leaderId}`);
 
       return true;
@@ -744,7 +727,7 @@ const LeaderService = {
     }
   },
 
-  // ===== GET LEADER STATS =====
+  // ===== GET LEADER STATS (Only views and followers) =====
   async getLeaderStats(leaderId, redisClient, Logger) {
     const cacheKey = `leader:stats:${leaderId}`;
 
@@ -754,15 +737,7 @@ const LeaderService = {
         return JSON.parse(cachedData);
       }
 
-      const [likes, dislikes, views, followers] = await Promise.all([
-        safeQueryOne(
-          `SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`,
-          [leaderId],
-        ),
-        safeQueryOne(
-          `SELECT COUNT(*) as count FROM leader_dislikes WHERE leader_id = ?`,
-          [leaderId],
-        ),
+      const [views, followers] = await Promise.all([
         safeQueryOne(
           `SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`,
           [leaderId],
@@ -774,8 +749,6 @@ const LeaderService = {
       ]);
 
       const stats = {
-        likes: likes?.count || 0,
-        dislikes: dislikes?.count || 0,
         views: views?.count || 0,
         followers: followers?.count || 0,
       };
@@ -789,7 +762,7 @@ const LeaderService = {
     }
   },
 
-  // ===== GET FEATURED LEADERS =====
+  // ===== GET FEATURED LEADERS (By views and followers) =====
   async getFeaturedLeaders(limit = 10, redisClient, Logger) {
     const cacheKey = `leaders:featured:${limit}`;
 
@@ -805,13 +778,11 @@ const LeaderService = {
           l.county,
           (SELECT thumbnail_url FROM leader_images WHERE leader_id = l.leader_id AND is_primary = 1 LIMIT 1) as thumbnail_image,
           (SELECT image_url FROM leader_images WHERE leader_id = l.leader_id AND is_primary = 1 LIMIT 1) as image_url,
-          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) as likes,
-          (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as views
+          (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as views,
+          (SELECT COUNT(*) FROM leader_followers WHERE leader_id = l.leader_id) as followers
         FROM leaders l
         WHERE l.status = 'active'
-        ORDER BY 
-          (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) DESC,
-          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) DESC
+        ORDER BY views DESC, followers DESC
         LIMIT ?`,
         [parseInt(limit)],
       );
@@ -828,12 +799,9 @@ const LeaderService = {
   // ===== ADD IMAGE TO LEADER =====
   async addLeaderImage(leaderId, file, isPrimary = false, Logger) {
     try {
-      // Upload to cloudinary using enhanced function
       const result = await uploadToCloudinary(file.buffer);
-
       const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-      // Get next sort order
       const maxOrder = await safeQueryOne(
         `SELECT MAX(sort_order) as max_order FROM leader_images WHERE leader_id = ?`,
         [leaderId],
@@ -881,7 +849,6 @@ const LeaderService = {
   // ===== REMOVE LEADER IMAGE =====
   async removeLeaderImage(imageId, redisClient, Logger) {
     try {
-      // Get leader_id and public_id before deletion
       const image = await safeQueryOne(
         `SELECT leader_id, public_id FROM leader_images WHERE image_id = ?`,
         [imageId],
@@ -891,17 +858,14 @@ const LeaderService = {
         throw new Error("Image not found");
       }
 
-      // Delete from Cloudinary
       if (image.public_id) {
         await deleteMediaFromCloudinary(image.public_id);
       }
 
-      // Delete from database
       await safeQuery(`DELETE FROM leader_images WHERE image_id = ?`, [
         imageId,
       ]);
 
-      // Clear leader cache
       await redisClient.del(`leader:${image.leader_id}`);
 
       return true;
@@ -914,19 +878,15 @@ const LeaderService = {
   // ===== SET PRIMARY IMAGE =====
   async setPrimaryImage(leaderId, imageId, redisClient, Logger) {
     try {
-      // Remove primary flag from all images
       await safeQuery(
         `UPDATE leader_images SET is_primary = 0 WHERE leader_id = ?`,
         [leaderId],
       );
-
-      // Set new primary image
       await safeQuery(
         `UPDATE leader_images SET is_primary = 1 WHERE image_id = ? AND leader_id = ?`,
         [imageId, leaderId],
       );
 
-      // Clear leader cache
       await redisClient.del(`leader:${leaderId}`);
 
       return true;
@@ -948,7 +908,6 @@ const LeaderService = {
 
       await Promise.all(deletePromises);
     } catch (error) {
-      // If redis doesn't support keys with wildcards, fallback to deleting known patterns
       const deletePromises = [
         redisClient.del(`leader:${leaderId}`),
         redisClient.del(`leader:stats:${leaderId}`),
@@ -957,7 +916,7 @@ const LeaderService = {
     }
   },
 
-  // ===== BULK CREATE LEADERS (for importing many leaders) =====
+  // ===== BULK CREATE LEADERS =====
   async bulkCreateLeaders(leadersData, redisClient, Logger, getKenyaTimeISO) {
     const results = [];
     const errors = [];
@@ -966,7 +925,7 @@ const LeaderService = {
       try {
         const leader = await this.createLeader(
           data,
-          [], // No files for bulk import
+          [],
           redisClient,
           Logger,
           getKenyaTimeISO,

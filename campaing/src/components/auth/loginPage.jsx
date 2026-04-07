@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// pages/LoginPage.jsx - Clean version
+
+import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   LogIn,
@@ -8,20 +10,28 @@ import {
   EyeOff,
   ArrowLeft,
   Shield,
-  User,
-  MapPin,
-  Award,
-  Heart,
+  AlertTriangle,
   CheckCircle,
 } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
+import AppLoadingBar from "../../utils/LoadingBar";
+import theme from "../../utils/theme";
 
 // ==========================================
-// CONFIGURATION
+// API CONFIGURATION
 // ==========================================
 const API_BASE_URL =
-  "https://reports-peaceful-premises-everywhere.trycloudflare.com/api/v1";
+  "https://grass-solaris-sas-hosts.trycloudflare.com/api/v1/users";
+
+// Create axios instance with credentials (for cookies)
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 // ==========================================
 // ANIMATIONS
@@ -36,11 +46,21 @@ const slideIn = keyframes`
   to { transform: translateX(0); opacity: 1; }
 `;
 
+const shake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+`;
+
 // ==========================================
 // STYLED COMPONENTS
 // ==========================================
 const LoginWrapper = styled.div`
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(
+    135deg,
+    ${theme?.colors?.bg || "#f8fafc"} 0%,
+    ${theme?.colors?.border || "#f1f5f9"} 100%
+  );
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -57,13 +77,17 @@ const LoginContainer = styled.div`
 
 const LoginCard = styled.div`
   background: white;
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  border-radius: ${theme?.BORDER_RADIUS?.lg || "24px"};
+  box-shadow: ${theme?.SHADOWS?.red || "0 20px 60px rgba(0, 0, 0, 0.1)"};
   overflow: hidden;
 `;
 
 const LoginHeader = styled.div`
-  background: linear-gradient(135deg, #006600 0%, #00aa44 100%);
+  background: linear-gradient(
+    135deg,
+    ${theme?.KENYA_THEME?.primary || "#006600"} 0%,
+    ${theme?.colors?.success || "#00aa44"} 100%
+  );
   padding: 40px;
   color: white;
   text-align: center;
@@ -104,7 +128,7 @@ const FormLabel = styled.label`
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: ${theme?.KENYA_THEME?.text || "#475569"};
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -114,16 +138,21 @@ const FormLabel = styled.label`
 const FormInput = styled.input`
   width: 100%;
   padding: 16px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  border: 2px solid
+    ${(props) =>
+      props.error ? "#ef4444" : theme?.KENYA_THEME?.border || "#e2e8f0"};
+  border-radius: ${theme?.BORDER_RADIUS?.md || "12px"};
   font-size: 15px;
-  color: #1e293b;
+  color: ${theme?.KENYA_THEME?.text || "#1e293b"};
   transition: all 0.3s ease;
   background: ${(props) => (props.readOnly ? "#f8fafc" : "white")};
+  animation: ${(props) => (props.error ? shake : "none")} 0.5s ease-in-out;
+
   &:focus {
     outline: none;
-    border-color: #006600;
-    box-shadow: 0 0 0 4px rgba(0, 102, 0, 0.1);
+    border-color: ${theme?.KENYA_THEME?.primary || "#006600"};
+    box-shadow: 0 0 0 4px
+      ${theme?.KENYA_THEME?.primary + "20" || "rgba(0, 102, 0, 0.1)"};
   }
 `;
 
@@ -138,43 +167,24 @@ const TogglePasswordButton = styled.button`
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #64748b;
+  color: ${theme?.KENYA_THEME?.muted || "#64748b"};
   cursor: pointer;
   padding: 6px;
-`;
-
-const RememberForgot = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 20px 0 30px;
-`;
-
-const RememberMe = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #475569;
-  cursor: pointer;
-`;
-
-const ForgotPassword = styled(Link)`
-  font-size: 14px;
-  color: #bb0000;
-  text-decoration: none;
-  font-weight: 600;
   &:hover {
-    text-decoration: underline;
+    color: ${theme?.KENYA_THEME?.primary || "#006600"};
   }
 `;
 
 const LoginButton = styled.button`
-  background: linear-gradient(135deg, #006600, #00aa44);
+  background: linear-gradient(
+    135deg,
+    ${theme?.KENYA_THEME?.primary || "#006600"},
+    ${theme?.colors?.success || "#00aa44"}
+  );
   color: white;
   border: none;
   padding: 18px;
-  border-radius: 14px;
+  border-radius: ${theme?.BORDER_RADIUS?.lg || "14px"};
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
@@ -184,13 +194,17 @@ const LoginButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 12px;
+  margin-top: 20px;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 15px 30px rgba(0, 102, 0, 0.3);
+    box-shadow: 0 15px 30px
+      ${theme?.KENYA_THEME?.primary + "50" || "rgba(0, 102, 0, 0.3)"};
   }
   &:disabled {
-    background: #cbd5e1;
+    background: ${theme?.KENYA_THEME?.muted || "#cbd5e1"};
     cursor: not-allowed;
+    opacity: 0.8;
+    transform: none;
   }
 `;
 
@@ -198,11 +212,11 @@ const RegisterPrompt = styled.div`
   text-align: center;
   margin-top: 30px;
   padding-top: 25px;
-  border-top: 1px solid #e2e8f0;
-  color: #64748b;
+  border-top: 1px solid ${theme?.KENYA_THEME?.border || "#e2e8f0"};
+  color: ${theme?.KENYA_THEME?.muted || "#64748b"};
   font-size: 14px;
   a {
-    color: #bb0000;
+    color: ${theme?.COLORS?.primary || "#bb0000"};
     text-decoration: none;
     font-weight: 600;
     &:hover {
@@ -212,162 +226,177 @@ const RegisterPrompt = styled.div`
 `;
 
 const ErrorAlert = styled.div`
-  background: #fff1f2;
-  border: 1px solid #fda4af;
-  color: #be123c;
-  padding: 12px;
-  border-radius: 12px;
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+  color: #b91c1c;
+  padding: 14px;
+  border-radius: ${theme?.BORDER_RADIUS?.md || "12px"};
   margin-bottom: 20px;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  svg {
+    flex-shrink: 0;
+  }
+`;
+
+const SuccessAlert = styled.div`
+  background: #f0fdf4;
+  border-left: 4px solid #22c55e;
+  color: #166534;
+  padding: 14px;
+  border-radius: ${theme?.BORDER_RADIUS?.md || "12px"};
+  margin-bottom: 20px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const SecurityBadge = styled.div`
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 20px;
   text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 `;
 
 // ==========================================
-// HELPER FUNCTIONS
+// AUTH SERVICE
 // ==========================================
+const AuthService = {
+  isAuthenticated: () => {
+    const userData = localStorage.getItem("user_data");
+    const isAuth = localStorage.getItem("isAuthenticated") === "true";
 
-/**
- * Store all user data from login response in localStorage
- */
-const storeUserData = (userData) => {
-  if (!userData) return;
+    if (!userData || !isAuth) return false;
 
-  // Store basic auth info
-  localStorage.setItem("isAuthenticated", "true");
-  localStorage.setItem("user_id", userData.user_id);
-  localStorage.setItem("current_username", userData.username);
+    try {
+      const user = JSON.parse(userData);
+      if (user.timestamp && Date.now() - user.timestamp > 24 * 60 * 60 * 1000) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
-  // Store all user profile data
-  localStorage.setItem("user_gender", userData.gender || "");
-  localStorage.setItem("user_age_bracket", userData.age_bracket || "");
-  localStorage.setItem("user_county", userData.county || "");
-  localStorage.setItem("user_ward", userData.ward || "");
-  localStorage.setItem("user_voter_card", userData.voter_card || "");
-  localStorage.setItem("user_will_vote", userData.will_vote ? "true" : "false");
-  localStorage.setItem("user_voter_status", userData.voter_status || "");
-  localStorage.setItem(
-    "user_voting_intention",
-    userData.voting_intention || "",
-  );
-  localStorage.setItem(
-    "user_is_verified",
-    userData.is_verified ? "true" : "false",
-  );
-  localStorage.setItem("user_member_since", userData.member_since || "");
-  localStorage.setItem("user_last_login", userData.last_login || "");
+  setUserData: (userData) => {
+    if (!userData) return;
 
-  // Store complete user object for easy access (JSON string)
-  localStorage.setItem("user_data_complete", JSON.stringify(userData));
-
-  console.log("✅ All user data stored in localStorage", userData);
-};
-
-/**
- * Get user data from localStorage (for other components)
- */
-export const getUserData = () => {
-  try {
-    const userData = {
-      user_id: localStorage.getItem("user_id"),
-      username: localStorage.getItem("current_username"),
-      gender: localStorage.getItem("user_gender"),
-      age_bracket: localStorage.getItem("user_age_bracket"),
-      county: localStorage.getItem("user_county"),
-      ward: localStorage.getItem("user_ward"),
-      voter_card: localStorage.getItem("user_voter_card"),
-      will_vote: localStorage.getItem("user_will_vote") === "true",
-      voter_status: localStorage.getItem("user_voter_status"),
-      voting_intention: localStorage.getItem("user_voting_intention"),
-      is_verified: localStorage.getItem("user_is_verified") === "true",
-      member_since: localStorage.getItem("user_member_since"),
-      last_login: localStorage.getItem("user_last_login"),
+    const safeUserData = {
+      user_id: userData.user_id,
+      username: userData.username || userData.anonymous_username,
+      real_name: userData.real_name,
+      gender: userData.gender,
+      age_bracket: userData.age_bracket,
+      county: userData.county,
+      ward: userData.ward,
+      voter_card: userData.voter_card,
+      will_vote: userData.will_vote,
+      is_verified: userData.is_verified,
+      member_since: userData.member_since,
+      role: userData.role,
+      political_party: userData.political_party,
+      employment_status: userData.employment_status,
+      timestamp: Date.now(),
     };
 
-    // Try to get complete object if available
-    const completeData = localStorage.getItem("user_data_complete");
-    if (completeData) {
-      return JSON.parse(completeData);
+    localStorage.setItem("user_data", JSON.stringify(safeUserData));
+  },
+
+  getUserData: () => {
+    const userData = localStorage.getItem("user_data");
+    if (!userData) return null;
+    try {
+      return JSON.parse(userData);
+    } catch {
+      return null;
     }
+  },
 
-    return userData;
-  } catch (error) {
-    console.error("Error getting user data:", error);
-    return null;
-  }
-};
+  clearAuth: () => {
+    const keysToRemove = ["user_data", "isAuthenticated"];
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  },
 
-/**
- * Clear all user data from localStorage on logout
- */
-export const clearUserData = () => {
-  const rememberMe = localStorage.getItem("rememberMe_active") === "true";
-
-  // Items to keep if remember me is active
-  const keepItems = rememberMe ? ["assignedUsername", "rememberMe_active"] : [];
-
-  // Get all keys
-  const keys = Object.keys(localStorage);
-
-  // Remove all user-related items
-  keys.forEach((key) => {
-    if (
-      !keepItems.includes(key) &&
-      (key.startsWith("user_") ||
-        key === "isAuthenticated" ||
-        key === "user_id" ||
-        key === "current_username" ||
-        key === "user_data_complete")
-    ) {
-      localStorage.removeItem(key);
+  setAuthenticated: (value, userData = null) => {
+    localStorage.setItem("isAuthenticated", value.toString());
+    if (userData) {
+      AuthService.setUserData(userData);
     }
-  });
+    if (!value) {
+      AuthService.clearAuth();
+    }
+  },
 
-  console.log("✅ User data cleared from localStorage");
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      AuthService.clearAuth();
+    }
+  },
 };
 
 // ==========================================
-// PAGE COMPONENT
+// LOGIN PAGE COMPONENT
 // ==========================================
-
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const loadingBarRef = useRef(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [loginData, setLoginData] = useState({
     username: "",
     password: "",
-    rememberMe: false,
   });
 
-  // Load username from state (registration) or LocalStorage
+  // Top loader on page mount
   useEffect(() => {
-    const stateUsername = location.state?.autoUsername;
-    const storedUsername = localStorage.getItem("assignedUsername");
-    const wasRemembered = localStorage.getItem("rememberMe_active") === "true";
+    loadingBarRef.current?.continuousStart();
 
-    if (stateUsername || storedUsername) {
-      setLoginData((prev) => ({
-        ...prev,
-        username: stateUsername || storedUsername,
-        rememberMe: wasRemembered,
-      }));
+    // Check if user came from registration
+    if (location.state?.registered) {
+      setSuccessMessage(
+        "Registration successful! Please login with your credentials.",
+      );
     }
+
+    setTimeout(() => {
+      loadingBarRef.current?.complete();
+    }, 500);
   }, [location]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setLoginData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value,
     }));
+    if (errorMessage) setErrorMessage("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
+    setSuccessMessage("");
 
     if (!loginData.username || !loginData.password) {
       setErrorMessage("Please fill in all fields");
@@ -375,46 +404,65 @@ const LoginPage = () => {
     }
 
     setIsSubmitting(true);
+    loadingBarRef.current?.continuousStart();
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/users/login`,
-        {
-          anonymous_username: loginData.username,
-          password: loginData.password,
-        },
-        {
-          withCredentials: true, // CRITICAL: Sends/Receives cookies
-        },
-      );
+      console.log("📤 Sending login request:", {
+        username: loginData.username,
+      });
+
+      const response = await api.post("/login", {
+        anonymous_username: loginData.username,
+        password: loginData.password,
+      });
+
+      console.log("📥 Login response:", response.data);
 
       if (response.data.success) {
-        const { user } = response.data;
+        const user = response.data.user || {
+          user_id: response.data.user_id,
+          username: loginData.username,
+          real_name: response.data.real_name,
+          gender: response.data.gender,
+          age_bracket: response.data.age_bracket,
+          county: response.data.county,
+          ward: response.data.ward,
+          voter_card: response.data.voter_card,
+          will_vote: response.data.will_vote,
+          is_verified: response.data.is_verified,
+          role: response.data.role,
+          political_party: response.data.political_party,
+          employment_status: response.data.employment_status,
+        };
 
-        // Store ALL user data in localStorage
-        storeUserData(user);
+        console.log("👤 User data to store:", user);
 
-        // Handle remember me
-        if (loginData.rememberMe) {
-          localStorage.setItem("assignedUsername", user.username);
-          localStorage.setItem("rememberMe_active", "true");
-        } else {
-          localStorage.setItem("rememberMe_active", "false");
-        }
+        AuthService.setAuthenticated(true, user);
 
-        // Navigate to dashboard with user data in state
-        navigate("/", {
+        console.log("✅ Login successful, redirecting...");
+
+        loadingBarRef.current?.complete();
+
+        const from = location.state?.from || "/";
+
+        navigate(from, {
           state: {
             welcomeBack: true,
             username: user.username,
+            real_name: user.real_name,
             county: user.county,
-            voter_status: user.voter_status,
           },
         });
+      } else {
+        throw new Error(response.data.message || "Login failed");
       }
     } catch (err) {
+      console.error("❌ Login error:", err);
+      loadingBarRef.current?.complete();
+
       const msg =
         err.response?.data?.message ||
+        err.message ||
         "Login failed. Please check your credentials.";
       setErrorMessage(msg);
     } finally {
@@ -423,108 +471,125 @@ const LoginPage = () => {
   };
 
   return (
-    <LoginWrapper>
-      <LoginContainer>
-        <LoginCard>
-          <LoginHeader>
-            <BackButton to="/">
-              {" "}
-              <ArrowLeft size={20} />{" "}
-            </BackButton>
-            <div
-              style={{
-                width: "70px",
-                height: "70px",
-                background: "rgba(255,255,255,0.2)",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 20px",
-              }}
-            >
-              <Shield size={32} />
-            </div>
-            <h1
-              style={{ margin: "0 0 10px", fontSize: "28px", fontWeight: 800 }}
-            >
-              Welcome Back
-            </h1>
-            <p style={{ margin: 0, fontSize: "14px", opacity: 0.9 }}>
-              Secure login for Wananchi 2026
-            </p>
-          </LoginHeader>
+    <>
+      <AppLoadingBar
+        ref={loadingBarRef}
+        color={theme?.KENYA_THEME?.primary || "#006600"}
+      />
 
-          <LoginBody>
-            {errorMessage && <ErrorAlert>{errorMessage}</ErrorAlert>}
+      <LoginWrapper>
+        <LoginContainer>
+          <LoginCard>
+            <LoginHeader>
+              <BackButton to="/">
+                <ArrowLeft size={20} />
+              </BackButton>
+              <div
+                style={{
+                  width: "70px",
+                  height: "70px",
+                  background: "rgba(255,255,255,0.2)",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 20px",
+                }}
+              >
+                <Shield size={32} />
+              </div>
+              <h1
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "28px",
+                  fontWeight: 800,
+                }}
+              >
+                Welcome Back
+              </h1>
+              <p style={{ margin: 0, fontSize: "14px", opacity: 0.9 }}>
+                Secure login for Wananchi Connect
+              </p>
+            </LoginHeader>
 
-            <form onSubmit={handleSubmit}>
-              <FormGroup>
-                <FormLabel>
-                  {" "}
-                  <Mail size={16} /> Username{" "}
-                </FormLabel>
-                <FormInput
-                  type="text"
-                  name="username"
-                  value={loginData.username}
-                  onChange={handleInputChange}
-                  placeholder="e.g. Brave-Lion-402"
-                  required
-                />
-              </FormGroup>
+            <LoginBody>
+              {successMessage && (
+                <SuccessAlert>
+                  <CheckCircle size={18} />
+                  {successMessage}
+                </SuccessAlert>
+              )}
 
-              <FormGroup>
-                <FormLabel>
-                  {" "}
-                  <Lock size={16} /> Password{" "}
-                </FormLabel>
-                <PasswordInputWrapper>
+              {errorMessage && (
+                <ErrorAlert>
+                  <AlertTriangle size={18} />
+                  {errorMessage}
+                </ErrorAlert>
+              )}
+
+              <form onSubmit={handleSubmit}>
+                <FormGroup>
+                  <FormLabel>
+                    <Mail size={16} /> Username
+                  </FormLabel>
                   <FormInput
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={loginData.password}
+                    type="text"
+                    name="username"
+                    value={loginData.username}
                     onChange={handleInputChange}
-                    placeholder="Your password"
+                    placeholder="Enter your username"
                     required
+                    error={!!errorMessage}
+                    autoComplete="username"
                   />
-                  <TogglePasswordButton
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </TogglePasswordButton>
-                </PasswordInputWrapper>
-              </FormGroup>
+                </FormGroup>
 
-              <RememberForgot>
-                <RememberMe>
-                  <input
-                    type="checkbox"
-                    name="rememberMe"
-                    checked={loginData.rememberMe}
-                    onChange={handleInputChange}
-                  />
-                  Remember Me
-                </RememberMe>
-                <ForgotPassword to="/forgot-password">
-                  Forgot Password?
-                </ForgotPassword>
-              </RememberForgot>
+                <FormGroup>
+                  <FormLabel>
+                    <Lock size={16} /> Password
+                  </FormLabel>
+                  <PasswordInputWrapper>
+                    <FormInput
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={loginData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter your password"
+                      required
+                      error={!!errorMessage}
+                      autoComplete="current-password"
+                    />
+                    <TogglePasswordButton
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </TogglePasswordButton>
+                  </PasswordInputWrapper>
+                </FormGroup>
 
-              <LoginButton type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Authenticating..." : "Sign In"}
-                {!isSubmitting && <LogIn size={20} />}
-              </LoginButton>
-            </form>
+                <LoginButton type="submit" disabled={isSubmitting}>
+                  <LogIn size={20} />
+                  {isSubmitting ? "Authenticating..." : "Sign In"}
+                </LoginButton>
+              </form>
 
-            <RegisterPrompt>
-              Don't have an account? <Link to="/register">Register here</Link>
-            </RegisterPrompt>
-          </LoginBody>
-        </LoginCard>
-      </LoginContainer>
-    </LoginWrapper>
+              <SecurityBadge>
+                <Shield size={12} />
+                <span>
+                  🔒 Secure HTTP-only Cookies • Session Protected • 256-bit SSL
+                </span>
+              </SecurityBadge>
+
+              <RegisterPrompt>
+                Don't have an account?{" "}
+                <Link to="/register">Create account</Link>
+              </RegisterPrompt>
+            </LoginBody>
+          </LoginCard>
+        </LoginContainer>
+      </LoginWrapper>
+    </>
   );
 };
 

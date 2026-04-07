@@ -1,118 +1,163 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { compression } from "vite-plugin-compression2";
-import { VitePWA } from "vite-plugin-pwa";
+import viteCompression from "vite-plugin-compression";
+import path from "path";
+import { visualizer } from "rollup-plugin-visualizer";
+
+// Detect dev mode
+const DEV = process.env.NODE_ENV === "development";
+const API_URL = process.env.VITE_API_URL || "http://localhost:5000";
+
+// List of allowed hosts
+const ALLOWED_HOSTS = [
+  "localhost",
+  "127.0.0.1",
+  ".trycloudflare.com",
+  "tour-bestsellers-conditional-tunnel.trycloudflare.com",
+];
 
 export default defineConfig({
   plugins: [
-    react({
-      fastRefresh: true,
-      babel: {
-        plugins: [
-          ["@babel/plugin-transform-react-jsx", { runtime: "automatic" }],
-        ],
-      },
-    }),
-    compression({
+    react(),
+
+    // Brotli compression (best for mobile)
+    viteCompression({
+      verbose: false,
+      disable: false,
+      threshold: 1024, // Compress files > 1KB
       algorithm: "brotliCompress",
-      exclude: [/\.(br)$/, /\.(gz)$/],
+      ext: ".br",
+      deleteOriginalAssets: false,
+    }),
+
+    // Gzip fallback
+    viteCompression({
+      verbose: false,
+      disable: false,
       threshold: 1024,
+      algorithm: "gzip",
+      ext: ".gz",
+      deleteOriginalAssets: false,
     }),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
-      manifest: {
-        name: "SIASA Hub 🇰🇪",
-        short_name: "SIASA",
-        description: "Kenya's Leading Political Platform",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
-        display: "standalone",
-        orientation: "portrait",
-        start_url: "/",
-        icons: [
-          {
-            src: "image/apple-touch-icon.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "image/apple-touch-icon.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
-      },
-      workbox: {
-        cleanupOutdatedCaches: true,
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        maximumFileSizeToCacheInBytes: 5000000,
-        runtimeCaching: [
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|woff2)$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "static-assets",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
-              },
-            },
-          },
-        ],
-      },
-    }),
-  ],
+
+    // Bundle analyzer (optional - remove for production)
+    process.env.ANALYZE === "true" &&
+      visualizer({
+        open: true,
+        filename: "bundle-analysis.html",
+      }),
+  ].filter(Boolean),
+
   server: {
-    port: 3002,
+    host: true,
+    port: 5174,
     strictPort: true,
-    allowedHosts: ["goals-acquire-image-energy.trycloudflare.com"],
-    hmr: {
-      host: "goals-acquire-image-energy.trycloudflare.com",
-      protocol: "wss",
-      clientPort: 443,
-
-      overlay: true,
-      timeout: 60000,
+    allowedHosts: DEV ? ALLOWED_HOSTS : [],
+    cors: true,
+    proxy: {
+      "/api": {
+        target: API_URL,
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
-
-    watch: {
-      usePolling: true,
-      interval: 1000,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-cache",
     },
   },
+
+  preview: {
+    host: true,
+    port: 5173,
+    allowedHosts: ALLOWED_HOSTS,
+    cors: true,
+    headers: {
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  },
+
   build: {
-    minify: "esbuild",
-    cssCodeSplit: true,
+    target: "es2020", // Better for modern browsers
+    outDir: "dist",
+    sourcemap: false,
+    chunkSizeWarningLimit: 500, // Reduced from 600
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: !DEV, // Remove console logs in production
+        drop_debugger: !DEV,
+        pure_funcs: DEV ? [] : ["console.log", "console.info", "console.debug"],
+      },
+    },
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        // Better chunk splitting for mobile
+        manualChunks: (id) => {
           if (id.includes("node_modules")) {
-            if (id.includes("react")) return "vendor-react";
-            if (id.includes("lucide")) return "vendor-icons";
-            if (id.includes("chart") || id.includes("recharts"))
-              return "vendor-charts";
+            // Core React
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "react-core";
+            }
+            // UI Icons
+            if (id.includes("lucide-react")) {
+              return "icons";
+            }
+            // Routing
+            if (id.includes("react-router")) {
+              return "router";
+            }
+            // Charts (if heavy)
+            if (id.includes("recharts") || id.includes("chart.js")) {
+              return "charts";
+            }
+            // Everything else
             return "vendor";
           }
         },
+        // Optimize chunk names
+        chunkFileNames: "assets/[name].[hash].js",
+        entryFileNames: "assets/[name].[hash].js",
+        assetFileNames: "assets/[name].[hash].[ext]",
       },
     },
-    chunkSizeWarningLimit: 1000,
-    target: "esnext",
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Enable module preload
+    modulePreload: {
+      polyfill: true,
+    },
+    // Report compressed sizes
+    reportCompressedSize: true,
   },
-  esbuild: {
-    drop: ["console", "debugger"],
 
-    jsx: "automatic",
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
 
   optimizeDeps: {
-    include: ["react", "react-dom", "react-router-dom", "styled-components"],
+    include: ["react", "react-dom", "react-router-dom", "lucide-react"],
     exclude: [],
+    // Enable esbuild dependency optimization
     esbuildOptions: {
       target: "es2020",
     },
+  },
+
+  // Enable CSS preprocessing
+  css: {
+    devSourcemap: !DEV,
+    modules: {
+      localsConvention: "camelCase",
+    },
+  },
+
+  // Environment variables
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
 });

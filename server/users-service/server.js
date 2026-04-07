@@ -9,94 +9,80 @@ const redis = require("./src/utils/redis/redis");
 const { initDB } = require("./src/configurations/db");
 const userRoutes = require("./src/routes/users");
 const { corsOptions } = require("./src/helpers/cors/corsConfig");
+const knexConfig = require("./knexfile");
 
 const app = express();
-app.use(cors(corsOptions));
-console.log("sevre");
 
 /* =====================================================
-   PROCESS-LEVEL ERRORS
+   GLOBAL ERROR HANDLERS
 ===================================================== */
 process.on("uncaughtException", (err) => {
-  console.error("🔥 [UNCAUGHT EXCEPTION]");
-  console.error(err);
+  console.error("Uncaught Exception:", err);
   process.exit(1);
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("🔥 [UNHANDLED REJECTION]");
-  console.error(reason);
-  setTimeout(() => process.exit(1), 1000);
+  console.error(" Unhandled Rejection:", reason);
+  process.exit(1);
 });
 
 /* =====================================================
-   REDIS DEBUG LOGS (keep for now)
+   REDIS EVENTS
 ===================================================== */
-console.log("➡️ Initializing Redis listeners...");
+redis.on("connect", () => console.log(" Redis connected"));
+redis.on("ready", () => console.log(" Redis ready"));
+redis.on("error", (err) => console.error(" Redis error:", err));
+redis.on("close", () => console.warn(" Redis closed"));
 
-redis.on("connect", () => {
-  console.log("✅ [Redis] Connected");
-});
-
-redis.on("ready", () => {
-  console.log("🟢 [Redis] Ready");
-});
-
-redis.on("error", (err) => {
-  console.error("❌ [Redis] Error");
-  console.error(err);
-});
-
-redis.on("close", () => {
-  console.warn("⚠️ [Redis] Connection closed");
-});
-
-// global
-console.log("➡️ Registering middlewares...");
-
+/* =====================================================
+   MIDDLEWARES
+===================================================== */
 app.set("trust proxy", true);
 app.use(helmet());
-
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-console.log("➡️ Registering routes...");
+/* =====================================================
+   ROUTES
+===================================================== */
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "users-service",
+    time: new Date().toISOString(),
+  });
+});
+
 app.use("/api/v1/users", userRoutes);
 
-// s erve r startup
-const PORT = process.env.PORT || 9000;
+/* =====================================================
+   SERVER CONFIG
+===================================================== */
+const PORT = process.env.PORT || 9001;
 const HOST = process.env.HOST || "0.0.0.0";
-
-///run  migartions
-
-const knexConfig = require("./knexfile");
 
 const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
 
-async function runMigrations() {
-  await db.migrate.latest();
-  console.log(" Migrations up to date");
-}
-
-runMigrations();
-
-(async () => {
+async function startServer() {
   try {
-    console.log("🚀 [Server] Starting...");
-    console.log("➡️ Initializing database...");
+    console.log("🚀 Starting server...");
 
     await initDB();
-
     console.log("✅ Database initialized");
 
+    await db.migrate.latest();
+    console.log("✅ Migrations up to date");
+
     const server = app.listen(PORT, HOST, () => {
-      console.log(`✅ Server running at http://${HOST}:${PORT}`);
+      console.log(`🌍 Server running at http://${HOST}:${PORT}`);
     });
 
+    /* Graceful shutdown */
     const shutdown = () => {
-      console.warn("🛑 Shutdown signal received");
+      console.log("🛑 Shutting down...");
       server.close(() => {
-        console.log("✅ Server closed cleanly");
+        console.log("✅ Server closed");
         process.exit(0);
       });
     };
@@ -104,8 +90,9 @@ runMigrations();
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
   } catch (err) {
-    console.error("❌ [Server] Startup failed");
-    console.error(err);
+    console.error("❌ Server startup failed:", err);
     process.exit(1);
   }
-})();
+}
+
+startServer();

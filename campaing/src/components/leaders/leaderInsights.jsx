@@ -1,188 +1,298 @@
-import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import styled from "styled-components";
-import {
-  BookOpen,
-  History as HistoryIcon,
-  MapPin,
-  Info,
-  MessageSquare,
-  FileText,
-} from "lucide-react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import styled, { keyframes } from "styled-components";
+import { BookOpen, Info } from "lucide-react";
 import axios from "axios";
+import theme from "../../utils/theme.jsx";
+import AppLoadingBar from "../../utils/LoadingBar.jsx";
 
-// Components
-import LeaderHeader from "./leaderHeader.jsx";
-import LeaderHistory from "./leaderHistory.jsx";
-import LeaderSupportMap from "./leadersSuportMap.jsx";
-import ManifestoComments from "./manifestoComents.jsx";
-import LeaderOverview from "./leaderOverView.jsx";
-import ManifestoPage from "./manifestoPage.jsx";
+// Lazy load components
+const LeaderHeader = lazy(() => import("./leaderHeader.jsx"));
+const ManifestoPage = lazy(() => import("./manifestos/manifestoPage"));
+const LeaderFooter = lazy(() => import("./leaderFooter.jsx"));
 
-const KENYA_THEME = {
-  primary: "#BB0000",
-  secondary: "#000000",
-  background: "#F8FAFC",
-  text: { primary: "#0F172A", secondary: "#64748B" },
-  partyColors: {
-    UDA: "#BB0000",
-    ODM: "#006600",
-    WIPER: "#8B5CF6",
-    INDEPENDENT: "#6B7280",
-  },
-};
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
 const PageContainer = styled.div`
-  background: ${KENYA_THEME.background};
+  background: ${theme.colors.dark || "#0a0a0a"};
   min-height: 100vh;
   width: 100%;
-  overflow-x: hidden;
+  position: relative;
+  color: ${theme.colors.white || "#ffffff"};
+  display: flex;
+  flex-direction: column;
+`;
+
+const LoadingWrapper = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  pointer-events: none;
 `;
 
 const ContentContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  margin-top: -20px;
-  position: relative;
-  z-index: 2;
   width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 10px;
+  animation: ${fadeIn} 0.5s ease-out;
+  flex: 1;
 `;
 
 const TabContainer = styled.div`
   display: flex;
-  gap: 10px;
+  gap: 4px;
   overflow-x: auto;
-  padding: 5px 15px 15px 15px;
+  padding: 12px 0;
   scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  background: ${theme.colors.dark || "#0a0a0a"};
+  z-index: 10;
+  border-bottom: 1px solid ${theme.colors.border || "rgba(255,255,255,0.1)"};
+
   &::-webkit-scrollbar {
     display: none;
   }
 `;
 
 const TabButton = styled.button`
-  padding: 10px 18px;
-  background: ${(props) => (props.$active ? KENYA_THEME.primary : "white")};
-  color: ${(props) => (props.$active ? "white" : KENYA_THEME.text.secondary)};
-  border-radius: 12px;
-  font-weight: 700;
-  border: 1px solid #fff;
-  white-space: nowrap;
+  padding: 8px 18px;
+  background: ${(props) =>
+    props.$active
+      ? `rgba(${theme.colors.primaryRgb || "255, 92, 1"}, 0.1)`
+      : "transparent"};
+  color: ${(props) =>
+    props.$active
+      ? theme.colors.primary || "#ff5c01"
+      : theme.colors.gray || "#94a3b8"};
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: ${(props) =>
+    props.$active
+      ? `1px solid ${theme.colors.primary || "#ff5c01"}`
+      : "1px solid transparent"};
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-`;
+  white-space: nowrap;
+  transition: all 0.2s ease;
 
-const Section = styled.div`
-  background: white;
-  padding: 20px 15px;
-  margin-bottom: 20px;
-  border: 1px solid #eef2f7;
-  width: 100%;
-  box-sizing: border-box;
-
-  @media (max-width: 600px) {
-    border-radius: 0;
-    margin-bottom: 0;
+  &:hover {
+    color: ${theme.colors.primary || "#ff5c01"};
+    background: rgba(255, 92, 1, 0.05);
+    border-color: ${theme.colors.primary || "#ff5c01"};
   }
 `;
 
-const SubTabWrapper = styled.div`
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  gap: 4px;
+const SectionCard = styled.div`
+  margin: 20px 0;
+  animation: ${fadeIn} 0.5s ease-out;
 `;
 
-const SubTabButton = styled.button`
-  flex: 1;
-  padding: 8px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
+const PlaceholderCard = styled.div`
+  background: ${theme.colors.surface || "#111111"};
+  border: 1px solid ${theme.colors.border || "rgba(255,255,255,0.1)"};
+  border-radius: 16px;
+  padding: 40px;
+  margin: 20px 0;
+  text-align: center;
+  color: ${theme.colors.gray || "#94a3b8"};
+`;
+
+const ErrorContainer = styled.div`
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  background: ${(props) => (props.$active ? "white" : "transparent")};
-  color: ${(props) =>
-    props.$active ? KENYA_THEME.primary : KENYA_THEME.text.secondary};
-  box-shadow: ${(props) =>
-    props.$active ? "0 2px 4px rgba(0,0,0,0.1)" : "none"};
+  background: ${theme.colors.dark || "#0a0a0a"};
+  text-align: center;
+  padding: 20px;
 `;
 
-// ... keep all imports same ...
+const SkeletonHeader = styled.div`
+  height: 200px;
+  background: ${theme.colors.surface || "#111111"};
+  margin: 0 16px;
+  border-radius: 16px;
+`;
+
+const BioSection = styled.div`
+  background: ${theme.colors.surface || "#111111"};
+  border: 1px solid ${theme.colors.border || "rgba(255,255,255,0.1)"};
+  border-radius: 16px;
+  padding: 24px;
+`;
+
+const BioHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+`;
+
+const BioIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: ${theme.colors.primary || "#ff5c01"};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+
+const BioInfo = styled.div`
+  flex: 1;
+`;
+
+const BioTitle = styled.h2`
+  margin: 0 0 4px 0;
+  color: ${theme.colors.white || "#ffffff"};
+  font-size: 1.3rem;
+  font-weight: 600;
+`;
+
+const BioPosition = styled.p`
+  color: ${theme.colors.primary || "#ff5c01"};
+  font-weight: 500;
+  font-size: 0.8rem;
+  margin: 0;
+`;
+
+const BioText = styled.p`
+  line-height: 1.6;
+  color: ${theme.colors.gray || "#94a3b8"};
+  font-size: 0.9rem;
+  margin: 0;
+`;
+
+const API_BASE_URL = "http://localhost:8002/api/v1";
 
 const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
   const { id: urlId } = useParams();
+  const navigate = useNavigate();
   const activeLeaderId = propLeaderId || urlId;
 
+  const loadingBarRef = useRef(null);
+  const dataFetchedRef = useRef(false);
+
   const [activeTab, setActiveTab] = useState("manifestos");
-  const [manifestoMode, setManifestoMode] = useState("content");
-
-  const [loading, setLoading] = useState(true);
   const [leader, setLeader] = useState(null);
-  const [manifestos, setManifestos] = useState([]);
-  const [selectedManifesto, setSelectedManifesto] = useState(null);
-
-  const API_BASE_URL =
-    "https://bundle-unexpected-sustainability-idol.trycloudflare.com";
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!activeLeaderId) return;
-      setLoading(true);
+    const loadLeaderData = async () => {
+      if (!activeLeaderId || dataFetchedRef.current) return;
+
+      loadingBarRef.current?.continuousStart(30);
+      setIsLoading(true);
+
       try {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/v1/leaders/leaders/${activeLeaderId}`,
+        const leaderRes = await axios.get(
+          `${API_BASE_URL}/leaders/${activeLeaderId}`,
+          { timeout: 10000 },
         );
-        if (res.data?.success) setLeader(res.data.data);
 
-        const mRes = await axios.get(
-          `${API_BASE_URL}/api/v1/leaders/manifestos/leader/${activeLeaderId}`,
-        );
-        const mData = mRes.data?.data || [];
-        setManifestos(mData);
-
-        if (mData.length > 0) {
-          setSelectedManifesto(mData[0].manifesto_id || mData[0].id);
+        if (leaderRes.data?.success) {
+          setLeader(leaderRes.data.data);
+        } else {
+          setError("Leader not found");
         }
+
+        dataFetchedRef.current = true;
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("Failed to load leader profile:", err);
+        setError("Failed to load leader profile");
       } finally {
-        setLoading(false);
+        loadingBarRef.current?.complete();
+        setIsLoading(false);
       }
     };
-    fetchData();
+
+    loadLeaderData();
   }, [activeLeaderId]);
 
-  if (loading)
+  const handleBack = () => (onBack ? onBack() : navigate(-1));
+
+  if (isLoading) {
     return (
-      <Section>
-        <p>Loading Leader Profile...</p>
-      </Section>
+      <PageContainer>
+        <LoadingWrapper>
+          <AppLoadingBar
+            ref={loadingBarRef}
+            color={theme.colors.primary || "#ff5c01"}
+            height={3}
+          />
+        </LoadingWrapper>
+        <ContentContainer>
+          <SkeletonHeader />
+        </ContentContainer>
+      </PageContainer>
     );
-  if (!leader)
+  }
+
+  if (error) {
     return (
-      <Section>
-        <p>Leader not found.</p>
-      </Section>
+      <ErrorContainer>
+        <div>
+          <h2
+            style={{
+              color: theme.colors.primary,
+              marginBottom: 16,
+              fontSize: 28,
+            }}
+          >
+            Oops!
+          </h2>
+          <p style={{ color: theme.colors.gray, marginBottom: 24 }}>{error}</p>
+          <button
+            onClick={handleBack}
+            style={{
+              padding: "10px 28px",
+              background: theme.colors.primary,
+              borderRadius: 30,
+              cursor: "pointer",
+              color: "#000",
+              fontWeight: 600,
+              border: "none",
+            }}
+          >
+            Go Back
+          </button>
+        </div>
+      </ErrorContainer>
     );
+  }
 
   return (
     <PageContainer>
-      <LeaderHeader
-        leader={leader}
-        partyColor={
-          KENYA_THEME.partyColors[leader?.party] || KENYA_THEME.secondary
-        }
-        onBack={onBack || (() => window.history.back())}
-      />
+      <LoadingWrapper>
+        <AppLoadingBar
+          ref={loadingBarRef}
+          color={theme.colors.primary || "#ff5c01"}
+          height={3}
+        />
+      </LoadingWrapper>
+
+      <Suspense fallback={<SkeletonHeader />}>
+        {leader && (
+          <LeaderHeader
+            leader={leader}
+            partyColor={theme.colors.primary || "#ff5c01"}
+            onBack={handleBack}
+          />
+        )}
+      </Suspense>
 
       <ContentContainer>
         <TabContainer>
@@ -190,94 +300,47 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
             $active={activeTab === "manifestos"}
             onClick={() => setActiveTab("manifestos")}
           >
-            <BookOpen size={18} /> Manifestos
-          </TabButton>
-          <TabButton
-            $active={activeTab === "support"}
-            onClick={() => setActiveTab("support")}
-          >
-            <MapPin size={18} /> Support
-          </TabButton>
-          <TabButton
-            $active={activeTab === "history"}
-            onClick={() => setActiveTab("history")}
-          >
-            <HistoryIcon size={18} /> History
+            <BookOpen size={14} /> Manifesto
           </TabButton>
           <TabButton
             $active={activeTab === "overview"}
             onClick={() => setActiveTab("overview")}
           >
-            <Info size={18} /> Overview
+            <Info size={14} /> Bio
           </TabButton>
         </TabContainer>
 
-        {/* Removed the extra <Section> wrapper here to prevent double-padding/blocking */}
-        <div style={{ width: "100%" }}>
+        <Suspense fallback={<PlaceholderCard>Loading...</PlaceholderCard>}>
           {activeTab === "manifestos" && (
-            <>
-              {manifestos.length > 0 ? (
-                <>
-                  <div style={{ padding: "0 15px" }}>
-                    <SubTabWrapper>
-                      <SubTabButton
-                        $active={manifestoMode === "content"}
-                        onClick={() => setManifestoMode("content")}
-                      >
-                        <FileText size={16} /> View Policies
-                      </SubTabButton>
-                      <SubTabButton
-                        $active={manifestoMode === "comments"}
-                        onClick={() => setManifestoMode("comments")}
-                      >
-                        <MessageSquare size={16} /> Public Comments
-                      </SubTabButton>
-                    </SubTabWrapper>
-                  </div>
-
-                  {manifestoMode === "content" ? (
-                    <ManifestoPage
-                      leaderId={activeLeaderId}
-                      leaderData={leader}
-                      hideHeader={true}
-                    />
-                  ) : (
-                    <ManifestoComments
-                      manifestoId={selectedManifesto}
-                      leaderId={activeLeaderId}
-                      leaderName={leader.name}
-                      /* FIX: Added the onClose handler so the X button works */
-                      onClose={() => setManifestoMode("content")}
-                    />
-                  )}
-                </>
-              ) : (
-                <Section style={{ textAlign: "center", padding: "40px" }}>
-                  <p style={{ color: KENYA_THEME.text.secondary }}>
-                    No manifestos found.
-                  </p>
-                </Section>
-              )}
-            </>
+            <ManifestoPage
+              leaderName={leader?.name || "Loading..."}
+              leaderId={activeLeaderId}
+              onBack={() => setActiveTab("overview")}
+            />
           )}
 
-          {activeTab === "support" && (
-            <Section>
-              <LeaderSupportMap leaderId={activeLeaderId} theme={KENYA_THEME} />
-            </Section>
+          {activeTab === "overview" && leader && (
+            <SectionCard>
+              <BioSection>
+                <BioHeader>
+                  <BioIcon>
+                    <Info size={20} color="#000" />
+                  </BioIcon>
+                  <BioInfo>
+                    <BioTitle>{leader.name}</BioTitle>
+                    <BioPosition>{leader.position || "Candidate"}</BioPosition>
+                  </BioInfo>
+                </BioHeader>
+                <BioText>{leader.bio || "No biography available."}</BioText>
+              </BioSection>
+            </SectionCard>
           )}
-          {activeTab === "history" && (
-            <Section>
-              <LeaderHistory leaderId={activeLeaderId} theme={KENYA_THEME} />
-            </Section>
-          )}
-          {activeTab === "overview" && (
-            <Section>
-              <LeaderOverview leader={leader} theme={KENYA_THEME} />
-            </Section>
-          )}
-        </div>
+        </Suspense>
       </ContentContainer>
+
+      <Suspense fallback={null}>
+        {leader && <LeaderFooter leader={leader} />}
+      </Suspense>
     </PageContainer>
   );
 };

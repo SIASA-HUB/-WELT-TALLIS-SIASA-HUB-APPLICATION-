@@ -1,23 +1,34 @@
-import { StrictMode, useEffect } from "react";
+import React, { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
+// 1. Import the Provider
+import { CountyProvider } from "./context/countyContext";
 
-const RootComponent = () => {
-  useEffect(() => {
-    // requestAnimationFrame waits for the very first browser paint
-    const handle = requestAnimationFrame(() => {
-      document.body.classList.add("loaded");
-    });
+// Only enable HMR in development
+if (import.meta.env.DEV && import.meta.hot) {
+  import.meta.hot.accept();
+}
 
-    return () => cancelAnimationFrame(handle);
-  }, []);
-
-  return <App />;
+const markAsLoaded = () => {
+  queueMicrotask(() => {
+    document.body.classList.add("loaded");
+  });
 };
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <RootComponent />
-  </StrictMode>,
-);
+const rootElement = document.getElementById("root");
+
+if (rootElement) {
+  const root = createRoot(rootElement);
+
+  root.render(
+    <StrictMode>
+      {/* 2. Wrap App here. This ensures useCounty() works everywhere */}
+      <CountyProvider>
+        <App />
+      </CountyProvider>
+    </StrictMode>,
+  );
+
+  markAsLoaded();
+}
