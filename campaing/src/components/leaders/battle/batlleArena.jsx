@@ -34,7 +34,7 @@ import {
   Crown,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8002/api/v1";
+const API_BASE = "http://localhost:8009/api/v1";
 const SOCKET_URL = "https://bidding-dollar-right-oct.trycloudflare.com";
 
 const BATTLE_API = `${API_BASE}/battles`;

@@ -11,7 +11,7 @@ const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/leaderRoutes");
 const battleRoutes = require("./src/routes/battle");
-const battleController = require("./src/controllers/battle");
+const battleController = require("./src/controllers/BattleController");
 const { connectRabbitMQ } = require("./src/Qeues/rabbit");
 
 const app = express();

@@ -3,68 +3,83 @@ version: '3.8'
 services:
   api-gateway:
     build: ./api-gateway
+    container_name: api-gateway
     ports:
-      - "3000:3000"
-    env_file: ./api-gateway/.env
+      - "8009:8009"
     depends_on:
       - redis
-      - rabbitmq
     environment:
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - NODE_ENV=production
+      - PORT=8009
+      - LEADERS_SERVICE_URL=http://leaders-service:8006
+      - MEDIA_SERVICE_URL=http://media-service:8007
+      - RALLY_SERVICE_URL=http://rally-service:8001
+      - USERS_SERVICE_URL=http://users-service:8002
+      - WALLET_SERVICE_URL=http://wallet-service:8008
+      - ENDORSEMENT_SERVICE_URL=http://endorsement-service:8003
+      - MARKETPLACE_SERVICE_URL=http://marketplace-service:8004
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
-  identity-service:
-    build: ./identity-service
-    env_file: ./identity-service/.env
+  users-service:
+    build: ./users-service
+    container_name: users-service
     depends_on:
       - redis
-      - rabbitmq
     environment:
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - NODE_ENV=production
+      - PORT=8002
 
-  post-service:
-    build: ./post-service
-    env_file: ./post-service/.env
+  wallet-service:
+    build: ./wallet-service
+    container_name: wallet-service
     depends_on:
       - redis
-      - rabbitmq
     environment:
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - NODE_ENV=production
+      - PORT=8008
 
-  media-service:
-    build: ./media-service
-    env_file: ./media-service/.env
+  leaders-service:
+    build: ./leaders-service
+    container_name: leaders-service
     depends_on:
       - redis
-      - rabbitmq
     environment:
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - NODE_ENV=production
+      - PORT=8006
 
-  search-service:
-    build: ./search-service
-    env_file: ./search-service/.env
+  rally-service:
+    build: ./rally-service
+    container_name: rally-service
     depends_on:
       - redis
-      - rabbitmq
     environment:
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - NODE_ENV=production
+      - PORT=8001
+
+  endorsement-service:
+    build: ./endorsement-service
+    container_name: endorsement-service
+    depends_on:
+      - redis
+    environment:
+      - NODE_ENV=production
+      - PORT=8003
+
+  marketplace-service:
+    build: ./marketplace-service
+    container_name: marketplace-service
+    depends_on:
+      - redis
+    environment:
+      - NODE_ENV=production
+      - PORT=8004
 
   redis:
     image: redis:alpine
+    container_name: shared-redis
     ports:
       - "6379:6379"
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+volumes:
+  redis-data:

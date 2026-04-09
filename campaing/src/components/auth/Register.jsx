@@ -9,14 +9,9 @@ import {
   Calendar,
   Lock,
   Briefcase,
-  Users,
   Eye,
   EyeOff,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   User,
-  AtSign,
   Flag,
   TrendingUp,
   Mail,
@@ -38,6 +33,7 @@ const colors = {
   border: "#ecf0f1",
 };
 
+// Styled Components
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
@@ -206,19 +202,6 @@ const SubmitBtn = styled.button`
   }
 `;
 
-const UsernameStatus = styled.div`
-  margin-top: 6px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: ${(props) => {
-    if (props.status === "available") return "#10b981";
-    if (props.status === "taken") return "#ef4444";
-    return colors.textLight;
-  }};
-`;
-
 const OptionalBadge = styled.span`
   font-size: 10px;
   font-weight: normal;
@@ -239,6 +222,7 @@ const SensitiveBadge = styled.span`
   color: ${colors.primaryDark};
 `;
 
+// Data Lists
 const CountyList = [
   "Mombasa",
   "Kwale",
@@ -314,7 +298,6 @@ const EmploymentStatuses = [
   "Prefer not to say",
 ];
 
-// NEW: Political Leanings options
 const PoliticalLeanings = [
   "Pro-Government",
   "Opposition",
@@ -322,7 +305,6 @@ const PoliticalLeanings = [
   "Prefer not to say",
 ];
 
-// NEW: Vote Frequency options
 const VoteFrequencies = [
   "Always",
   "Sometimes",
@@ -336,11 +318,8 @@ const RegistrationPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [usernameAvailable, setUsernameAvailable] = useState(null);
-  const [checkingUsername, setCheckingUsername] = useState(false);
   const [formData, setFormData] = useState({
     real_name: "",
-    username: "",
     gender: "",
     age_bracket: "",
     county: "",
@@ -350,38 +329,19 @@ const RegistrationPage = () => {
     password: "",
     political_party: "",
     employment_status: "",
-    // NEW FIELDS
     political_leanings: "",
     vote_frequency: "",
     personal_email: "",
   });
 
-  const handleChange = async (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === "username" && value.length >= 3) {
-      setCheckingUsername(true);
-      try {
-        const response = await API.get(`/users/check-username/${value}`);
-        setUsernameAvailable(response.data.available);
-      } catch (error) {
-        setUsernameAvailable(false);
-      } finally {
-        setCheckingUsername(false);
-      }
-    } else if (name === "username" && value.length < 3) {
-      setUsernameAvailable(null);
-    }
   };
 
   const validateForm = () => {
     if (!formData.real_name || formData.real_name.trim().length < 3) {
       toast.error("Full name must be at least 3 characters");
-      return false;
-    }
-    if (!formData.username || formData.username.length < 1) {
-      toast.error("Username is required");
       return false;
     }
     if (!formData.password || formData.password.length < 6) {
@@ -409,7 +369,6 @@ const RegistrationPage = () => {
       return false;
     }
 
-    // Validate email if provided
     if (formData.personal_email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.personal_email)) {
@@ -426,35 +385,48 @@ const RegistrationPage = () => {
     if (!validateForm()) return;
 
     setLoading(true);
-    try {
-      const submitData = {
-        real_name: formData.real_name.trim(),
-        username: formData.username,
-        gender: formData.gender,
-        age_bracket: formData.age_bracket,
-        county: formData.county,
-        ward: formData.ward || "",
-        voter_card: formData.voter_card,
-        will_vote: formData.will_vote,
-        password: formData.password,
-        political_party: formData.political_party || "Undecided",
-        employment_status: formData.employment_status || "Prefer not to say",
-        // NEW FIELDS
-        political_leanings: formData.political_leanings || "Prefer not to say",
-        vote_frequency: formData.vote_frequency || "Prefer not to say",
-        personal_email: formData.personal_email || null,
-      };
 
+    const submitData = {
+      real_name: formData.real_name.trim(),
+      gender: formData.gender,
+      age_bracket: formData.age_bracket,
+      county: formData.county,
+      ward: formData.ward || "",
+      voter_card: formData.voter_card,
+      will_vote: formData.will_vote,
+      password: formData.password,
+      political_party: formData.political_party || "Undecided",
+      employment_status: formData.employment_status || "Prefer not to say",
+      political_leanings: formData.political_leanings || "Prefer not to say",
+      vote_frequency: formData.vote_frequency || "Prefer not to say",
+      personal_email: formData.personal_email || null,
+    };
+
+    try {
       const response = await API_BASE_URL.post("/register", submitData);
 
       if (response.data.success) {
-        toast.success(`Welcome ${formData.real_name.split(" ")[0]}!`);
+        toast.success(
+          `Welcome ${formData.real_name.split(" ")[0]}! 150 points added to your wallet! 🎉`,
+        );
         setTimeout(() => navigate("/login"), 2000);
       } else {
         toast.error(response.data.message || "Registration failed");
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Connection error");
+      console.error("Registration error:", err);
+
+      if (err.response) {
+        toast.error(
+          err.response.data?.message || `Server error: ${err.response.status}`,
+        );
+      } else if (err.request) {
+        toast.error(
+          "Cannot connect to server. Please check if backend is running",
+        );
+      } else {
+        toast.error(err.message || "Connection error");
+      }
     } finally {
       setLoading(false);
     }
@@ -466,7 +438,7 @@ const RegistrationPage = () => {
       <FormCard>
         <Header>
           <h2>🇰🇪 Join Siasa-Hub</h2>
-          <p>Register to participate in democracy</p>
+          <p>Register to participate in democracy • Get 150 welcome points!</p>
         </Header>
 
         <form onSubmit={handleSubmit}>
@@ -488,51 +460,7 @@ const RegistrationPage = () => {
               />
             </InputWrapper>
 
-            {/* Username */}
-            <Label>
-              <AtSign size={16} /> Username *
-            </Label>
-            <InputWrapper>
-              <InputIcon>
-                <AtSign size={18} />
-              </InputIcon>
-              <Input
-                name="username"
-                placeholder="Choose a username"
-                value={formData.username}
-                onChange={handleChange}
-                hasIcon
-                error={usernameAvailable === false}
-              />
-            </InputWrapper>
-            {formData.username?.length >= 3 && (
-              <UsernameStatus
-                status={
-                  usernameAvailable === true
-                    ? "available"
-                    : usernameAvailable === false
-                      ? "taken"
-                      : null
-                }
-              >
-                {checkingUsername ? (
-                  <AlertCircle size={12} />
-                ) : usernameAvailable === true ? (
-                  <CheckCircle size={12} />
-                ) : usernameAvailable === false ? (
-                  <XCircle size={12} />
-                ) : null}
-                {checkingUsername
-                  ? "Checking..."
-                  : usernameAvailable === true
-                    ? "Username available!"
-                    : usernameAvailable === false
-                      ? "Username taken"
-                      : ""}
-              </UsernameStatus>
-            )}
-
-            {/* NEW: Personal Email */}
+            {/* Personal Email */}
             <Label>
               <Mail size={16} /> Personal Email{" "}
               <OptionalBadge>Optional</OptionalBadge>
@@ -647,7 +575,7 @@ const RegistrationPage = () => {
               </div>
             </Grid>
 
-            {/* NEW: Vote Frequency */}
+            {/* Vote Frequency */}
             <Label>
               <TrendingUp size={14} /> Voting History{" "}
               <OptionalBadge>Optional</OptionalBadge>
@@ -660,17 +588,6 @@ const RegistrationPage = () => {
               <option value="">How often do you vote?</option>
               {VoteFrequencies.map((freq) => (
                 <option key={freq} value={freq}>
-                  {freq === "Always"
-                    ? "✅ "
-                    : freq === "Sometimes"
-                      ? "🔄 "
-                      : freq === "Rarely"
-                        ? "⚠️ "
-                        : freq === "Never"
-                          ? "❌ "
-                          : freq === "First-time voter"
-                            ? "🌟 "
-                            : "🙊 "}
                   {freq}
                 </option>
               ))}
@@ -694,7 +611,7 @@ const RegistrationPage = () => {
               ))}
             </Select>
 
-            {/* NEW: Political Leanings (Sensitive) */}
+            {/* Political Leanings */}
             <Label>
               <Heart size={14} /> Political Leanings{" "}
               <SensitiveBadge>Sensitive</SensitiveBadge>{" "}
@@ -708,13 +625,6 @@ const RegistrationPage = () => {
               <option value="">Select political leaning</option>
               {PoliticalLeanings.map((leaning) => (
                 <option key={leaning} value={leaning}>
-                  {leaning === "Pro-Government"
-                    ? "🏛️ "
-                    : leaning === "Opposition"
-                      ? "⚖️ "
-                      : leaning === "Undecided"
-                        ? "🤔 "
-                        : "🙊 "}
                   {leaning}
                 </option>
               ))}
@@ -759,14 +669,10 @@ const RegistrationPage = () => {
             </InputWrapper>
 
             <SubmitBtn type="submit" disabled={loading}>
-              {loading ? (
-                "Creating..."
-              ) : (
-                <>
-                  Join Siasa-Hub
-                  <UserPlus size={20} />
-                </>
-              )}
+              {loading
+                ? "Creating Account..."
+                : "Join Siasa-Hub (Get 150 Points!)"}
+              {!loading && <UserPlus size={20} />}
             </SubmitBtn>
           </Section>
         </form>

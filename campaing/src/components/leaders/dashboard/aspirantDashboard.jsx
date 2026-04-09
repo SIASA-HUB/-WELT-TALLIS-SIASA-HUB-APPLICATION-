@@ -25,7 +25,7 @@ import {
 import axios from "axios";
 
 import CreateManifesto from "../manifestos/createManifesto";
-import CreateRally from "../../rallies/createRally";
+import CreateRally from "../../Rallies/createRally";
 import DashboardOverview from "./DashboardOverview";
 import SupportersSection from "./SuportersSection";
 import AnalyticsSection from "./AnalyticsSection";

@@ -10,7 +10,7 @@ import {
   CheckCircle,
   Play,
 } from "lucide-react";
-import theme from "../../utils/theme";
+import theme from "../../utils/Theme";
 import AddStoryModal from "./addStoryModal";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 import axios from "axios";

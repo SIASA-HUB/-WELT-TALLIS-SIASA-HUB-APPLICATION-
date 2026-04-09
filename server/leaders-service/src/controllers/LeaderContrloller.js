@@ -18,7 +18,7 @@ const {
   consumeMessages,
   QUEUES,
   publishMessage,
-} = require("../Qeues/rabbit");
+} = require("../Qeues/Rabbit");
 
 const memoryCache = new Map();
 
@@ -39,70 +39,38 @@ const startLeaderWorkers = async () => {
         let mediumUrl = null;
         let socialUrl = null;
 
-        if (process.env.CLOUDINARY_CLOUD_NAME) {
-          const cloudinary = require("cloudinary").v2;
-          cloudinary.config({
-            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-            api_key: process.env.CLOUDINARY_API_KEY,
-            api_secret: process.env.CLOUDINARY_API_SECRET,
-          });
-
-          const buffer = Buffer.from(imageBuffer, "base64");
-          const result = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-              {
-                folder: "leaders_profiles",
-                transformation: [
-                  { width: 800, height: 800, crop: "limit", quality: "auto" },
-                  { fetch_format: "auto" },
-                ],
-                eager: [
-                  {
-                    width: 200,
-                    height: 200,
-                    crop: "thumb",
-                    gravity: "face",
-                    format: "webp",
-                  },
-                  {
-                    width: 400,
-                    height: 400,
-                    crop: "fill",
-                    gravity: "face",
-                    format: "webp",
-                  },
-                  {
-                    width: 1200,
-                    height: 630,
-                    crop: "fill",
-                    gravity: "face",
-                    format: "jpg",
-                  },
-                ],
-              },
-              (error, result) => (error ? reject(error) : resolve(result)),
-            );
-            uploadStream.end(buffer);
-          });
-
-          imageUrl = result.secure_url;
-          imagePublicId = result.public_id;
-          thumbnailUrl = result.eager?.[0]?.secure_url || null;
-          mediumUrl = result.eager?.[1]?.secure_url || null;
-          socialUrl = result.eager?.[2]?.secure_url || null;
-        } else {
-          const fs = require("fs");
-          const path = require("path");
-          const uploadDir = path.join(__dirname, "../uploads/leaders");
-          if (!fs.existsSync(uploadDir))
-            fs.mkdirSync(uploadDir, { recursive: true });
-          const fileName = `${leaderId}_${Date.now()}_${imageMeta.originalname}`;
-          fs.writeFileSync(
-            path.join(uploadDir, fileName),
-            Buffer.from(imageBuffer, "base64"),
-          );
-          imageUrl = `/uploads/leaders/${fileName}`;
+        const fs = require("fs");
+        const path = require("path");
+        const sharp = require("sharp");
+        const UPLOAD_DIR = path.join(__dirname, "../../../../public/uploads/leaders");
+        
+        if (!fs.existsSync(UPLOAD_DIR)) {
+          fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         }
+
+        const buffer = Buffer.from(imageBuffer, "base64");
+        const baseName = `${leaderId}_${Date.now()}`;
+        
+        const originalFileName = `${baseName}_original.webp`;
+        const thumbFileName = `${baseName}_thumb.webp`;
+
+        // Process Original
+        await sharp(buffer)
+          .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toFile(path.join(UPLOAD_DIR, originalFileName));
+
+        // Process Thumb
+        await sharp(buffer)
+          .resize(400, 400, { fit: "cover", gravity: "face" })
+          .webp({ quality: 80 })
+          .toFile(path.join(UPLOAD_DIR, thumbFileName));
+
+        imageUrl = `/uploads/leaders/${originalFileName}`;
+        imagePublicId = baseName;
+        thumbnailUrl = `/uploads/leaders/${thumbFileName}`;
+        mediumUrl = imageUrl;
+        socialUrl = imageUrl;
 
         const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
         await safeQuery(
@@ -536,76 +504,35 @@ const loginAspirant = asyncHandler(async (req, res) => {
         .status(400)
         .json({ success: false, message: "Name and password are required" });
 
-    const normalizedInput = name.trim().toLowerCase().replace(/\s+/g, " ");
+    const normalizedInput = name.trim().toLowerCase();
+    
+    // Strict match searching only
     const leaders = await safeQuery(
       `SELECT leader_id, name, email, phone, password_hash, party, slogan,
               position, county, constituency, ward, image_url, status, verification
-       FROM leaders WHERE status != 'deleted'`,
+       FROM leaders WHERE status != 'deleted' AND (LOWER(name) = ? OR LOWER(email) = ?) LIMIT 1`,
+       [normalizedInput, normalizedInput]
     );
 
-    if (!leaders?.length)
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid credentials" });
-
-    let bestMatch = null,
-      bestScore = 0;
-    for (const leader of leaders) {
-      const normalizedLeader = leader.name
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ");
-      let score = 0;
-      if (normalizedLeader === normalizedInput) score = 100;
-      else if (
-        normalizedLeader.includes(normalizedInput) ||
-        normalizedInput.includes(normalizedLeader)
-      )
-        score = 80;
-      else
-        score =
-          calculateStringSimilarity(normalizedLeader, normalizedInput) * 100;
-      if (score > 70 && score > bestScore) {
-        bestScore = score;
-        bestMatch = leader;
-      }
+    if (!leaders || leaders.length === 0) {
+      return res.status(401).json({ success: false, message: "Invalid credentials or account not found." });
     }
 
-    if (!bestMatch) {
-      const inputWords = normalizedInput.split(" ");
-      outer: for (const leader of leaders) {
-        const leaderWords = leader.name
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, " ")
-          .split(" ");
-        for (const iw of inputWords) {
-          if (iw.length < 3) continue;
-          for (const lw of leaderWords) {
-            if (lw.includes(iw) || iw.includes(lw)) {
-              bestMatch = leader;
-              break outer;
-            }
-          }
-        }
-      }
-    }
+    const bestMatch = leaders[0];
 
-    if (!bestMatch)
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid credentials" });
-    if (bestMatch.status !== "active" && bestMatch.status !== "pending")
+    if (bestMatch.status !== "active" && bestMatch.status !== "pending") {
       return res.status(401).json({
         success: false,
         message: "Account is not active. Please contact support.",
       });
+    }
 
     const isValid = await bcrypt.compare(password, bestMatch.password_hash);
-    if (!isValid)
+    if (!isValid) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
+    }
 
     const token = jwt.sign(
       {
@@ -1473,6 +1400,414 @@ const invalidateFeedCache = asyncHandler(async (req, res) => {
 });
 
 // ============================================
+// LEADER ANALYTICS - COUNT PER LOCATION & POSITION
+// ============================================
+
+/**
+ * Get leader analytics by county
+ * Shows how many leaders registered per county
+ */
+const getLeaderAnalyticsByCounty = asyncHandler(async (req, res) => {
+  try {
+    const { safeQuery } = require("../../../global/index");
+
+    // Get leader count per county with position breakdown
+    const countyStats = await safeQuery(`
+      SELECT 
+        county,
+        COUNT(*) as total_leaders,
+        SUM(CASE WHEN position = 'President' OR position_running_for = 'President' THEN 1 ELSE 0 END) as presidential,
+        SUM(CASE WHEN position = 'Governor' OR position_running_for = 'Governor' THEN 1 ELSE 0 END) as governors,
+        SUM(CASE WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 1 ELSE 0 END) as senators,
+        SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as mps,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
+        SUM(CASE WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 1 ELSE 0 END) as women_reps,
+        GROUP_CONCAT(DISTINCT position) as positions_available
+      FROM leaders 
+      WHERE status = 'active'
+      GROUP BY county
+      ORDER BY total_leaders DESC
+    `);
+
+    // Get total counts across all counties
+    const totalStats = await safeQueryOne(`
+      SELECT 
+        COUNT(*) as total_leaders,
+        COUNT(DISTINCT county) as counties_with_leaders,
+        SUM(CASE WHEN position = 'President' OR position_running_for = 'President' THEN 1 ELSE 0 END) as total_presidential,
+        SUM(CASE WHEN position = 'Governor' OR position_running_for = 'Governor' THEN 1 ELSE 0 END) as total_governors,
+        SUM(CASE WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 1 ELSE 0 END) as total_senators,
+        SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as total_mps,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as total_mcas,
+        SUM(CASE WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 1 ELSE 0 END) as total_women_reps
+      FROM leaders 
+      WHERE status = 'active'
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          total_leaders: totalStats?.total_leaders || 0,
+          counties_with_leaders: totalStats?.counties_with_leaders || 0,
+          total_presidential: totalStats?.total_presidential || 0,
+          total_governors: totalStats?.total_governors || 0,
+          total_senators: totalStats?.total_senators || 0,
+          total_mps: totalStats?.total_mps || 0,
+          total_mcas: totalStats?.total_mcas || 0,
+          total_women_reps: totalStats?.total_women_reps || 0,
+        },
+        counties: countyStats || [],
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getLeaderAnalyticsByCounty] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader analytics by county",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get leader analytics by constituency
+ */
+const getLeaderAnalyticsByConstituency = asyncHandler(async (req, res) => {
+  try {
+    const { safeQuery } = require("../../../global/index");
+    const { county } = req.query;
+
+    let query = `
+      SELECT 
+        constituency,
+        county,
+        COUNT(*) as total_leaders,
+        SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as mps,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
+        GROUP_CONCAT(DISTINCT position) as positions_available
+      FROM leaders 
+      WHERE status = 'active' AND constituency IS NOT NULL AND constituency != ''
+    `;
+
+    const params = [];
+    if (county) {
+      query += ` AND county = ?`;
+      params.push(county);
+    }
+
+    query += ` GROUP BY constituency, county ORDER BY total_leaders DESC`;
+
+    const constituencyStats = await safeQuery(query, params);
+
+    // Get summary
+    let summaryQuery = `
+      SELECT 
+        COUNT(DISTINCT constituency) as total_constituencies,
+        COUNT(*) as total_leaders,
+        SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as total_mps
+      FROM leaders 
+      WHERE status = 'active' AND constituency IS NOT NULL AND constituency != ''
+    `;
+
+    if (county) {
+      summaryQuery += ` AND county = ?`;
+    }
+
+    const summary = await safeQueryOne(summaryQuery, county ? [county] : []);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          total_constituencies: summary?.total_constituencies || 0,
+          total_leaders: summary?.total_leaders || 0,
+          total_mps: summary?.total_mps || 0,
+        },
+        constituencies: constituencyStats || [],
+        filter: { county: county || "all" },
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getLeaderAnalyticsByConstituency] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader analytics by constituency",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get leader analytics by ward
+ */
+const getLeaderAnalyticsByWard = asyncHandler(async (req, res) => {
+  try {
+    const { safeQuery } = require("../../../global/index");
+    const { constituency, county } = req.query;
+
+    let query = `
+      SELECT 
+        ward,
+        constituency,
+        county,
+        COUNT(*) as total_leaders,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
+        GROUP_CONCAT(DISTINCT name) as leader_names
+      FROM leaders 
+      WHERE status = 'active' AND ward IS NOT NULL AND ward != ''
+    `;
+
+    const params = [];
+    if (constituency) {
+      query += ` AND constituency = ?`;
+      params.push(constituency);
+    }
+    if (county) {
+      query += ` AND county = ?`;
+      params.push(county);
+    }
+
+    query += ` GROUP BY ward, constituency, county ORDER BY total_leaders DESC`;
+
+    const wardStats = await safeQuery(query, params);
+
+    // Get summary
+    let summaryQuery = `
+      SELECT 
+        COUNT(DISTINCT ward) as total_wards,
+        COUNT(*) as total_leaders,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as total_mcas
+      FROM leaders 
+      WHERE status = 'active' AND ward IS NOT NULL AND ward != ''
+    `;
+
+    if (constituency) {
+      summaryQuery += ` AND constituency = ?`;
+    } else if (county) {
+      summaryQuery += ` AND county = ?`;
+    }
+
+    const summary = await safeQueryOne(summaryQuery, params);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          total_wards: summary?.total_wards || 0,
+          total_leaders: summary?.total_leaders || 0,
+          total_mcas: summary?.total_mcas || 0,
+        },
+        wards: wardStats || [],
+        filter: {
+          constituency: constituency || "all",
+          county: county || "all",
+        },
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getLeaderAnalyticsByWard] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader analytics by ward",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get leader analytics by position
+ */
+const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
+  try {
+    const { safeQuery } = require("../../../global/index");
+
+    const positionStats = await safeQuery(`
+      SELECT 
+        CASE 
+          WHEN position = 'President' OR position_running_for = 'President' THEN 'President'
+          WHEN position = 'Governor' OR position_running_for = 'Governor' THEN 'Governor'
+          WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 'Senator'
+          WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 'Member of Parliament'
+          WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 'Women Representative'
+          WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 'MCA'
+          ELSE 'Other'
+        END as position_category,
+        COUNT(*) as total_leaders,
+        COUNT(DISTINCT county) as counties_covered,
+        COUNT(DISTINCT CASE WHEN county IS NOT NULL THEN county END) as counties_with_candidates,
+        GROUP_CONCAT(DISTINCT name) as candidate_names
+      FROM leaders 
+      WHERE status = 'active'
+      GROUP BY position_category
+      ORDER BY total_leaders DESC
+    `);
+
+    // Get detailed breakdown by county for each position
+    const detailedStats = await safeQuery(`
+      SELECT 
+        county,
+        SUM(CASE WHEN position = 'President' OR position_running_for = 'President' THEN 1 ELSE 0 END) as presidential,
+        SUM(CASE WHEN position = 'Governor' OR position_running_for = 'Governor' THEN 1 ELSE 0 END) as governors,
+        SUM(CASE WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 1 ELSE 0 END) as senators,
+        SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as mps,
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
+        SUM(CASE WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 1 ELSE 0 END) as women_reps
+      FROM leaders 
+      WHERE status = 'active'
+      GROUP BY county
+      ORDER BY county
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          total_positions: positionStats.length,
+          total_leaders: positionStats.reduce(
+            (sum, p) => sum + p.total_leaders,
+            0,
+          ),
+        },
+        by_position: positionStats,
+        by_county_detailed: detailedStats,
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getLeaderAnalyticsByPosition] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader analytics by position",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get complete leader dashboard analytics
+ */
+const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
+  try {
+    const { safeQuery, safeQueryOne } = require("../../../global/index");
+
+    // Get all counts in one go
+    const [
+      totalLeaders,
+      totalCounties,
+      totalConstituencies,
+      totalWards,
+      verifiedLeaders,
+      pendingLeaders,
+      partyStats,
+      topCounty,
+      recentLeaders,
+    ] = await Promise.all([
+      safeQueryOne(
+        "SELECT COUNT(*) as count FROM leaders WHERE status = 'active'",
+      ),
+      safeQueryOne(
+        "SELECT COUNT(DISTINCT county) as count FROM leaders WHERE status = 'active' AND county IS NOT NULL",
+      ),
+      safeQueryOne(
+        "SELECT COUNT(DISTINCT constituency) as count FROM leaders WHERE status = 'active' AND constituency IS NOT NULL",
+      ),
+      safeQueryOne(
+        "SELECT COUNT(DISTINCT ward) as count FROM leaders WHERE status = 'active' AND ward IS NOT NULL",
+      ),
+      safeQueryOne(
+        "SELECT COUNT(*) as count FROM leaders WHERE status = 'active' AND verification = 1",
+      ),
+      safeQueryOne(
+        "SELECT COUNT(*) as count FROM leaders WHERE status = 'pending'",
+      ),
+      safeQuery(`
+        SELECT 
+          party,
+          COUNT(*) as count
+        FROM leaders 
+        WHERE status = 'active' AND party IS NOT NULL
+        GROUP BY party
+        ORDER BY count DESC
+        LIMIT 10
+      `),
+      safeQueryOne(`
+        SELECT 
+          county,
+          COUNT(*) as count
+        FROM leaders 
+        WHERE status = 'active' AND county IS NOT NULL
+        GROUP BY county
+        ORDER BY count DESC
+        LIMIT 1
+      `),
+      safeQuery(`
+        SELECT 
+          leader_id,
+          name,
+          party,
+          position,
+          county,
+          created_at
+        FROM leaders 
+        WHERE status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 10
+      `),
+    ]);
+
+    // Get position breakdown
+    const positionBreakdown = await safeQuery(`
+      SELECT 
+        CASE 
+          WHEN position = 'President' OR position_running_for = 'President' THEN 'President'
+          WHEN position = 'Governor' OR position_running_for = 'Governor' THEN 'Governor'
+          WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 'Senator'
+          WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 'MP'
+          WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 'Women Representative'
+          WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 'MCA'
+          ELSE 'Other'
+        END as position,
+        COUNT(*) as count
+      FROM leaders 
+      WHERE status = 'active'
+      GROUP BY position
+      ORDER BY count DESC
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        overview: {
+          total_leaders: totalLeaders?.count || 0,
+          total_counties: totalCounties?.count || 0,
+          total_constituencies: totalConstituencies?.count || 0,
+          total_wards: totalWards?.count || 0,
+          verified_leaders: verifiedLeaders?.count || 0,
+          pending_leaders: pendingLeaders?.count || 0,
+          top_county: topCounty?.county || "N/A",
+          top_county_count: topCounty?.count || 0,
+        },
+        position_breakdown: positionBreakdown,
+        top_parties: partyStats,
+        recent_leaders: recentLeaders,
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("[getLeaderDashboardAnalytics] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader dashboard analytics",
+      error: error.message,
+    });
+  }
+});
+
+// ============================================
 // EXPORTS
 // ============================================
 module.exports = {
@@ -1496,4 +1831,10 @@ module.exports = {
   boostLeader,
   getPersonalizedFeed,
   invalidateFeedCache,
+
+  getLeaderAnalyticsByCounty,
+  getLeaderAnalyticsByConstituency,
+  getLeaderAnalyticsByWard,
+  getLeaderAnalyticsByPosition,
+  getLeaderDashboardAnalytics,
 };

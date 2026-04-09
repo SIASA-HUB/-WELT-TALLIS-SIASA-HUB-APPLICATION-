@@ -13,7 +13,7 @@ import {
   CheckCircle,
   AtSign,
 } from "lucide-react";
-import axios from "axios";
+import walletApi from "./ApiConfig"; // Import the wallet API
 
 const Container = styled.div`
   padding: 40px 24px;
@@ -290,8 +290,6 @@ const PhonePrefix = styled.span`
   font-size: 14px;
 `;
 
-const API_BASE_URL = "https://shirt-korea-cups-conclude.trycloudflare.com";
-
 // Auth Service to get current user
 const getCurrentUser = () => {
   const userData = localStorage.getItem("user_data");
@@ -340,15 +338,10 @@ const Header = () => {
       setIsAuthenticated(true);
       console.log("✅ User found in localStorage:", user.user_id);
     } else {
-      // Try to get from cookie
+      // Try to get from cookie using walletApi
       const getUserFromCookie = async () => {
         try {
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/users/user-info`,
-            {
-              withCredentials: true,
-            },
-          );
+          const response = await walletApi.get("/user-info");
           if (response.data.success) {
             setCurrentUser(response.data.user);
             setUserId(response.data.user.user_id);
@@ -399,10 +392,7 @@ const Header = () => {
     if (!userId) return;
     try {
       console.log("🔍 Fetching balance for user:", userId);
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/wallet/balance/${userId}`,
-        { withCredentials: true },
-      );
+      const response = await walletApi.get(`/balance/${userId}`);
       console.log("📊 Balance response:", response.data);
       if (response.data.success) {
         setBalance(response.data.data.balance);
@@ -418,10 +408,7 @@ const Header = () => {
   const fetchTransactions = async () => {
     if (!userId) return;
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/wallet/transactions/${userId}?limit=5`,
-        { withCredentials: true },
-      );
+      const response = await walletApi.get(`/transactions/${userId}?limit=5`);
       if (response.data.success) {
         setTransactions(response.data.data || []);
       }
@@ -461,11 +448,7 @@ const Header = () => {
 
       console.log("📤 Sending deposit request:", payload);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/v1/wallet/deposit`,
-        payload,
-        { withCredentials: true },
-      );
+      const response = await walletApi.post("/deposit", payload);
 
       console.log("📥 Deposit response:", response.data);
 

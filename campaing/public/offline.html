@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siasa Hub - Offline</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background: #121212; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+        .container { max-width: 400px; padding: 20px; }
+        h1 { color: #bb0000; margin-bottom: 10px; }
+        p { color: #aaa; margin-bottom: 20px; line-height: 1.5; }
+        button { background: #bb0000; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #8b0000; }
+        .icon { font-size: 48px; margin-bottom: 16px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="icon">📡</span>
+        <h1>You're Offline</h1>
+        <p>It seems your internet connection is unstable or disconnected. We've cached your recent pages, but you need a connection to view this new content.</p>
+        <button onclick="window.location.reload()">Try Again</button>
+    </div>
+</body>
+</html>

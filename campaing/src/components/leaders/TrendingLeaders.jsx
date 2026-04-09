@@ -11,7 +11,7 @@ import {
   Verified,
 } from "lucide-react";
 import AppLoadingBar from "../../utils/LoadingBar";
-import theme from "../../utils/theme";
+import theme from "../../utils/Theme";
 
 // Added fallbacks to prevent "Cannot read properties of undefined"
 const COLORS = theme?.COLORS || { success: "#10b981", primary: "#ff4500" };

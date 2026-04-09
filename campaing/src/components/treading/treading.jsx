@@ -3,11 +3,11 @@ import styled from "styled-components";
 import LoadingBar from "react-top-loading-bar";
 
 import TopFypHeader from "./fyp";
-import VoterRegistrationCompetition from "../auth/voterCompetition";
+import VoterRegistrationCompetition from "../Auth/voterCompetition";
 import BattleArena from "../leaders/battle/batlleArena";
-import TrendingStoriesRow from "../stories/tredingStoriesRow";
+import TrendingStoriesRow from "../Stories/tredingStoriesRow";
 import TrendingManifestos from "../leaders/manifestos/TredingManifestos";
-import RalliesSection from "../rallies/ralliessection";
+import RalliesSection from "../Rallies/ralliessection";
 import TrendingLeaders from "../leaders/TrendingLeaders";
 import TopMobilizers from "./topMobilizers";
 

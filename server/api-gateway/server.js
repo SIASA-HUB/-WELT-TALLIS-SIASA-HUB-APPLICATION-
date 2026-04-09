@@ -4,8 +4,10 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const proxy = require("express-http-proxy");
-const rateLimit = require("express-rate-limit");
-const { RedisStore } = require("rate-limit-redis");
+
+// Import global modules for auth and rate-limiting
+const globalUtils = require("../global/index");
+const { verifyAccessToken } = globalUtils;
 
 const redis = require("./src/utils/redis/redis");
 const app = express();
@@ -63,6 +65,18 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static properties securely from disk
+const path = require("path");
+const staticPath = path.join(__dirname, "../../public/uploads");
+app.use("/uploads", express.static(staticPath, {
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, path) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+    }
+}));
+
+
 // Request logger
 app.use((req, res, next) => {
   Logger.info("Incoming Request", {
@@ -75,93 +89,46 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// RATE LIMITERS - Fixed with proper configuration
+// GLOBAL AUTHENTICATION CHECK
 // ============================================
-
-// Helper function for IPv6-safe key generation
-const ipKeyGenerator = (req) => {
-  // For IPv6, use the /64 subnet to prevent IP rotation bypass
-  let ip = req.ip || req.connection.remoteAddress;
-  if (ip && ip.includes(":")) {
-    // IPv6 - mask to /64 subnet
-    const parts = ip.split(":");
-    if (parts.length >= 4) {
-      ip = parts.slice(0, 4).join(":") + "::/64";
+// Verify standard tokens implicitly to pass X-User properties down
+app.use((req, res, next) => {
+  req.user = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      const decoded = verifyAccessToken(token);
+      if (decoded) {
+        req.user = decoded;
+        req.userId = decoded.userId;
+      }
+    } catch (err) {
+      Logger.warn("Gateway auth check failed", { message: err.message });
     }
   }
-  return ip;
-};
+  next();
+});
 
-// Create separate Redis store instances for each limiter
-let apiLimiter, sensitiveLimiter;
+// ============================================
+// RATE LIMITERS FROM GLOBAL SHARED UTILS
+// ============================================
+app.use("/api/v1/", globalUtils.apiLimiter);
 
-try {
-  // Store for general API limiter
-  const apiRedisStore = new RedisStore({
-    sendCommand: (...args) => redis.call(...args),
-    prefix: "rl:api:",
-  });
-
-  apiLimiter = rateLimit({
-    store: apiRedisStore,
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 300, // 300 requests per windowMs
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: ipKeyGenerator,
-    validate: {
-      keyGeneratorIpFallback: false, // Disable IPv6 validation since we handle it
-      unsharedStore: false, // We're using separate stores
-    },
-    message: {
-      success: false,
-      message: "Too many requests. Please slow down.",
-    },
-  });
-
-  // Store for sensitive endpoints limiter
-  const sensitiveRedisStore = new RedisStore({
-    sendCommand: (...args) => redis.call(...args),
-    prefix: "rl:sensitive:",
-  });
-
-  sensitiveLimiter = rateLimit({
-    store: sensitiveRedisStore,
-    windowMs: 15 * 60 * 1000,
-    limit: 50,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: ipKeyGenerator,
-    validate: {
-      keyGeneratorIpFallback: false,
-      unsharedStore: false,
-    },
-    handler: (req, res) => {
-      Logger.warn("Sensitive endpoint rate limit hit", { ip: req.ip });
-      res.status(429).json({
-        success: false,
-        message: "Too many attempts. Try again later.",
-      });
-    },
-  });
-
-  app.use(apiLimiter);
-} catch (error) {
-  Logger.error("Redis rate limiter error, falling back to memory store", error);
-  const memoryLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 300,
-    keyGenerator: ipKeyGenerator,
-    message: {
-      success: false,
-      message: "Too many requests. Please slow down.",
-    },
-    validate: {
-      keyGeneratorIpFallback: false,
-    },
-  });
-  app.use(memoryLimiter);
-}
+// Sensitive endpoints get a stricter limit
+const sensitiveRoutes = [
+  "/api/v1/users/login",
+  "/api/v1/users/register",
+  "/api/v1/wallet/transactions",
+  "/api/v1/wallet/withdraw",
+  "/api/v1/wallet/deposit",
+];
+app.use((req, res, next) => {
+  if (sensitiveRoutes.some((route) => req.originalUrl.startsWith(route))) {
+    return globalUtils.strictLimiter(req, res, next);
+  }
+  next();
+});
 
 // ============================================
 // PROXY OPTIONS
@@ -188,6 +155,14 @@ const proxyOptions = {
       proxyReqOpts.headers["X-CSRF-Token"] = srcReq.headers["x-csrf-token"];
     }
 
+    // Forward Centralized Auth metadata
+    if (srcReq.user) {
+      proxyReqOpts.headers["X-User-Id"] = srcReq.user.userId;
+      if (srcReq.user.role) {
+        proxyReqOpts.headers["X-User-Role"] = srcReq.user.role;
+      }
+    }
+
     return proxyReqOpts;
   },
   timeout: 30000,
@@ -207,6 +182,9 @@ const proxyOptions = {
 
 // Leaders Service
 app.use("/api/v1/leaders", proxy(SERVICES.leaders, proxyOptions));
+
+// Battles Routing (proxied to Leaders Service natively)
+app.use("/api/v1/battles", proxy(SERVICES.leaders, proxyOptions));
 
 // Media Service
 app.use("/api/v1/media", proxy(SERVICES.media, proxyOptions));
@@ -228,6 +206,122 @@ app.use("/api/v1/marketplace", proxy(SERVICES.marketplace, proxyOptions));
 
 // Reaction Service
 app.use("/api/v1/reactions", proxy(SERVICES.reaction, proxyOptions));
+
+// ============================================
+// DYNAMIC SEO RENDERER FOR BOTS/CRAWLERS
+// ============================================
+const axios = require("axios");
+
+app.get("/seo/leader/:id", async (req, res) => {
+  try {
+    const leaderId = req.params.id;
+    // Fetch leader safely using internal network path
+    const response = await axios.get(`http://localhost:${PORT}/api/v1/leaders/${leaderId}`);
+    
+    if (!response.data?.success || !response.data?.data) {
+      return res.status(404).send("Leader Not Found");
+    }
+
+    const leader = response.data.data;
+    const imageUrl = leader.image_url?.startsWith("/") ? `https://siasa-hub.com${leader.image_url}` : leader.image_url;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <title>${leader.name} - ${leader.position} for ${leader.county || leader.constituency}</title>
+          <meta name="description" content="Check out ${leader.name}'s manifestos and political profile on Siasa Hub. Position: ${leader.position}, Party: ${leader.party || 'Independent'}.">
+          
+          <!-- OpenGraph / Facebook -->
+          <meta property="og:type" content="profile">
+          <meta property="og:url" content="https://siasa-hub.com/leaders/${leaderId}">
+          <meta property="og:title" content="${leader.name} - ${leader.position}">
+          <meta property="og:description" content="View ${leader.name}'s profile, manifestos, and platform on Siasa-Hub.">
+          <meta property="og:image" content="${imageUrl}">
+          <meta property="og:site_name" content="Siasa Hub">
+
+          <!-- Twitter -->
+          <meta name="twitter:card" content="summary_large_image">
+          <meta name="twitter:url" content="https://siasa-hub.com/leaders/${leaderId}">
+          <meta name="twitter:title" content="${leader.name} - ${leader.position}">
+          <meta name="twitter:description" content="Explore the political profile of ${leader.name} for ${leader.county || leader.constituency}.">
+          <meta name="twitter:image" content="${imageUrl}">
+      </head>
+      <body>
+          <h1>${leader.name}</h1>
+          <p>${leader.slogan || `Running for ${leader.position}`}</p>
+          <img src="${imageUrl}" alt="${leader.name}"/>
+          <p>This is a dynamically rendered SEO page for crawlers. Regular users will experience the fully interactive Siasa Hub application.</p>
+          <a href="/leaders/${leaderId}">View Interactive Profile</a>
+      </body>
+      </html>
+    `;
+    
+    res.set("Content-Type", "text/html");
+    res.send(html);
+  } catch (err) {
+    Logger.error("SEO Renderer failed", { error: err.message, path: req.path });
+    res.status(500).send("SEO Engine Error");
+  }
+});
+
+app.get("/seo/marketplace/product/:id", async (req, res) => {
+  try {
+    const productId = req.params.id;
+    // Fetch product safely using internal network path
+    const response = await axios.get(`http://localhost:${PORT}/api/v1/marketplace/products/${productId}`);
+    
+    if (!response.data?.success || !response.data?.data) {
+      return res.status(404).send("Product Not Found");
+    }
+
+    const product = response.data.data;
+    const imageUrl = product.image_url?.startsWith("/") ? `https://siasa-hub.com${product.image_url}` : product.image_url;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <title>${product.name} - Siasa Hub Marketplace</title>
+          <meta name="description" content="Get your ${product.name} for KES ${product.price} on Siasa Hub's official Merch Store. ${product.description || 'Show your support today!'}">
+          
+          <!-- OpenGraph / Facebook -->
+          <meta property="og:type" content="product">
+          <meta property="og:url" content="https://siasa-hub.com/marketplace/product/${productId}">
+          <meta property="og:title" content="${product.name} - Official Merch">
+          <meta property="og:description" content="Price: KES ${product.price}. Official campaign merchandise available now.">
+          <meta property="og:image" content="${imageUrl}">
+          <meta property="og:site_name" content="Siasa Hub Store">
+          <meta property="product:price:amount" content="${product.price}">
+          <meta property="product:price:currency" content="KES">
+
+          <!-- Twitter -->
+          <meta name="twitter:card" content="summary_large_image">
+          <meta name="twitter:url" content="https://siasa-hub.com/marketplace/product/${productId}">
+          <meta name="twitter:title" content="${product.name} | Siasa Hub Store">
+          <meta name="twitter:description" content="Get your ${product.name} for KES ${product.price}. Limited stock!">
+          <meta name="twitter:image" content="${imageUrl}">
+      </head>
+      <body>
+          <h1>${product.name}</h1>
+          <h2>KES ${product.price}</h2>
+          <p>${product.description || 'Official merchandise'}</p>
+          <img src="${imageUrl}" alt="${product.name}"/>
+          <p>This is a dynamically rendered SEO page for crawlers. Regular users will experience the fully interactive Siasa Hub application.</p>
+          <a href="/marketplace/product/${productId}">Go to Store</a>
+      </body>
+      </html>
+    `;
+    
+    res.set("Content-Type", "text/html");
+    res.send(html);
+  } catch (err) {
+    Logger.error("SEO Product Renderer failed", { error: err.message, path: req.path });
+    res.status(500).send("SEO Engine Error");
+  }
+});
 
 // ============================================
 // HEALTH AND UTILITY ENDPOINTS

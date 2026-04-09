@@ -13,10 +13,11 @@ import {
   Flag,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import walletApi from "./ApiConfig"; // Import the wallet API
+import userApi from "./userApiConfig"; // Create this for user API calls
 
 // Components
-import Header from "./Header";
+import Header from "./Wallet";
 
 const ProfileWrapper = styled.div`
   background: #000000;
@@ -107,8 +108,6 @@ const InfoRow = styled.div`
   }
 `;
 
-const API_BASE_URL = "https://shirt-korea-cups-conclude.trycloudflare.com";
-
 // Auth Service to get current user
 const getCurrentUser = () => {
   const userData = localStorage.getItem("user_data");
@@ -147,13 +146,8 @@ const ProfilePage = () => {
           return;
         }
 
-        // If not in localStorage, try cookie
-        const response = await axios.get(
-          `${API_BASE_URL}/api/v1/users/user-info`,
-          {
-            withCredentials: true,
-          },
-        );
+        // If not in localStorage, try cookie using walletApi
+        const response = await walletApi.get("/user-info");
 
         if (response.data.success) {
           const user = response.data.user;
@@ -189,10 +183,7 @@ const ProfilePage = () => {
 
     const fetchUserStats = async (userId) => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/v1/users/${userId}/stats`,
-          { withCredentials: true },
-        );
+        const response = await walletApi.get(`/users/${userId}/stats`);
         if (response.data.success) {
           setStats({
             endorsements: response.data.data.endorsements_given || 0,
@@ -211,11 +202,10 @@ const ProfilePage = () => {
   const handleLogout = async () => {
     try {
       const csrfToken = localStorage.getItem("csrf_token");
-      await axios.post(
-        `${API_BASE_URL}/api/v1/users/auth/logout`,
+      await walletApi.post(
+        "/auth/logout",
         {},
         {
-          withCredentials: true,
           headers: {
             "X-CSRF-Token": csrfToken,
           },

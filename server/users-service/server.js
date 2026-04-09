@@ -59,30 +59,30 @@ app.use("/api/v1/users", userRoutes);
 /* =====================================================
    SERVER CONFIG
 ===================================================== */
-const PORT = process.env.PORT || 9001;
+const PORT = process.env.PORT || 8004;
 const HOST = process.env.HOST || "0.0.0.0";
 
 const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
 
 async function startServer() {
   try {
-    console.log("🚀 Starting server...");
+    console.log(" Starting server...");
 
     await initDB();
-    console.log("✅ Database initialized");
+    console.log(" Database initialized");
 
     await db.migrate.latest();
-    console.log("✅ Migrations up to date");
+    console.log(" Migrations up to date");
 
     const server = app.listen(PORT, HOST, () => {
-      console.log(`🌍 Server running at http://${HOST}:${PORT}`);
+      console.log(`Server running at http://${HOST}:${PORT}`);
     });
 
     /* Graceful shutdown */
     const shutdown = () => {
-      console.log("🛑 Shutting down...");
+      console.log(" Shutting down...");
       server.close(() => {
-        console.log("✅ Server closed");
+        console.log(" Server closed");
         process.exit(0);
       });
     };
@@ -90,7 +90,6 @@ async function startServer() {
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
   } catch (err) {
-    console.error("❌ Server startup failed:", err);
     process.exit(1);
   }
 }

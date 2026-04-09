@@ -9,13 +9,13 @@ import {
 import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 
 // --- Utils & Theme ---
-import theme from "./utils/theme";
+import theme from "./utils/Theme";
 
 // --- Components ---
-import LandingPage from "./components/home/homePage";
-import SloganSection from "./components/slogans/slogan";
+import LandingPage from "./components/Home/HomePage";
+import SloganSection from "./components/Footer/Footer";
 import LeaderInsightPage from "./components/leaders/leaderInsights";
-import RegistrationPage from "./components/auth/registerPage";
+import RegistrationPage from "./components/Auth/Register";
 
 import RegisterAspirant from "./components/leaders/registerAspirant";
 import LoginAspirant from "./components/leaders/loginAspirant";
@@ -24,8 +24,11 @@ import AspirantDashboard from "./components/leaders/dashboard/aspirantDashboard"
 // Merch store components
 import AdminPanel from "./components/marketplace/admin/AdminPanel";
 import Cart from "./components/marketplace/components/Cart/Cart";
-import NavMenu from "./utils/navMenu";
+import NavMenu from "./utils/NavMenu";
 import Checkout from "./components/marketplace/checkout/checkout";
+
+import UsersAdmin from "./components/Auth/AdminUsers";
+import Aspirants from "./components/leaders/aspirantsAdmin";
 
 // --- Optimized Lazy Loading ---
 const lazyWithPreload = (importFn) => {
@@ -35,7 +38,7 @@ const lazyWithPreload = (importFn) => {
 };
 
 const ProfilePage = lazyWithPreload(
-  () => import("./components/userProfile/profilePage"),
+  () => import("./components/Wallet/WalletPage"),
 );
 const LeadersPage = lazyWithPreload(
   () => import("./components/leaders/leadersPage"),
@@ -44,7 +47,7 @@ const MarketplacePage = lazyWithPreload(
   () => import("./components/marketplace/marketPage"),
 );
 
-const LoginPage = lazyWithPreload(() => import("./components/auth/loginPage"));
+const LoginPage = lazyWithPreload(() => import("./components/Auth/Login"));
 
 const DetailView = lazyWithPreload(
   () => import("./components/marketplace/Components/ItemDetails/DetailView"),
@@ -163,23 +166,22 @@ const AppLayout = () => {
           <Routes>
             {/* Main Routes */}
             <Route path="/" element={<LandingPage />} />
-
             {/* Marketplace Routes */}
             <Route path="/marketplace/*" element={<MarketplacePage />} />
             <Route path="/marketplace/product/:id" element={<DetailView />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/marketplace-admin" element={<AdminPanel />} />
-
             {/* Leader/Aspirant Routes */}
             <Route path="/register-aspirant" element={<RegisterAspirant />} />
             <Route path="/login-aspirant" element={<LoginAspirant />} />
             <Route path="/leaders" element={<LeadersPage />} />
             <Route path="/aspirant-dashboard" element={<AspirantDashboard />} />
             <Route path="/leaders/:id" element={<LeaderInsightPage />} />
-
             {/* Social Routes */}
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/admin/users" element={<UsersAdmin />} />
+            <Route path="/admin/aspirants" element={<Aspirants />} />
 
             {/* Auth Routes */}
             <Route path="/login" element={<LoginPage />} />

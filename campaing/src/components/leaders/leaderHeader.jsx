@@ -19,10 +19,10 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-import EndorsementStories from "../stories/endorsementStories";
-import BoostedStoriesRow from "../stories/boostedstoriesrow";
-import BoostModal from "../userProfile/boostModal";
-import AddStoryModal from "../stories/AddStoryModal";
+import EndorsementStories from "../Stories/endorsementStories";
+import BoostedStoriesRow from "../Stories/boostedstoriesrow";
+import BoostModal from "../Wallet/boostModal";
+import AddStoryModal from "../Stories/addStoryModal";
 
 // --- Animations ---
 const fadeIn = keyframes`

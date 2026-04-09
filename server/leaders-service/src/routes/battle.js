@@ -14,7 +14,7 @@ const {
   getUserVotes,
   cleanupExpiredBattles,
   getBattleStats,
-} = require("../controllers/battle");
+} = require("../controllers/BattleController");
 
 // Battle routes
 router.post("/create", createBattle);

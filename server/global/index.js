@@ -9,19 +9,19 @@ const knex = require("knex");
 const winston = require("winston");
 
 //internal module s
-const authTokens = require("./auth/tokens");
-const authCookies = require("./auth/cookies");
-const authCsrf = require("./auth/csrf");
-const authMiddleware = require("./middlewares/authMidlleware");
+const authTokens = require("./auth/Tokens");
+const authCookies = require("./auth/Cookies");
+const authCsrf = require("./auth/CSRF");
+const authMiddleware = require("./middlewares/AuthMiddleware");
 const db = require("./config/db");
-const redis = require("./config/redis");
+const redis = require("./config/Redis");
 const rateLimiter = require("./rateLimit/index");
-const logger = require("./logger/logger");
+const logger = require("./logger/Logger");
 const mpesa = require("./mpesa/index");
 const {
   getKenyaTimeISO,
   getKenyaTimeFormatted,
-} = require("./utils/timeStamps");
+} = require("./utils/TimeStamps");
 
 // core    exports
 module.exports = {

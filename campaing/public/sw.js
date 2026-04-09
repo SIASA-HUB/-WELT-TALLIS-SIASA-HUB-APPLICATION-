@@ -36,7 +36,7 @@ registerRoute(
     request.destination === "style" ||
     request.destination === "font",
   new CacheFirst({
-    cacheName: "static-mobile-v1",
+    cacheName: "static-mobile-v2",
     plugins: [
       new ExpirationPlugin({
         maxEntries: 50, // Smaller for mobile
@@ -50,7 +50,7 @@ registerRoute(
 registerRoute(
   ({ request }) => request.destination === "image",
   new CacheFirst({
-    cacheName: "images-mobile-v1",
+    cacheName: "images-mobile-v2",
     plugins: [
       new ExpirationPlugin({
         maxEntries: 30, // Limit images for mobile
@@ -64,7 +64,7 @@ registerRoute(
 registerRoute(
   ({ url }) => url.pathname.includes("/api/"),
   new NetworkFirst({
-    cacheName: "api-mobile-v1",
+    cacheName: "api-mobile-v2",
     networkTimeoutSeconds: 1.5, // Faster timeout for mobile
     plugins: [
       new ExpirationPlugin({
@@ -81,8 +81,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     Promise.all([
       // Cache critical routes immediately
-      caches.open("html-cache").then((cache) => {
-        return cache.addAll(["/", "/index.html", "/offline.html"]);
+      caches.open("html-cache-v2").then((cache) => {
+        return cache.addAll([
+          "/", 
+          "/index.html", 
+          "/offline.html",
+          "/bootstrap/css/bootstrap.min.css",
+          "/bootstrap/css/bootstrap-theme.min.css",
+          "/bootstrap/js/bootstrap.min.js"
+        ]);
       }),
       self.skipWaiting(),
     ]),

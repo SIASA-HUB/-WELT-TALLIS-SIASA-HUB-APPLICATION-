@@ -88,14 +88,14 @@ const createBattle = asyncHandler(async (req, res) => {
     // Get challenger details - REMOVED status = 'active' filter
     const challenger1 = await safeQueryOne(
       `SELECT leader_id, name, party, position_running_for, 
-              (SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1) as primary_image
+              COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
        FROM leaders WHERE leader_id = ?`,
       [challenger1_id],
     );
 
     const challenger2 = await safeQueryOne(
       `SELECT leader_id, name, party, position_running_for,
-              (SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1) as primary_image
+              COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
        FROM leaders WHERE leader_id = ?`,
       [challenger2_id],
     );

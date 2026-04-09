@@ -1,19 +1,9 @@
-// components/endorsements/EndorsementDetailModal.jsx - Fixed to show images/videos
+// components/endorsements/EndorsementDetailModal.jsx - Clean Professional Story View
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
-import {
-  X,
-  Heart,
-  MessageCircle,
-  Award,
-  Coins,
-  TrendingUp,
-  Eye,
-  Clock,
-  Play,
-} from "lucide-react";
+import { X, Heart, MessageCircle, TrendingUp, Clock, Play } from "lucide-react";
 import axios from "axios";
-import BoostModal from "../userProfile/boostModal";
+import BoostModal from "../Wallet/boostModal";
 import EndorsementComments from "./endorsementComents";
 
 const slideUp = keyframes`
@@ -37,26 +27,15 @@ const API_BASE_URL = "http://localhost:8009";
 // Helper function to build image URL
 const buildImageUrl = (imageUrl, createdAt) => {
   if (!imageUrl) return null;
-
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  if (imageUrl.startsWith("/uploads")) {
-    return `${API_BASE_URL}${imageUrl}`;
-  }
-
-  if (imageUrl.startsWith("uploads")) {
-    return `${API_BASE_URL}/${imageUrl}`;
-  }
-
+  if (imageUrl.startsWith("http")) return imageUrl;
+  if (imageUrl.startsWith("/uploads")) return `${API_BASE_URL}${imageUrl}`;
+  if (imageUrl.startsWith("uploads")) return `${API_BASE_URL}/${imageUrl}`;
   if (createdAt) {
     const date = new Date(createdAt);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     return `${API_BASE_URL}/uploads/endorsements/${year}/${month}/${imageUrl}`;
   }
-
   return `${API_BASE_URL}/uploads/endorsements/${imageUrl}`;
 };
 
@@ -159,85 +138,132 @@ const CloseBtn = styled.button`
   cursor: pointer;
 `;
 
-const MainContent = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  text-align: center;
-`;
-
-const MediaContent = styled.div`
-  flex: 1;
+// Full-screen media container
+const FullScreenMedia = styled.div`
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 20px;
+  background: #000;
 
   img {
-    max-width: 100%;
-    max-height: 60vh;
-    object-fit: contain;
-    border-radius: 12px;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   video {
-    max-width: 100%;
-    max-height: 60vh;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
-    border-radius: 12px;
   }
 `;
 
-const SupportMessage = styled.div`
-  font-size: 1.5rem;
-  line-height: 1.4;
+// Strong gradient overlay for better text visibility
+const GradientOverlay = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.7) 30%,
+    rgba(0, 0, 0, 0.2) 60%,
+    transparent 100%
+  );
+  height: 50%;
+  z-index: 30;
+  pointer-events: none;
+`;
+
+// Dark overlay for better text contrast
+const DarkOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 25;
+  pointer-events: none;
+`;
+
+// Message display - clean text with shadow
+const MessageDisplay = styled.div`
+  position: absolute;
+  bottom: 120px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 40;
+  padding: 0 24px;
+`;
+
+const MessageText = styled.div`
+  font-size: 1.3rem;
+  line-height: 1.5;
   font-weight: 500;
   color: white;
-  max-width: 90%;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  max-width: 85%;
+  margin: 0 auto;
+  animation: ${fadeIn} 0.3s ease;
+`;
+
+// Centered text for no-media stories
+const CenteredMessage = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 40;
+  padding: 0 40px;
+  background: #000;
+`;
+
+const CenteredText = styled.div`
+  font-size: 1.6rem;
+  line-height: 1.5;
+  font-weight: 500;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  max-width: 85%;
   margin: 0 auto;
   animation: ${fadeIn} 0.3s ease;
 `;
 
 const EndorsementMeta = styled.div`
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  right: 0;
   display: flex;
-  gap: 20px;
-  margin-top: 32px;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 40px;
+  justify-content: center;
+  gap: 32px;
+  z-index: 40;
 `;
 
 const MetaItem = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  padding: 6px 14px;
+  border-radius: 30px;
 
   svg {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     color: #ff5c01;
   }
-`;
-
-const AmountBadge = styled.div`
-  position: absolute;
-  top: 100px;
-  right: 16px;
-  background: ${(props) => (props.$isFree ? "#10b981" : "#f59e0b")};
-  padding: 4px 12px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: white;
-  z-index: 45;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 20px;
 `;
 
 const RightActions = styled.div`
@@ -254,14 +280,16 @@ const ActionButton = styled.button`
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   border: none;
-  padding: 8px;
+  padding: 10px;
   color: white;
   gap: 4px;
   cursor: pointer;
-  min-width: 48px;
+  min-width: 52px;
   border-radius: 30px;
+  transition: all 0.2s;
 
   span {
     font-size: 0.65rem;
@@ -271,12 +299,16 @@ const ActionButton = styled.button`
   &:active {
     transform: scale(0.95);
   }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.8);
+  }
 `;
 
 const CountSpan = styled.span`
   font-size: 0.65rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 `;
 
 const NavigationZone = styled.div`
@@ -292,28 +324,6 @@ const LeftZone = styled(NavigationZone)`
 `;
 const RightZone = styled(NavigationZone)`
   right: 0;
-`;
-
-const VideoPlayIcon = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-
-  svg {
-    width: 30px;
-    height: 30px;
-    color: white;
-    margin-left: 4px;
-  }
 `;
 
 const CommentsModalOverlay = styled.div`
@@ -612,11 +622,15 @@ const EndorsementDetailModal = ({
       : current.likes || 0;
 
   const currentCommentsCount = commentsState[current.id]?.length || 0;
-  const isFree = parseInt(current.amount || 0) === 0;
-  const mediaType = current.media_type || "text";
   const mediaUrl = getMediaUrl(current);
-  const isVideo = mediaType === "video";
-  const isImage = mediaType === "image";
+  const hasMedia =
+    mediaUrl &&
+    (current.media_type === "image" || current.media_type === "video");
+  const isVideo = hasMedia && current.media_type === "video";
+  const hasMessage = current.message && current.message.trim().length > 0;
+  const displayMessage = hasMessage
+    ? current.message
+    : current.phrase || "Standing strong for leadership";
 
   return (
     <>
@@ -652,62 +666,47 @@ const EndorsementDetailModal = ({
           </CloseBtn>
         </StoryHeader>
 
-        <AmountBadge $isFree={isFree}>
-          {isFree ? (
-            <>
-              <Award size={10} /> Free support
-            </>
-          ) : (
-            <>
-              <Coins size={10} /> {current.amount} KES support
-            </>
-          )}
-        </AmountBadge>
-
         <LeftZone onClick={handlePrev} />
         <RightZone onClick={handleNext} />
 
-        <MainContent
-          onMouseDown={() => setIsPaused(true)}
-          onMouseUp={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-        >
-          {/* Show Image or Video if exists */}
-          {(isImage || isVideo) && mediaUrl && (
-            <MediaContent>
+        {/* Full Screen Media - NO PHOTO ICONS */}
+        {hasMedia ? (
+          <>
+            <FullScreenMedia>
               {isVideo ? (
-                <video src={mediaUrl} controls autoPlay playsInline />
+                <video src={mediaUrl} autoPlay loop playsInline />
               ) : (
-                <img src={mediaUrl} alt="Story media" />
+                <img src={mediaUrl} alt="Story" />
               )}
-            </MediaContent>
-          )}
+            </FullScreenMedia>
+            <DarkOverlay />
+            <GradientOverlay />
+          </>
+        ) : null}
 
-          {/* Show text message */}
-          {(mediaType === "text" || (!mediaUrl && current.message)) && (
-            <SupportMessage>
-              {current.message ||
-                current.phrase ||
-                "Standing strong for leadership"}
-            </SupportMessage>
-          )}
+        {/* Message Display - Clean text with strong shadow */}
+        <MessageDisplay>
+          <MessageText>{displayMessage}</MessageText>
+        </MessageDisplay>
 
-          <EndorsementMeta>
-            <MetaItem>
-              <Heart size={10} />
-              <span>{currentLikesCount} likes</span>
-            </MetaItem>
-            <MetaItem>
-              <MessageCircle size={10} />
-              <span>{currentCommentsCount} comments</span>
-            </MetaItem>
-            <MetaItem>
-              <Eye size={10} />
-              <span>{current.views || 0} views</span>
-            </MetaItem>
-          </EndorsementMeta>
-        </MainContent>
+        {/* Centered message for no-media stories */}
+        {!hasMedia && (
+          <CenteredMessage>
+            <CenteredText>{displayMessage}</CenteredText>
+          </CenteredMessage>
+        )}
+
+        {/* Meta Info - Only likes and comments, no views */}
+        <EndorsementMeta>
+          <MetaItem>
+            <Heart size={14} />
+            <span>{currentLikesCount}</span>
+          </MetaItem>
+          <MetaItem>
+            <MessageCircle size={14} />
+            <span>{currentCommentsCount}</span>
+          </MetaItem>
+        </EndorsementMeta>
 
         <RightActions>
           <ActionButton onClick={handleLike}>

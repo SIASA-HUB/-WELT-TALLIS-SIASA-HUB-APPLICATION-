@@ -13,7 +13,7 @@ import {
   Users,
   Medal,
 } from "lucide-react";
-import theme from "../../utils/theme";
+import theme from "../../utils/Theme";
 import AppLoadingBar from "../../utils/LoadingBar";
 
 const API_URL = "http://localhost:8004/api/v1/users";

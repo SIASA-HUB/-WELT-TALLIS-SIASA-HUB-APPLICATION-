@@ -21,7 +21,7 @@ import {
   Star,
   Flame,
 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../Hooks/useAuth";
 import TrendingManifestos from "./manifestos/TredingManifestos";
 
 const LeaderCard = lazy(() => import("./leadersCard"));

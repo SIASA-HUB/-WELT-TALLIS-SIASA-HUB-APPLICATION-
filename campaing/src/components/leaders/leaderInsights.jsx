@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { BookOpen, Info } from "lucide-react";
 import axios from "axios";
-import theme from "../../utils/theme.jsx";
+import theme from "../../utils/Theme.jsx";
 import AppLoadingBar from "../../utils/LoadingBar.jsx";
 
 // Lazy load components

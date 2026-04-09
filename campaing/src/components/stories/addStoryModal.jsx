@@ -16,7 +16,7 @@ import {
   User,
 } from "lucide-react";
 import axios from "axios";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../Hooks/useAuth";
 
 // Direct API URL - hardcoded for reliability
 const ENDORSEMENT_API_URL = "http://localhost:8009";

@@ -15,7 +15,7 @@ import {
   Swords,
   Send,
 } from "lucide-react";
-import BoostModal from "../../userProfile/boostModal";
+import BoostModal from "../../Wallet/boostModal";
 
 // ==================== ANIMATIONS ====================
 const slideIn = keyframes`
