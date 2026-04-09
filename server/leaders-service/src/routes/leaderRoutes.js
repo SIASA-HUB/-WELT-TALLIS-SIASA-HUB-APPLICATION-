@@ -10,7 +10,7 @@ const {
 
 const {
   createLeader,
-  getAllLeaders,
+
   getLeaderById,
   registerAspirant,
   loginAspirant,
@@ -22,6 +22,7 @@ const {
   getLeadersByConstituency,
   getLeadersByWard,
   updateLeader,
+  getPersonalizedFeed,
   deleteLeader,
   getLeaderStats,
   getPopularLeaders,
@@ -92,7 +93,7 @@ router.get("/constituency/:constituency", getLeadersByConstituency);
 router.get("/ward/:ward", getLeadersByWard);
 
 // Directory - Get all leaders
-router.get("/", getAllLeaders);
+router.get("/", getPersonalizedFeed);
 
 // ================================
 // ROUTES WITH PARAMETERS (PUT THESE LAST)

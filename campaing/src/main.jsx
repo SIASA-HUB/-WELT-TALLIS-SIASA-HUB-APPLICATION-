@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 // 1. Import the Provider
-import { CountyProvider } from "./context/countyContext";
+
+import { AuthProvider } from "./components/hooks/useAuth.jsx";
 
 // Only enable HMR in development
 if (import.meta.env.DEV && import.meta.hot) {
@@ -23,10 +24,9 @@ if (rootElement) {
 
   root.render(
     <StrictMode>
-      {/* 2. Wrap App here. This ensures useCounty() works everywhere */}
-      <CountyProvider>
+      <AuthProvider>
         <App />
-      </CountyProvider>
+      </AuthProvider>
     </StrictMode>,
   );
 

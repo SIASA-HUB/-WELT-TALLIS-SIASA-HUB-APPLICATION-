@@ -134,28 +134,6 @@ const ProductDetail = ({ product }) => {
         </InfoRow>
 
         <InfoRow>
-          <Label>
-            <Store size={14} /> Seller
-          </Label>
-          <Value>
-            <SellerLink>SuperComNet</SellerLink>
-            <div style={{ fontSize: 12, color: "#878787", marginTop: 4 }}>
-              GST invoice available
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "#2874f0",
-                marginTop: 4,
-                cursor: "pointer",
-              }}
-            >
-              View more sellers starting from ₹329 →
-            </div>
-          </Value>
-        </InfoRow>
-
-        <InfoRow>
           <Label></Label>
           <Value>
             <AdImage src={adURL} alt="" />

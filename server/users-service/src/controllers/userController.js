@@ -1,9 +1,26 @@
+// controllers/userController.js - With Automatic Role Assignment
 const asyncHandler = require("express-async-handler");
-const UserModel = require("../models/userModel");
+const {
+  UserModel,
+  ROLES,
+  VALID_ROLES,
+  ROLE_HIERARCHY,
+} = require("../models/userModel");
 
 // ============================================
-// CREATE USER
+// HELPER FUNCTIONS
 // ============================================
+function maskEmail(email) {
+  if (!email) return null;
+  const [localPart, domain] = email.split("@");
+  if (localPart.length <= 2) return email;
+  const maskedLocal =
+    localPart[0] +
+    "*".repeat(localPart.length - 2) +
+    localPart[localPart.length - 1];
+  return `${maskedLocal}@${domain}`;
+}
+
 const createUser = asyncHandler(async (req, res) => {
   const {
     real_name,
@@ -17,6 +34,10 @@ const createUser = asyncHandler(async (req, res) => {
     password,
     political_party,
     employment_status,
+    political_leanings,
+    vote_frequency,
+    personal_email,
+    role,
   } = req.body;
 
   // Required fields validation
@@ -62,7 +83,71 @@ const createUser = asyncHandler(async (req, res) => {
       .json({ success: false, message: "Voting intention is required" });
   }
 
-  // ✅ NO USERNAME RESTRICTIONS - Just check it exists
+  // Validate role if provided (must be a valid role)
+  let userRole = "user"; // Default role
+  if (role) {
+    if (!UserModel.isValidRole(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Must be one of: user, admin, market_admin, super_admin, ceo`,
+      });
+    }
+    userRole = role;
+  }
+
+  // Validate personal email if provided
+  if (personal_email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(personal_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // Check if email already exists
+    const existingEmail = await UserModel.findByEmail(personal_email);
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+  }
+
+  // Validate political leanings if provided
+  const validLeanings = [
+    "Pro-Government",
+    "Opposition",
+    "Undecided",
+    "Prefer not to say",
+  ];
+  if (political_leanings && !validLeanings.includes(political_leanings)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid political leaning. Must be: Pro-Government, Opposition, Undecided, or Prefer not to say",
+    });
+  }
+
+  // Validate vote frequency if provided
+  const validFrequencies = [
+    "Always",
+    "Sometimes",
+    "Rarely",
+    "Never",
+    "First-time voter",
+    "Prefer not to say",
+  ];
+  if (vote_frequency && !validFrequencies.includes(vote_frequency)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid vote frequency. Must be: Always, Sometimes, Rarely, Never, First-time voter, or Prefer not to say",
+    });
+  }
+
+  // Validate username
   if (!username) {
     return res.status(400).json({
       success: false,
@@ -70,7 +155,6 @@ const createUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // Only check length (database limit)
   if (username.length > 100) {
     return res.status(400).json({
       success: false,
@@ -115,7 +199,7 @@ const createUser = asyncHandler(async (req, res) => {
     const voterCardInt = voter_card === "Yes" ? 1 : 0;
     const willVoteVal = will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
 
-    // Create user with all fields
+    // Create user with all fields including role
     const user_id = await UserModel.create({
       real_name: real_name.trim(),
       anonymous_username: finalUsername,
@@ -127,11 +211,17 @@ const createUser = asyncHandler(async (req, res) => {
       voter_card: voterCardInt,
       will_vote: willVoteVal,
       password_hash,
+      role: userRole, // This will be "user" by default
       political_party: political_party || "Undecided",
       employment_status: employment_status || "Prefer not to say",
+      political_leanings: political_leanings || "Prefer not to say",
+      vote_frequency: vote_frequency || "Prefer not to say",
+      personal_email: personal_email || null,
     });
 
-    console.log(`[User Created] ${finalUsername} - ${user_id}`);
+    console.log(
+      `[User Created] ${finalUsername} - ${user_id} - Role: ${userRole}`,
+    );
 
     return res.status(201).json({
       success: true,
@@ -140,6 +230,7 @@ const createUser = asyncHandler(async (req, res) => {
         user_id,
         username: finalUsername,
         real_name: real_name.trim(),
+        role: userRole,
       },
     });
   } catch (error) {
@@ -164,7 +255,7 @@ const getUserById = asyncHandler(async (req, res) => {
   }
 
   try {
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findByIdWithRole(userId);
 
     if (!user) {
       return res
@@ -178,6 +269,7 @@ const getUserById = asyncHandler(async (req, res) => {
       user_id: user.user_id,
       username: user.anonymous_username,
       real_name: user.real_name,
+      role: user.role || "user",
       gender: user.gender,
       age_bracket: user.age_bracket,
       generation: user.generation,
@@ -188,6 +280,11 @@ const getUserById = asyncHandler(async (req, res) => {
         user.will_vote === 1 ? true : user.will_vote === 0 ? false : null,
       political_party: user.political_party,
       employment_status: user.employment_status,
+      political_leanings: user.political_leanings,
+      vote_frequency: user.vote_frequency,
+      personal_email: user.personal_email
+        ? maskEmail(user.personal_email)
+        : null,
       is_verified: user.is_verified === 1,
       member_since: user.created_at,
       stats,
@@ -218,6 +315,9 @@ const updateUser = asyncHandler(async (req, res) => {
     employment_status,
     voter_card,
     will_vote,
+    political_leanings,
+    vote_frequency,
+    personal_email,
   } = req.body;
 
   if (!userId) {
@@ -234,14 +334,11 @@ const updateUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // ✅ NO USERNAME RESTRICTIONS - Just check length
-  if (username) {
-    if (username.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Username is too long (max 100 characters)",
-      });
-    }
+  if (username && username.length > 100) {
+    return res.status(400).json({
+      success: false,
+      message: "Username is too long (max 100 characters)",
+    });
   }
 
   if (county && !UserModel.isValidCounty(county)) {
@@ -254,6 +351,51 @@ const updateUser = asyncHandler(async (req, res) => {
     return res
       .status(400)
       .json({ success: false, message: "Invalid age bracket" });
+  }
+
+  // Validate email if updating
+  if (personal_email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(personal_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+  }
+
+  // Validate political leanings if updating
+  if (political_leanings) {
+    const validLeanings = [
+      "Pro-Government",
+      "Opposition",
+      "Undecided",
+      "Prefer not to say",
+    ];
+    if (!validLeanings.includes(political_leanings)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid political leaning",
+      });
+    }
+  }
+
+  // Validate vote frequency if updating
+  if (vote_frequency) {
+    const validFrequencies = [
+      "Always",
+      "Sometimes",
+      "Rarely",
+      "Never",
+      "First-time voter",
+      "Prefer not to say",
+    ];
+    if (!validFrequencies.includes(vote_frequency)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid vote frequency",
+      });
+    }
   }
 
   try {
@@ -274,6 +416,17 @@ const updateUser = asyncHandler(async (req, res) => {
       }
     }
 
+    // Check email availability if changing
+    if (personal_email && personal_email !== user.personal_email) {
+      const existingEmail = await UserModel.findByEmail(personal_email);
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already registered to another account",
+        });
+      }
+    }
+
     // Prepare update data
     const updateData = {};
     if (real_name) updateData.real_name = real_name.trim();
@@ -287,6 +440,9 @@ const updateUser = asyncHandler(async (req, res) => {
     if (will_vote)
       updateData.will_vote =
         will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
+    if (political_leanings) updateData.political_leanings = political_leanings;
+    if (vote_frequency) updateData.vote_frequency = vote_frequency;
+    if (personal_email) updateData.personal_email = personal_email;
 
     if (age_bracket) {
       updateData.age_bracket = age_bracket;
@@ -314,7 +470,114 @@ const updateUser = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// CHECK USERNAME AVAILABILITY - NO RESTRICTIONS!
+// UPDATE USER ROLE (Admin only)
+// ============================================
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+  const authenticatedUser = req.user;
+
+  if (!userId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "User ID is required" });
+  }
+
+  if (!role) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Role is required" });
+  }
+
+  // Check if authenticated user exists and has permission
+  if (!authenticatedUser || !authenticatedUser.user_id) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  try {
+    // Get the current user's role
+    const currentUser = await UserModel.findById(authenticatedUser.user_id);
+    if (!currentUser) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Current user not found" });
+    }
+
+    // Update the role with permission check
+    await UserModel.updateUserRole(
+      userId,
+      role,
+      authenticatedUser.user_id,
+      currentUser.role,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `User role updated to ${role} successfully`,
+    });
+  } catch (error) {
+    console.error("[updateUserRole] Error:", error);
+    return res.status(403).json({
+      success: false,
+      message: error.message || "Failed to update user role",
+    });
+  }
+});
+
+// ============================================
+// GET ALL USERS WITH ROLES (Admin only)
+// ============================================
+const getAllUsers = asyncHandler(async (req, res) => {
+  const { limit = 100, offset = 0 } = req.query;
+
+  try {
+    const users = await UserModel.getAllWithRoles(
+      parseInt(limit),
+      parseInt(offset),
+    );
+
+    const totalUsers = await UserModel.getTotalCount();
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: totalUsers,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[getAllUsers] Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch users" });
+  }
+});
+
+// ============================================
+// GET ROLE DISTRIBUTION (Admin only)
+// ============================================
+const getRoleDistribution = asyncHandler(async (req, res) => {
+  try {
+    const distribution = await UserModel.getRoleDistribution();
+
+    return res.status(200).json({
+      success: true,
+      data: distribution,
+    });
+  } catch (error) {
+    console.error("[getRoleDistribution] Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch role distribution" });
+  }
+});
+
+// ============================================
+// CHECK USERNAME AVAILABILITY
 // ============================================
 const checkUsernameAvailability = asyncHandler(async (req, res) => {
   const { username } = req.params;
@@ -326,7 +589,6 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
     });
   }
 
-  // ✅ NO REGEX VALIDATION - Just check length
   if (username.length > 100) {
     return res.status(400).json({
       success: false,
@@ -335,10 +597,8 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Check if username exists in database
     const existingUser = await UserModel.findByUsername(username);
 
-    // Check reserved usernames (optional, can remove if not needed)
     const reservedUsernames = [
       "admin",
       "root",
@@ -389,25 +649,23 @@ const getAnalytics = asyncHandler(async (req, res) => {
   }
 });
 
-// In your userController.js - Add this function
+// ============================================
+// GET COUNTY STATS
+// ============================================
 const getCountyStats = asyncHandler(async (req, res) => {
   try {
-    // Get county-wise user statistics
     const countyStats = await UserModel.getCountyStats();
 
-    // Calculate total users
     const totalUsers = countyStats.reduce(
       (sum, county) => sum + county.total_users,
       0,
     );
 
-    // Add percentage to each county
     const countyStatsWithPercentage = countyStats.map((county) => ({
       ...county,
       percentage: totalUsers > 0 ? (county.total_users / totalUsers) * 100 : 0,
     }));
 
-    // Sort by total_users descending
     countyStatsWithPercentage.sort((a, b) => b.total_users - a.total_users);
 
     return res.status(200).json({
@@ -431,6 +689,9 @@ module.exports = {
   createUser,
   getUserById,
   updateUser,
+  updateUserRole,
+  getAllUsers,
+  getRoleDistribution,
   checkUsernameAvailability,
   getAnalytics,
   getCountyStats,

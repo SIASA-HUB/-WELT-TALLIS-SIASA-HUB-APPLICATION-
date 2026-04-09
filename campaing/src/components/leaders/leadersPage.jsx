@@ -1,3 +1,4 @@
+// pages/LeadersPage.jsx - Complete Personalized Feed with Images Fixed
 import React, {
   useState,
   useEffect,
@@ -10,16 +11,30 @@ import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
 import axios from "axios";
-import { useCounty } from "../../context/countyContext";
-import theme from "../../utils/theme";
-import stringSimilarity from "string-similarity";
-import { Search, X, TrendingUp, UserPlus, Clock } from "lucide-react";
-import BattleArena from "./battle/batlleArena";
+import {
+  Search,
+  X,
+  TrendingUp,
+  UserPlus,
+  Clock,
+  MapPin,
+  Star,
+  Flame,
+} from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 import TrendingManifestos from "./manifestos/TredingManifestos";
 
-// Lazy load non-critical components
 const LeaderCard = lazy(() => import("./leadersCard"));
 
+const API_BASE_URL = "http://localhost:8002/api/v1";
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  timeout: 15000,
+});
+
+// Animations
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -31,9 +46,11 @@ const pulse = keyframes`
   100% { opacity: 0.6; }
 `;
 
+// Styled Components
 const PageWrapper = styled.div`
   min-height: 100vh;
   padding-bottom: 60px;
+  background: #ffffff;
 `;
 
 const LoadingWrapper = styled.div`
@@ -45,7 +62,6 @@ const LoadingWrapper = styled.div`
   pointer-events: none;
 `;
 
-// Sticky Search Bar
 const StickySearchWrapper = styled.div`
   position: sticky;
   top: 0;
@@ -145,84 +161,10 @@ const RegisterButton = styled.button`
     background: #333;
     transform: translateY(-1px);
   }
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-const FilterChips = styled.div`
-  display: flex;
-  gap: 8px;
-  padding: 10px 20px 12px 20px;
-  max-width: 800px;
-  margin: 0 auto;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-`;
-
-const FilterChip = styled.button`
-  padding: 5px 14px;
-  background: ${(props) => (props.$active ? "#000" : "#f3f4f6")};
-  color: ${(props) => (props.$active ? "#fff" : "#4b5563")};
-  border: none;
-  border-radius: 30px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${(props) => (props.$active ? "#000" : "#e5e7eb")};
-    transform: translateY(-1px);
-  }
-`;
-
-const SearchResult = styled.div`
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 12px 20px;
-  background: #f9fafb;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-`;
-
-const ResultText = styled.div`
-  font-size: 13px;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-
-  strong {
-    color: #000;
-    font-weight: 700;
-  }
-
-  .highlight {
-    background: #fef3c7;
-    color: #92400e;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-weight: 500;
-  }
-`;
-
-const FeedContainer = styled.div`
-  max-width: 1200px;
-  padding-bottom: 80px;
-  margin: 0 auto;
 `;
 
 const Section = styled.div`
-  margin-bottom: 30px;
+  margin-bottom: 32px;
   animation: ${fadeIn} 0.5s ease-out both;
   animation-delay: ${(props) => props.$delay || "0s"};
 `;
@@ -236,7 +178,7 @@ const SectionHeader = styled.div`
   margin-top: 16px;
 
   h2 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -244,7 +186,7 @@ const SectionHeader = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
 
   .count {
@@ -255,6 +197,19 @@ const SectionHeader = styled.div`
     padding: 4px 10px;
     border-radius: 20px;
   }
+`;
+
+const SectionBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: ${(props) =>
+    props.$type === "presidential" ? "#ff000010" : "#f0f0f0"};
+  color: ${(props) => (props.$type === "presidential" ? "#ff0000" : "#666")};
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
 `;
 
 const Tray = styled.div`
@@ -304,100 +259,19 @@ const EmptyState = styled.div`
     margin-bottom: 16px;
     color: #ccc;
   }
-
-  p {
-    margin: 8px 0;
-  }
-
-  .suggestion {
-    font-size: 12px;
-    color: #aaa;
-    margin-top: 8px;
-  }
 `;
-
-const PendingBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #fef3c7;
-  color: #92400e;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 600;
-  margin-left: 8px;
-`;
-
-// Position categories
-const POSITION_CATEGORIES = [
-  { name: "President", keywords: ["president", "presidential"], order: 1 },
-  { name: "Governor", keywords: ["governor", "gov"], order: 2 },
-  { name: "Senator", keywords: ["senator", "senate"], order: 3 },
-  {
-    name: "Women Rep",
-    keywords: ["women rep", "woman rep", "women representative"],
-    order: 4,
-  },
-  { name: "MP", keywords: ["mp", "member of parliament"], order: 5 },
-  { name: "MCA", keywords: ["mca", "county assembly"], order: 6 },
-  { name: "Other", keywords: [], order: 7 },
-];
-
-const findCategory = (str) => {
-  if (!str) return { name: "Other", order: 7 };
-  const clean = str.toLowerCase().trim();
-
-  for (const category of POSITION_CATEGORIES) {
-    for (const keyword of category.keywords) {
-      if (clean.includes(keyword)) {
-        return { name: category.name, order: category.order };
-      }
-    }
-  }
-  return { name: "Other", order: 7 };
-};
-
-const getDisplayName = (category) => {
-  if (category === "President") return "Presidential Candidates";
-  if (category === "Other") return "Other Aspirants";
-  return category + "s";
-};
-
-// Search function
-const searchLeaders = (leaders, searchTerm) => {
-  if (!searchTerm.trim()) return leaders;
-
-  const term = searchTerm.toLowerCase().trim();
-
-  return leaders.filter((leader) => {
-    const name = (leader.name || "").toLowerCase();
-    if (name.includes(term)) return true;
-    if (leader.party?.toLowerCase().includes(term)) return true;
-    const position = (
-      leader.position_running_for ||
-      leader.position ||
-      ""
-    ).toLowerCase();
-    if (position.includes(term)) return true;
-    if (leader.county?.toLowerCase().includes(term)) return true;
-    const similarity = stringSimilarity.compareTwoStrings(name, term);
-    if (similarity > 0.65) return true;
-    return false;
-  });
-};
 
 const LeadersPage = () => {
   const navigate = useNavigate();
-  const [leaders, setLeaders] = useState([]);
+  const { user, isAuthenticated } = useAuth();
+  const [feedGroups, setFeedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPosition, setSelectedPosition] = useState("All");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
   const loadingBarRef = useRef(null);
-  const { selectedCounty } = useCounty();
   const dataFetchedRef = useRef(false);
 
   useEffect(() => {
@@ -408,10 +282,9 @@ const LeadersPage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch leaders
-  // Fetch leaders - Show ALL aspirants (no status filter)
+  // Fetch personalized feed
   useEffect(() => {
-    const fetchLeaders = async () => {
+    const fetchPersonalizedFeed = async () => {
       if (dataFetchedRef.current) return;
 
       if (loadingBarRef.current) {
@@ -419,24 +292,25 @@ const LeadersPage = () => {
       }
 
       try {
-        const res = await axios.get("http://localhost:8002/api/v1/leaders", {
-          timeout: 8000,
+        const response = await api.get("/leaders", {
+          params: { limit: 300 },
+          withCredentials: true,
         });
 
-        if (res.data?.data) {
-          // Show ALL leaders - no status filter
-          setLeaders(res.data.data);
+        if (response.data?.success) {
+          setFeedGroups(response.data.data || []);
+          setUserInfo(response.data.userInfo);
           setError(null);
         } else {
-          setLeaders([]);
+          setFeedGroups([]);
           setError("No data available");
         }
 
         dataFetchedRef.current = true;
       } catch (err) {
-        console.error("Error fetching leaders:", err);
+        console.error("Error fetching personalized feed:", err);
         setError(err.message || "Failed to load leaders");
-        setLeaders([]);
+        setFeedGroups([]);
       } finally {
         setLoading(false);
         if (loadingBarRef.current) {
@@ -445,76 +319,36 @@ const LeadersPage = () => {
       }
     };
 
-    fetchLeaders();
+    fetchPersonalizedFeed();
   }, []);
 
-  // Get unique positions from active leaders only
-  const uniquePositions = useMemo(() => {
-    const positions = new Set();
-    leaders.forEach((leader) => {
-      const pos = leader.position_running_for || leader.position;
-      if (pos) {
-        const category = findCategory(pos).name;
-        if (category !== "Other") {
-          positions.add(category);
-        }
-      }
-    });
-    return ["All", ...Array.from(positions).sort()];
-  }, [leaders]);
+  // Filter leaders based on search term
+  const filteredGroups = useMemo(() => {
+    if (!searchTerm.trim()) return feedGroups;
 
-  // Filter leaders
-  const filteredLeaders = useMemo(() => {
-    if (!leaders.length) return [];
+    const term = searchTerm.toLowerCase().trim();
 
-    const isNational =
-      !selectedCounty || ["Kenya", "All"].includes(selectedCounty);
+    return feedGroups
+      .map((group) => ({
+        ...group,
+        leaders: group.leaders.filter(
+          (leader) =>
+            leader.name?.toLowerCase().includes(term) ||
+            leader.party?.toLowerCase().includes(term) ||
+            leader.position?.toLowerCase().includes(term) ||
+            leader.county?.toLowerCase().includes(term) ||
+            leader.constituency?.toLowerCase().includes(term),
+        ),
+      }))
+      .filter((group) => group.leaders.length > 0);
+  }, [feedGroups, searchTerm]);
 
-    let filtered = isNational
-      ? leaders
-      : leaders.filter(
-          (l) => l.county?.toLowerCase() === selectedCounty.toLowerCase(),
-        );
-
-    filtered = searchLeaders(filtered, searchTerm);
-
-    if (selectedPosition !== "All") {
-      filtered = filtered.filter((leader) => {
-        const pos = leader.position_running_for || leader.position;
-        return findCategory(pos).name === selectedPosition;
-      });
-    }
-
-    return filtered;
-  }, [leaders, selectedCounty, searchTerm, selectedPosition]);
-
-  // Group by position
-  const groupedData = useMemo(() => {
-    if (!filteredLeaders.length) return [];
-
-    const groups = {};
-
-    filteredLeaders.forEach((leader) => {
-      const position = leader.position_running_for || leader.position || "";
-      const category = findCategory(position);
-
-      if (!groups[category.name]) {
-        groups[category.name] = {
-          title: category.name,
-          list: [],
-          order: category.order,
-          displayName: getDisplayName(category.name),
-        };
-      }
-      groups[category.name].list.push(leader);
-    });
-
-    return Object.values(groups).sort((a, b) => a.order - b.order);
-  }, [filteredLeaders]);
+  const totalLeaders = useMemo(() => {
+    return filteredGroups.reduce((sum, group) => sum + group.leaders.length, 0);
+  }, [filteredGroups]);
 
   const clearSearch = () => {
     setSearchTerm("");
-    setSelectedPosition("All");
   };
 
   const handleRegisterClick = () => {
@@ -545,7 +379,7 @@ const LeadersPage = () => {
             </RegisterButton>
           </SearchContainer>
         </StickySearchWrapper>
-        <FeedContainer>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           {[1, 2, 3].map((i) => (
             <Section key={i}>
               <SectionHeader>
@@ -559,7 +393,7 @@ const LeadersPage = () => {
               </Tray>
             </Section>
           ))}
-        </FeedContainer>
+        </div>
       </PageWrapper>
     );
   }
@@ -577,10 +411,11 @@ const LeadersPage = () => {
               <Search size={14} />
             </SearchIcon>
             <SearchInput
+              key="search-input"
               type="text"
-              placeholder="Search aspirant..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search aspirant by name, party, county, constituency..."
+              value={searchTerm || ""}
+              onChange={(e) => setSearchTerm(e.target.value || "")}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
               $focused={isSearchFocused}
@@ -596,61 +431,63 @@ const LeadersPage = () => {
           </RegisterButton>
         </SearchContainer>
 
-        <TrendingManifestos leaders={leaders} compact={true} />
-
-        {uniquePositions.length > 1 && (
-          <FilterChips>
-            {uniquePositions.map((pos) => (
-              <FilterChip
-                key={pos}
-                $active={selectedPosition === pos}
-                onClick={() => setSelectedPosition(pos)}
-              >
-                {pos === "All" ? "All" : pos}
-              </FilterChip>
-            ))}
-          </FilterChips>
-        )}
+        <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
 
       {searchTerm && (
-        <SearchResult>
-          <ResultText>
+        <div
+          style={{
+            maxWidth: 800,
+            margin: "0 auto",
+            padding: "12px 20px",
+            background: "#f9fafb",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              color: "#6b7280",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <TrendingUp size={14} />
-            Found <strong>{filteredLeaders.length}</strong> aspirant
-            {filteredLeaders.length !== 1 ? "s" : ""} matching "
+            Found <strong>{totalLeaders}</strong> aspirant
+            {totalLeaders !== 1 ? "s" : ""} matching "
             <strong>{searchTerm}</strong>"
-          </ResultText>
-        </SearchResult>
+          </div>
+        </div>
       )}
 
-      <FeedContainer>
-        {groupedData.length > 0 ? (
-          groupedData.map((group, index) => (
-            <Section key={group.title} $delay={`${index * 0.1}s`}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {filteredGroups.length > 0 ? (
+          filteredGroups.map((group, index) => (
+            <Section key={group.title} $delay={`${index * 0.05}s`}>
               <SectionHeader>
                 <h2>
-                  {group.displayName}
-                  {group.list.some((l) => l.status === "pending") && (
-                    <PendingBadge>
-                      <Clock size={10} /> Pending Approval
-                    </PendingBadge>
+                  {group.type === "presidential" && (
+                    <Star size={14} color="#ff0000" />
+                  )}
+                  {group.type === "county" && <MapPin size={14} />}
+                  {group.type === "constituency" && <MapPin size={14} />}
+                  {group.title}
+                  {group.type === "presidential" && (
+                    <SectionBadge $type="presidential">
+                      🇰🇪 National
+                    </SectionBadge>
                   )}
                 </h2>
-                <span className="count">{group.list.length}</span>
+                <span className="count">
+                  {group.leaders.length} / {group.total}
+                </span>
               </SectionHeader>
-
               <Tray>
-                <Suspense fallback={<SkeletonCard />}></Suspense>
-
-                {group.list.map((leader) => (
-                  <Suspense
-                    key={leader.leader_id}
-                    fallback={<SkeletonLeaderCard />}
-                  >
-                    <LeaderCard leader={leader} />
-                  </Suspense>
-                ))}
+                <Suspense fallback={<SkeletonLeaderCard />}>
+                  {group.leaders.map((leader) => (
+                    <LeaderCard key={leader.leader_id} leader={leader} />
+                  ))}
+                </Suspense>
               </Tray>
             </Section>
           ))
@@ -661,9 +498,6 @@ const LeadersPage = () => {
             {searchTerm && (
               <>
                 <p>We couldn't find "{searchTerm}"</p>
-                <p className="suggestion">
-                  Try checking the spelling or use just first/last name
-                </p>
                 <button
                   onClick={clearSearch}
                   style={{
@@ -674,7 +508,6 @@ const LeadersPage = () => {
                     border: "none",
                     borderRadius: 20,
                     cursor: "pointer",
-                    fontSize: "13px",
                   }}
                 >
                   Clear search
@@ -683,7 +516,7 @@ const LeadersPage = () => {
             )}
           </EmptyState>
         )}
-      </FeedContainer>
+      </div>
     </PageWrapper>
   );
 };

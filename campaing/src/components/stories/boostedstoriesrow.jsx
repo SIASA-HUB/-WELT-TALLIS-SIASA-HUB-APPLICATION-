@@ -1,4 +1,4 @@
-// BoostedStoriesRow.js - No Scrollbars, Clean Instagram Style
+// BoostedStoriesRow.js - Fixed for Images & Videos
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import axios from "axios";
@@ -9,6 +9,7 @@ import {
   Zap,
   Eye,
   MoreHorizontal,
+  Play,
 } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 
@@ -91,11 +92,11 @@ const StoriesContainer = styled.div`
   -webkit-overflow-scrolling: touch;
 
   /* COMPLETELY HIDE SCROLLBAR - Instagram style */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 
   &::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none;
   }
 `;
 
@@ -136,10 +137,31 @@ const StoryAvatar = styled.div`
   overflow: hidden;
   position: relative;
 
-  img {
+  img,
+  video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .media-type-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #0a0a0a;
+
+    svg {
+      width: 10px;
+      height: 10px;
+      color: white;
+    }
   }
 
   .boost-badge {
@@ -186,7 +208,7 @@ const StoryBoostCount = styled.div`
   gap: 3px;
 `;
 
-// Card view (alternative)
+// Card view for stories with media
 const StoryCardHorizontal = styled.div`
   flex: 0 0 auto;
   width: 280px;
@@ -211,11 +233,21 @@ const CardHeader = styled.div`
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 `;
 
-const CardAvatar = styled.img`
+const CardAvatar = styled.div`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  object-fit: cover;
+  background: linear-gradient(135deg, #ff5c01, #ff8c01);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 const CardUserInfo = styled.div`
@@ -231,6 +263,46 @@ const CardUserName = styled.div`
 const CardTime = styled.div`
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.4);
+`;
+
+const CardMedia = styled.div`
+  width: 100%;
+  height: 200px;
+  background: #1a1a1a;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    padding: 12px;
+    pointer-events: none;
+
+    svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+    }
+  }
 `;
 
 const CardContent = styled.div`
@@ -302,13 +374,41 @@ const SkeletonText = styled.div`
   animation: pulse 1.5s ease-in-out infinite;
 `;
 
+const ErrorState = styled.div`
+  text-align: center;
+  padding: 20px;
+  color: #ff5c01;
+  font-size: 0.8rem;
+`;
+
+const RetryButton = styled.button`
+  background: rgba(255, 92, 1, 0.2);
+  border: 1px solid rgba(255, 92, 1, 0.3);
+  color: #ff5c01;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-top: 8px;
+
+  &:hover {
+    background: rgba(255, 92, 1, 0.3);
+  }
+`;
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
-const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
+const BoostedStoriesRow = ({
+  currentUser,
+  leaderId,
+  type = "boosted",
+  onBoostSuccess,
+}) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedStory, setSelectedStory] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [useCardView, setUseCardView] = useState(false);
@@ -323,6 +423,8 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
 
   const fetchStories = async () => {
     setLoading(true);
+    setError(null);
+
     try {
       let url;
 
@@ -340,9 +442,14 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
           url = `${API_BASE_URL}/api/v1/endorsements/leader/${leaderId}/boosted?limit=15`;
       }
 
-      const response = await axios.get(url, { withCredentials: true });
+      console.log(`📡 Fetching ${type} stories from:`, url);
+      const response = await axios.get(url, {
+        withCredentials: true,
+        timeout: 10000,
+      });
 
       let fetchedStories = [];
+
       if (response.data?.success && response.data?.data) {
         fetchedStories = Array.isArray(response.data.data)
           ? response.data.data
@@ -353,9 +460,55 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
         fetchedStories = response.data;
       }
 
-      setStories(fetchedStories);
+      console.log(`✅ Fetched ${fetchedStories.length} stories`);
+      console.log("Sample story:", fetchedStories[0]);
+
+      // Transform stories to ensure consistent format
+      const transformedStories = fetchedStories.map((story) => ({
+        id: story.id,
+        user_id: story.user_id,
+        user_name: story.user_name || "Anonymous",
+        message: story.message || story.phrase || "",
+        media_type: story.media_type || "text",
+        image_url: story.image_url, // This is the key field!
+        thumbnail_url: story.thumbnail_url,
+        likes: story.likes || 0,
+        comments: story.comments || 0,
+        boost_count: story.boost_count || 0,
+        total_boost_amount: story.total_boost_amount || 0,
+        created_at: story.created_at,
+        isFree: story.isFree || story.amount === 0,
+        type: story.type || (story.amount === 0 ? "free" : "paid"),
+      }));
+
+      // Filter out stories without media for boosted section (optional)
+      const storiesWithMedia = transformedStories.filter(
+        (story) => story.media_type !== "text" || story.image_url,
+      );
+
+      setStories(
+        storiesWithMedia.length > 0 ? storiesWithMedia : transformedStories,
+      );
+
+      if (storiesWithMedia.length === 0 && transformedStories.length === 0) {
+        setError("No stories found");
+      }
     } catch (error) {
       console.error(`Error fetching ${type} stories:`, error);
+
+      if (error.code === "ECONNABORTED") {
+        setError("Request timeout - please try again");
+      } else if (error.response) {
+        setError(
+          error.response.data?.message ||
+            `Server error: ${error.response.status}`,
+        );
+      } else if (error.request) {
+        setError("Cannot connect to server. Please check your connection.");
+      } else {
+        setError(error.message || "Failed to load stories");
+      }
+
       setStories([]);
     } finally {
       setLoading(false);
@@ -367,13 +520,32 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
     setSelectedIndex(index);
   };
 
-  const getAvatarUrl = (story) => {
-    if (story?.image_url) {
-      return story.image_url.startsWith("http")
-        ? story.image_url
-        : `${API_BASE_URL}${story.image_url}`;
+  const handleRetry = () => {
+    fetchStories();
+  };
+
+  // FIXED: Properly get media URL for a story
+  const getMediaUrl = (story) => {
+    // Use image_url directly from the story
+    if (story.image_url) {
+      // If it's a full URL, use as is
+      if (story.image_url.startsWith("http")) {
+        return story.image_url;
+      }
+      // Otherwise, prepend API base URL
+      return `${API_BASE_URL}${story.image_url}`;
     }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(story?.user_name || "User")}&background=ff5c01&color=fff&bold=true&size=96`;
+
+    // Fallback to avatar for text-only stories
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(story.user_name || "User")}&background=ff5c01&color=fff&bold=true&size=96`;
+  };
+
+  // Check if media is video
+  const isVideo = (story) => {
+    return (
+      story.media_type === "video" ||
+      (story.image_url && story.image_url.match(/\.(mp4|webm|mov)$/i))
+    );
   };
 
   const getTitle = () => {
@@ -383,7 +555,7 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
       case "trending":
         return "Trending Now";
       case "recent":
-        return "Recent";
+        return "Recent Supporters";
       default:
         return "Most Boosted";
     }
@@ -419,12 +591,19 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     const now = new Date();
-    const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
-    if (diffHours < 1) return "Just now";
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.floor(diffHours / 24)}d ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return `${Math.floor(diffDays / 7)}w ago`;
   };
 
+  // Loading state
   if (loading) {
     return (
       <Section>
@@ -449,6 +628,28 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
     );
   }
 
+  // Error state
+  if (error && stories.length === 0) {
+    return (
+      <Section>
+        <SectionHeader>
+          <HeaderLeft>
+            <HeaderIcon>{getHeaderIcon()}</HeaderIcon>
+            <div>
+              <HeaderTitle>{getTitle()}</HeaderTitle>
+              <HeaderSubtitle>{getSubtitle()}</HeaderSubtitle>
+            </div>
+          </HeaderLeft>
+        </SectionHeader>
+        <ErrorState>
+          <p>{error}</p>
+          <RetryButton onClick={handleRetry}>Retry</RetryButton>
+        </ErrorState>
+      </Section>
+    );
+  }
+
+  // Empty state
   if (!stories || stories.length === 0) {
     return null;
   }
@@ -471,28 +672,50 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
 
         <StoriesContainer>
           {stories.map((story, index) => {
+            const mediaUrl = getMediaUrl(story);
+            const isVideoStory = isVideo(story);
+            const boostCount = story.boost_count || 0;
+            const isHighBoost = boostCount >= 5;
+
             if (useCardView) {
               return (
                 <StoryCardHorizontal
-                  key={story.id}
+                  key={story.id || index}
                   onClick={() => handleStoryClick(story, index)}
                 >
                   <CardHeader>
-                    <CardAvatar
-                      src={getAvatarUrl(story)}
-                      alt={story.user_name}
-                    />
+                    <CardAvatar>
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(story.user_name || "User")}&background=ff5c01&color=fff&size=36`}
+                        alt={story.user_name}
+                      />
+                    </CardAvatar>
                     <CardUserInfo>
                       <CardUserName>{story.user_name}</CardUserName>
                       <CardTime>{formatTimeAgo(story.created_at)}</CardTime>
                     </CardUserInfo>
                     <MoreHorizontal size={16} color="rgba(255,255,255,0.4)" />
                   </CardHeader>
+
+                  {/* FIXED: Show media content */}
+                  {mediaUrl && story.media_type !== "text" && (
+                    <CardMedia>
+                      {isVideoStory ? (
+                        <>
+                          <video src={mediaUrl} preload="metadata" />
+                          <div className="play-icon">
+                            <Play size={24} />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={mediaUrl} alt={story.user_name} />
+                      )}
+                    </CardMedia>
+                  )}
+
                   <CardContent>
                     <CardMessage>
-                      {story.message ||
-                        story.phrase ||
-                        "Standing strong for leadership."}
+                      {story.message || "Supporting this campaign!"}
                     </CardMessage>
                     <CardStats>
                       <CardStat>
@@ -515,12 +738,10 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
               );
             }
 
-            const boostCount = story.boost_count || 0;
-            const isHighBoost = boostCount >= 5;
-
+            // Circle view (Instagram stories style)
             return (
               <StoryItem
-                key={story.id}
+                key={story.id || index}
                 onClick={() => handleStoryClick(story, index)}
               >
                 <StoryRing
@@ -531,7 +752,27 @@ const BoostedStoriesRow = ({ currentUser, leaderId, type = "boosted" }) => {
                   }}
                 >
                   <StoryAvatar>
-                    <img src={getAvatarUrl(story)} alt={story.user_name} />
+                    {mediaUrl && story.media_type !== "text" ? (
+                      isVideoStory ? (
+                        <video src={mediaUrl} preload="metadata" />
+                      ) : (
+                        <img src={mediaUrl} alt={story.user_name} />
+                      )
+                    ) : (
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(story.user_name || "User")}&background=ff5c01&color=fff&size=96`}
+                        alt={story.user_name}
+                      />
+                    )}
+
+                    {/* Show media type badge */}
+                    {story.media_type === "video" && (
+                      <div className="media-type-badge">
+                        <Play size={10} />
+                      </div>
+                    )}
+
+                    {/* Show boost badge */}
                     {boostCount > 0 && (
                       <div className="boost-badge">
                         <Flame size={10} />

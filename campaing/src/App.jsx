@@ -10,14 +10,13 @@ import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 
 // --- Utils & Theme ---
 import theme from "./utils/theme";
-import { CountyProvider } from "./context/countyContext";
 
 // --- Components ---
 import LandingPage from "./components/home/homePage";
 import SloganSection from "./components/slogans/slogan";
 import LeaderInsightPage from "./components/leaders/leaderInsights";
 import RegistrationPage from "./components/auth/registerPage";
-import CompetitionPage from "./components/boost/competitionPage";
+
 import RegisterAspirant from "./components/leaders/registerAspirant";
 import LoginAspirant from "./components/leaders/loginAspirant";
 import AspirantDashboard from "./components/leaders/dashboard/aspirantDashboard";
@@ -104,13 +103,11 @@ const ScrollToTop = () => {
 const App = () => {
   return (
     <ThemeProvider theme={theme}>
-      <CountyProvider>
-        <Router>
-          <GlobalStyle />
-          <ScrollToTop />
-          <AppLayout />
-        </Router>
-      </CountyProvider>
+      <Router>
+        <GlobalStyle />
+        <ScrollToTop />
+        <AppLayout />
+      </Router>
     </ThemeProvider>
   );
 };
@@ -187,9 +184,6 @@ const AppLayout = () => {
             {/* Auth Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-
-            {/* Other Routes */}
-            <Route path="/boost" element={<CompetitionPage />} />
           </Routes>
         </Suspense>
       </MainContent>

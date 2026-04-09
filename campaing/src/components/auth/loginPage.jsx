@@ -17,12 +17,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import AppLoadingBar from "../../utils/LoadingBar";
 import theme from "../../utils/theme";
-
-// ==========================================
-// API CONFIGURATION
-// ==========================================
-const API_BASE_URL =
-  "https://grass-solaris-sas-hosts.trycloudflare.com/api/v1/users";
+import API_BASE_URL from "./apiConfig";
 
 // Create axios instance with credentials (for cookies)
 const api = axios.create({

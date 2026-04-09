@@ -1,9 +1,10 @@
-// controllers/authController.js
+// controllers/loginAuthController.js - Fixed for your global/index.js exports
+
 const asyncHandler = require("express-async-handler");
 const AuthModel = require("../models/userAuthModel");
 const Logger = require("../utils/logger/logger");
 
-// Import global auth utilities (use correct paths)
+// Import from global index (correct path)
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -21,12 +22,10 @@ const {
 // ============================================
 // LOGIN USER
 // ============================================
-// controllers/authController.js - Update the login function
-
 const loginUser = asyncHandler(async (req, res) => {
   const { anonymous_username, password } = req.body;
 
-  console.log("📝 Login attempt:", { anonymous_username, password: "***" });
+  console.log("Login attempt:", { anonymous_username, password: "***" });
 
   if (!anonymous_username || !password) {
     return res.status(400).json({
@@ -57,7 +56,6 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Prepare user payload
     const userPayload = {
       userId: user.user_id,
       username: user.anonymous_username,
@@ -76,20 +74,15 @@ const loginUser = asyncHandler(async (req, res) => {
     const accessToken = generateAccessToken(userPayload);
     const refreshToken = generateRefreshToken(userPayload);
 
-    // Generate CSRF protection - FIXED: use await
-    console.log("🔐 Generating CSRF secret...");
-    const csrfSecret = await generateCsrfSecret(); // ← AWAIT HERE
-    console.log("✅ CSRF secret generated:", csrfSecret ? "yes" : "no");
+    const csrfSecret = await generateCsrfSecret();
 
-    const csrfToken = generateCsrfToken(csrfSecret); // ← Now secret is defined
-    console.log("✅ CSRF token generated:", csrfToken ? "yes" : "no");
+    const csrfToken = generateCsrfToken(csrfSecret);
 
     // Set cookies
     setAccessTokenCookie(res, accessToken);
     setRefreshTokenCookie(res, refreshToken);
-    setCsrfSecretCookie(res, csrfSecret); // Store secret in cookie
+    setCsrfSecretCookie(res, csrfSecret);
 
-    // Set user info cookie
     const userInfo = {
       user_id: user.user_id,
       username: user.anonymous_username,
@@ -97,16 +90,16 @@ const loginUser = asyncHandler(async (req, res) => {
       county: user.county,
       ward: user.ward,
       age_bracket: user.age_bracket,
-      role: user.role,
+      role: user.role || "user",
       political_party: user.political_party,
       employment_status: user.employment_status,
+      is_verified: user.is_verified === 1,
     };
     setUserInfoCookie(res, userInfo);
 
     // Update last login
     await AuthModel.updateLastLogin(user.user_id);
 
-    console.log(`✅ Login successful for ${user.anonymous_username}`);
     Logger.info(`User ${user.anonymous_username} logged in`);
 
     return res.status(200).json({
@@ -116,16 +109,7 @@ const loginUser = asyncHandler(async (req, res) => {
       csrfToken,
     });
   } catch (error) {
-    console.error("❌ Login error DETAILS:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
-    Logger.error("Login error", {
-      error: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
+    Logger.error("Login error", { error: error.message });
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -176,11 +160,25 @@ const refreshToken = asyncHandler(async (req, res) => {
     };
 
     const newAccessToken = generateAccessToken(userPayload);
-    const csrfSecret = generateCsrfSecret();
+    const csrfSecret = await generateCsrfSecret();
     const csrfToken = generateCsrfToken(csrfSecret);
 
     setAccessTokenCookie(res, newAccessToken);
     setCsrfSecretCookie(res, csrfSecret);
+
+    // Update user info cookie with latest role
+    const userInfo = {
+      user_id: user.user_id,
+      username: user.anonymous_username,
+      real_name: user.real_name,
+      county: user.county,
+      ward: user.ward,
+      age_bracket: user.age_bracket,
+      role: user.role || "user",
+      political_party: user.political_party,
+      employment_status: user.employment_status,
+    };
+    setUserInfoCookie(res, userInfo);
 
     res.status(200).json({
       success: true,
@@ -237,7 +235,7 @@ const verifyToken = asyncHandler(async (req, res) => {
       userId: decoded.userId,
       username: decoded.username,
       county: decoded.county,
-      role: decoded.role,
+      role: decoded.role || "user",
     },
   });
 });
@@ -309,7 +307,7 @@ const checkAuthStatus = asyncHandler(async (req, res) => {
 // GET CSRF TOKEN
 // ============================================
 const getCsrfToken = asyncHandler(async (req, res) => {
-  const csrfSecret = generateCsrfSecret();
+  const csrfSecret = await generateCsrfSecret();
   const csrfToken = generateCsrfToken(csrfSecret);
   setCsrfSecretCookie(res, csrfSecret);
 

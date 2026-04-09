@@ -56,11 +56,11 @@ const corsOptions = {
   allowedHeaders: [
     "Content-Type",
     "Authorization",
-    "X-Requested-With",
     "X-CSRF-Token",
+    "x-csrf-token",
     "Accept",
-    "Origin",
   ],
+  exposedHeaders: ["Set-Cookie"],
   exposedHeaders: ["Content-Length", "X-Requested-With"],
   credentials: true, // Important for cookies
   optionsSuccessStatus: 200,

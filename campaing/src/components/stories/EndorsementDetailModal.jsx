@@ -1,3 +1,4 @@
+// components/endorsements/EndorsementDetailModal.jsx - Fixed to show images/videos
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -9,6 +10,7 @@ import {
   TrendingUp,
   Eye,
   Clock,
+  Play,
 } from "lucide-react";
 import axios from "axios";
 import BoostModal from "../userProfile/boostModal";
@@ -31,6 +33,32 @@ const glowPulse = keyframes`
 `;
 
 const API_BASE_URL = "http://localhost:8009";
+
+// Helper function to build image URL
+const buildImageUrl = (imageUrl, createdAt) => {
+  if (!imageUrl) return null;
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  if (imageUrl.startsWith("/uploads")) {
+    return `${API_BASE_URL}${imageUrl}`;
+  }
+
+  if (imageUrl.startsWith("uploads")) {
+    return `${API_BASE_URL}/${imageUrl}`;
+  }
+
+  if (createdAt) {
+    const date = new Date(createdAt);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `${API_BASE_URL}/uploads/endorsements/${year}/${month}/${imageUrl}`;
+  }
+
+  return `${API_BASE_URL}/uploads/endorsements/${imageUrl}`;
+};
 
 // Styled Components
 const FullScreenOverlay = styled.div`
@@ -141,6 +169,28 @@ const MainContent = styled.div`
   text-align: center;
 `;
 
+const MediaContent = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px;
+
+  img {
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  video {
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+`;
+
 const SupportMessage = styled.div`
   font-size: 1.5rem;
   line-height: 1.4;
@@ -157,6 +207,7 @@ const EndorsementMeta = styled.div`
   margin-top: 32px;
   padding: 8px 16px;
   background: rgba(0, 0, 0, 0.4);
+  border-radius: 40px;
 `;
 
 const MetaItem = styled.div`
@@ -186,6 +237,7 @@ const AmountBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  border-radius: 20px;
 `;
 
 const RightActions = styled.div`
@@ -209,6 +261,7 @@ const ActionButton = styled.button`
   gap: 4px;
   cursor: pointer;
   min-width: 48px;
+  border-radius: 30px;
 
   span {
     font-size: 0.65rem;
@@ -241,6 +294,28 @@ const RightZone = styled(NavigationZone)`
   right: 0;
 `;
 
+const VideoPlayIcon = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  svg {
+    width: 30px;
+    height: 30px;
+    color: white;
+    margin-left: 4px;
+  }
+`;
+
 const CommentsModalOverlay = styled.div`
   position: fixed;
   bottom: 0;
@@ -252,6 +327,7 @@ const CommentsModalOverlay = styled.div`
   display: flex;
   flex-direction: column;
   animation: ${slideUp} 0.3s ease-out;
+  border-radius: 20px 20px 0 0;
 `;
 
 const CommentsModalHeader = styled.div`
@@ -328,11 +404,16 @@ const EndorsementDetailModal = ({
 
   const getAvatarUrl = (item) => {
     if (item?.image_url) {
-      return item.image_url.startsWith("http")
-        ? item.image_url
-        : `${API_BASE_URL}${item.image_url}`;
+      return buildImageUrl(item.image_url, item.created_at);
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(item?.user_name || "User")}&background=ff5c01&color=fff&size=100`;
+  };
+
+  const getMediaUrl = (item) => {
+    if (item?.image_url) {
+      return buildImageUrl(item.image_url, item.created_at);
+    }
+    return null;
   };
 
   const formatDate = (dateString) => {
@@ -532,6 +613,10 @@ const EndorsementDetailModal = ({
 
   const currentCommentsCount = commentsState[current.id]?.length || 0;
   const isFree = parseInt(current.amount || 0) === 0;
+  const mediaType = current.media_type || "text";
+  const mediaUrl = getMediaUrl(current);
+  const isVideo = mediaType === "video";
+  const isImage = mediaType === "image";
 
   return (
     <>
@@ -588,11 +673,25 @@ const EndorsementDetailModal = ({
           onTouchStart={() => setIsPaused(true)}
           onTouchEnd={() => setIsPaused(false)}
         >
-          <SupportMessage>
-            {current.message ||
-              current.phrase ||
-              "Standing strong for leadership"}
-          </SupportMessage>
+          {/* Show Image or Video if exists */}
+          {(isImage || isVideo) && mediaUrl && (
+            <MediaContent>
+              {isVideo ? (
+                <video src={mediaUrl} controls autoPlay playsInline />
+              ) : (
+                <img src={mediaUrl} alt="Story media" />
+              )}
+            </MediaContent>
+          )}
+
+          {/* Show text message */}
+          {(mediaType === "text" || (!mediaUrl && current.message)) && (
+            <SupportMessage>
+              {current.message ||
+                current.phrase ||
+                "Standing strong for leadership"}
+            </SupportMessage>
+          )}
 
           <EndorsementMeta>
             <MetaItem>

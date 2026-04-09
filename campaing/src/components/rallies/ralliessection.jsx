@@ -3,12 +3,9 @@ import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Flame, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
-import RallyCard from "../treading/rallycard";
+import RallyCard from "./rallycard";
 
-// Use the correct API URL - make sure this matches your server
-const API_BASE_URL = "http://localhost:8003/api/v1";
-// Or use relative URL if same domain
-// const API_BASE_URL = "/api/v1";
+import { API_BASE_URL } from "./apiConfig";
 
 // --- ANIMATIONS ---
 const slideIn = keyframes`

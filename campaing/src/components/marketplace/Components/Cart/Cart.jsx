@@ -1,4 +1,4 @@
-// Cart.js - Complete Fixed Cart Component
+// Cart.js - Complete Fixed Cart Component with M-Pesa Only
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import {
@@ -11,9 +11,13 @@ import {
   Minus,
   AlertCircle,
   ChevronRight,
+  Phone,
+  User,
+  LogIn,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import AdBanner from "../ItemDetails/AdBanner";
 
 const API_URL = "http://localhost:8007";
 
@@ -29,6 +33,7 @@ const COLORS = {
   background: "#f8f9fa",
   white: "#ffffff",
   success: "#27ae60",
+  mpesa: "#00a859",
 };
 
 // Styled Components
@@ -103,7 +108,7 @@ const CheckoutButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: ${COLORS.primary};
+  background: ${COLORS.mpesa};
   color: ${COLORS.white};
   border: none;
   padding: 14px 32px;
@@ -114,9 +119,9 @@ const CheckoutButton = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background: ${COLORS.primaryDark};
+    background: ${COLORS.mpesa}dd;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(30, 60, 114, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 168, 89, 0.3);
   }
 
   &:active {
@@ -150,7 +155,7 @@ const ErrorMessage = styled.div`
   font-size: 14px;
 `;
 
-// CartItem Component (inline for completeness)
+// CartItem Component
 const CartItemWrapper = styled.div`
   display: flex;
   padding: 20px 24px;
@@ -277,7 +282,6 @@ const TotalAmount = styled.div`
   color: ${COLORS.primary};
 `;
 
-// CartItem Component
 const CartItem = ({ item, removeItemFromCart, updateQuantity }) => {
   const totalPrice = (item.price || 0) * (item.quantity || 1);
 
@@ -500,12 +504,175 @@ const EmptyCart = () => (
   </EmptyCartWrapper>
 );
 
+// M-Pesa Modal Component
+const MpesaModal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+`;
+
+const ModalTitle = styled.h3`
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: ${COLORS.text};
+`;
+
+const ModalSubtitle = styled.p`
+  font-size: 13px;
+  color: ${COLORS.textLight};
+  margin-bottom: 24px;
+`;
+
+const InputGroup = styled.div`
+  text-align: left;
+  margin-bottom: 20px;
+`;
+
+const InputLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: ${COLORS.text};
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 12px;
+  border: 1px solid ${COLORS.border};
+  border-radius: 12px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+
+  &:focus {
+    border-color: ${COLORS.mpesa};
+    box-shadow: 0 0 0 3px rgba(0, 168, 89, 0.1);
+  }
+`;
+
+const MpesaButton = styled.button`
+  width: 100%;
+  background: ${COLORS.mpesa};
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${COLORS.mpesa}dd;
+    transform: translateY(-1px);
+  }
+`;
+
+const CancelButton = styled.button`
+  width: 100%;
+  background: none;
+  border: 1px solid ${COLORS.border};
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  color: ${COLORS.textLight};
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${COLORS.background};
+  }
+`;
+
+const MpesaIcon = styled.div`
+  width: 60px;
+  height: 60px;
+  background: ${COLORS.mpesa}15;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: ${COLORS.mpesa};
+  font-size: 30px;
+  font-weight: bold;
+`;
+
+// Helper function to decode token
+const getUserFromToken = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error("Error decoding token:", error);
+    return null;
+  }
+};
+
 // Main Cart Component
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showMpesaModal, setShowMpesaModal] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
+
+  // Check authentication and load user
+  useEffect(() => {
+    const checkAuth = () => {
+      const userData = getUserFromToken();
+      if (!userData) {
+        // Redirect to login if not authenticated
+        localStorage.setItem("redirectAfterLogin", "/cart");
+        navigate("/login");
+        return;
+      }
+      setUser(userData);
+      // Set phone number from user data if available
+      if (userData.phone) {
+        setPhoneNumber(userData.phone);
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   // Load cart from localStorage
   useEffect(() => {
@@ -566,26 +733,58 @@ const Cart = () => {
     return cartItems.reduce((total, item) => total + (item.quantity || 1), 0);
   };
 
-  // In Cart.js - handleCheckout function
+  const handleMpesaPayment = async () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      setError("Please enter a valid M-Pesa phone number");
+      return;
+    }
+
+    setProcessing(true);
+    const total = getTotalPrice();
+
+    try {
+      // Call your backend M-Pesa STK Push endpoint
+      const response = await axios.post(`${API_URL}/api/mpesa/stkpush`, {
+        phoneNumber: phoneNumber.replace(/^0/, "254"), // Convert to international format
+        amount: total,
+        accountReference: `CART-${Date.now()}`,
+        transactionDesc: `Payment for ${getTotalItems()} items`,
+        userId: user?.id,
+      });
+
+      if (response.data.success) {
+        setError(null);
+        alert(
+          `M-Pesa STK Push sent to ${phoneNumber}. Please check your phone and enter PIN to complete payment.`,
+        );
+
+        // Clear cart after successful payment (in real scenario, wait for webhook confirmation)
+        localStorage.removeItem("marketplace_cart");
+        setCartItems([]);
+        setShowMpesaModal(false);
+        navigate("/marketplace");
+      } else {
+        setError(response.data.message || "Payment failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("M-Pesa payment error:", err);
+      setError(
+        err.response?.data?.message ||
+          "Payment processing failed. Please try again.",
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleCheckout = () => {
     if (cartItems.length === 0) {
       setError("Your cart is empty");
       return;
     }
-
-    // Store cart data for checkout
-    localStorage.setItem(
-      "checkout_cart",
-      JSON.stringify({
-        items: cartItems,
-        total: getTotalPrice(),
-        timestamp: new Date().toISOString(),
-      }),
-    );
-
-    // Navigate to checkout - use the same path as in Routes
-    navigate("/checkout");
+    setShowMpesaModal(true);
   };
+
   if (loading) {
     return (
       <LoadingWrapper>
@@ -596,61 +795,146 @@ const Cart = () => {
   }
 
   if (cartItems.length === 0) {
-    return <EmptyCart />;
+    return (
+      <>
+        <EmptyCart />
+        <AdBanner />
+      </>
+    );
   }
 
   return (
-    <CartWrapper>
-      <BackButton to="/marketplace">
-        <ArrowLeft size={18} />
-        Continue Shopping
-      </BackButton>
+    <>
+      <CartWrapper>
+        <BackButton to="/marketplace">
+          <ArrowLeft size={18} />
+          Continue Shopping
+        </BackButton>
 
-      {error && (
-        <ErrorMessage>
-          <AlertCircle size={16} />
-          {error}
-        </ErrorMessage>
+        {error && (
+          <ErrorMessage>
+            <AlertCircle size={16} />
+            {error}
+          </ErrorMessage>
+        )}
+
+        <CartGrid>
+          <CartItemsSection>
+            <SectionHeader>
+              <SectionTitle>
+                <ShoppingCart size={20} />
+                My Cart ({getTotalItems()}{" "}
+                {getTotalItems() === 1 ? "item" : "items"})
+              </SectionTitle>
+            </SectionHeader>
+
+            {cartItems.map((item) => (
+              <CartItem
+                key={item.id}
+                item={item}
+                removeItemFromCart={removeItemFromCart}
+                updateQuantity={updateQuantity}
+              />
+            ))}
+
+            <CartFooter>
+              <CheckoutButton onClick={handleCheckout}>
+                <CreditCard size={18} />
+                Pay with M-Pesa · KES {getTotalPrice().toLocaleString()}
+              </CheckoutButton>
+            </CartFooter>
+          </CartItemsSection>
+
+          <TotalView cartItems={cartItems} />
+        </CartGrid>
+      </CartWrapper>
+
+      {/* Ad Banner at the bottom */}
+      <AdBanner />
+
+      {/* M-Pesa Modal */}
+      {showMpesaModal && (
+        <MpesaModal onClick={() => !processing && setShowMpesaModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <MpesaIcon>
+              <span>💳</span>
+            </MpesaIcon>
+            <ModalTitle>M-Pesa Payment</ModalTitle>
+            <ModalSubtitle>
+              You will receive a prompt on your phone to complete payment
+            </ModalSubtitle>
+
+            <InputGroup>
+              <InputLabel>
+                <Phone size={14} />
+                M-Pesa Phone Number
+              </InputLabel>
+              <Input
+                type="tel"
+                placeholder="0712345678"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                disabled={processing}
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <InputLabel>
+                <User size={14} />
+                Name
+              </InputLabel>
+              <Input
+                type="text"
+                value={user?.name || user?.email || "Customer"}
+                disabled
+                style={{ background: COLORS.background }}
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <InputLabel>Amount to Pay</InputLabel>
+              <Input
+                type="text"
+                value={`KES ${getTotalPrice().toLocaleString()}`}
+                disabled
+                style={{ background: COLORS.background, fontWeight: "bold" }}
+              />
+            </InputGroup>
+
+            <MpesaButton onClick={handleMpesaPayment} disabled={processing}>
+              {processing ? (
+                <>
+                  <Spinner size={18} />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <span>💳</span>
+                  Pay with M-Pesa
+                </>
+              )}
+            </MpesaButton>
+
+            <CancelButton
+              onClick={() => setShowMpesaModal(false)}
+              disabled={processing}
+            >
+              Cancel
+            </CancelButton>
+          </ModalContent>
+        </MpesaModal>
       )}
 
-      <CartGrid>
-        <CartItemsSection>
-          <SectionHeader>
-            <SectionTitle>
-              <ShoppingCart size={20} />
-              My Cart ({getTotalItems()}{" "}
-              {getTotalItems() === 1 ? "item" : "items"})
-            </SectionTitle>
-          </SectionHeader>
-
-          {cartItems.map((item) => (
-            <CartItem
-              key={item.id}
-              item={item}
-              removeItemFromCart={removeItemFromCart}
-              updateQuantity={updateQuantity}
-            />
-          ))}
-
-          <CartFooter>
-            <CheckoutButton onClick={handleCheckout}>
-              <CreditCard size={18} />
-              Checkout · KES {getTotalPrice().toLocaleString()}
-            </CheckoutButton>
-          </CartFooter>
-        </CartItemsSection>
-
-        <TotalView cartItems={cartItems} />
-      </CartGrid>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </CartWrapper>
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+    </>
   );
-};;
+};
 
 export default Cart;

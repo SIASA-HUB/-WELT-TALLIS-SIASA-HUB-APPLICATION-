@@ -273,8 +273,35 @@ const getCategories = async (req, res) => {
   }
 };
 
+const getLatestProducts = async (req, res) => {
+  try {
+    const { limit = 5 } = req.query;
+
+    const products = await safeQuery(
+      `SELECT id, name, title, price, mrp, image, seller, category, created_at 
+       FROM products 
+       WHERE status = 'active' 
+       ORDER BY created_at DESC 
+       LIMIT ?`,
+      [parseInt(limit)],
+    );
+
+    res.json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    Logger.error("Error fetching latest products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching latest products",
+    });
+  }
+};
+
 module.exports = {
   getProducts,
+  getLatestProducts,
   getProductById,
   getProductsByCategory,
   getFeaturedProducts,

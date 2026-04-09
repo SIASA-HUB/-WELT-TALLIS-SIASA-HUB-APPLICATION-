@@ -7,6 +7,7 @@ const {
   getProductsByCategory,
   getFeaturedProducts,
   createProduct,
+  getLatestProducts,
   updateProduct,
   deleteProduct,
   getCategories,
@@ -16,6 +17,8 @@ const {
 router.get("/", getProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/categories", getCategories);
+// In your products routes file
+router.get("/latest", getLatestProducts);
 router.get("/category/:category", getProductsByCategory);
 router.get("/:id", getProductById);
 

@@ -18,14 +18,25 @@ import {
   User,
   AtSign,
   Flag,
+  TrendingUp,
+  Mail,
+  Heart,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API = axios.create({
-  baseURL: "https://promote-strongly-chose-resist.trycloudflare.com/api/v1",
-});
+import API_BASE_URL from "./apiConfig";
+
+// Color scheme
+const colors = {
+  primaryDark: "#2c3e50",
+  primaryLight: "#2c3e50",
+  secondary: "#2c3e50",
+  text: "#2c3e50",
+  textLight: "#7f8c8d",
+  border: "#ecf0f1",
+};
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -39,6 +50,11 @@ const PageWrapper = styled.div`
     sans-serif;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    ${colors.primaryLight}20 0%,
+    ${colors.secondary}10 100%
+  );
 `;
 
 const FormCard = styled.div`
@@ -54,7 +70,11 @@ const FormCard = styled.div`
 `;
 
 const Header = styled.div`
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(
+    135deg,
+    ${colors.primaryDark} 0%,
+    ${colors.primaryLight} 100%
+  );
   padding: 32px;
   color: white;
   text-align: center;
@@ -82,7 +102,7 @@ const Label = styled.label`
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: ${colors.text};
   margin-bottom: 8px;
   margin-top: 20px;
 
@@ -109,29 +129,29 @@ const InputWrapper = styled.div`
 const Input = styled.input`
   width: 100%;
   padding: ${(props) => (props.hasIcon ? "12px 16px 12px 42px" : "12px 16px")};
-  border: 2px solid ${(props) => (props.error ? "#ef4444" : "#e5e7eb")};
+  border: 2px solid ${(props) => (props.error ? "#ef4444" : colors.border)};
   border-radius: 12px;
   font-size: 14px;
   transition: all 0.2s;
 
   &:focus {
-    border-color: ${(props) => (props.error ? "#ef4444" : "#3b82f6")};
+    border-color: ${(props) => (props.error ? "#ef4444" : colors.primaryDark)};
     outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px ${colors.primaryDark}20;
   }
 `;
 
 const Select = styled.select`
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid ${colors.border};
   border-radius: 12px;
   background: white;
   font-size: 14px;
   cursor: pointer;
 
   &:focus {
-    border-color: #3b82f6;
+    border-color: ${colors.primaryDark};
     outline: none;
   }
 `;
@@ -141,7 +161,7 @@ const InputIcon = styled.div`
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: ${colors.textLight};
 `;
 
 const PasswordToggle = styled.button`
@@ -152,13 +172,17 @@ const PasswordToggle = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  color: #9ca3af;
+  color: ${colors.textLight};
 `;
 
 const SubmitBtn = styled.button`
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(
+    135deg,
+    ${colors.primaryDark} 0%,
+    ${colors.primaryLight} 100%
+  );
   color: white;
   border: none;
   border-radius: 12px;
@@ -173,11 +197,11 @@ const SubmitBtn = styled.button`
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 10px 25px -5px ${colors.primaryDark}80;
   }
 
   &:disabled {
-    background: #9ca3af;
+    background: ${colors.textLight};
     cursor: not-allowed;
   }
 `;
@@ -191,8 +215,28 @@ const UsernameStatus = styled.div`
   color: ${(props) => {
     if (props.status === "available") return "#10b981";
     if (props.status === "taken") return "#ef4444";
-    return "#6b7280";
+    return colors.textLight;
   }};
+`;
+
+const OptionalBadge = styled.span`
+  font-size: 10px;
+  font-weight: normal;
+  background: ${colors.border};
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 8px;
+  color: ${colors.textLight};
+`;
+
+const SensitiveBadge = styled.span`
+  font-size: 10px;
+  font-weight: normal;
+  background: #fee2e2;
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 8px;
+  color: ${colors.primaryDark};
 `;
 
 const CountyList = [
@@ -257,7 +301,6 @@ const PoliticalParties = [
   "Independent",
   "None",
   "Undecided",
-
   "Prefer not to say",
 ];
 
@@ -268,6 +311,24 @@ const EmploymentStatuses = [
   "Unemployed",
   "Student",
   "Retired",
+  "Prefer not to say",
+];
+
+// NEW: Political Leanings options
+const PoliticalLeanings = [
+  "Pro-Government",
+  "Opposition",
+  "Undecided",
+  "Prefer not to say",
+];
+
+// NEW: Vote Frequency options
+const VoteFrequencies = [
+  "Always",
+  "Sometimes",
+  "Rarely",
+  "Never",
+  "First-time voter",
   "Prefer not to say",
 ];
 
@@ -289,6 +350,10 @@ const RegistrationPage = () => {
     password: "",
     political_party: "",
     employment_status: "",
+    // NEW FIELDS
+    political_leanings: "",
+    vote_frequency: "",
+    personal_email: "",
   });
 
   const handleChange = async (e) => {
@@ -319,8 +384,6 @@ const RegistrationPage = () => {
       toast.error("Username is required");
       return false;
     }
-    // REMOVED: username regex validation - ANY username is allowed
-
     if (!formData.password || formData.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return false;
@@ -345,6 +408,16 @@ const RegistrationPage = () => {
       toast.error("Please indicate if you will vote");
       return false;
     }
+
+    // Validate email if provided
+    if (formData.personal_email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.personal_email)) {
+        toast.error("Please enter a valid email address");
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -366,9 +439,13 @@ const RegistrationPage = () => {
         password: formData.password,
         political_party: formData.political_party || "Undecided",
         employment_status: formData.employment_status || "Prefer not to say",
+        // NEW FIELDS
+        political_leanings: formData.political_leanings || "Prefer not to say",
+        vote_frequency: formData.vote_frequency || "Prefer not to say",
+        personal_email: formData.personal_email || null,
       };
 
-      const response = await API.post("/users/register", submitData);
+      const response = await API_BASE_URL.post("/register", submitData);
 
       if (response.data.success) {
         toast.success(`Welcome ${formData.real_name.split(" ")[0]}!`);
@@ -454,6 +531,25 @@ const RegistrationPage = () => {
                       : ""}
               </UsernameStatus>
             )}
+
+            {/* NEW: Personal Email */}
+            <Label>
+              <Mail size={16} /> Personal Email{" "}
+              <OptionalBadge>Optional</OptionalBadge>
+            </Label>
+            <InputWrapper>
+              <InputIcon>
+                <Mail size={18} />
+              </InputIcon>
+              <Input
+                name="personal_email"
+                type="email"
+                placeholder="your@email.com"
+                value={formData.personal_email}
+                onChange={handleChange}
+                hasIcon
+              />
+            </InputWrapper>
 
             <Grid>
               <div>
@@ -551,9 +647,39 @@ const RegistrationPage = () => {
               </div>
             </Grid>
 
-            {/* NEW: Political Affiliation */}
+            {/* NEW: Vote Frequency */}
             <Label>
-              <Flag size={14} /> Political Party
+              <TrendingUp size={14} /> Voting History{" "}
+              <OptionalBadge>Optional</OptionalBadge>
+            </Label>
+            <Select
+              name="vote_frequency"
+              value={formData.vote_frequency}
+              onChange={handleChange}
+            >
+              <option value="">How often do you vote?</option>
+              {VoteFrequencies.map((freq) => (
+                <option key={freq} value={freq}>
+                  {freq === "Always"
+                    ? "✅ "
+                    : freq === "Sometimes"
+                      ? "🔄 "
+                      : freq === "Rarely"
+                        ? "⚠️ "
+                        : freq === "Never"
+                          ? "❌ "
+                          : freq === "First-time voter"
+                            ? "🌟 "
+                            : "🙊 "}
+                  {freq}
+                </option>
+              ))}
+            </Select>
+
+            {/* Political Party */}
+            <Label>
+              <Flag size={14} /> Political Party{" "}
+              <OptionalBadge>Optional</OptionalBadge>
             </Label>
             <Select
               name="political_party"
@@ -568,9 +694,36 @@ const RegistrationPage = () => {
               ))}
             </Select>
 
-            {/* NEW: Employment Status */}
+            {/* NEW: Political Leanings (Sensitive) */}
             <Label>
-              <Briefcase size={14} /> Employment Status
+              <Heart size={14} /> Political Leanings{" "}
+              <SensitiveBadge>Sensitive</SensitiveBadge>{" "}
+              <OptionalBadge>Optional</OptionalBadge>
+            </Label>
+            <Select
+              name="political_leanings"
+              value={formData.political_leanings}
+              onChange={handleChange}
+            >
+              <option value="">Select political leaning</option>
+              {PoliticalLeanings.map((leaning) => (
+                <option key={leaning} value={leaning}>
+                  {leaning === "Pro-Government"
+                    ? "🏛️ "
+                    : leaning === "Opposition"
+                      ? "⚖️ "
+                      : leaning === "Undecided"
+                        ? "🤔 "
+                        : "🙊 "}
+                  {leaning}
+                </option>
+              ))}
+            </Select>
+
+            {/* Employment Status */}
+            <Label>
+              <Briefcase size={14} /> Employment Status{" "}
+              <OptionalBadge>Optional</OptionalBadge>
             </Label>
             <Select
               name="employment_status"

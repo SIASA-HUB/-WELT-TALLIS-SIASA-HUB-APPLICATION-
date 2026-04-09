@@ -1,4 +1,4 @@
-// DetailView.jsx - Awesome Product Detail Page
+// DetailView.jsx - Complete E-commerce Product Detail with Manifestos at Bottom
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -13,34 +13,29 @@ import {
   Clock,
   ImageOff,
   Star,
-  StarHalf,
   CheckCircle,
   Zap,
-  Package,
-  RefreshCw,
-  MessageCircle,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Copy,
-  Check,
+  FileText,
+  TrendingUp,
+  Award,
+  ChevronRight,
 } from "lucide-react";
 import axios from "axios";
-import ProductDetail from "./ProductDetail";
+import TrendingManifestos from "../../../leaders/manifestos/TredingManifestos";
 import AdBanner from "./AdBanner";
 
 const API_URL = "http://localhost:8007";
 
-// Color Theme
+// Modern Color Theme
 const COLORS = {
-  primary: "#1e3c72",
-  primaryDark: "#152c54",
-  primaryLight: "#2a4a8a",
-  accent: "#e74c3c",
-  text: "#1a1a1a",
-  textLight: "#666",
-  border: "#e0e0e0",
-  background: "#f8f9fa",
+  primary: "#e74c3c",
+  primaryDark: "#c0392b",
+  primaryLight: "#ec7063",
+  secondary: "#2c3e50",
+  text: "#2c3e50",
+  textLight: "#7f8c8d",
+  border: "#ecf0f1",
+  background: "#f9f9f9",
   white: "#ffffff",
   success: "#27ae60",
   warning: "#f39c12",
@@ -48,161 +43,151 @@ const COLORS = {
 
 // Animations
 const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-`;
-
-const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
-`;
-
-const shimmer = keyframes`
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
 `;
 
 // Styled Components
 const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 16px 20px;
   min-height: calc(100vh - 80px);
-  animation: ${fadeIn} 0.5s ease-out;
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const BackButton = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: none;
   border: none;
   color: ${COLORS.textLight};
   cursor: pointer;
-  margin-bottom: 24px;
-  padding: 8px 0;
-  font-size: 14px;
+  margin-bottom: 16px;
+  padding: 6px 0;
+  font-size: 13px;
   transition: all 0.2s;
 
   &:hover {
     color: ${COLORS.primary};
-    gap: 12px;
+    gap: 8px;
   }
 `;
 
-const ProductGrid = styled.div`
+// Sleek Product Card - Mobile Optimized
+const ProductCard = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 48px;
+  gap: 24px;
   background: ${COLORS.white};
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  margin-bottom: 32px;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 24px;
-    padding: 24px;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 16px;
   }
 `;
 
 const ImageSection = styled.div`
   text-align: center;
   position: relative;
-  min-height: 400px;
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    135deg,
-    ${COLORS.background} 0%,
-    ${COLORS.white} 100%
-  );
-  border-radius: 20px;
+  background: ${COLORS.background};
+  border-radius: 16px;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    min-height: 220px;
+    border-radius: 12px;
+  }
 `;
 
 const ProductImage = styled.img`
   max-width: 100%;
-  max-height: 450px;
+  max-height: 280px;
   object-fit: contain;
-  border-radius: 16px;
-  transition: transform 0.3s ease;
+  border-radius: 12px;
+  transition: transform 0.2s ease;
 
   &:hover {
     transform: scale(1.02);
+  }
+
+  @media (max-width: 768px) {
+    max-height: 200px;
   }
 `;
 
 const Badge = styled.div`
   position: absolute;
-  top: 16px;
-  left: 16px;
-  background: ${(props) => (props.$discount ? COLORS.accent : COLORS.success)};
+  top: 12px;
+  left: 12px;
+  background: ${(props) => (props.$discount ? COLORS.primary : COLORS.success)};
   color: white;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   z-index: 2;
-`;
-
-const NoImagePlaceholder = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: ${COLORS.textLight};
-  padding: 40px;
-
-  svg {
-    width: 64px;
-    height: 64px;
-    stroke-width: 1;
-  }
 `;
 
 const InfoSection = styled.div``;
 
 const ProductTitle = styled.h1`
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   margin: 0 0 8px 0;
   color: ${COLORS.text};
   line-height: 1.3;
 
   @media (max-width: 768px) {
-    font-size: 24px;
+    font-size: 18px;
   }
 `;
 
-const ProductSubtitle = styled.p`
+const ProductDescription = styled.div`
   font-size: 14px;
   color: ${COLORS.textLight};
-  margin: 0 0 20px 0;
+  line-height: 1.6;
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 1px solid ${COLORS.border};
+  border-bottom: 1px solid ${COLORS.border};
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+    margin: 8px 0;
+    padding: 8px 0;
+  }
 `;
 
 const RatingContainer = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 `;
 
 const RatingBadge = styled.div`
   background: ${COLORS.success};
   color: white;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 `;
 
 const Stars = styled.div`
@@ -213,142 +198,95 @@ const Stars = styled.div`
 
 const ReviewCount = styled.span`
   color: ${COLORS.textLight};
-  font-size: 13px;
+  font-size: 11px;
 `;
 
 const PriceSection = styled.div`
-  margin: 24px 0;
-  padding: 20px 0;
+  margin: 12px 0;
+  padding: 12px 0;
   border-top: 1px solid ${COLORS.border};
   border-bottom: 1px solid ${COLORS.border};
 `;
 
 const CurrentPrice = styled.span`
-  font-size: 42px;
+  font-size: 28px;
   font-weight: 700;
   color: ${COLORS.primary};
-  margin-right: 12px;
+  margin-right: 10px;
 
   @media (max-width: 768px) {
-    font-size: 32px;
+    font-size: 24px;
   }
 
   small {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 500;
   }
 `;
 
 const OriginalPrice = styled.span`
-  font-size: 20px;
+  font-size: 15px;
   color: ${COLORS.textLight};
   text-decoration: line-through;
-  margin-right: 12px;
+  margin-right: 10px;
 `;
 
 const Discount = styled.span`
-  font-size: 16px;
+  font-size: 12px;
   color: ${COLORS.success};
   font-weight: 600;
   background: ${COLORS.success}15;
-  padding: 4px 12px;
+  padding: 2px 10px;
   border-radius: 20px;
 `;
 
 const DeliveryInfo = styled.div`
   display: flex;
-  gap: 20px;
-  margin: 20px 0;
-  padding: 20px;
+  gap: 16px;
+  margin: 12px 0;
+  padding: 10px;
   background: ${COLORS.background};
-  border-radius: 16px;
+  border-radius: 12px;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 12px;
+    padding: 8px;
+  }
 `;
 
 const DeliveryItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 11px;
   color: ${COLORS.textLight};
 
   svg {
-    color: ${COLORS.primary};
-    width: 18px;
-    height: 18px;
+    width: 12px;
+    height: 12px;
   }
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 16px;
-  margin: 24px 0;
+  gap: 12px;
+  margin: 16px 0;
 
   @media (max-width: 480px) {
     flex-direction: column;
+    gap: 10px;
   }
 `;
 
 const AddToCartButton = styled.button`
   flex: 1;
   background: ${COLORS.primary};
-  color: ${COLORS.white};
+  color: white;
   border: none;
-  padding: 16px 24px;
-  font-size: 16px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: 600;
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.2s;
-
-  &:hover {
-    background: ${COLORS.primaryDark};
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(30, 60, 114, 0.3);
-  }
-`;
-
-const BuyNowButton = styled.button`
-  flex: 1;
-  background: linear-gradient(
-    135deg,
-    ${COLORS.primary},
-    ${COLORS.primaryLight}
-  );
-  color: ${COLORS.white};
-  border: none;
-  padding: 16px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.2s;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(30, 60, 114, 0.3);
-  }
-`;
-
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 16px;
-  margin-top: 20px;
-`;
-
-const ActionButton = styled.button`
-  flex: 1;
-  background: ${COLORS.white};
-  border: 1px solid ${COLORS.border};
-  padding: 12px;
   border-radius: 12px;
   cursor: pointer;
   display: flex;
@@ -356,118 +294,181 @@ const ActionButton = styled.button`
   justify-content: center;
   gap: 8px;
   transition: all 0.2s;
+
+  &:hover {
+    background: ${COLORS.primaryDark};
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+`;
+
+const BuyNowButton = styled.button`
+  flex: 1;
+  background: ${COLORS.secondary};
+  color: white;
+  border: none;
+  padding: 12px 16px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #1a252f;
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+`;
+
+const ActionButton = styled.button`
+  flex: 1;
+  background: white;
+  border: 1px solid ${COLORS.border};
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 12px;
   color: ${COLORS.textLight};
 
   &:hover {
     background: ${COLORS.background};
     border-color: ${COLORS.primary};
     color: ${COLORS.primary};
-    transform: translateY(-1px);
   }
 `;
 
-const ShareModal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: ${fadeIn} 0.2s ease;
+// Manifestos Section - Full width at bottom
+const ManifestosSection = styled.div`
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid ${COLORS.border};
 `;
 
-const ShareContent = styled.div`
-  background: ${COLORS.white};
-  border-radius: 24px;
-  padding: 24px;
-  max-width: 400px;
-  width: 90%;
-`;
-
-const ShareTitle = styled.h3`
+const ManifestosTitle = styled.h3`
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 16px 0;
   color: ${COLORS.text};
-`;
-
-const ShareButtons = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-`;
-
-const ShareOption = styled.button`
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  background: ${COLORS.background};
-  border: 1px solid ${COLORS.border};
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  font-weight: 500;
-  color: ${COLORS.text};
+  gap: 8px;
 
-  &:hover {
-    background: ${COLORS.primary};
-    color: ${COLORS.white};
-    border-color: ${COLORS.primary};
+  @media (max-width: 768px) {
+    font-size: 16px;
   }
 `;
 
-const CopyLinkButton = styled.button`
-  width: 100%;
+const ManifestosGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+`;
+
+const ManifestoCard = styled.div`
+  background: ${COLORS.white};
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid ${COLORS.border};
+  transition: all 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: ${COLORS.primary}30;
+  }
+`;
+
+const ManifestoHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+`;
+
+const ManifestoIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  background: ${COLORS.primary}10;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  background: ${COLORS.primary};
-  color: ${COLORS.white};
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-
-  &:hover {
-    background: ${COLORS.primaryDark};
-  }
+  color: ${COLORS.primary};
 `;
 
-const Toast = styled.div`
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: ${COLORS.success};
-  color: white;
-  padding: 12px 24px;
-  border-radius: 40px;
+const ManifestoName = styled.h4`
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: ${COLORS.text};
+`;
+
+const ManifestoParty = styled.div`
+  font-size: 11px;
+  color: ${COLORS.textLight};
+`;
+
+const ManifestoExcerpt = styled.p`
+  font-size: 12px;
+  color: ${COLORS.textLight};
+  line-height: 1.5;
+  margin: 12px 0;
+`;
+
+const ReadMoreLink = styled.button`
+  background: none;
+  border: none;
+  color: ${COLORS.primary};
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  z-index: 1001;
-  animation: ${fadeIn} 0.3s ease;
+  gap: 4px;
+  padding: 0;
+  margin-top: 8px;
+
+  &:hover {
+    gap: 8px;
+  }
 `;
 
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  gap: 16px;
+  min-height: 60vh;
+  gap: 12px;
   flex-direction: column;
 `;
 
@@ -476,44 +477,35 @@ const Spinner = styled(Loader2)`
   color: ${COLORS.primary};
 `;
 
-const SkeletonImage = styled.div`
-  width: 100%;
-  height: 400px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: ${shimmer} 1.5s infinite;
-  border-radius: 20px;
-`;
-
-const SkeletonText = styled.div`
-  height: ${(props) => props.$height || "20px"};
-  width: ${(props) => props.$width || "100%"};
-  background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: ${shimmer} 1.5s infinite;
-  border-radius: 8px;
-  margin-bottom: 12px;
+const Toast = styled.div`
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: ${COLORS.success};
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  font-size: 13px;
+  animation: ${fadeIn} 0.3s ease;
 `;
 
 // Helper function to render stars
 const renderStars = (rating) => {
   const stars = [];
   const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
 
   for (let i = 0; i < fullStars; i++) {
-    stars.push(<Star key={i} size={16} fill="#ffcc00" color="#ffcc00" />);
-  }
-
-  if (hasHalfStar) {
-    stars.push(
-      <StarHalf key="half" size={16} fill="#ffcc00" color="#ffcc00" />,
-    );
+    stars.push(<Star key={i} size={12} fill="#f39c12" color="#f39c12" />);
   }
 
   const emptyStars = 5 - stars.length;
   for (let i = 0; i < emptyStars; i++) {
-    stars.push(<Star key={`empty-${i}`} size={16} color="#ddd" />);
+    stars.push(<Star key={`empty-${i}`} size={12} color="#ddd" />);
   }
 
   return stars;
@@ -522,12 +514,8 @@ const renderStars = (rating) => {
 // Image URL helper
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
-  }
-  if (imagePath.startsWith("/")) {
-    return `${API_URL}${imagePath}`;
-  }
+  if (imagePath.startsWith("http")) return imagePath;
+  if (imagePath.startsWith("/")) return `${API_URL}${imagePath}`;
   return `${API_URL}/${imagePath}`;
 };
 
@@ -538,10 +526,10 @@ const DetailView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [imageError, setImageError] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [manifestos, setManifestos] = useState([]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -553,7 +541,6 @@ const DetailView = () => {
           setProduct(response.data.data);
           setImageError(false);
 
-          // Check if product is in wishlist
           const wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
           setIsWishlisted(wishlist.includes(response.data.data.id));
         } else {
@@ -567,10 +554,25 @@ const DetailView = () => {
       }
     };
 
-    if (id) {
-      fetchProduct();
-    }
+    if (id) fetchProduct();
   }, [id]);
+
+  // Fetch trending manifestos
+  useEffect(() => {
+    const fetchManifestos = async () => {
+      try {
+        const response = await axios.get(
+          `${API_URL}/api/manifestos/trending?limit=3`,
+        );
+        if (response.data.success) {
+          setManifestos(response.data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching manifestos:", err);
+      }
+    };
+    fetchManifestos();
+  }, []);
 
   const handleAddToCart = () => {
     if (product) {
@@ -609,47 +611,13 @@ const DetailView = () => {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleShare = (platform) => {
-    const url = window.location.href;
-    const text = `Check out ${product.name} on Campaign Marketplace!`;
-
-    let shareUrl = "";
-    switch (platform) {
-      case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-        break;
-      case "twitter":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-        break;
-      case "linkedin":
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
-        break;
-      case "whatsapp":
-        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
-        break;
-    }
-
-    window.open(shareUrl, "_blank", "width=600,height=400");
-    setShowShareModal(false);
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setToastMessage("Link copied to clipboard!");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      setShowShareModal(false);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
-
   if (loading) {
     return (
       <LoadingContainer>
-        <Spinner size={48} />
-        <div>Loading product details...</div>
+        <Spinner size={36} />
+        <div style={{ fontSize: "14px", color: COLORS.textLight }}>
+          Loading...
+        </div>
       </LoadingContainer>
     );
   }
@@ -657,9 +625,9 @@ const DetailView = () => {
   if (error || !product) {
     return (
       <LoadingContainer>
-        <p style={{ color: COLORS.accent }}>{error || "Product not found"}</p>
+        <p style={{ color: COLORS.primary }}>{error || "Product not found"}</p>
         <BackButton onClick={() => navigate("/marketplace")}>
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
           Back to Store
         </BackButton>
       </LoadingContainer>
@@ -672,24 +640,23 @@ const DetailView = () => {
       : 0;
 
   const imageUrl = getImageUrl(product.image);
-  const deliveryDate = new Date();
-  deliveryDate.setDate(deliveryDate.getDate() + 5);
   const rating = product.avg_rating || 4.5;
-  const reviewCount = product.review_count || 1234;
+  const reviewCount = product.review_count || 234;
 
   return (
     <>
       <Container>
         <BackButton onClick={() => navigate("/marketplace")}>
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
           Back to Store
         </BackButton>
 
-        <ProductGrid>
+        {/* Product Card - Sleek on Mobile */}
+        <ProductCard>
           <ImageSection>
             {!imageError && imageUrl ? (
               <>
-                {discount > 0 && <Badge $discount>-{discount}% OFF</Badge>}
+                {discount > 0 && <Badge $discount>-{discount}%</Badge>}
                 <ProductImage
                   src={imageUrl}
                   alt={product.name}
@@ -697,67 +664,57 @@ const DetailView = () => {
                 />
               </>
             ) : (
-              <NoImagePlaceholder>
-                <ImageOff size={64} />
-                <p>No image available</p>
-              </NoImagePlaceholder>
+              <ImageOff size={48} color={COLORS.textLight} />
             )}
           </ImageSection>
 
           <InfoSection>
             <ProductTitle>{product.name}</ProductTitle>
-            {product.description && (
-              <ProductSubtitle>
-                {product.description.substring(0, 100)}
-              </ProductSubtitle>
-            )}
 
             <RatingContainer>
               <RatingBadge>{rating.toFixed(1)} ★</RatingBadge>
               <Stars>{renderStars(rating)}</Stars>
-              <ReviewCount>{reviewCount.toLocaleString()} reviews</ReviewCount>
-              <ReviewCount>• {product.stock || 50} in stock</ReviewCount>
+              <ReviewCount>({reviewCount} reviews)</ReviewCount>
             </RatingContainer>
+
+            <ProductDescription>
+              {product.description || "No description available"}
+            </ProductDescription>
 
             <PriceSection>
               <CurrentPrice>
                 KES {product.price?.toLocaleString()}
-                <small>/unit</small>
+                <small>/item</small>
               </CurrentPrice>
               {product.mrp && product.mrp > product.price && (
                 <>
                   <OriginalPrice>
                     KES {product.mrp?.toLocaleString()}
                   </OriginalPrice>
-                  <Discount>{discount}% off</Discount>
+                  <Discount>-{discount}%</Discount>
                 </>
               )}
             </PriceSection>
 
             <DeliveryInfo>
               <DeliveryItem>
-                <Truck size={16} />
-                <span>
-                  Free delivery by {deliveryDate.toLocaleDateString()}
-                </span>
+                <Truck size={12} /> Free delivery
               </DeliveryItem>
               <DeliveryItem>
-                <Shield size={16} />
-                <span>10 days replacement</span>
+                <Shield size={12} /> 10 days replacement
               </DeliveryItem>
               <DeliveryItem>
-                <Clock size={16} />
-                <span>In stock • {product.stock || 50} items left</span>
+                <Clock size={12} /> In stock
               </DeliveryItem>
             </DeliveryInfo>
 
             <ButtonGroup>
               <AddToCartButton onClick={handleAddToCart}>
-                <ShoppingCart size={18} />
+                <ShoppingCart size={16} />
                 Add to Cart
               </AddToCartButton>
               <BuyNowButton onClick={handleBuyNow}>
-                <Zap size={18} />
+                <Zap size={16} />
                 Buy Now
               </BuyNowButton>
             </ButtonGroup>
@@ -765,61 +722,69 @@ const DetailView = () => {
             <ActionButtons>
               <ActionButton onClick={handleWishlist}>
                 <Heart
-                  size={18}
+                  size={14}
                   fill={isWishlisted ? COLORS.primary : "none"}
                 />
                 {isWishlisted ? "Wishlisted" : "Wishlist"}
               </ActionButton>
-              <ActionButton onClick={() => setShowShareModal(true)}>
-                <Share2 size={18} />
+              <ActionButton
+                onClick={() => setToastMessage("Share feature coming soon!")}
+              >
+                <Share2 size={14} />
                 Share
               </ActionButton>
             </ActionButtons>
           </InfoSection>
-        </ProductGrid>
+        </ProductCard>
 
-        <ProductDetail product={product} />
+        {/* Ad Banner */}
+        <AdBanner />
 
-        {/* Political Party Advertisement */}
-        <AdBanner
-          party="UDA Party"
-          slogan="Together we can build a better Kenya 🇰🇪"
-          link="/party/uda"
-          icon="🇰🇪"
-        />
+        {/* Manifestos Section - At the bottom */}
+        <ManifestosSection>
+          <ManifestosTitle>
+            <TrendingUp size={20} color={COLORS.primary} />
+            Trending Manifestos
+            <Award size={16} color={COLORS.warning} />
+          </ManifestosTitle>
+
+          <ManifestosGrid>
+            {manifestos.length > 0 ? (
+              manifestos.map((manifesto) => (
+                <ManifestoCard key={manifesto.id}>
+                  <ManifestoHeader>
+                    <ManifestoIcon>
+                      <FileText size={20} />
+                    </ManifestoIcon>
+                    <div>
+                      <ManifestoName>{manifesto.title}</ManifestoName>
+                      <ManifestoParty>
+                        {manifesto.party} • {manifesto.aspirant}
+                      </ManifestoParty>
+                    </div>
+                  </ManifestoHeader>
+                  <ManifestoExcerpt>
+                    {manifesto.excerpt ||
+                      manifesto.description?.substring(0, 100)}
+                  </ManifestoExcerpt>
+                  <ReadMoreLink
+                    onClick={() => navigate(`/manifestos/${manifesto.id}`)}
+                  >
+                    Read Full Manifesto <ChevronRight size={12} />
+                  </ReadMoreLink>
+                </ManifestoCard>
+              ))
+            ) : (
+              <TrendingManifestos limit={3} />
+            )}
+          </ManifestosGrid>
+        </ManifestosSection>
       </Container>
-
-      {/* Share Modal */}
-      {showShareModal && (
-        <ShareModal onClick={() => setShowShareModal(false)}>
-          <ShareContent onClick={(e) => e.stopPropagation()}>
-            <ShareTitle>Share this product</ShareTitle>
-            <ShareButtons>
-              <ShareOption onClick={() => handleShare("facebook")}>
-                <Facebook size={18} /> Facebook
-              </ShareOption>
-              <ShareOption onClick={() => handleShare("twitter")}>
-                <Twitter size={18} /> Twitter
-              </ShareOption>
-              <ShareOption onClick={() => handleShare("linkedin")}>
-                <Linkedin size={18} /> LinkedIn
-              </ShareOption>
-              <ShareOption onClick={() => handleShare("whatsapp")}>
-                <MessageCircle size={18} /> WhatsApp
-              </ShareOption>
-            </ShareButtons>
-            <CopyLinkButton onClick={handleCopyLink}>
-              <Copy size={16} />
-              Copy Link
-            </CopyLinkButton>
-          </ShareContent>
-        </ShareModal>
-      )}
 
       {/* Toast Notification */}
       {showToast && (
         <Toast>
-          <CheckCircle size={18} />
+          <CheckCircle size={14} />
           {toastMessage}
         </Toast>
       )}

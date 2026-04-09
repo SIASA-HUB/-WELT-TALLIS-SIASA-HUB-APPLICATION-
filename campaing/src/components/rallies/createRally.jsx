@@ -17,8 +17,7 @@ import {
   Tag,
 } from "lucide-react";
 
-const API_BASE_URL =
-  "https://expand-reporting-nicole-geological.trycloudflare.com/api/v1"; // Change to your backend URL
+import { API_BASE_URL } from "./apiConfig";
 
 const THEME = {
   primary: "#BB0000",

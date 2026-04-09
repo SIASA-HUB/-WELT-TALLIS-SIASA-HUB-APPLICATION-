@@ -5,7 +5,7 @@ import LoadingBar from "react-top-loading-bar";
 import TopFypHeader from "./fyp";
 import VoterRegistrationCompetition from "../auth/voterCompetition";
 import BattleArena from "../leaders/battle/batlleArena";
-import TrendingStoriesRow from "../endorsements/tredingStoriesRow";
+import TrendingStoriesRow from "../stories/tredingStoriesRow";
 import TrendingManifestos from "../leaders/manifestos/TredingManifestos";
 import RalliesSection from "../rallies/ralliessection";
 import TrendingLeaders from "../leaders/TrendingLeaders";

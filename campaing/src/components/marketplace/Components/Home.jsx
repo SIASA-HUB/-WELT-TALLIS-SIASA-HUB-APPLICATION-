@@ -4,7 +4,6 @@ import { Loader2, AlertCircle } from "lucide-react";
 
 // Components
 
-import Banner from "./Home/Banner";
 import MidSlide from "./Home/MidSlide";
 import MidSection from "./Home/MidSection";
 import Slide from "./Home/Slide";
@@ -59,7 +58,6 @@ const Home = ({ products }) => {
   return (
     <>
       <MainContainer>
-        <Banner />
         <MidSlide products={products} />
         <MidSection />
 

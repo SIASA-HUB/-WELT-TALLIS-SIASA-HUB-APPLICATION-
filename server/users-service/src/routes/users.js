@@ -26,7 +26,7 @@ const {
 // Import UserModel for the /me route
 const UserModel = require("../models/userModel");
 
-// Import global auth middleware (rename to avoid conflict)
+// Import global auth middleware
 const {
   authenticate,
   authorize,
@@ -37,15 +37,15 @@ const {
 // AUTH ROUTES (Public)
 // ============================================
 router.post("/login", loginUser);
-router.post("/auth/refresh", refreshToken);
-router.get("/auth/verify", verifyTokenController);
-router.get("/auth/status", checkAuthStatus);
+router.post("/refresh", refreshToken);
+router.get("/verify", verifyTokenController);
+router.get("/status", checkAuthStatus);
 
 // ============================================
 // PROTECTED AUTH ROUTES (With CSRF)
 // ============================================
-router.post("/auth/logout", csrfProtection, logoutUser);
-router.get("/auth/csrf-token", authenticate, getCsrfToken);
+router.post("/logout", csrfProtection, logoutUser);
+router.get("/csrf-token", authenticate, getCsrfToken);
 
 // ============================================
 // PUBLIC ROUTES (No auth required)
@@ -65,10 +65,9 @@ router.get("/county/stats", getCountyStats);
 // PROTECTED ROUTES (Authentication required)
 // ============================================
 
-// Get current user profile (from token)
+// Get users (from token)
 router.get("/me", authenticate, async (req, res) => {
   try {
-    // req.user is set by authenticate middleware
     const user = await UserModel.findById(req.user.userId);
 
     if (!user) {
@@ -106,13 +105,12 @@ router.get("/me", authenticate, async (req, res) => {
   }
 });
 
-// Update current user profile (with CSRF protection)
+// (CSRF protection)
 router.put("/me", authenticate, csrfProtection, async (req, res) => {
   try {
     const updateData = req.body;
     const userId = req.user.userId;
 
-    // Validate update data
     if (updateData.username) {
       const existingUser = await UserModel.findByUsername(updateData.username);
       if (existingUser && existingUser.user_id !== userId) {
@@ -171,7 +169,6 @@ router.put("/:userId", authenticate, csrfProtection, async (req, res) => {
   const { userId } = req.params;
   const currentUser = req.user;
 
-  // Check if user is updating themselves or is admin
   if (currentUser.userId !== userId && currentUser.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -179,7 +176,6 @@ router.put("/:userId", authenticate, csrfProtection, async (req, res) => {
     });
   }
 
-  // Call updateUser controller
   await updateUser(req, res);
 });
 
