@@ -33,7 +33,7 @@ const {
   getLeaderAnalyticsByWard,
   getLeaderAnalyticsByPosition,
   getLeaderDashboardAnalytics,
-} = require("../controllers/leaderController");
+} = require("../controllers/LeaderContrloller");
 
 const {
   createManifesto,

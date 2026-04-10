@@ -1,9 +1,16 @@
-const asyncHandler = require("express-async-handler");
-const crypto = require("crypto");
+// controllers/leaderController.js - Complete Fixed Version (No Duplicates)
+
 const Logger = require("../utils/logger/logger");
-const { safeQuery, safeQueryOne } = require("../configurations/db");
-const { getKenyaTimeISO } = require("../utils/timestamps/timeStamp");
-const redis = require("../utils/redis/redis");
+const LeaderModel = require("../models/leadersModel");
+const {
+  asyncHandler,
+  bcrypt,
+  jwt,
+  crypto,
+  redis,
+  db: { safeQuery, safeQueryOne },
+  utils: { getKenyaTimeISO },
+} = require("../../../global/index");
 
 // Socket.IO instance (will be set from server)
 let io;
@@ -45,8 +52,6 @@ const formatMySQLDateTime = (date) => {
 const setIo = (socketIo) => {
   io = socketIo;
 };
-
-// Create a new battle (UPDATED with title and host)
 
 // Create a new battle (FIXED - no undefined values)
 const createBattle = asyncHandler(async (req, res) => {
@@ -857,7 +862,7 @@ const endBattle = asyncHandler(async (req, res) => {
     const hostEarnings = (battle.gift_total || 0) * 0.1;
 
     if (battle.host_id) {
-      await safeQuery(
+      const result = await safeQuery(
         `UPDATE battle_hosts SET total_battles = total_battles + 1, total_earnings = total_earnings + ?
          WHERE host_id = ?`,
         [hostEarnings, battle.host_id],
@@ -1026,7 +1031,6 @@ const getBattleLeaderboard = asyncHandler(async (req, res) => {
   const { type = "votes", limit = 10 } = req.query;
 
   try {
-    let query = "";
     let orderBy = "";
 
     switch (type) {

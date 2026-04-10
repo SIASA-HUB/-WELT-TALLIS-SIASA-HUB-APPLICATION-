@@ -1,181 +1,193 @@
-const fs = require("fs");
-const path = require("path");
+// utils/images/localImageProcessing.js
+
 const sharp = require("sharp");
-const multer = require("multer");
-const Logger = require("../logger/logger");
+const fs = require("fs").promises;
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
-// Setup upload directory
-const UPLOAD_DIR = path.join(__dirname, "../../../../public/uploads/leaders");
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-// Map logical URLs
-const BASE_URL_PATH = "/uploads/leaders";
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-    files: 5,
-  },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only image files are allowed"), false);
-    }
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-    ];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Invalid image format"), false);
-    }
-    cb(null, true);
-  },
-});
-
-// Single file upload (for aspirant registration)
-const uploadSingle = upload.single("image");
-
-// Multiple files upload (for admin create)
-const uploadMultiple = upload.array("images", 5);
-
-/**
- * Upload to Local Disk using Sharp
- */
-const uploadToLocalDisk = async (buffer, publicId = null) => {
-  const finalPublicId =
-    publicId ||
-    `leader_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
+// Ensure upload directories exist
+const ensureDirectoryExists = async (dirPath) => {
   try {
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
+    await fs.access(dirPath);
+  } catch {
+    await fs.mkdir(dirPath, { recursive: true });
+  }
+};
 
-    // Generate versions
-    const originalFileName = `${finalPublicId}_original.webp`;
-    const mediumFileName = `${finalPublicId}_medium.webp`;
-    const thumbFileName = `${finalPublicId}_thumb.webp`;
+// Process and save images to local disk with Sharp
+const processAndSaveImages = async (files, leaderId, options = {}) => {
+  const results = [];
+  const uploadDir = path.join(__dirname, "../../uploads/leaders", leaderId);
+  
+  await ensureDirectoryExists(uploadDir);
 
-    // Process and save Full/Original (Max 1200x1200)
-    await image
-      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toFile(path.join(UPLOAD_DIR, originalFileName));
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const result = await saveToLocalDisk(file.buffer, leaderId, i, uploadDir, options);
+    results.push(result);
+  }
 
-    // Process and save Medium (800x800)
-    await sharp(buffer)
-      .resize(800, 800, { fit: "cover", gravity: "face" })
-      .webp({ quality: 80 })
-      .toFile(path.join(UPLOAD_DIR, mediumFileName));
+  return results;
+};
 
-    // Process and save Thumb (400x400)
-    await sharp(buffer)
-      .resize(400, 400, { fit: "cover", gravity: "face" })
-      .webp({ quality: 80 })
-      .toFile(path.join(UPLOAD_DIR, thumbFileName));
+// Save single image to local disk with multiple sizes
+const saveToLocalDisk = async (buffer, leaderId, index, uploadDir, options = {}) => {
+  const timestamp = Date.now();
+  const uniqueId = uuidv4().slice(0, 8);
+  const baseFilename = `${leaderId}_${timestamp}_${index}_${uniqueId}`;
+  
+  // Define sizes for different use cases
+  const sizes = {
+    original: { width: null, height: null, suffix: "original" },
+    large: { width: 1200, height: 1200, suffix: "large" },
+    medium: { width: 800, height: 800, suffix: "medium" },
+    small: { width: 400, height: 400, suffix: "small" },
+    thumbnail: { width: 150, height: 150, suffix: "thumb" },
+    social: { width: 1200, height: 630, suffix: "social" } // For social media sharing
+  };
 
-    // Wait slightly to ensure disk writes complete
-    const response = {
-      url: `${BASE_URL_PATH}/${originalFileName}`,
-      public_id: finalPublicId,
-      format: "webp",
-      width: metadata.width,
-      height: metadata.height,
-      bytes: metadata.size,
-      versions: {
-        original: `${BASE_URL_PATH}/${originalFileName}`,
-        medium: `${BASE_URL_PATH}/${mediumFileName}`,
-        thumbnail: `${BASE_URL_PATH}/${thumbFileName}`,
-      },
+  const image = sharp(buffer);
+  const metadata = await image.metadata();
+  
+  const versions = {};
+  const savedPaths = {};
+
+  // Process each size
+  for (const [key, size] of Object.entries(sizes)) {
+    const filename = `${baseFilename}_${size.suffix}.webp`;
+    const filepath = path.join(uploadDir, filename);
+    const relativePath = `/uploads/leaders/${leaderId}/${filename}`;
+
+    let processedImage = sharp(buffer);
+
+    if (size.width || size.height) {
+      processedImage = processedImage.resize(size.width, size.height, {
+        fit: "inside",
+        withoutEnlargement: true
+      });
+    }
+
+    // Convert to WebP for better compression and quality
+    await processedImage
+      .webp({ quality: options.quality || 85 })
+      .toFile(filepath);
+
+    versions[key] = {
+      path: filepath,
+      url: relativePath,
+      width: size.width || metadata.width,
+      height: size.height || metadata.height
     };
-    return response;
-  } catch (err) {
-    Logger.error("Error writing image to local disk:", err);
-    throw err;
+    
+    savedPaths[key] = relativePath;
   }
-};
 
-/**
- * Process and upload images (supports both single and multiple files)
- */
-const processAndUploadImages = async (req, res, next) => {
-  try {
-    const processingPromise = (async () => {
-      if (req.file) {
-        Logger.info(`Processing single image locally: ${req.file.originalname}`);
-        const result = await uploadToLocalDisk(req.file.buffer);
-
-        req.processedImages = [
-          {
-            ...result,
-            index: 0,
-            original_filename: req.file.originalname,
-            is_primary: true,
-          },
-        ];
-        req.body.primary_image_url = result.url;
-      } else if (req.files && req.files.length > 0) {
-        Logger.info(`Processing ${req.files.length} images locally`);
-        const results = await Promise.all(
-          req.files.map(file => uploadToLocalDisk(file.buffer))
-        );
-
-        req.processedImages = results.map((result, index) => ({
-          ...result,
-          index,
-          original_filename: req.files[index].originalname,
-          is_primary: index === 0,
-        }));
-
-        req.body.images = req.processedImages;
-        req.body.primary_image_url = req.processedImages[0]?.url;
-      }
-      next();
-    })();
-
-    await processingPromise;
-  } catch (error) {
-    Logger.error("Image processing error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Image processing failed. Please check file format.",
-    });
-  }
-};
-
-// Deprecated mock functions for compatibility
-const deleteMediaFromCloudinary = async (publicId) => {
-    // Delete from disk if necessary
-    return true; 
-};
-
-const bulkDeleteFromCloudinary = async (publicIds) => {
-    return true;
-};
-
-const optimizeExistingImage = async (publicId) => {
+  // Get file sizes
+  const stats = await fs.stat(versions.original.path);
+  
   return {
-    url: `${BASE_URL_PATH}/${publicId}_original.webp`,
-    thumbnail: `${BASE_URL_PATH}/${publicId}_thumb.webp`,
-    medium: `${BASE_URL_PATH}/${publicId}_medium.webp`,
+    url: versions.original.url,
+    public_id: `${leaderId}/${baseFilename}`,
+    width: metadata.width,
+    height: metadata.height,
+    format: "webp",
+    bytes: stats.size,
+    versions: {
+      thumbnail: versions.thumbnail.url,
+      medium: versions.medium.url,
+      large: versions.large.url,
+      social: versions.social.url,
+      small: versions.small.url
+    },
+    metadata: {
+      ...metadata,
+      processedAt: new Date().toISOString()
+    }
   };
 };
 
-const getImageInfo = async (publicId) => {
-  return {};
+// Delete local images
+const deleteLocalImages = async (publicIds) => {
+  const deletePromises = publicIds.map(async (publicId) => {
+    const [leaderId, baseFilename] = publicId.split("/");
+    const uploadDir = path.join(__dirname, "../../uploads/leaders", leaderId);
+    
+    const suffixes = ["original", "large", "medium", "small", "thumb", "social"];
+    
+    for (const suffix of suffixes) {
+      const filename = `${baseFilename}_${suffix}.webp`;
+      const filepath = path.join(uploadDir, filename);
+      
+      try {
+        await fs.unlink(filepath);
+      } catch (err) {
+        // File might not exist, ignore
+      }
+    }
+  });
+  
+  await Promise.all(deletePromises);
+};
+
+// Bulk delete images
+const bulkDeleteLocalImages = async (publicIds) => {
+  await deleteLocalImages(publicIds);
+};
+
+// Optimize existing image (recompress)
+const optimizeExistingImage = async (publicId, options = {}) => {
+  const [leaderId, baseFilename] = publicId.split("/");
+  const uploadDir = path.join(__dirname, "../../uploads/leaders", leaderId);
+  const originalPath = path.join(uploadDir, `${baseFilename}_original.webp`);
+  
+  try {
+    const buffer = await fs.readFile(originalPath);
+    const optimized = await sharp(buffer)
+      .webp({ quality: options.quality || 80 })
+      .toBuffer();
+    
+    await fs.writeFile(originalPath, optimized);
+    
+    return {
+      success: true,
+      message: "Image optimized successfully",
+      publicId
+    };
+  } catch (error) {
+    throw new Error(`Failed to optimize image: ${error.message}`);
+  }
+};
+
+// Get local image info
+const getLocalImageInfo = async (publicId) => {
+  const [leaderId, baseFilename] = publicId.split("/");
+  const uploadDir = path.join(__dirname, "../../uploads/leaders", leaderId);
+  const originalPath = path.join(uploadDir, `${baseFilename}_original.webp`);
+  
+  try {
+    const stats = await fs.stat(originalPath);
+    const image = sharp(originalPath);
+    const metadata = await image.metadata();
+    
+    return {
+      publicId,
+      size: stats.size,
+      width: metadata.width,
+      height: metadata.height,
+      format: metadata.format,
+      createdAt: stats.birthtime,
+      modifiedAt: stats.mtime
+    };
+  } catch (error) {
+    throw new Error(`Failed to get image info: ${error.message}`);
+  }
 };
 
 module.exports = {
-  uploadMultiple,
-  uploadSingle,
-  processAndUploadImages,
-  uploadToLocalDisk,
-  deleteMediaFromCloudinary,
-  bulkDeleteFromCloudinary,
+  processAndSaveImages,
+  saveToLocalDisk,
+  deleteLocalImages,
+  bulkDeleteLocalImages,
   optimizeExistingImage,
-  getImageInfo,
+  getLocalImageInfo
 };

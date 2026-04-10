@@ -1,4 +1,4 @@
-// controllers/leaderController.js - Complete with Built-in Ranking Algorithm
+// controllers/leaderController.js - Complete Fixed Version
 
 const Logger = require("../utils/logger/logger");
 const LeaderModel = require("../models/leadersModel");
@@ -42,35 +42,59 @@ const startLeaderWorkers = async () => {
         const fs = require("fs");
         const path = require("path");
         const sharp = require("sharp");
-        const UPLOAD_DIR = path.join(__dirname, "../../../../public/uploads/leaders");
+        const UPLOAD_DIR = path.join(__dirname, "../../../public/uploads/leaders");
         
+        // Create directory if it doesn't exist
         if (!fs.existsSync(UPLOAD_DIR)) {
           fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         }
 
+        // Create leader subdirectory
+        const leaderDir = path.join(UPLOAD_DIR, leaderId);
+        if (!fs.existsSync(leaderDir)) {
+          fs.mkdirSync(leaderDir, { recursive: true });
+        }
+
         const buffer = Buffer.from(imageBuffer, "base64");
-        const baseName = `${leaderId}_${Date.now()}`;
+        const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
         
         const originalFileName = `${baseName}_original.webp`;
         const thumbFileName = `${baseName}_thumb.webp`;
+        const mediumFileName = `${baseName}_medium.webp`;
+        const largeFileName = `${baseName}_large.webp`;
 
-        // Process Original
+        // Process Original (max 1200px)
         await sharp(buffer)
           .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 80 })
-          .toFile(path.join(UPLOAD_DIR, originalFileName));
+          .webp({ quality: 85 })
+          .toFile(path.join(leaderDir, originalFileName));
 
-        // Process Thumb
+        // Process Large (800px)
         await sharp(buffer)
-          .resize(400, 400, { fit: "cover", gravity: "face" })
-          .webp({ quality: 80 })
-          .toFile(path.join(UPLOAD_DIR, thumbFileName));
+          .resize(800, 800, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 85 })
+          .toFile(path.join(leaderDir, largeFileName));
 
-        imageUrl = `/uploads/leaders/${originalFileName}`;
-        imagePublicId = baseName;
-        thumbnailUrl = `/uploads/leaders/${thumbFileName}`;
-        mediumUrl = imageUrl;
-        socialUrl = imageUrl;
+        // Process Medium (400px)
+        await sharp(buffer)
+          .resize(400, 400, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toFile(path.join(leaderDir, mediumFileName));
+
+        // Process Thumbnail (150px, cover)
+        await sharp(buffer)
+          .resize(150, 150, { fit: "cover", position: "attention" })
+          .webp({ quality: 75 })
+          .toFile(path.join(leaderDir, thumbFileName));
+
+        imageUrl = `/uploads/leaders/${leaderId}/${originalFileName}`;
+        imagePublicId = `${leaderId}/${baseName}`;
+        thumbnailUrl = `/uploads/leaders/${leaderId}/${thumbFileName}`;
+        mediumUrl = `/uploads/leaders/${leaderId}/${mediumFileName}`;
+        socialUrl = `/uploads/leaders/${leaderId}/${largeFileName}`;
+
+        // Get image metadata
+        const metadata = await sharp(buffer).metadata();
 
         const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
         await safeQuery(
@@ -86,9 +110,9 @@ const startLeaderWorkers = async () => {
             imagePublicId,
             1,
             0,
-            null,
-            null,
-            imageMeta.mimetype?.split("/")[1] || "jpg",
+            metadata.width || null,
+            metadata.height || null,
+            "webp",
             imageMeta.size || null,
             thumbnailUrl,
             mediumUrl,
@@ -97,13 +121,13 @@ const startLeaderWorkers = async () => {
           ],
         );
 
+        // Update leader with primary image URL
         await safeQuery(
           `UPDATE leaders SET image_url = ? WHERE leader_id = ?`,
           [imageUrl, leaderId],
         );
-        Logger.info(
-          `[QUEUE] Image uploaded for leader ${leaderId}: ${imageUrl}`,
-        );
+        
+        Logger.info(`[QUEUE] Image uploaded for leader ${leaderId}: ${imageUrl}`);
       } catch (err) {
         Logger.error(`[QUEUE] Image upload failed for ${leaderId}:`, err);
       }
@@ -200,77 +224,6 @@ function parseArrayField(value) {
 }
 
 // ============================================
-// RANKING FUNCTION (Built-in)
-// ============================================
-
-/**
- * Calculate comprehensive score for a leader
- * Weight distribution:
- * - Endorsements: 35% - Shows popularity
- * - Boost score: 25% - Shows financial support
- * - Views: 15% - Shows interest
- * - Verification: 10% - Trust factor
- * - Recency: 10% - New aspirants get boost
- * - Engagement: 5% - Interaction rate
- */
-function calculateLeaderScore(leader) {
-  const {
-    endorsements = 0,
-    boost_score = 0,
-    views = 0,
-    verification = 0,
-    created_at,
-    followers = 0,
-  } = leader;
-
-  // 1. Endorsements Score (35% max) - logarithmic to prevent extreme outliers
-  const endorsementScore = Math.min(Math.log10(endorsements + 1) * 11.67, 35);
-
-  // 2. Boost Score (25% max)
-  const boostScore = Math.min((boost_score / 100) * 25, 25);
-
-  // 3. Views Score (15% max)
-  const viewScore = Math.min(Math.log10(views + 1) * 5, 15);
-
-  // 4. Verification Score (10% max)
-  const verificationScore =
-    verification === 1 ? 10 : verification === 0 ? 0 : 5;
-
-  // 5. Recency Score (10% max) - newer leaders get higher score
-  let recencyScore = 0;
-  if (created_at) {
-    const daysSinceCreation =
-      (Date.now() - new Date(created_at).getTime()) / (1000 * 60 * 60 * 24);
-    recencyScore = Math.max(0, 10 - (daysSinceCreation / 30) * 10);
-  }
-
-  // 6. Engagement Score (5% max)
-  const engagementRate = followers > 0 ? (endorsements / followers) * 100 : 0;
-  const engagementScore = Math.min(engagementRate / 20, 5);
-
-  // Total score (max 100)
-  const totalScore =
-    endorsementScore +
-    boostScore +
-    viewScore +
-    verificationScore +
-    recencyScore +
-    engagementScore;
-
-  return {
-    total: Math.min(Math.round(totalScore * 10) / 10, 100),
-    breakdown: {
-      endorsements: Math.round(endorsementScore * 10) / 10,
-      boost: Math.round(boostScore * 10) / 10,
-      views: Math.round(viewScore * 10) / 10,
-      verification: verificationScore,
-      recency: Math.round(recencyScore * 10) / 10,
-      engagement: Math.round(engagementScore * 10) / 10,
-    },
-  };
-}
-
-// ============================================
 // CREATE LEADER (Admin)
 // ============================================
 const createLeader = async (req, res) => {
@@ -325,7 +278,19 @@ const getLeaderById = asyncHandler(async (req, res) => {
         .status(404)
         .json({ success: false, message: "Leader not found" });
 
-    const stats = await LeaderModel.getStats(safeLeaderId);
+    // Get stats from endorsements table instead of non-existent column
+    const endorsements = await safeQueryOne(
+      `SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`,
+      [safeLeaderId]
+    );
+    
+    const stats = {
+      endorsements: endorsements?.count || 0,
+      followers: leader.followers || 0,
+      views: leader.views || 0,
+      boost_score: leader.boost_score || 0
+    };
+    
     const payload = { success: true, data: { ...leader, stats } };
 
     try {
@@ -506,7 +471,6 @@ const loginAspirant = asyncHandler(async (req, res) => {
 
     const normalizedInput = name.trim().toLowerCase();
     
-    // Strict match searching only
     const leaders = await safeQuery(
       `SELECT leader_id, name, email, phone, password_hash, party, slogan,
               position, county, constituency, ward, image_url, status, verification
@@ -846,6 +810,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       `SELECT l.leader_id, l.name, l.party, l.position, l.county, l.constituency, l.ward, COALESCE(l.image_url, li.image_url) as image_url,
         l.slogan, l.verification, l.views, l.boost_score, l.total_boost_amount, l.followers, l.created_at
        FROM leaders l LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
+       WHERE l.status = 'active'
        ORDER BY COALESCE(l.boost_score, 0) DESC, COALESCE(l.total_boost_amount, 0) DESC, COALESCE(l.views, 0) DESC, l.created_at DESC LIMIT 50`,
       [],
     );
@@ -920,9 +885,19 @@ const getLeaderStats = asyncHandler(async (req, res) => {
       `SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`,
       [leaderId],
     );
+    const endorsements = await safeQueryOne(
+      `SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`,
+      [leaderId],
+    );
     res
       .status(200)
-      .json({ success: true, data: { followers: followers?.count || 0 } });
+      .json({ 
+        success: true, 
+        data: { 
+          followers: followers?.count || 0,
+          endorsements: endorsements?.count || 0
+        } 
+      });
   } catch (error) {
     Logger.error("Get leader stats error:", error);
     res
@@ -1073,7 +1048,17 @@ const boostLeader = asyncHandler(async (req, res) => {
     }
 
     await safeQuery(
-      `CREATE TABLE IF NOT EXISTS leaders_boosts (id INT PRIMARY KEY AUTO_INCREMENT, leader_id VARCHAR(255) NOT NULL, user_id VARCHAR(255) NOT NULL, amount INT NOT NULL DEFAULT 10, boost_score INT DEFAULT 10, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_leader (leader_id), INDEX idx_user (user_id), INDEX idx_created (created_at))`,
+      `CREATE TABLE IF NOT EXISTS leaders_boosts (
+        id INT PRIMARY KEY AUTO_INCREMENT, 
+        leader_id VARCHAR(255) NOT NULL, 
+        user_id VARCHAR(255) NOT NULL, 
+        amount INT NOT NULL DEFAULT 10, 
+        boost_score INT DEFAULT 10, 
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+        INDEX idx_leader (leader_id), 
+        INDEX idx_user (user_id), 
+        INDEX idx_created (created_at)
+      )`,
     );
 
     await safeQuery(
@@ -1130,11 +1115,6 @@ const boostLeader = asyncHandler(async (req, res) => {
 // ============================================
 // GET PERSONALIZED FEED (With Ranking Algorithm)
 // ============================================
-
-// controllers/leaderController.js - Fixed getPersonalizedFeed function
-
-// controllers/leaderController.js - Fixed getPersonalizedFeed (no endorsements column)
-
 const getPersonalizedFeed = asyncHandler(async (req, res) => {
   try {
     const userCounty = req.user?.county || null;
@@ -1154,7 +1134,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
       Logger.warn(`Redis cache error: ${cacheErr.message}`);
     }
 
-    // Get ALL active leaders with their images - REMOVED endorsements column
+    // Get ALL active leaders with their images
     const allActiveLeaders = await safeQuery(
       `SELECT 
         l.leader_id, 
@@ -1200,7 +1180,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
       });
     }
 
-    // Calculate scores for each leader using endorsement_count from endorsements table
+    // Calculate scores for each leader
     const leadersWithScores = allActiveLeaders.map((leader) => {
       try {
         const endorsementCount = leader.endorsement_count || 0;
@@ -1211,18 +1191,14 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
         const created_at = leader.created_at;
 
         // Calculate score (0-100)
-        // Endorsements from endorsements table (35% weight)
         const endorsementScore = Math.min(
           Math.log10(endorsementCount + 1) * 11.67,
           35,
         );
-        // Boost score (25% weight)
         const boostScore = Math.min((boost_score / 100) * 25, 25);
-        // Views (15% weight)
         const viewScore = Math.min(Math.log10(views + 1) * 5, 15);
-        // Verification (10% weight)
         const verificationScore = verification === 1 ? 10 : 0;
-        // Recency (10% weight)
+        
         let recencyScore = 0;
         if (created_at) {
           const daysSinceCreation =
@@ -1230,7 +1206,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
             (1000 * 60 * 60 * 24);
           recencyScore = Math.max(0, 10 - (daysSinceCreation / 30) * 10);
         }
-        // Engagement (5% weight)
+        
         const engagementRate =
           followers > 0 ? (endorsementCount / followers) * 100 : 0;
         const engagementScore = Math.min(engagementRate / 20, 5);
@@ -1362,7 +1338,6 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     console.error("Get personalized feed error:", error);
     Logger.error("Get personalized feed error:", error);
 
-    // Always return a valid response even on error
     res.status(200).json({
       success: true,
       data: [],
@@ -1405,13 +1380,9 @@ const invalidateFeedCache = asyncHandler(async (req, res) => {
 
 /**
  * Get leader analytics by county
- * Shows how many leaders registered per county
  */
 const getLeaderAnalyticsByCounty = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery } = require("../../../global/index");
-
-    // Get leader count per county with position breakdown
     const countyStats = await safeQuery(`
       SELECT 
         county,
@@ -1421,15 +1392,13 @@ const getLeaderAnalyticsByCounty = asyncHandler(async (req, res) => {
         SUM(CASE WHEN position = 'Senator' OR position_running_for = 'Senator' THEN 1 ELSE 0 END) as senators,
         SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as mps,
         SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
-        SUM(CASE WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 1 ELSE 0 END) as women_reps,
-        GROUP_CONCAT(DISTINCT position) as positions_available
+        SUM(CASE WHEN position = 'Women Rep' OR position_running_for = 'Women Rep' THEN 1 ELSE 0 END) as women_reps
       FROM leaders 
       WHERE status = 'active'
       GROUP BY county
       ORDER BY total_leaders DESC
     `);
 
-    // Get total counts across all counties
     const totalStats = await safeQueryOne(`
       SELECT 
         COUNT(*) as total_leaders,
@@ -1476,7 +1445,6 @@ const getLeaderAnalyticsByCounty = asyncHandler(async (req, res) => {
  */
 const getLeaderAnalyticsByConstituency = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery } = require("../../../global/index");
     const { county } = req.query;
 
     let query = `
@@ -1485,8 +1453,7 @@ const getLeaderAnalyticsByConstituency = asyncHandler(async (req, res) => {
         county,
         COUNT(*) as total_leaders,
         SUM(CASE WHEN position = 'MP' OR position = 'Member of Parliament' OR position_running_for = 'MP' THEN 1 ELSE 0 END) as mps,
-        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas,
-        GROUP_CONCAT(DISTINCT position) as positions_available
+        SUM(CASE WHEN position = 'MCA' OR position = 'Member of County Assembly' OR position_running_for = 'MCA' THEN 1 ELSE 0 END) as mcas
       FROM leaders 
       WHERE status = 'active' AND constituency IS NOT NULL AND constituency != ''
     `;
@@ -1501,7 +1468,6 @@ const getLeaderAnalyticsByConstituency = asyncHandler(async (req, res) => {
 
     const constituencyStats = await safeQuery(query, params);
 
-    // Get summary
     let summaryQuery = `
       SELECT 
         COUNT(DISTINCT constituency) as total_constituencies,
@@ -1545,7 +1511,6 @@ const getLeaderAnalyticsByConstituency = asyncHandler(async (req, res) => {
  */
 const getLeaderAnalyticsByWard = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery } = require("../../../global/index");
     const { constituency, county } = req.query;
 
     let query = `
@@ -1574,7 +1539,6 @@ const getLeaderAnalyticsByWard = asyncHandler(async (req, res) => {
 
     const wardStats = await safeQuery(query, params);
 
-    // Get summary
     let summaryQuery = `
       SELECT 
         COUNT(DISTINCT ward) as total_wards,
@@ -1623,8 +1587,6 @@ const getLeaderAnalyticsByWard = asyncHandler(async (req, res) => {
  */
 const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery } = require("../../../global/index");
-
     const positionStats = await safeQuery(`
       SELECT 
         CASE 
@@ -1638,7 +1600,6 @@ const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
         END as position_category,
         COUNT(*) as total_leaders,
         COUNT(DISTINCT county) as counties_covered,
-        COUNT(DISTINCT CASE WHEN county IS NOT NULL THEN county END) as counties_with_candidates,
         GROUP_CONCAT(DISTINCT name) as candidate_names
       FROM leaders 
       WHERE status = 'active'
@@ -1646,7 +1607,6 @@ const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
       ORDER BY total_leaders DESC
     `);
 
-    // Get detailed breakdown by county for each position
     const detailedStats = await safeQuery(`
       SELECT 
         county,
@@ -1692,9 +1652,6 @@ const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
  */
 const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery, safeQueryOne } = require("../../../global/index");
-
-    // Get all counts in one go
     const [
       totalLeaders,
       totalCounties,
@@ -1759,7 +1716,6 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       `),
     ]);
 
-    // Get position breakdown
     const positionBreakdown = await safeQuery(`
       SELECT 
         CASE 
@@ -1831,7 +1787,6 @@ module.exports = {
   boostLeader,
   getPersonalizedFeed,
   invalidateFeedCache,
-
   getLeaderAnalyticsByCounty,
   getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard,

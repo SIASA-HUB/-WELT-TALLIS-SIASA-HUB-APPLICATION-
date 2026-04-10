@@ -9,10 +9,10 @@ const socketIo = require("socket.io");
 
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
-const leaderRoutes = require("./src/routes/leaderRoutes");
-const battleRoutes = require("./src/routes/battle");
+const leaderRoutes = require("./src/routes/Leader");
+const battleRoutes = require("./src/routes/Battle");
 const battleController = require("./src/controllers/BattleController");
-const { connectRabbitMQ } = require("./src/Qeues/rabbit");
+const { connectRabbitMQ } = require("./src/Qeues/Rabbit");
 
 const app = express();
 const server = http.createServer(app);

@@ -6,9 +6,10 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY yarn.lock ./
+# Remove yarn.lock reference since you're using npm
+# COPY yarn.lock ./
 
-# Install dependencies (clean install)
+# Install dependencies (clean install with npm)
 RUN npm ci --only=production --no-audit --no-fund && \
     npm cache clean --force
 
@@ -38,8 +39,8 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom error pages
-COPY --from=builder /app/public/error.html /usr/share/nginx/html/error.html
+# Copy custom error pages (optional - create if you have one)
+# COPY --from=builder /app/public/error.html /usr/share/nginx/html/error.html
 
 # Create a health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

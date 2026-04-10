@@ -1,15 +1,19 @@
-const { safeQuery, safeQueryOne } = require("../configurations/db");
-const {
-  processAndUploadImages,
-  uploadToCloudinary,
-  deleteMediaFromCloudinary,
-  bulkDeleteFromCloudinary,
-  optimizeExistingImage,
-  getImageInfo,
-} = require("../utils/images/imageProcessing");
+// services/LeaderService.js - Complete with local storage using Sharp
 
-// IMPORTANT: You need to import cloudinary if you're using it directly
-const cloudinary = require("cloudinary").v2;
+const { safeQuery, safeQueryOne } = require("../configurations/db");
+const fs = require("fs").promises;
+const path = require("path");
+const sharp = require("sharp");
+
+// Local image processing utilities
+const {
+  processAndSaveImages,
+  saveToLocalDisk,
+  deleteLocalImages,
+  bulkDeleteLocalImages,
+  optimizeExistingImage,
+  getLocalImageInfo,
+} = require("../utils/images/localImageProcessing");
 
 const LeaderService = {
   // ===== CREATE LEADER =====
@@ -97,13 +101,18 @@ const LeaderService = {
       now,
     ]);
 
-    // Handle image uploads
-    const imageUrls = [];
+    // Handle image saving to local disk
+    const imagePaths = [];
+    const uploadDir = path.join(__dirname, "../../uploads/leaders", leader_id);
+    
+    // Create directory if it doesn't exist
+    await fs.mkdir(uploadDir, { recursive: true });
+
     if (processedImages && processedImages.length > 0) {
       for (let i = 0; i < processedImages.length; i++) {
         const img = processedImages[i];
         try {
-          imageUrls.push(img.url);
+          imagePaths.push(img.url);
 
           const isPrimary =
             img.is_primary || i === parseInt(primary_image) ? 1 : 0;
@@ -132,18 +141,18 @@ const LeaderService = {
             ],
           );
         } catch (uploadError) {
-          Logger.error("Image upload error:", uploadError);
+          Logger.error("Image save error:", uploadError);
         }
       }
     } else if (files && files.length > 0) {
       Logger.warn(
-        "Files provided but not processed by middleware - using fallback upload",
+        "Files provided but not processed by middleware - using fallback save",
       );
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-          const result = await uploadToCloudinary(file.buffer);
-          imageUrls.push(result.url);
+          const result = await saveToLocalDisk(file.buffer, leader_id, i, uploadDir);
+          imagePaths.push(result.url);
 
           const isPrimary = i === parseInt(primary_image) ? 1 : 0;
           const imageId = `img_${Date.now()}_${i}`;
@@ -171,7 +180,7 @@ const LeaderService = {
             ],
           );
         } catch (uploadError) {
-          Logger.error("Fallback image upload error:", uploadError);
+          Logger.error("Fallback image save error:", uploadError);
         }
       }
     }
@@ -209,12 +218,12 @@ const LeaderService = {
       party,
       slogan,
       position,
-      image_url: imageUrls.length > 0 ? imageUrls[0] : null,
+      image_url: imagePaths.length > 0 ? imagePaths[0] : null,
       images: processedImages || [],
     };
   },
 
-  // ===== GET ALL LEADERS WITH CACHE (No likes/comments) =====
+  // ===== GET ALL LEADERS WITH CACHE =====
   async getAllLeaders(redisClient, Logger) {
     const cacheKey = `leaders:all:simple`;
 
@@ -299,7 +308,7 @@ const LeaderService = {
     }
   },
 
-  // ===== GET LEADER BY ID WITH CACHE (No likes/comments) =====
+  // ===== GET LEADER BY ID WITH CACHE =====
   async getLeaderById(leaderId, redisClient, Logger) {
     const cacheKey = `leader:${leaderId}`;
 
@@ -727,7 +736,7 @@ const LeaderService = {
     }
   },
 
-  // ===== GET LEADER STATS (Only views and followers) =====
+  // ===== GET LEADER STATS =====
   async getLeaderStats(leaderId, redisClient, Logger) {
     const cacheKey = `leader:stats:${leaderId}`;
 
@@ -762,7 +771,7 @@ const LeaderService = {
     }
   },
 
-  // ===== GET FEATURED LEADERS (By views and followers) =====
+  // ===== GET FEATURED LEADERS =====
   async getFeaturedLeaders(limit = 10, redisClient, Logger) {
     const cacheKey = `leaders:featured:${limit}`;
 
@@ -799,7 +808,10 @@ const LeaderService = {
   // ===== ADD IMAGE TO LEADER =====
   async addLeaderImage(leaderId, file, isPrimary = false, Logger) {
     try {
-      const result = await uploadToCloudinary(file.buffer);
+      const uploadDir = path.join(__dirname, "../../uploads/leaders", leaderId);
+      await fs.mkdir(uploadDir, { recursive: true });
+      
+      const result = await saveToLocalDisk(file.buffer, leaderId, Date.now(), uploadDir);
       const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
       const maxOrder = await safeQueryOne(
@@ -859,7 +871,7 @@ const LeaderService = {
       }
 
       if (image.public_id) {
-        await deleteMediaFromCloudinary(image.public_id);
+        await deleteLocalImages([image.public_id]);
       }
 
       await safeQuery(`DELETE FROM leader_images WHERE image_id = ?`, [
@@ -942,7 +954,7 @@ const LeaderService = {
   // ===== GET IMAGE INFO =====
   async getImageInfo(publicId, Logger) {
     try {
-      const info = await getImageInfo(publicId);
+      const info = await getLocalImageInfo(publicId);
       return info;
     } catch (error) {
       Logger.error("Error in getImageInfo service:", error);
