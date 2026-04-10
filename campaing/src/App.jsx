@@ -9,13 +9,13 @@ import {
 import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 
 // --- Utils & Theme ---
-import theme from "./utils/Theme";
+import theme from "./utils/theme";
 
 // --- Components ---
-import LandingPage from "./components/Home/HomePage";
-import SloganSection from "./components/Footer/Footer";
+import LandingPage from "./components/home/Home";
+import SloganSection from "./components/footer/Footer";
 import LeaderInsightPage from "./components/leaders/leaderInsights";
-import RegistrationPage from "./components/Auth/Register";
+import RegistrationPage from "./components/auth/register";
 
 import RegisterAspirant from "./components/leaders/registerAspirant";
 import LoginAspirant from "./components/leaders/loginAspirant";
@@ -27,7 +27,7 @@ import Cart from "./components/marketplace/components/Cart/Cart";
 import NavMenu from "./utils/NavMenu";
 import Checkout from "./components/marketplace/checkout/checkout";
 
-import UsersAdmin from "./components/Auth/AdminUsers";
+import UsersAdmin from "./components/auth/adminUsers";
 import Aspirants from "./components/leaders/aspirantsAdmin";
 
 // --- Optimized Lazy Loading ---
