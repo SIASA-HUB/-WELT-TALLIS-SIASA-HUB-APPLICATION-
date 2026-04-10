@@ -10,7 +10,7 @@ import ProductsManagement from "./productsMangment";
 import OrdersManagement from "./orderMangment";
 import CategoriesManagement from "./categoriesMangment";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api/v1/marketplace";
 
 // Styled Components
 const AdminContainer = styled.div`

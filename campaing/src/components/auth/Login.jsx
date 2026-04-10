@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoadingBar from "../../utils/LoadingBar";
-import theme from "../../utils/Theme";
+import theme from "../../utils/theme";
 import API_BASE_URL from "./apiConfig";
 
 const fadeIn = keyframes`

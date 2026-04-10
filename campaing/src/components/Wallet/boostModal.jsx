@@ -325,8 +325,8 @@ const QuoteStrip = styled.div`
 `;
 
 // Service URLs
-const WALLET_API_URL = "http://localhost:8005";
-const LEADERS_API_URL = "http://localhost:8002";
+const WALLET_API_URL = "/api/v1/reactions";
+const LEADERS_API_URL = "/api/v1/users";
 
 const getLoggedInUserId = () => {
   const userData = localStorage.getItem("user_data");
@@ -653,6 +653,6 @@ const BoostModal = ({
   );
 };
 
-const ENDORSEMENT_API_URL = "http://localhost:8009";
+const ENDORSEMENT_API_URL = "/api/v1";
 
 export default BoostModal;

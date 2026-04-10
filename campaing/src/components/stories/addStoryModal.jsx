@@ -16,10 +16,10 @@ import {
   User,
 } from "lucide-react";
 import axios from "axios";
-import { useAuth } from "../Hooks/useAuth";
+import { useAuth } from "../hooks/useAuth";
 
 // Direct API URL - hardcoded for reliability
-const ENDORSEMENT_API_URL = "http://localhost:8009";
+const ENDORSEMENT_API_URL = "/api/v1";
 
 // Animations
 const slideUp = keyframes`

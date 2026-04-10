@@ -3,7 +3,7 @@ import styled from "styled-components";
 import * as Icons from "lucide-react";
 import axios from "axios";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api/v1/marketplace";
 
 const ModalOverlay = styled.div`
   position: fixed;

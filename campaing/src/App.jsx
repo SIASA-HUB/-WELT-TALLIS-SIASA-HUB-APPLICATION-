@@ -15,16 +15,16 @@ import theme from "./utils/theme";
 import LandingPage from "./components/home/Home";
 import SloganSection from "./components/footer/Footer";
 import LeaderInsightPage from "./components/leaders/leaderInsights";
-import RegistrationPage from "./components/auth/register";
+import RegistrationPage from "./components/auth/Register";
 
 import RegisterAspirant from "./components/leaders/registerAspirant";
 import LoginAspirant from "./components/leaders/loginAspirant";
 import AspirantDashboard from "./components/leaders/dashboard/aspirantDashboard";
 
 // Merch store components
-import AdminPanel from "./components/marketplace/admin/AdminPanel";
-import Cart from "./components/marketplace/components/Cart/Cart";
-import NavMenu from "./utils/NavMenu";
+import AdminPanel from "./components/marketplace/admin/adminPanel";
+import Cart from "./components/marketplace/components/cart/cart";
+import NavMenu from "./utils/navMenu";
 import Checkout from "./components/marketplace/checkout/checkout";
 
 import UsersAdmin from "./components/auth/adminUsers";
@@ -47,10 +47,10 @@ const MarketplacePage = lazyWithPreload(
   () => import("./components/marketplace/marketPage"),
 );
 
-const LoginPage = lazyWithPreload(() => import("./components/Auth/Login"));
+const LoginPage = lazyWithPreload(() => import("./components/auth/Login"));
 
 const DetailView = lazyWithPreload(
-  () => import("./components/marketplace/Components/ItemDetails/DetailView"),
+  () => import("./components/marketplace/components/ItemDetails/DetailView"),
 );
 
 const GlobalStyle = createGlobalStyle`

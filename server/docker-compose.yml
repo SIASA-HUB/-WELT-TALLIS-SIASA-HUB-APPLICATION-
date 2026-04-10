@@ -2,12 +2,17 @@ version: '3.8'
 
 services:
   api-gateway:
-    build: ./api-gateway
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
     ports:
       - "8009:8009"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8009
@@ -18,68 +23,197 @@ services:
       - WALLET_SERVICE_URL=http://wallet-service:8008
       - ENDORSEMENT_SERVICE_URL=http://endorsement-service:8003
       - MARKETPLACE_SERVICE_URL=http://marketplace-service:8004
+      - REACTION_SERVICE_URL=http://reaction-service:8005
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
 
   users-service:
-    build: ./users-service
+    build:
+      context: .
+      dockerfile: users-service/Dockerfile
     container_name: users-service
+    ports:
+      - "8002:8002"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8002
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   wallet-service:
-    build: ./wallet-service
+    build:
+      context: .
+      dockerfile: wallet-service/Dockerfile
     container_name: wallet-service
+    ports:
+      - "8008:8008"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8008
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   leaders-service:
-    build: ./leaders-service
+    build:
+      context: .
+      dockerfile: leaders-service/Dockerfile
     container_name: leaders-service
+    ports:
+      - "8006:8006"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
       - NODE_ENV=production
       - PORT=8006
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URL=amqp://rabbitmq:5672
 
   rally-service:
-    build: ./rally-service
+    build:
+      context: .
+      dockerfile: rally-service/Dockerfile
     container_name: rally-service
+    ports:
+      - "8001:8001"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8001
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   endorsement-service:
-    build: ./endorsement-service
+    build:
+      context: .
+      dockerfile: endorsement-service/Dockerfile
     container_name: endorsement-service
+    ports:
+      - "8003:8003"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8003
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   marketplace-service:
-    build: ./marketplace-service
+    build:
+      context: .
+      dockerfile: marketplace-service/Dockerfile
     container_name: marketplace-service
+    ports:
+      - "8004:8004"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=8004
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ballot
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   redis:
     image: redis:alpine
     container_name: shared-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  db:
+    image: mariadb:11
+    container_name: shared-db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=ballot
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: shared-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+networks:
+  default:
+    name: siasa-network
+    external: true
 
 volumes:
   redis-data:
+  db-data:
+  rabbitmq-data:

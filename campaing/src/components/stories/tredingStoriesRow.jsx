@@ -6,7 +6,7 @@ import axios from "axios";
 import { ChevronRight, Sparkles, Heart, Flame } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 
-const API_BASE_URL = "http://localhost:8009";
+const API_BASE_URL = "";
 
 // ============================================
 // ANIMATIONS

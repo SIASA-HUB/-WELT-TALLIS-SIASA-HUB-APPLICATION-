@@ -12,7 +12,7 @@ const {
   boostLeader,getPersonalizedFeed,getPopularLeaders,
   getLeaderAnalyticsByCounty,getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard,getLeaderAnalyticsByPosition,getLeaderDashboardAnalytics,
-} = require("../controllers/leaderController");
+} = require("../controllers/LeaderController");
 
 const {
   createManifesto,

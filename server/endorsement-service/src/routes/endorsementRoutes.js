@@ -24,6 +24,7 @@ const {
 // Create a new story (text, image, or video)
 router.post("/create", createEndorsement);
 router.get("/leader/:leaderId/active", getActiveStories);
+router.get("/recent", getRecentEndorsements);
 router.get("/leader/:leaderId/recent", getRecentEndorsements);
 router.get("/leader/:leaderId/boosted", getBoostedEndorsements);
 

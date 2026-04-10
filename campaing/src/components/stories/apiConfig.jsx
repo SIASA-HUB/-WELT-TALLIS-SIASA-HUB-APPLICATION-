@@ -1,10 +1,10 @@
 // src/utils/apiConfig.js
 
 export const API_BASE_URLS = {
-  AUTH: "http://localhost:8004",
-  LEADER: "http://localhost:8002",
-  STORIES: "http://localhost:8009",
-  ENDORSEMENT: "http://localhost:8009", // Add this alias
+  AUTH: "/api/v1/users",
+  LEADER: "/api/v1/leaders",
+  STORIES: "/api/v1/media", // assuming stories mapping
+  ENDORSEMENT: "/api/v1/endorsements",
 };
 
 export default API_BASE_URLS;

@@ -5,7 +5,7 @@ import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_BASE_URL = "http://localhost:8002/api/v1";
+const API_BASE_URL = "/api/v1/users";
 
 // --- Styled Components ---
 

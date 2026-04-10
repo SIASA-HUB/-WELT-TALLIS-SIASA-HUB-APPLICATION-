@@ -236,7 +236,7 @@ const LoadingState = styled.div`
   color: ${KENYA.muted};
 `;
 
-const API_BASE = "http://localhost:8002/api/v1";
+const API_BASE = "/api/v1/users";
 
 const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const loadingBarRef = useRef(null);

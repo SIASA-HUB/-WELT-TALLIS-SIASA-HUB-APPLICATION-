@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Logger = require("../utils/logger/logger");
-const ManifestoModel = require("../models/ManifestoModel");
-const ManifestoVoteModel = require("../models/ManifestoVoteModel");
+const ManifestoModel = require("../models/manifestoModel");
+const ManifestoVoteModel = require("../models/manifestoVoteModel");
 const { safeQuery, safeQueryOne } = require("../configurations/db");
 const redis = require("../utils/redis/redis");
 

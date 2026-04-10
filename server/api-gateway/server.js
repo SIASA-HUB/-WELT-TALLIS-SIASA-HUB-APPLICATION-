@@ -3,9 +3,10 @@ dotenv.config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const proxy = require("express-http-proxy");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
+const { apiReference } = require("@scalar/express-api-reference");
 
 const app = express();
 
@@ -15,14 +16,14 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 // Service URLs
 const SERVICES = {
-  leaders: process.env.LEADERS_SERVICE_URL || "http://localhost:8006",
-  media: process.env.MEDIA_SERVICE_URL || "http://localhost:8007",
-  rallies: process.env.RALLY_SERVICE_URL || "http://localhost:8001",
-  users: process.env.USERS_SERVICE_URL || "http://localhost:8002",
-  wallet: process.env.WALLET_SERVICE_URL || "http://localhost:8008",
-  endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://localhost:8003",
-  marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://localhost:8004",
-  reaction: process.env.REACTION_SERVICE_URL || "http://localhost:8005",
+  leaders: process.env.LEADERS_SERVICE_URL || "http://leaders-service:8006",
+  media: process.env.MEDIA_SERVICE_URL || "http://media-service:8007",
+  rallies: process.env.RALLY_SERVICE_URL || "http://rally-service:8001",
+  users: process.env.USERS_SERVICE_URL || "http://users-service:8002",
+  wallet: process.env.WALLET_SERVICE_URL || "http://wallet-service:8008",
+  endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://endorsement-service:8003",
+  marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://marketplace-service:8004",
+  reaction: process.env.REACTION_SERVICE_URL || "http://reaction-service:8005",
 };
 
 // Simple logger
@@ -74,32 +75,57 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy options
-const proxyOptions = {
-  proxyReqPathResolver: (req) => req.originalUrl.replace(/^\/api\/v1/, ""),
-  proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
-    if (srcReq.headers.authorization) {
-      proxyReqOpts.headers["Authorization"] = srcReq.headers.authorization;
+// Proxy generator function using http-proxy-middleware v3 syntax
+const createProxy = (targetUrl) => {
+  return createProxyMiddleware({
+    target: targetUrl,
+    changeOrigin: true,
+    pathRewrite: (path, req) => {
+      // Explicitly return the original URL to bypass Express app.use path stripping
+      return req.originalUrl;
+    },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        if (req.headers.authorization) {
+          proxyReq.setHeader("Authorization", req.headers.authorization);
+        }
+      },
+      error: (err, req, res) => {
+        log("Proxy error:", err.message);
+        if (!res.headersSent) {
+          res.status(503).json({ success: false, message: "Service temporarily unavailable" });
+        }
+      }
     }
-    return proxyReqOpts;
-  },
-  timeout: 30000,
-  proxyErrorHandler: (err, res) => {
-    log("Proxy error:", err.message);
-    res.status(503).json({ success: false, message: "Service temporarily unavailable" });
-  },
+  });
 };
 
-// Service proxies
-app.use("/api/v1/leaders", proxy(SERVICES.leaders, proxyOptions));
-app.use("/api/v1/battles", proxy(SERVICES.leaders, proxyOptions));
-app.use("/api/v1/media", proxy(SERVICES.media, proxyOptions));
-app.use("/api/v1/rallies", proxy(SERVICES.rallies, proxyOptions));
-app.use("/api/v1/users", proxy(SERVICES.users, proxyOptions));
-app.use("/api/v1/wallet", proxy(SERVICES.wallet, proxyOptions));
-app.use("/api/v1/endorsements", proxy(SERVICES.endorsement, proxyOptions));
-app.use("/api/v1/marketplace", proxy(SERVICES.marketplace, proxyOptions));
-app.use("/api/v1/reactions", proxy(SERVICES.reaction, proxyOptions));
+app.use("/api/v1/leaders", createProxy(SERVICES.leaders));
+app.use("/api/v1/battles", createProxy(SERVICES.leaders));
+app.use("/api/v1/media", createProxy(SERVICES.media));
+app.use("/api/v1/rallies", createProxy(SERVICES.rallies));
+app.use("/api/v1/users", createProxy(SERVICES.users));
+app.use("/api/v1/wallet", createProxy(SERVICES.wallet));
+app.use("/api/v1/endorsements", createProxy(SERVICES.endorsement));
+app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
+app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
+
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "API Gateway (Siasa Hub)", version: "1.0.0" },
+        paths: {
+          "/api/v1/users": { get: { summary: "Gateway User APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check
 app.get("/health", (req, res) => {

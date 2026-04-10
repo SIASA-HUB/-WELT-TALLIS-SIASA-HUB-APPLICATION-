@@ -13,7 +13,7 @@ import {
   Users,
   Medal,
 } from "lucide-react";
-import theme from "../../utils/Theme";
+import theme from "../../utils/theme";
 import AppLoadingBar from "../../utils/LoadingBar";
 import   API_URL   from  "./apiConfig"
 

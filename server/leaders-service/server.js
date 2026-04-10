@@ -8,13 +8,14 @@ const http = require("http");
 const socketIo = require("socket.io");
 const path = require("path");
 const fs = require("fs");
+const { apiReference } = require("@scalar/express-api-reference");
 
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/Leader");
-const battleRoutes = require("./src/routes/Battle");
+const battleRoutes = require("./src/routes/battle");
 const battleController = require("./src/controllers/BattleController");
-const { connectRabbitMQ } = require("./src/Qeues/Rabbit");
+const { connectRabbitMQ } = require("./src/Qeues/rabbit");
 
 const app = express();
 const server = http.createServer(app);
@@ -235,6 +236,14 @@ process.on("unhandledRejection", (reason) => {
 
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   }),
@@ -260,6 +269,22 @@ app.use((req, res, next) => {
 
 app.use("/api/v1/leaders", leaderRoutes);
 app.use("/api/v1/battles", battleRoutes);
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Leaders Service API", version: "1.0.0" },
+        paths: {
+          "/api/v1/leaders": { get: { summary: "Leaders APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -327,7 +352,7 @@ runMigrations();
 // SERVER STARTUP
 // ============================================
 
-const PORT = process.env.PORT || 8002;
+const PORT = process.env.PORT || 8006;
 const HOST = process.env.HOST || "0.0.0.0";
 
 (async () => {
@@ -342,6 +367,9 @@ const HOST = process.env.HOST || "0.0.0.0";
 
     Logger.info("Starting database", { action: "start_database" });
     await initDB();
+
+    Logger.info("Connecting to RabbitMQ", { action: "connect_rabbitmq" });
+    await connectRabbitMQ();
 
     server.listen(PORT, HOST, () => {
       Logger.info("Server running with Socket.IO", {

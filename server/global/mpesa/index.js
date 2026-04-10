@@ -1,7 +1,7 @@
 // shared/mpesa/index.js
 const axios = require("axios");
 const crypto = require("crypto");
-const Logger = require("../logger/Logger");
+const Logger = require("../logger/logger");
 
 class MpesaConfig {
   constructor() {

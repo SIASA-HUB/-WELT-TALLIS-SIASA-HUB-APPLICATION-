@@ -1,7 +1,7 @@
 // controllers/leaderController.js - Complete Fixed Version (No Duplicates)
 
 const Logger = require("../utils/logger/logger");
-const LeaderModel = require("../models/leadersModel");
+const LeaderModel = require("../models/LeadersModel");
 const {
   asyncHandler,
   bcrypt,

@@ -18,7 +18,7 @@ const {
   consumeMessages,
   QUEUES,
   publishMessage,
-} = require("../Qeues/Rabbit");
+} = require("../Qeues/rabbit");
 
 const memoryCache = new Map();
 

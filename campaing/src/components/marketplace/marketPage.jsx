@@ -9,7 +9,7 @@ import { CartProvider } from "./context/CartContext";
 // Import components
 import Header from "./components/Header/Header";
 import Home from "./components/Home";
-import Cart from "./components/Cart/Cart";
+import Cart from "./components/cart/cart";
 import DetailView from "./components/ItemDetails/DetailView";
 import Checkout from "./checkout/checkout";
 

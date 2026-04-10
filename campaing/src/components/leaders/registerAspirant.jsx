@@ -23,7 +23,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // API Configuration
-const API_BASE_URL = "http://localhost:8002/api/v1/leaders";
+const API_BASE_URL = "/api/v1/users/leaders";
 
 const slideIn = keyframes`
   from { opacity: 0; transform: translateX(-20px); }

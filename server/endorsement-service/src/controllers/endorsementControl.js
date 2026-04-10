@@ -249,7 +249,7 @@ const createEndorsement = [
 const getRecentEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const limit = Math.min(parseInt(req.query.limit) || 100, 200);
-  const cacheKey = `leader:${leaderId}:recent_endorsements:${limit}`;
+  const cacheKey = leaderId ? `leader:${leaderId}:recent_endorsements:${limit}` : `global:recent_endorsements:${limit}`;
 
   try {
     const cached = await cacheManager.get(cacheKey);
@@ -257,16 +257,24 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
       return res.status(200).json({ success: true, data: cached, source: "cache" });
     }
 
-    const endorsements = await safeQuery(
-      `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
+    let queryStr = `
+       SELECT id, leader_id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments, 
               boost_count, total_boost_amount, created_at, status
        FROM endorsements 
-       WHERE leader_id = ? AND status = 'active'
-       ORDER BY created_at DESC
-       LIMIT ?`,
-      [leaderId, limit]
-    );
+       WHERE status = 'active'
+    `;
+    let queryParams = [];
+
+    if (leaderId) {
+      queryStr += ` AND leader_id = ? `;
+      queryParams.push(leaderId);
+    }
+
+    queryStr += ` ORDER BY created_at DESC LIMIT ? `;
+    queryParams.push(limit);
+
+    const endorsements = await safeQuery(queryStr, queryParams);
 
     const processedEndorsements = endorsements.map((e) => ({
       id: e.id,

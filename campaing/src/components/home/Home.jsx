@@ -1,6 +1,6 @@
 import React, { Suspense, memo, lazy, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-import theme from "../../utils/Theme";
+import theme from "../../utils/theme";
 
 // 1. LAZY LOAD TRENDING
 const TrendingSection = lazy(() => import("../treading/treading"));

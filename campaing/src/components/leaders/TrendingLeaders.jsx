@@ -11,13 +11,13 @@ import {
   Verified,
 } from "lucide-react";
 import AppLoadingBar from "../../utils/LoadingBar";
-import theme from "../../utils/Theme";
+import theme from "../../utils/theme";
 
 // Added fallbacks to prevent "Cannot read properties of undefined"
 const COLORS = theme?.COLORS || { success: "#10b981", primary: "#ff4500" };
 const TRANSITIONS = theme?.TRANSITIONS || { default: "0.3s ease" };
 
-const API_BASE_URL = "http://localhost:8002/api/v1";
+const API_BASE_URL = "/api/v1";
 
 // --- ANIMATIONS ---
 const glow = keyframes`

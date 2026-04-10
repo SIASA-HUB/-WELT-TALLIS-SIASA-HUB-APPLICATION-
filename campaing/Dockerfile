@@ -6,11 +6,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-# Remove yarn.lock reference since you're using npm
-# COPY yarn.lock ./
 
-# Install dependencies (clean install with npm)
-RUN npm ci --only=production --no-audit --no-fund && \
+# Install dependencies (with retries and timeouts)
+RUN npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 10 && \
+    npm ci --no-audit --no-fund && \
     npm cache clean --force
 
 # Copy source code

@@ -10,8 +10,7 @@ exports.up = function (knex) {
         "Undecided",
         "Prefer not to say",
       ])
-      .defaultTo("Prefer not to say")
-      .after("employment_status");
+      .defaultTo("Prefer not to say");
 
     // Add vote frequency column
     table
@@ -23,15 +22,10 @@ exports.up = function (knex) {
         "First-time voter",
         "Prefer not to say",
       ])
-      .defaultTo("Prefer not to say")
-      .after("political_leanings");
+      .defaultTo("Prefer not to say");
 
     // Add personal email column
-    table
-      .string("personal_email", 255)
-      .unique()
-      .nullable()
-      .after("vote_frequency");
+    table.string("personal_email", 255).unique().nullable();
 
     // Add index for faster email lookups
     table.index("personal_email", "idx_users_personal_email");

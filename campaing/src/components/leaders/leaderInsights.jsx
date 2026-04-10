@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { BookOpen, Info } from "lucide-react";
 import axios from "axios";
-import theme from "../../utils/Theme.jsx";
+import theme from "../../utils/theme.jsx";
 import AppLoadingBar from "../../utils/LoadingBar.jsx";
 
 // Lazy load components
@@ -175,7 +175,7 @@ const BioText = styled.p`
   margin: 0;
 `;
 
-const API_BASE_URL = "http://localhost:8002/api/v1";
+const API_BASE_URL = "/api/v1/users";
 
 const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
   const { id: urlId } = useParams();

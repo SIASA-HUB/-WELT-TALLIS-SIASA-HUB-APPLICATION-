@@ -93,29 +93,8 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Better chunk splitting for mobile
-        manualChunks: (id) => {
-          if (id.includes("node_modules")) {
-            // Core React
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "react-core";
-            }
-            // UI Icons
-            if (id.includes("lucide-react")) {
-              return "icons";
-            }
-            // Routing
-            if (id.includes("react-router")) {
-              return "router";
-            }
-            // Charts (if heavy)
-            if (id.includes("recharts") || id.includes("chart.js")) {
-              return "charts";
-            }
-            // Everything else
-            return "vendor";
-          }
-        },
+        // Simplified chunking for better stability
+        manualChunks: undefined,
         // Optimize chunk names
         chunkFileNames: "assets/[name].[hash].js",
         entryFileNames: "assets/[name].[hash].js",

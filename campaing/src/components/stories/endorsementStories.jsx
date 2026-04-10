@@ -10,12 +10,12 @@ import {
   CheckCircle,
   Play,
 } from "lucide-react";
-import theme from "../../utils/Theme";
+import theme from "../../utils/theme";
 import AddStoryModal from "./addStoryModal";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 import axios from "axios";
 
-const ENDORSEMENT_API_URL = "http://localhost:8009";
+const ENDORSEMENT_API_URL = "/api/v1";
 
 const ringGlow = keyframes`
   0% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0.4); }

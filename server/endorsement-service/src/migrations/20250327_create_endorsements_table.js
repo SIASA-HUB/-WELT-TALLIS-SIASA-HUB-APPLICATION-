@@ -27,11 +27,12 @@ exports.up = async function (knex) {
       table.index(["user_id", "status"]);
       table.index(["leader_id", "user_id", "status"]);
 
-      table
-        .foreign("leader_id")
-        .references("leader_id")
-        .inTable("leaders")
-        .onDelete("CASCADE");
+      // Cross-service FK removed to avoid race conditions
+      // table
+      //   .foreign("leader_id")
+      //   .references("leader_id")
+      //   .inTable("leaders")
+      //   .onDelete("CASCADE");
     });
   }
 
@@ -47,11 +48,12 @@ exports.up = async function (knex) {
       table.timestamp("updated_at").defaultTo(knex.fn.now());
 
       table.index("leader_id");
-      table
-        .foreign("leader_id")
-        .references("leader_id")
-        .inTable("leaders")
-        .onDelete("CASCADE");
+      // Cross-service FK removed to avoid race conditions
+      // table
+      //   .foreign("leader_id")
+      //   .references("leader_id")
+      //   .inTable("leaders")
+      //   .onDelete("CASCADE");
     });
   }
 
@@ -76,16 +78,38 @@ exports.up = async function (knex) {
     });
   }
 
-  // 4. Add columns to leaders table
-  const hasEndorsementCount = await knex.schema.hasColumn(
-    "leaders",
-    "endorsement_count",
-  );
-  if (!hasEndorsementCount) {
-    await knex.schema.table("leaders", (table) => {
-      table.integer("endorsement_count").defaultTo(0);
-      table.decimal("total_platform_revenue", 10, 2).defaultTo(0);
-    });
+  // 4. Add columns to leaders table (FAULTS-TOLERANT)
+  const leadersTableExists = await knex.schema.hasTable("leaders");
+  if (leadersTableExists) {
+    const hasEndorsementCount = await knex.schema.hasColumn(
+      "leaders",
+      "endorsement_count",
+    );
+    if (!hasEndorsementCount) {
+      await knex.schema.table("leaders", (table) => {
+        table.integer("endorsement_count").defaultTo(0);
+        table.decimal("total_platform_revenue", 10, 2).defaultTo(0);
+      });
+    }
+
+    // 6. Drop existing triggers if they exist
+    await knex.raw("DROP TRIGGER IF EXISTS update_leader_endorsement_count");
+
+    // 8. Create trigger for leader endorsement count
+    await knex.raw(`
+      CREATE TRIGGER update_leader_endorsement_count
+      AFTER INSERT ON endorsements
+      FOR EACH ROW
+      BEGIN
+        UPDATE leaders 
+        SET 
+          endorsement_count = COALESCE(endorsement_count, 0) + 1,
+          total_platform_revenue = COALESCE(total_platform_revenue, 0) + NEW.amount
+        WHERE leader_id = NEW.leader_id;
+      END
+    `);
+  } else {
+    console.log("⚠️ leaders table not found. Skipping endorsement count columns and triggers.");
   }
 
   // 5. Create endorsement_analytics table
@@ -102,11 +126,11 @@ exports.up = async function (knex) {
     });
   }
 
-  // 6. Drop existing triggers if they exist (separate statements)
+  // 6b. Drop platform stats trigger if exists
   await knex.raw("DROP TRIGGER IF EXISTS update_platform_stats_on_endorsement");
-  await knex.raw("DROP TRIGGER IF EXISTS update_leader_endorsement_count");
 
   // 7. Create trigger for platform stats
+  await knex.raw("DROP TRIGGER IF EXISTS update_platform_stats_on_endorsement");
   await knex.raw(`
     CREATE TRIGGER update_platform_stats_on_endorsement
     AFTER INSERT ON endorsements
@@ -121,24 +145,10 @@ exports.up = async function (knex) {
     END
   `);
 
-  // 8. Create trigger for leader endorsement count
-  await knex.raw(`
-    CREATE TRIGGER update_leader_endorsement_count
-    AFTER INSERT ON endorsements
-    FOR EACH ROW
-    BEGIN
-      UPDATE leaders 
-      SET 
-        endorsement_count = COALESCE(endorsement_count, 0) + 1,
-        total_platform_revenue = COALESCE(total_platform_revenue, 0) + NEW.amount
-      WHERE leader_id = NEW.leader_id;
-    END
-  `);
-
   // 9. Create stored procedure
+  await knex.raw("DROP PROCEDURE IF EXISTS update_endorsement_analytics");
   await knex.raw(`
-    CREATE OR REPLACE PROCEDURE update_endorsement_analytics()
-    BEGIN
+    CREATE PROCEDURE update_endorsement_analytics()
       INSERT INTO endorsement_analytics (date, total_endorsements, total_revenue, unique_users, unique_leaders, level_breakdown)
       SELECT 
         DATE(e.created_at) as date,
@@ -164,12 +174,14 @@ exports.up = async function (knex) {
   `);
 
   // 10. Insert default leader settings
-  await knex.raw(`
-    INSERT IGNORE INTO leader_settings (leader_id, max_endorsements_per_user, allow_endorsements)
-    SELECT leader_id, 3, true
-    FROM leaders
-    WHERE status = 'active'
-  `);
+  if (leadersTableExists) {
+    await knex.raw(`
+      INSERT IGNORE INTO leader_settings (leader_id, max_endorsements_per_user, allow_endorsements)
+      SELECT leader_id, 3, true
+      FROM leaders
+      WHERE status = 'active'
+    `);
+  }
 };
 
 exports.down = async function (knex) {

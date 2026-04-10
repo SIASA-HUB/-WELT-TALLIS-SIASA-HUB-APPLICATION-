@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const API_URL = "http://localhost:8009";
+const API_URL = "/api/v1";
 
 // --- Animations ---
 const fadeInUp = keyframes`

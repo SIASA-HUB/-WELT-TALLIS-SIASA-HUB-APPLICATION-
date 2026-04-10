@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const { apiReference } = require("@scalar/express-api-reference");
 
 const Logger = require("./src/utils/logger/logger");
 const { initDB, closeDB } = require("./src/configurations/db");
@@ -74,6 +75,14 @@ app.use((req, res, next) => {
 // ==================== MIDDLEWARES ====================
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: false,
   }),
@@ -83,6 +92,22 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ==================== ROUTES ====================
 app.use("/api/v1/rallies", rallyRoutes);
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Rally Service API", version: "1.0.0" },
+        paths: {
+          "/api/v1/rallies": { get: { summary: "Rally APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

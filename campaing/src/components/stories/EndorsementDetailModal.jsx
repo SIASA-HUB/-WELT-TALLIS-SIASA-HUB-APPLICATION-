@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { X, Heart, MessageCircle, TrendingUp, Clock, Play, Send } from "lucide-react";
 import axios from "axios";
-import BoostModal from "../wallet/boostModal";
+import BoostModal from "../Wallet/boostModal";
 
 const slideUp = keyframes`
   from { transform: translateY(100%); opacity: 0; }
@@ -22,7 +22,7 @@ const glowPulse = keyframes`
   100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 `;
 
-const API_BASE_URL = "http://localhost:8009";
+const API_BASE_URL = "/api/v1";
 
 // Helper function to build image URL
 const buildImageUrl = (imageUrl, createdAt) => {

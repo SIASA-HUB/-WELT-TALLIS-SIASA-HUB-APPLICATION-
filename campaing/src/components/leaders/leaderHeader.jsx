@@ -20,10 +20,10 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-import EndorsementStories from "../Stories/endorsementStories";
-import BoostedStoriesRow from "../Stories/boostedstoriesrow";
+import EndorsementStories from "../stories/endorsementStories";
+import BoostedStoriesRow from "../stories/boostedstoriesrow";
 import BoostModal from "../Wallet/boostModal";
-import AddStoryModal from "../Stories/addStoryModal";
+import AddStoryModal from "../stories/addStoryModal";
 
 // --- Animations ---
 const fadeIn = keyframes`
@@ -752,8 +752,8 @@ const Toast = styled.div`
 `;
 
 // API URLs
-const LEADER_API_URL = "http://localhost:8002";
-const ENDORSEMENT_API_URL = "http://localhost:8009";
+const LEADER_API_URL = "/api/v1/users";
+const ENDORSEMENT_API_URL = "/api/v1";
 
 const getLoggedInUserId = () => {
   const userData = localStorage.getItem("user_data");

@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const API_URL = "http://localhost:8009";
-const WALLET_API_URL = "http://localhost:8005";
+const API_URL = "/api/v1";
+const WALLET_API_URL = "/api/v1/reactions";
 
 // --- Animations ---
 const fadeInUp = keyframes`

@@ -25,7 +25,7 @@ import {
 import axios from "axios";
 
 import CreateManifesto from "../manifestos/createManifesto";
-import CreateRally from "../../Rallies/createRally";
+import CreateRally from "../../rallies/createRally";
 import DashboardOverview from "./DashboardOverview";
 import SupportersSection from "./SuportersSection";
 import AnalyticsSection from "./AnalyticsSection";
@@ -228,7 +228,7 @@ const AspirantDashboard = () => {
   const fetchRallyCount = async (leaderId) => {
     try {
       const response = await axios.get(
-        `http://localhost:8002/api/v1/rallies/leader/${leaderId}/count`,
+        `/api/v1/users/rallies/leader/${leaderId}/count`,
       );
       if (response.data?.success) {
         setRallyCount(response.data.count || 0);

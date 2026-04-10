@@ -28,7 +28,7 @@ module.exports = {
     },
     migrations: {
       directory: path.join(__dirname, "src", "migrations"),
-      tableName: "knex_migrations",
+      tableName: "knex_migrations_marketplace",
     },
   },
 };

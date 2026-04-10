@@ -1,4 +1,6 @@
 const express = require("express");
+const helmet = require("helmet");
+
 const cors = require("cors");
 const path = require("path");
 const dotenv = require("dotenv");
@@ -8,6 +10,7 @@ const multer = require("multer");
 const fs = require("fs");
 const knex = require("knex");
 const knexConfig = require("./knexfile");
+const { apiReference } = require("@scalar/express-api-reference");
 
 dotenv.config();
 
@@ -30,7 +33,7 @@ const productRoutes = require("./src/routes/productRoutes");
 const cartRoutes = require("./src/routes/cartRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8004;
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -92,6 +95,21 @@ app.use(
   }),
 );
 
+// Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 // Body parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -126,6 +144,22 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
 // API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Marketplace Service API", version: "1.0.0" },
+        paths: {
+          "/api/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check endpoint
 app.get("/health", async (req, res) => {

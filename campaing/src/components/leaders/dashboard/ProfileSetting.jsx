@@ -16,7 +16,7 @@ import {
   Edit2,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8004"; // Leaders service
+const API_URL = "/api/v1/marketplace"; // Leaders service
 
 const Card = styled.div`
   background: white;

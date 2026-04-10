@@ -11,7 +11,7 @@ import axios from "axios";
 // ============================================
 // API CONFIGURATION
 // ============================================
-const API_BASE_URL = "http://localhost:8004/api/v1";
+const API_BASE_URL = "/api/v1/users";
 
 // Create axios instance with credentials
 const api = axios.create({

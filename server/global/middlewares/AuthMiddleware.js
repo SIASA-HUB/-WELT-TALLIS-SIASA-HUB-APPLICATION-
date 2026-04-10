@@ -1,7 +1,7 @@
 // shared/auth/middleware.js
-const { verifyAccessToken } = require("../auth/Tokens");
-const { getTokenFromRequest, getUserFromCookies } = require("../auth/Cookies");
-const Logger = require("../logger/Logger");
+const { verifyAccessToken } = require("../auth/tokens");
+const { getTokenFromRequest, getUserFromCookies } = require("../auth/cookies");
+const Logger = require("../logger/logger");
 
 // Main Authentication Middleware
 const authenticate = async (req, res, next) => {

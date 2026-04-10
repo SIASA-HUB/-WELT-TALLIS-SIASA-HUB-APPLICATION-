@@ -3,7 +3,7 @@
 import axios from "axios";
 
 // Wallet Service API Configuration
-const WALLET_API_BASE_URL = "http://localhost:8005/api/v1/wallet";
+const WALLET_API_BASE_URL = "/api/v1/wallet";
 
 const walletApi = axios.create({
   baseURL: WALLET_API_BASE_URL,

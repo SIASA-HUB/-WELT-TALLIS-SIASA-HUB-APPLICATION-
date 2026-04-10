@@ -13,7 +13,7 @@ import {
   CheckCircle,
   AtSign,
 } from "lucide-react";
-import walletApi from "./apiConfig"; // Import the wallet API
+import walletApi from "./ApiConfig"; // Import the wallet API
 
 const Container = styled.div`
   padding: 40px 24px;

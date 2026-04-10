@@ -4,6 +4,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const path = require("path");
+const { apiReference } = require("@scalar/express-api-reference");
 
 // ============================================
 // SIMPLE CONSOLE LOGGER (fallback)
@@ -106,6 +107,14 @@ app.use(cors(corsOptions));
 // ============================================
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   }),
@@ -131,6 +140,22 @@ if (process.env.NODE_ENV === "development") {
 if (walletRoutes) {
   app.use("/api/v1/wallet", walletRoutes);
 }
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Wallet Service API", version: "1.0.0" },
+        paths: {
+          "/api/v1/wallet": { get: { summary: "Wallet APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

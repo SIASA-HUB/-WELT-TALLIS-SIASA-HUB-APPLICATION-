@@ -6,6 +6,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const { apiReference } = require("@scalar/express-api-reference");
 const knex = require("knex");
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
@@ -75,6 +76,14 @@ app.use(cors(corsOptions));
 // Security headers but relaxed for CORS
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -190,6 +199,22 @@ app.use((req, res, next) => {
 
 // Routes
 app.use("/api/v1/endorsements", endorsementRoutes);
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Endorsement Service API", version: "1.0.0" },
+        paths: {
+          "/api/v1/endorsements": { get: { summary: "Endorsement APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -311,7 +336,7 @@ async function runMigrations() {
 }
 
 // Server configuration
-const PORT = process.env.PORT || 8009;
+const PORT = process.env.PORT || 8003;
 const HOST = process.env.HOST || "0.0.0.0";
 
 // Start server and database

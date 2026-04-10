@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import axios from "axios";
 import * as Icons from "lucide-react";
-import ProductModal from "./ProductModal";
+import ProductModal from "./productModal";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api/v1/marketplace";
 
 const Container = styled.div`
   background: white;

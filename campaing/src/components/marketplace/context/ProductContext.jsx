@@ -21,7 +21,7 @@ export const ProductProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get("http://localhost:8000/products");
+      const { data } = await axios.get("/api/v1/marketplace/products");
       setProducts(data);
       setLoading(false);
     } catch (err) {
@@ -34,7 +34,7 @@ export const ProductProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get(`http://localhost:8000/product/${id}`);
+      const { data } = await axios.get(`/api/v1/marketplace/product/${id}`);
       setProductDetails(data);
       setLoading(false);
     } catch (err) {

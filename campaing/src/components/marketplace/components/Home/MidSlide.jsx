@@ -121,7 +121,7 @@ const campaignAds = [
   },
 ];
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api/v1/marketplace";
 
 const MidSlide = ({ products: propProducts }) => {
   const [products, setProducts] = useState([]);

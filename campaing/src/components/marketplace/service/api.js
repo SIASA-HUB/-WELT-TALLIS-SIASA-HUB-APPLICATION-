@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const url = 'http://localhost:8000';
+const url = '/api/v1/marketplace';
 
 export const authenticateLogin = async (user) => {
     try {

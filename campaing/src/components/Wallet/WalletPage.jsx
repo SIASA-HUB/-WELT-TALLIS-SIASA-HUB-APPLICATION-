@@ -13,7 +13,7 @@ import {
   Flag,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import walletApi from "./apiConfig"; // Import the wallet API
+import walletApi from "./ApiConfig"; // Import the wallet API
 import userApi from "./userApiConfig"; // Create this for user API calls
 
 // Components

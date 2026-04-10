@@ -25,8 +25,8 @@ import {
   Crown,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8002/api/v1";
-const SOCKET_URL = "http://localhost:8002";
+const API_BASE = "/api/v1/users";
+const SOCKET_URL = "/api/v1/users";
 const BATTLE_API = `${API_BASE}/battles`;
 
 // ==================== ANIMATIONS ====================
@@ -183,7 +183,7 @@ const BattleScroll = styled.div`
   }
 `;
 
-import BattleCard from "./BattleCard";
+import BattleCard from "./battleCard";
 
 const LoadingSpinner = styled.div`
   display: flex;

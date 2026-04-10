@@ -1,7 +1,7 @@
 // shared/db/index.js
 const mysql = require("mysql2/promise");
 const dotenv = require("dotenv");
-const Logger = require("../logger/Logger");
+const Logger = require("../logger/logger");
 
 dotenv.config();
 

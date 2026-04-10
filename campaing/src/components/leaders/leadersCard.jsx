@@ -193,7 +193,7 @@ const StatsRow = styled.div`
 `;
 
 // API Base URL for images (adjust to your backend URL)
-const API_BASE_URL = "http://localhost:8002";
+const API_BASE_URL = "/api/v1/users";
 
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();

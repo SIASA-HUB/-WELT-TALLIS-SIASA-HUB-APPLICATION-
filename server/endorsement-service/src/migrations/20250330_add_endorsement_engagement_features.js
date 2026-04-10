@@ -1,6 +1,7 @@
 // migrations/20250330_add_endorsement_engagement_features.js
 
 exports.up = async function (knex) {
+  const leadersTableExists = await knex.schema.hasTable("leaders");
   // 1. Add engagement and pinning columns to endorsements table
   const hasIsPinned = await knex.schema.hasColumn("endorsements", "is_pinned");
   if (!hasIsPinned) {
@@ -141,8 +142,9 @@ exports.up = async function (knex) {
   }
 
   // 7. Create function to calculate engagement score
+  await knex.raw("DROP FUNCTION IF EXISTS calculate_engagement_score");
   await knex.raw(`
-    CREATE OR REPLACE FUNCTION calculate_engagement_score(
+    CREATE FUNCTION calculate_engagement_score(
       p_likes INT,
       p_views INT,
       p_shares INT,
@@ -171,6 +173,7 @@ exports.up = async function (knex) {
   `);
 
   // 8. Create trigger to update engagement score on engagement
+  await knex.raw("DROP TRIGGER IF EXISTS update_endorsement_engagement_score");
   await knex.raw(`
     CREATE TRIGGER update_endorsement_engagement_score
     AFTER UPDATE ON endorsements
@@ -192,6 +195,7 @@ exports.up = async function (knex) {
   `);
 
   // 9. Create trigger to track views
+  await knex.raw("DROP TRIGGER IF EXISTS track_endorsement_view");
   await knex.raw(`
     CREATE TRIGGER track_endorsement_view
     AFTER INSERT ON endorsement_views
@@ -204,6 +208,7 @@ exports.up = async function (knex) {
   `);
 
   // 10. Create stored procedure to auto-pin high-engagement endorsements
+  await knex.raw("DROP PROCEDURE IF EXISTS auto_pin_high_engagement_endorsements");
   await knex.raw(`
     CREATE PROCEDURE auto_pin_high_engagement_endorsements()
     BEGIN
@@ -247,6 +252,7 @@ exports.up = async function (knex) {
   `);
 
   // 11. Create event to auto-pin every hour
+  await knex.raw("DROP EVENT IF EXISTS auto_pin_high_engagement_event");
   await knex.raw(`
     CREATE EVENT IF NOT EXISTS auto_pin_high_engagement_event
     ON SCHEDULE EVERY 1 HOUR
@@ -255,11 +261,29 @@ exports.up = async function (knex) {
   `);
 
   // 12. Add indexes for performance optimization
-  await knex.schema.table("endorsements", (table) => {
-    table.index(["leader_id", "is_pinned", "pinned_at"]);
-    table.index(["status", "engagement_score"]);
-    table.index(["created_at", "engagement_score"]);
-  });
+  try {
+    await knex.schema.table("endorsements", (table) => {
+      table.index(["leader_id", "is_pinned", "pinned_at"]);
+    });
+  } catch (e) {
+    console.log("Index leader_id_is_pinned_pinned_at may already exist");
+  }
+
+  try {
+    await knex.schema.table("endorsements", (table) => {
+      table.index(["status", "engagement_score"]);
+    });
+  } catch (e) {
+    console.log("Index status_engagement_score may already exist");
+  }
+
+  try {
+    await knex.schema.table("endorsements", (table) => {
+      table.index(["created_at", "engagement_score"]);
+    });
+  } catch (e) {
+    console.log("Index created_at_engagement_score may already exist");
+  }
 
   // 13. Update existing endorsements with engagement scores
   await knex.raw(`
@@ -271,32 +295,36 @@ exports.up = async function (knex) {
   `);
 
   // 14. Create view for easy access to trending endorsements
-  await knex.raw(`
-    CREATE OR REPLACE VIEW trending_endorsements AS
-    SELECT 
-      e.*,
-      l.name as leader_name,
-      l.image_url as leader_image,
-      l.position_running_for as leader_position,
-      (e.likes + e.views + e.shares + e.comments) as total_engagement,
-      CASE 
-        WHEN e.amount > 0 THEN 'paid'
-        ELSE 'free'
-      END as endorsement_type,
-      CASE 
-        WHEN e.is_pinned = 1 THEN 'pinned'
-        WHEN e.engagement_score >= 500 THEN 'hot'
-        WHEN e.engagement_score >= 200 THEN 'trending'
-        ELSE 'normal'
-      END as status_label
-    FROM endorsements e
-    JOIN leaders l ON e.leader_id = l.leader_id
-    WHERE e.status = 'active'
-    ORDER BY 
-      e.is_pinned DESC,
-      e.engagement_score DESC,
-      e.created_at DESC;
-  `);
+  if (leadersTableExists) {
+    await knex.raw(`
+      CREATE OR REPLACE VIEW trending_endorsements AS
+      SELECT 
+        e.*,
+        l.name as leader_name,
+        l.image_url as leader_image,
+        l.position_running_for as leader_position,
+        (e.likes + e.views + e.shares + e.comments) as total_engagement,
+        CASE 
+          WHEN e.amount > 0 THEN 'paid'
+          ELSE 'free'
+        END as endorsement_type,
+        CASE 
+          WHEN e.is_pinned = 1 THEN 'pinned'
+          WHEN e.engagement_score >= 500 THEN 'hot'
+          WHEN e.engagement_score >= 200 THEN 'trending'
+          ELSE 'normal'
+        END as status_label
+      FROM endorsements e
+      JOIN leaders l ON e.leader_id = l.leader_id
+      WHERE e.status = 'active'
+      ORDER BY 
+        e.is_pinned DESC,
+        e.engagement_score DESC,
+        e.created_at DESC;
+    `);
+  } else {
+    console.log("⚠️ leaders table not found. Skipping trending_endorsements view creation.");
+  }
 };
 
 exports.down = async function (knex) {

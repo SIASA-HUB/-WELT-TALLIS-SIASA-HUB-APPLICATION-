@@ -18,7 +18,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // API Configuration - Fixed
-const API_BASE_URL = "http://localhost:8002/api/v1/leaders";
+const API_BASE_URL = "/api/v1/users/leaders";
 
 // Create axios instance
 const API = axios.create({

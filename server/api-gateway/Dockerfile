@@ -1,12 +1,24 @@
-From  node:18-alpine
+FROM node:22-alpine
+WORKDIR /usr/src/app
 
-WORKDIR   /use/src/app
+# Copy global and service package files
+COPY global/package*.json ./global/
+COPY api-gateway/package*.json ./api-gateway/
 
-COPY  package*.json  ./
+# Install dependencies for both global and service
+RUN cd global && npm install
+RUN cd api-gateway && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 10 && \
+    npm install
 
-RUN   npm  ci   --only=production
-COPY  .  .
+# Copy source code
+COPY global ./global
+COPY api-gateway ./api-gateway
 
-EXPOSE   3003
+# Set working directory to the service
+WORKDIR /usr/src/app/api-gateway
 
-CMD   ['node'  ,   'src/server.js']
+EXPOSE 8009
+CMD ["node", "server.js"]

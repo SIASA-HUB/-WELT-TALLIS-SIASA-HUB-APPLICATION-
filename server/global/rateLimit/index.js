@@ -1,6 +1,6 @@
 // shared/config/redis.js
 const Redis = require("ioredis");
-const Logger = require("../logger/Logger");
+const Logger = require("../logger/logger");
 
 // Create Redis client
 const redis = new Redis({
