@@ -9,7 +9,6 @@ const {
   getRecentEndorsements,
   getBoostedEndorsements,
   getTrendingEndorsements,
-  getGlobalTrendingEndorsements,
   likeEndorsement,
   boostEndorsement,
   getLeaderEndorsementStats,
@@ -22,23 +21,6 @@ const {
 
 // Log loaded functions
 
-console.log("📋 Available functions:", [
-  "createEndorsement",
-  "getActiveStories",
-  "getRecentEndorsements",
-  "getBoostedEndorsements",
-  "getTrendingEndorsements",
-  "getGlobalTrendingEndorsements",
-  "likeEndorsement",
-  "boostEndorsement",
-  "getLeaderEndorsementStats",
-  "cleanupExpiredStories",
-  "addComment",
-  "getComments",
-  "likeComment",
-  "getEndorsementStats",
-]);
-
 // Create a new story (text, image, or video)
 router.post("/create", createEndorsement);
 router.get("/leader/:leaderId/active", getActiveStories);
@@ -50,8 +32,6 @@ router.get("/leader/:leaderId/trending", getTrendingEndorsements);
 
 // Get leader endorsement stats
 router.get("/leader/:leaderId/stats", getLeaderEndorsementStats);
-// Get global trending stories across all leaders
-router.get("/global/trending", getGlobalTrendingEndorsements);
 router.post("/:endorsementId/like", likeEndorsement);
 // Boost an endorsement (extends story lifetime)
 router.post("/:endorsementId/boost", boostEndorsement);

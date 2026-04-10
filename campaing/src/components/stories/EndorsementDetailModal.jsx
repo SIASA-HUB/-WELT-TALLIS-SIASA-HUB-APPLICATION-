@@ -1,10 +1,10 @@
-// components/endorsements/EndorsementDetailModal.jsx - Clean Professional Story View
+// components/endorsements/EndorsementDetailModal.jsx - Clean Professional Story View (No Orange)
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
-import { X, Heart, MessageCircle, TrendingUp, Clock, Play } from "lucide-react";
+import { X, Heart, MessageCircle, TrendingUp, Clock, Play, Send } from "lucide-react";
 import axios from "axios";
 import BoostModal from "../Wallet/boostModal";
-import EndorsementComments from "./endorsementComents";
 
 const slideUp = keyframes`
   from { transform: translateY(100%); opacity: 0; }
@@ -17,9 +17,9 @@ const fadeIn = keyframes`
 `;
 
 const glowPulse = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0.4); }
-  70% { box-shadow: 0 0 0 8px rgba(255, 92, 1, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 `;
 
 const API_BASE_URL = "http://localhost:8009";
@@ -71,7 +71,7 @@ const ProgressTrack = styled.div`
 
 const ProgressFill = styled.div`
   height: 100%;
-  background: ${(props) => (props.$active ? "#ff5c01" : "white")};
+  background: ${(props) => (props.$active ? "#dc2626" : "white")};
   width: ${(props) => props.$width}%;
   transition: width 0.05s linear;
 `;
@@ -101,7 +101,7 @@ const UserAvatar = styled.img`
   border-radius: 50%;
   object-fit: cover;
   background: #1a1a1a;
-  border: 2px solid #ff5c01;
+  border: 2px solid #dc2626;
   animation: ${glowPulse} 2s infinite;
 `;
 
@@ -136,9 +136,13 @@ const CloseBtn = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.8);
+  }
 `;
 
-// Full-screen media container
 const FullScreenMedia = styled.div`
   position: absolute;
   inset: 0;
@@ -160,7 +164,6 @@ const FullScreenMedia = styled.div`
   }
 `;
 
-// Strong gradient overlay for better text visibility
 const GradientOverlay = styled.div`
   position: absolute;
   bottom: 0;
@@ -178,7 +181,6 @@ const GradientOverlay = styled.div`
   pointer-events: none;
 `;
 
-// Dark overlay for better text contrast
 const DarkOverlay = styled.div`
   position: absolute;
   inset: 0;
@@ -187,7 +189,6 @@ const DarkOverlay = styled.div`
   pointer-events: none;
 `;
 
-// Message display - clean text with shadow
 const MessageDisplay = styled.div`
   position: absolute;
   bottom: 120px;
@@ -199,7 +200,7 @@ const MessageDisplay = styled.div`
 `;
 
 const MessageText = styled.div`
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   line-height: 1.5;
   font-weight: 500;
   color: white;
@@ -209,7 +210,6 @@ const MessageText = styled.div`
   animation: ${fadeIn} 0.3s ease;
 `;
 
-// Centered text for no-media stories
 const CenteredMessage = styled.div`
   position: absolute;
   top: 0;
@@ -226,7 +226,7 @@ const CenteredMessage = styled.div`
 `;
 
 const CenteredText = styled.div`
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   line-height: 1.5;
   font-weight: 500;
   color: white;
@@ -262,7 +262,7 @@ const MetaItem = styled.div`
   svg {
     width: 14px;
     height: 14px;
-    color: #ff5c01;
+    color: #dc2626;
   }
 `;
 
@@ -348,6 +348,174 @@ const CommentsModalHeader = styled.div`
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 `;
 
+const CommentsList = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dc2626;
+    border-radius: 4px;
+  }
+`;
+
+const CommentItem = styled.div`
+  display: flex;
+  gap: 12px;
+  animation: fadeIn 0.2s ease;
+`;
+
+const CommentAvatar = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  flex-shrink: 0;
+`;
+
+const CommentContent = styled.div`
+  flex: 1;
+`;
+
+const CommentHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+`;
+
+const CommentUserName = styled.span`
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+`;
+
+const CommentTime = styled.span`
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+`;
+
+const CommentText = styled.div`
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.5;
+  word-break: break-word;
+`;
+
+const CommentActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+`;
+
+const LikeButton = styled.button`
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: ${(props) => (props.$liked ? "#ef4444" : "rgba(255, 255, 255, 0.5)")};
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 20px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const CommentInputWrapper = styled.div`
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0a0a0a;
+`;
+
+const InputForm = styled.form`
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+`;
+
+const CommentInput = styled.textarea`
+  flex: 1;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 12px 16px;
+  color: white;
+  font-size: 0.9rem;
+  resize: none;
+  min-height: 44px;
+  max-height: 100px;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: #dc2626;
+  }
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.85rem;
+  }
+`;
+
+const SendButton = styled.button`
+  background: #dc2626;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #b91c1c;
+    transform: scale(1.05);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const EmptyComments = styled.div`
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 40px 20px;
+  font-size: 0.9rem;
+`;
+
 const EndorsementDetailModal = ({
   isOpen,
   onClose,
@@ -365,6 +533,8 @@ const EndorsementDetailModal = ({
   const [likesCountState, setLikesCountState] = useState({});
   const [commentsState, setCommentsState] = useState({});
   const [commentsLoading, setCommentsLoading] = useState({});
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const timerRef = useRef(null);
   const STORY_DURATION = 5000;
@@ -416,7 +586,7 @@ const EndorsementDetailModal = ({
     if (item?.image_url) {
       return buildImageUrl(item.image_url, item.created_at);
     }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(item?.user_name || "User")}&background=ff5c01&color=fff&size=100`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(item?.user_name || "User")}&background=dc2626&color=fff&size=100`;
   };
 
   const getMediaUrl = (item) => {
@@ -522,13 +692,20 @@ const EndorsementDetailModal = ({
     }
   };
 
-  const handleSendComment = async (commentData) => {
-    if (!current) return;
+  const handleSendComment = async () => {
+    if (!current || !newComment.trim() || isSubmitting) return;
+    
     const storyId = current.id;
-    const newComment = {
-      id: Date.now(),
+    const tempId = `temp_${Date.now()}`;
+    
+    setIsSubmitting(true);
+    
+    // Optimistic update
+    const newCommentObj = {
+      id: tempId,
+      user_id: currentUser?.id || "anonymous",
       user_name: currentUser?.name || "Anonymous",
-      comment: commentData.content,
+      comment: newComment.trim(),
       created_at: new Date().toISOString(),
       likes: 0,
       liked: false,
@@ -536,8 +713,10 @@ const EndorsementDetailModal = ({
 
     setCommentsState((prev) => ({
       ...prev,
-      [storyId]: [...(prev[storyId] || []), newComment],
+      [storyId]: [...(prev[storyId] || []), newCommentObj],
     }));
+    
+    setNewComment("");
 
     try {
       const response = await axios.post(
@@ -545,72 +724,74 @@ const EndorsementDetailModal = ({
         {
           user_id: currentUser?.id || "anonymous",
           user_name: currentUser?.name || "Anonymous",
-          comment: commentData.content,
+          comment: newComment.trim(),
+          user_avatar: null,
         },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
       );
+
       if (response.data.success && response.data.data) {
+        // Replace temp comment with real one
         setCommentsState((prev) => ({
           ...prev,
           [storyId]: prev[storyId].map((c) =>
-            c.id === newComment.id ? response.data.data : c,
+            c.id === tempId ? response.data.data : c
           ),
         }));
-        if (onCommentsUpdate) onCommentsUpdate(storyId, response.data.data);
+        
+        if (onCommentsUpdate) {
+          onCommentsUpdate(storyId, response.data.data);
+        }
+      } else {
+        // Remove temp comment if failed
+        setCommentsState((prev) => ({
+          ...prev,
+          [storyId]: prev[storyId].filter((c) => c.id !== tempId),
+        }));
+        console.error("Failed to post comment:", response.data);
       }
     } catch (error) {
       console.error("Error sending comment:", error);
       setCommentsState((prev) => ({
         ...prev,
-        [storyId]: prev[storyId].filter((c) => c.id !== newComment.id),
+        [storyId]: prev[storyId].filter((c) => c.id !== tempId),
       }));
+      setNewComment(newCommentObj.comment);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleLikeComment = async (commentId) => {
     if (!current) return;
-    const storyId = current.id;
-    const comment = commentsState[storyId]?.find((c) => c.id === commentId);
-    if (!comment) return;
-
-    const wasLiked = comment.liked;
-    const newLikesCount = wasLiked
-      ? (comment.likes || 0) - 1
-      : (comment.likes || 0) + 1;
-
-    setCommentsState((prev) => ({
-      ...prev,
-      [storyId]: prev[storyId].map((c) =>
-        c.id === commentId
-          ? { ...c, liked: !wasLiked, likes: newLikesCount }
-          : c,
-      ),
-    }));
-
+    
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/v1/comments/${commentId}/like`,
-        { user_id: currentUser?.id || "anonymous" },
+        `${API_BASE_URL}/api/v1/endorsements/${current.id}/comments/${commentId}/like`,
+        { user_id: currentUser?.id || "anonymous" }
       );
+      
       if (response.data.success) {
         setCommentsState((prev) => ({
           ...prev,
-          [storyId]: prev[storyId].map((c) =>
+          [current.id]: prev[current.id].map((c) =>
             c.id === commentId
               ? { ...c, liked: response.data.liked, likes: response.data.likes }
-              : c,
+              : c
           ),
         }));
       }
     } catch (error) {
       console.error("Error liking comment:", error);
-      setCommentsState((prev) => ({
-        ...prev,
-        [storyId]: prev[storyId].map((c) =>
-          c.id === commentId
-            ? { ...c, liked: wasLiked, likes: comment.likes || 0 }
-            : c,
-        ),
-      }));
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendComment();
     }
   };
 
@@ -669,7 +850,6 @@ const EndorsementDetailModal = ({
         <LeftZone onClick={handlePrev} />
         <RightZone onClick={handleNext} />
 
-        {/* Full Screen Media - NO PHOTO ICONS */}
         {hasMedia ? (
           <>
             <FullScreenMedia>
@@ -684,19 +864,16 @@ const EndorsementDetailModal = ({
           </>
         ) : null}
 
-        {/* Message Display - Clean text with strong shadow */}
         <MessageDisplay>
           <MessageText>{displayMessage}</MessageText>
         </MessageDisplay>
 
-        {/* Centered message for no-media stories */}
         {!hasMedia && (
           <CenteredMessage>
             <CenteredText>{displayMessage}</CenteredText>
           </CenteredMessage>
         )}
 
-        {/* Meta Info - Only likes and comments, no views */}
         <EndorsementMeta>
           <MetaItem>
             <Heart size={14} />
@@ -712,8 +889,8 @@ const EndorsementDetailModal = ({
           <ActionButton onClick={handleLike}>
             <Heart
               size={22}
-              fill={likesState[current.id] ? "#ff2d55" : "none"}
-              color={likesState[current.id] ? "#ff2d55" : "white"}
+              fill={likesState[current.id] ? "#ef4444" : "none"}
+              color={likesState[current.id] ? "#ef4444" : "white"}
             />
             <span>Like</span>
             <CountSpan>{currentLikesCount}</CountSpan>
@@ -726,7 +903,7 @@ const EndorsementDetailModal = ({
           </ActionButton>
 
           <ActionButton onClick={() => setShowBoostModal(true)}>
-            <TrendingUp size={22} color="#ffcc00" />
+            <TrendingUp size={22} color="#fbbf24" />
             <span>Boost</span>
             <CountSpan>{current.boost_count || 0}</CountSpan>
           </ActionButton>
@@ -735,33 +912,69 @@ const EndorsementDetailModal = ({
         {showComments && (
           <CommentsModalOverlay>
             <CommentsModalHeader>
-              <div style={{ color: "white", fontWeight: "bold" }}>
+              <div style={{ color: "white", fontWeight: "bold", fontSize: "1rem" }}>
                 Comments ({currentCommentsCount})
               </div>
               <CloseBtn onClick={() => setShowComments(false)}>
                 <X size={18} />
               </CloseBtn>
             </CommentsModalHeader>
-            <div style={{ flex: 1, overflow: "hidden" }}>
+            
+            <CommentsList>
               {commentsLoading[current.id] ? (
-                <div
-                  style={{
-                    padding: "40px",
-                    textAlign: "center",
-                    color: "white",
-                  }}
-                >
+                <div style={{ padding: "40px", textAlign: "center", color: "white" }}>
                   Loading comments...
                 </div>
+              ) : commentsState[current.id]?.length === 0 ? (
+                <EmptyComments>No comments yet. Be the first to comment!</EmptyComments>
               ) : (
-                <EndorsementComments
-                  comments={commentsState[current.id] || []}
-                  onSendComment={handleSendComment}
-                  formatDate={formatDate}
-                  onLikeComment={handleLikeComment}
-                />
+                commentsState[current.id]?.map((comment) => (
+                  <CommentItem key={comment.id}>
+                    <CommentAvatar>
+                      {comment.user_name?.charAt(0).toUpperCase() || "U"}
+                    </CommentAvatar>
+                    <CommentContent>
+                      <CommentHeader>
+                        <CommentUserName>
+                          {comment.user_name || "Anonymous"}
+                        </CommentUserName>
+                        <CommentTime>
+                          {formatDate(comment.created_at)}
+                        </CommentTime>
+                      </CommentHeader>
+                      <CommentText>{comment.comment}</CommentText>
+                      <CommentActions>
+                        <LikeButton
+                          $liked={comment.liked}
+                          onClick={() => handleLikeComment(comment.id)}
+                        >
+                          <Heart
+                            size={14}
+                            fill={comment.liked ? "#ef4444" : "none"}
+                          />
+                          <span>{comment.likes || 0}</span>
+                        </LikeButton>
+                      </CommentActions>
+                    </CommentContent>
+                  </CommentItem>
+                ))
               )}
-            </div>
+            </CommentsList>
+
+            <CommentInputWrapper>
+              <InputForm onSubmit={(e) => { e.preventDefault(); handleSendComment(); }}>
+                <CommentInput
+                  placeholder="Write a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  rows={1}
+                />
+                <SendButton type="submit" disabled={!newComment.trim() || isSubmitting}>
+                  <Send size={18} color="white" />
+                </SendButton>
+              </InputForm>
+            </CommentInputWrapper>
           </CommentsModalOverlay>
         )}
       </FullScreenOverlay>

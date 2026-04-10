@@ -1099,14 +1099,19 @@ const getAnalytics = asyncHandler(async (req, res) => {
 
 // ============================================
 // GET COUNTY STATS - FIXED VERSION
+// ============================================\
+
+// ============================================
+// GET COUNTY STATS - FIXED VERSION
 // ============================================
 const getCountyStats = asyncHandler(async (req, res) => {
   try {
-    const { safeQuery, safeQueryOne } = require("../../../global/index");
-
+    // Use the already imported safeQuery and safeQueryOne from the top of the file
+    // Don't re-import them inside the function
+    
     // Get total users count
     const totalResult = await safeQueryOne(
-      "SELECT COUNT(*) as total FROM users",
+      "SELECT COUNT(*) as total FROM users WHERE status = 'active' OR status IS NULL"
     );
     const totalUsers = totalResult?.total || 0;
 
@@ -1131,7 +1136,7 @@ const getCountyStats = asyncHandler(async (req, res) => {
         COUNT(*) as total_users,
         ROUND((COUNT(*) / ?) * 100, 2) as percentage
       FROM users 
-      WHERE county IS NOT NULL AND county != ''
+      WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
       GROUP BY county
       ORDER BY total_users DESC
     `,
@@ -1139,51 +1144,70 @@ const getCountyStats = asyncHandler(async (req, res) => {
     );
 
     // Get top 10 counties
-    const topCounties = countyStats ? countyStats.slice(0, 10) : [];
+    const topCounties = countyStats && countyStats.length > 0 
+      ? countyStats.slice(0, 10) 
+      : [];
 
-    // Get counties with most voters
+    // Get counties with most voters (voter_card = 1 means they have a voter card)
     const countiesWithVoters = await safeQuery(`
       SELECT 
         county,
-        SUM(voter_card) as voters_with_card,
+        SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) as voters_with_card,
         COUNT(*) as total,
-        ROUND((SUM(voter_card) / COUNT(*)) * 100, 2) as voter_percentage
+        ROUND((SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as voter_percentage
       FROM users 
-      WHERE county IS NOT NULL AND county != ''
+      WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
       GROUP BY county
+      HAVING voters_with_card > 0
       ORDER BY voters_with_card DESC
       LIMIT 10
     `);
 
+    // Format the response
+    const formattedCountyStats = countyStats && countyStats.length > 0
+      ? countyStats.map((c) => ({
+          county: c.county,
+          total_users: parseInt(c.total_users) || 0,
+          percentage: parseFloat(c.percentage) || 0,
+        }))
+      : [];
+
+    const formattedTopCounties = topCounties.map((c) => ({
+      county: c.county,
+      total_users: parseInt(c.total_users) || 0,
+      percentage: parseFloat(c.percentage) || 0,
+    }));
+
+    const formattedCountiesWithVoters = countiesWithVoters && countiesWithVoters.length > 0
+      ? countiesWithVoters.map((c) => ({
+          county: c.county,
+          voters_with_card: parseInt(c.voters_with_card) || 0,
+          total: parseInt(c.total) || 0,
+          voter_percentage: parseFloat(c.voter_percentage) || 0,
+        }))
+      : [];
+
     return res.status(200).json({
       success: true,
       data: {
-        countyStats: countyStats
-          ? countyStats.map((c) => ({
-              county: c.county,
-              total_users: parseInt(c.total_users),
-              percentage: parseFloat(c.percentage),
-            }))
-          : [],
-        topCounties: topCounties.map((c) => ({
-          county: c.county,
-          total_users: parseInt(c.total_users),
-          percentage: parseFloat(c.percentage),
-        })),
-        countiesWithVoters: countiesWithVoters || [],
-        totalUsers,
+        countyStats: formattedCountyStats,
+        topCounties: formattedTopCounties,
+        countiesWithVoters: formattedCountiesWithVoters,
+        totalUsers: parseInt(totalUsers),
         lastUpdated: new Date().toISOString(),
       },
     });
   } catch (error) {
     console.error("[getCountyStats] Error:", error);
+    console.error("[getCountyStats] Stack:", error.stack);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch county statistics",
-      error: error.message,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
+
 
 module.exports = {
   createUser,

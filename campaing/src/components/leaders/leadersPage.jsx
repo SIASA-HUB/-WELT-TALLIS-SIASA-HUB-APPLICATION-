@@ -1,12 +1,6 @@
-// pages/LeadersPage.jsx - Complete Personalized Feed with Images Fixed
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  Suspense,
-  lazy,
-} from "react";
+// pages/LeadersPage.jsx - Fixed version with proper error handling
+
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
@@ -20,12 +14,17 @@ import {
   MapPin,
   Star,
   Flame,
+  User,
+  Shield,
+  Briefcase,
+  Users,
+  Award,
 } from "lucide-react";
-import { useAuth } from "../Hooks/useAuth";
 import TrendingManifestos from "./manifestos/TredingManifestos";
 
 const LeaderCard = lazy(() => import("./leadersCard"));
 
+// API Configuration
 const API_BASE_URL = "http://localhost:8002/api/v1";
 
 const api = axios.create({
@@ -33,6 +32,42 @@ const api = axios.create({
   withCredentials: true,
   timeout: 15000,
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`📤 API Request: ${config.method.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error("❌ Request Error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`📤 API Request: ${config.method.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error("❌ Request Error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log(`📥 API Response: ${response.status} - ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    console.error("❌ Response Error:", error.response?.status, error.response?.data);
+    return Promise.reject(error);
+  }
+);
 
 // Animations
 const fadeIn = keyframes`
@@ -163,6 +198,54 @@ const RegisterButton = styled.button`
   }
 `;
 
+const UserInfoBar = styled.div`
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: white;
+  
+  .user-details {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .info-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    
+    svg {
+      opacity: 0.8;
+    }
+  }
+  
+  .greeting {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .personalized-note {
+    font-size: 11px;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+`;
+
 const Section = styled.div`
   margin-bottom: 32px;
   animation: ${fadeIn} 0.5s ease-out both;
@@ -204,8 +287,13 @@ const SectionBadge = styled.span`
   align-items: center;
   gap: 4px;
   background: ${(props) =>
-    props.$type === "presidential" ? "#ff000010" : "#f0f0f0"};
-  color: ${(props) => (props.$type === "presidential" ? "#ff0000" : "#666")};
+    props.$type === "presidential" ? "#ff000010" : 
+    props.$type === "your-county" ? "#10b98110" :
+    props.$type === "your-party" ? "#3b82f610" : "#f0f0f0"};
+  color: ${(props) =>
+    props.$type === "presidential" ? "#ff0000" : 
+    props.$type === "your-county" ? "#10b981" :
+    props.$type === "your-party" ? "#3b82f6" : "#666"};
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 10px;
@@ -263,16 +351,53 @@ const EmptyState = styled.div`
 
 const LeadersPage = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
   const [feedGroups, setFeedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const loadingBarRef = useRef(null);
   const dataFetchedRef = useRef(false);
+
+  // Get user data from localStorage (from login response)
+  useEffect(() => {
+    const getUserData = () => {
+      try {
+        const storedUser = localStorage.getItem("user_data");
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          console.log("👤 User data loaded:", parsedUser);
+          setUserData(parsedUser);
+          setIsUserLoggedIn(true);
+          return;
+        }
+        
+        const fetchUserFromCookie = async () => {
+          try {
+            const response = await api.get("/users/me", { withCredentials: true });
+            if (response.data?.success && response.data?.user) {
+              setUserData(response.data.user);
+              setIsUserLoggedIn(true);
+              localStorage.setItem("user_data", JSON.stringify(response.data.user));
+            }
+          } catch (err) {
+            console.log("User not logged in");
+            setIsUserLoggedIn(false);
+          }
+        };
+        
+        fetchUserFromCookie();
+      } catch (err) {
+        console.error("Error loading user data:", err);
+        setIsUserLoggedIn(false);
+      }
+    };
+
+    getUserData();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -282,7 +407,7 @@ const LeadersPage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch personalized feed
+  // Fetch personalized feed based on user's data
   useEffect(() => {
     const fetchPersonalizedFeed = async () => {
       if (dataFetchedRef.current) return;
@@ -292,18 +417,43 @@ const LeadersPage = () => {
       }
 
       try {
+        const params = { limit: 300 };
+        
+        if (userData) {
+          if (userData.county) {
+            params.county = userData.county;
+            params.user_county = userData.county;
+          }
+          if (userData.ward) {
+            params.ward = userData.ward;
+            params.user_ward = userData.ward;
+          }
+          if (userData.political_party) {
+            params.party = userData.political_party;
+            params.user_party = userData.political_party;
+          }
+          if (userData.employment_status) {
+            params.employment = userData.employment_status;
+          }
+        }
+        
+        console.log("📤 Fetching personalized feed with params:", params);
+
         const response = await api.get("/leaders", {
-          params: { limit: 300 },
+          params: params,
           withCredentials: true,
         });
 
+        console.log("📥 Feed response:", response.data);
+
         if (response.data?.success) {
-          setFeedGroups(response.data.data || []);
-          setUserInfo(response.data.userInfo);
+          // FIX: Ensure data is always an array
+          const groups = Array.isArray(response.data.data) ? response.data.data : [];
+          setFeedGroups(groups);
           setError(null);
         } else {
           setFeedGroups([]);
-          setError("No data available");
+          setError(response.data?.message || "No data available");
         }
 
         dataFetchedRef.current = true;
@@ -319,32 +469,43 @@ const LeadersPage = () => {
       }
     };
 
-    fetchPersonalizedFeed();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchPersonalizedFeed();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [userData]);
 
   // Filter leaders based on search term
   const filteredGroups = useMemo(() => {
+    // FIX: Ensure feedGroups is an array before using .length
+    if (!Array.isArray(feedGroups) || feedGroups.length === 0) return [];
     if (!searchTerm.trim()) return feedGroups;
 
     const term = searchTerm.toLowerCase().trim();
 
     return feedGroups
-      .map((group) => ({
-        ...group,
-        leaders: group.leaders.filter(
-          (leader) =>
+      .map((group) => {
+        // Ensure group.leaders is an array
+        const leaders = Array.isArray(group.leaders) ? group.leaders : [];
+        return {
+          ...group,
+          leaders: leaders.filter((leader) =>
             leader.name?.toLowerCase().includes(term) ||
             leader.party?.toLowerCase().includes(term) ||
             leader.position?.toLowerCase().includes(term) ||
             leader.county?.toLowerCase().includes(term) ||
-            leader.constituency?.toLowerCase().includes(term),
-        ),
-      }))
+            leader.constituency?.toLowerCase().includes(term) ||
+            leader.ward?.toLowerCase().includes(term)
+          ),
+        };
+      })
       .filter((group) => group.leaders.length > 0);
   }, [feedGroups, searchTerm]);
 
   const totalLeaders = useMemo(() => {
-    return filteredGroups.reduce((sum, group) => sum + group.leaders.length, 0);
+    if (!Array.isArray(filteredGroups)) return 0;
+    return filteredGroups.reduce((sum, group) => sum + (group.leaders?.length || 0), 0);
   }, [filteredGroups]);
 
   const clearSearch = () => {
@@ -413,7 +574,7 @@ const LeadersPage = () => {
             <SearchInput
               key="search-input"
               type="text"
-              placeholder="Search aspirant by name, party, county, constituency..."
+              placeholder="Search aspirant by name, party, county, constituency, ward..."
               value={searchTerm || ""}
               onChange={(e) => setSearchTerm(e.target.value || "")}
               onFocus={() => setIsSearchFocused(true)}
@@ -430,6 +591,8 @@ const LeadersPage = () => {
             <UserPlus size={14} /> Register Aspirant
           </RegisterButton>
         </SearchContainer>
+
+     
 
         <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
@@ -461,30 +624,32 @@ const LeadersPage = () => {
       )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        {filteredGroups.length > 0 ? (
+        {Array.isArray(filteredGroups) && filteredGroups.length > 0 ? (
           filteredGroups.map((group, index) => (
-            <Section key={group.title} $delay={`${index * 0.05}s`}>
+            <Section key={group.id || group.title || index} $delay={`${index * 0.05}s`}>
               <SectionHeader>
                 <h2>
-                  {group.type === "presidential" && (
-                    <Star size={14} color="#ff0000" />
-                  )}
+                  {group.type === "presidential" && <Star size={14} color="#ff0000" />}
                   {group.type === "county" && <MapPin size={14} />}
-                  {group.type === "constituency" && <MapPin size={14} />}
-                  {group.title}
+                  {group.type === "party" && <Users size={14} />}
+                  {group.title || "Leaders"}
                   {group.type === "presidential" && (
-                    <SectionBadge $type="presidential">
-                      🇰🇪 National
-                    </SectionBadge>
+                    <SectionBadge $type="presidential">🇰🇪 National</SectionBadge>
+                  )}
+                  {group.type === "county" && userData?.county === group.title && (
+                    <SectionBadge $type="your-county">📍 Your County</SectionBadge>
+                  )}
+                  {group.type === "party" && userData?.political_party === group.title && (
+                    <SectionBadge $type="your-party">🎯 Your Party</SectionBadge>
                   )}
                 </h2>
                 <span className="count">
-                  {group.leaders.length} / {group.total}
+                  {group.leaders?.length || 0} / {group.total || group.leaders?.length || 0}
                 </span>
               </SectionHeader>
               <Tray>
                 <Suspense fallback={<SkeletonLeaderCard />}>
-                  {group.leaders.map((leader) => (
+                  {(group.leaders || []).map((leader) => (
                     <LeaderCard key={leader.leader_id} leader={leader} />
                   ))}
                 </Suspense>
@@ -511,6 +676,25 @@ const LeadersPage = () => {
                   }}
                 >
                   Clear search
+                </button>
+              </>
+            )}
+            {!searchTerm && !isUserLoggedIn && (
+              <>
+                <p>Login to see personalized feed based on your location and preferences</p>
+                <button
+                  onClick={() => navigate("/login")}
+                  style={{
+                    marginTop: 20,
+                    padding: "8px 20px",
+                    background: "#1e3c72",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 20,
+                    cursor: "pointer",
+                  }}
+                >
+                  Login Now
                 </button>
               </>
             )}

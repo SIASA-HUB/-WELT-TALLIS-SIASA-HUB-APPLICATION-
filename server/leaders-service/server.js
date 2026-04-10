@@ -6,6 +6,8 @@ const cors = require("cors");
 const knex = require("knex");
 const http = require("http");
 const socketIo = require("socket.io");
+const path = require("path");
+const fs = require("fs");
 
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
@@ -16,6 +18,33 @@ const { connectRabbitMQ } = require("./src/Qeues/Rabbit");
 
 const app = express();
 const server = http.createServer(app);
+
+// ============================================
+// UPLOADS DIRECTORY - CREATE AND SERVE STATIC FILES
+// ============================================
+
+// Ensure uploads directory exists inside leaders-service
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("✅ Created uploads directory:", uploadsDir);
+}
+
+// Create leaders subdirectory inside uploads
+const leadersUploadDir = path.join(uploadsDir, "leaders");
+if (!fs.existsSync(leadersUploadDir)) {
+  fs.mkdirSync(leadersUploadDir, { recursive: true });
+  console.log("✅ Created leaders uploads directory:", leadersUploadDir);
+}
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(uploadsDir));
+
+// Log static file requests for debugging
+app.use('/uploads', (req, res, next) => {
+  console.log(`📁 Static file request: ${req.url}`);
+  next();
+});
 
 // ============================================
 // CORS CONFIGURATION
@@ -38,7 +67,7 @@ const allowedOrigins = [
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) {
-      console.log(" CORS allowed: no origin");
+      console.log("CORS allowed: no origin");
       return callback(null, true);
     }
 
@@ -46,7 +75,7 @@ const corsOptions = {
       console.log("CORS allowed for:", origin);
       callback(null, true);
     } else {
-      console.log(" CORS blocked origin:", origin);
+      console.log("CORS blocked origin:", origin);
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
@@ -107,13 +136,13 @@ io.on("connection", (socket) => {
   // Leave a battle room
   socket.on("leave-battle", (battleId) => {
     socket.leave(`battle_${battleId}`);
-    console.log(` Client ${socket.id} left battle: ${battleId}`);
+    console.log(`Client ${socket.id} left battle: ${battleId}`);
   });
 
   // Handle real-time vote from client
   socket.on("battle-vote", (data) => {
     const { battleId, candidateId, deviceId, votesLeft, votesRight } = data;
-    console.log(" Real-time vote received:", {
+    console.log("Real-time vote received:", {
       battleId,
       candidateId,
       deviceId,
@@ -188,7 +217,7 @@ process.on("uncaughtException", (error) => {
     message: error.message,
     stack: error.stack,
   });
-  console.error(" UNCAUGHT EXCEPTION:", error);
+  console.error("UNCAUGHT EXCEPTION:", error);
 
   setTimeout(() => process.exit(1), 1000);
 });
@@ -239,6 +268,7 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
     timestamp: Date.now(),
     sockets: connectedClients.size,
+    uploadsPath: uploadsDir,
     cors: {
       allowedOrigins,
       currentOrigin: req.headers.origin,
@@ -266,7 +296,7 @@ app.use((err, req, res, next) => {
     stack: err.stack,
     path: req.originalUrl,
   });
-  console.error(" GLOBAL ERROR:", err.message);
+  console.error("GLOBAL ERROR:", err.message);
 
   res.status(err.status || 500).json({
     success: false,
@@ -306,6 +336,7 @@ const HOST = process.env.HOST || "0.0.0.0";
       port: PORT,
       host: HOST,
       nodeEnv: process.env.NODE_ENV,
+      uploadsPath: uploadsDir,
       allowedOrigins,
     });
 
@@ -318,22 +349,24 @@ const HOST = process.env.HOST || "0.0.0.0";
         port: PORT,
         action: "server_started",
       });
-      console.log(`\n Server running at http://${HOST}:${PORT}`);
-      console.log(` Socket.IO server is ready`);
-      console.log(` Health check: http://${HOST}:${PORT}/health`);
-      console.log(` CORS Test: http://${HOST}:${PORT}/cors-test`);
-      console.log(` Allowed origins:`, allowedOrigins);
-      console.log(`\n Ready to accept connections\n`);
+      console.log(`\n🚀 Server running at http://${HOST}:${PORT}`);
+      console.log(`🔌 Socket.IO server is ready`);
+      console.log(`📁 Serving static files from: ${uploadsDir}`);
+      console.log(`🔗 Image URL example: http://${HOST}:${PORT}/uploads/leaders/LDR_xxx/image.webp`);
+      console.log(`🏥 Health check: http://${HOST}:${PORT}/health`);
+      console.log(`🔧 CORS Test: http://${HOST}:${PORT}/cors-test`);
+      console.log(`✅ Allowed origins:`, allowedOrigins);
+      console.log(`\n📡 Ready to accept connections\n`);
     });
 
     // Shutdown handler
     const shutdown = () => {
       Logger.info("Shutdown signal received. Closing server...");
-      console.log(" Shutting down gracefully...");
+      console.log("🛑 Shutting down gracefully...");
       server.close(async () => {
         Logger.info("Server closed.");
         await db.destroy();
-        console.log(" Database connection closed");
+        console.log("✅ Database connection closed");
         process.exit(0);
       });
     };
@@ -346,7 +379,7 @@ const HOST = process.env.HOST || "0.0.0.0";
       stack: error.stack,
       action: "startup_failed",
     });
-    console.error("Failed to start:", error);
+    console.error("❌ Failed to start:", error);
     process.exit(1);
   }
 })();

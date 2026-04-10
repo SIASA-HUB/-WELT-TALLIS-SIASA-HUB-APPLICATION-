@@ -1,7 +1,9 @@
-import React, { memo } from "react";
+// components/LeaderCard.jsx - Fixed with proper full URL for images
+
+import React, { memo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, MapPin, ArrowRight, Zap } from "lucide-react";
+import { ShieldCheck, MapPin, ArrowRight, Zap, User } from "lucide-react";
 
 const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(15px); }
@@ -12,18 +14,17 @@ const CardContainer = styled.div`
   position: relative;
   width: 230px;
   height: 350px;
-  border-radius: 12px; /* Slightly more rounded for a modern look */
+  border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   background: #000;
-
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   animation: ${fadeUp} 0.5s ease-out forwards;
 
   &:hover {
     transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(220, 38, 38, 0.15); /* Red tinted shadow */
-    border-color: rgba(220, 38, 38, 0.5); /* Red border on hover */
+    box-shadow: 0 15px 35px rgba(220, 38, 38, 0.15);
+    border-color: rgba(220, 38, 38, 0.5);
   }
 `;
 
@@ -57,6 +58,29 @@ const LeaderImage = styled.img`
   }
 `;
 
+const FallbackImage = styled.div`
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: white;
+  
+  svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.5;
+    margin-bottom: 8px;
+  }
+  
+  span {
+    font-size: 12px;
+    opacity: 0.6;
+  }
+`;
+
 const TopBar = styled.div`
   position: absolute;
   top: 14px;
@@ -68,7 +92,6 @@ const TopBar = styled.div`
 `;
 
 const PartyBadge = styled.div`
-  /* Making the red visible and punchy */
   background: #dc2626;
   color: white;
   padding: 4px 10px;
@@ -81,6 +104,10 @@ const PartyBadge = styled.div`
   align-items: center;
   gap: 4px;
   box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const InfoSection = styled.div`
@@ -101,6 +128,9 @@ const Name = styled.h3`
   align-items: center;
   gap: 6px;
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const Location = styled.div`
@@ -111,6 +141,9 @@ const Location = styled.div`
   font-size: 12px;
   margin-bottom: 12px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const SmallViewButton = styled.div`
@@ -127,48 +160,143 @@ const SmallViewButton = styled.div`
   transition: all 0.3s ease;
 
   ${CardContainer}:hover & {
-    color: #dc2626; /* Text turns red on hover */
+    color: #dc2626;
     gap: 10px;
   }
 `;
 
+const PositionBadge = styled.div`
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  color: #dc2626;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+`;
+
+const StatsRow = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: #a1a1aa;
+  
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+`;
+
+// API Base URL for images (adjust to your backend URL)
+const API_BASE_URL = "http://localhost:8002";
+
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();
+  const [imageError, setImageError] = useState(false);
 
   const {
     leader_id,
     name = "Candidate",
     party = "IND",
     county = "Kenya",
-    primary_image,
+    ward,
+    constituency,
+    position,
+    position_running_for,
+    image_url,
     verification = 0,
+    views = 0,
+    followers = 0,
+    endorsement_count = 0,
   } = leader || {};
 
+  // Get the correct image URL with full path
+  const getImageUrl = () => {
+    if (imageError) return null;
+    
+    if (image_url && image_url !== "null" && image_url !== "") {
+      // If it's already a full URL, use it
+      if (image_url.startsWith("http")) return image_url;
+      // If it's a relative path, prepend the API base URL
+      if (image_url.startsWith("/")) return `${API_BASE_URL}${image_url}`;
+      // Otherwise, assume it's a relative path
+      return `${API_BASE_URL}/${image_url}`;
+    }
+    
+    return null;
+  };
+
+  // Get display location
+  const getDisplayLocation = () => {
+    if (ward && ward !== "null" && ward !== "") return ward;
+    if (constituency && constituency !== "null" && constituency !== "") return constituency;
+    if (county && county !== "null" && county !== "") return county;
+    return "Kenya";
+  };
+
+  // Get display position
+  const getDisplayPosition = () => {
+    if (position_running_for && position_running_for !== "null" && position_running_for !== "") {
+      return position_running_for;
+    }
+    if (position && position !== "null" && position !== "") {
+      return position;
+    }
+    return null;
+  };
+
+  const imageUrl = getImageUrl();
+  const displayLocation = getDisplayLocation();
+  const displayPosition = getDisplayPosition();
+
+  const handleImageError = () => {
+    console.log(`❌ Image failed to load for ${name}: ${imageUrl}`);
+    setImageError(true);
+  };
+
+  const handleClick = () => {
+    navigate(`/leaders/${leader_id}`);
+  };
+
   return (
-    <CardContainer onClick={() => navigate(`/leaders/${leader_id}`)}>
+    <CardContainer onClick={handleClick}>
       <ImageWrapper>
-        <LeaderImage
-          src={
-            primary_image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111&color=dc2626&bold=true`
-          }
-          alt={name}
-          loading="lazy"
-        />
+        {imageUrl && !imageError ? (
+          <LeaderImage
+            src={imageUrl}
+            alt={name}
+            loading="lazy"
+            onError={handleImageError}
+          />
+        ) : (
+          <FallbackImage>
+            <User size={40} />
+            <span>{name?.charAt(0) || "?"}</span>
+          </FallbackImage>
+        )}
       </ImageWrapper>
 
       <TopBar>
-        <PartyBadge>
+        <PartyBadge title={party}>
           <Zap size={11} fill="white" color="white" />
-          {party}
+          {party?.length > 15 ? `${party.substring(0, 12)}...` : party}
         </PartyBadge>
+        {displayPosition && (
+          <PositionBadge>
+            {displayPosition.length > 10 ? `${displayPosition.substring(0, 8)}...` : displayPosition}
+          </PositionBadge>
+        )}
       </TopBar>
 
       <InfoSection>
-        <Name>
-          {name}
+        <Name title={name}>
+          {name?.length > 20 ? `${name.substring(0, 18)}...` : name}
           {verification === 1 && (
-            /* Verified badge is now red to match the theme */
             <ShieldCheck
               size={18}
               color="#dc2626"
@@ -177,9 +305,17 @@ const LeaderCard = ({ leader }) => {
           )}
         </Name>
 
-        <Location>
-          <MapPin size={13} /> {county || "National"}
+        <Location title={displayLocation}>
+          <MapPin size={13} /> {displayLocation?.length > 25 ? `${displayLocation.substring(0, 22)}...` : displayLocation}
         </Location>
+
+        {(views > 0 || followers > 0 || endorsement_count > 0) && (
+          <StatsRow>
+            {views > 0 && <span>👁️ {views.toLocaleString()}</span>}
+            {followers > 0 && <span>❤️ {followers.toLocaleString()}</span>}
+            {endorsement_count > 0 && <span>⭐ {endorsement_count.toLocaleString()}</span>}
+          </StatsRow>
+        )}
 
         <SmallViewButton>
           Profile <ArrowRight size={14} strokeWidth={3} />

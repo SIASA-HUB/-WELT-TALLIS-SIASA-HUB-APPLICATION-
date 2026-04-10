@@ -490,7 +490,7 @@ const LoginPage = () => {
     if (AuthService.isAuthenticated()) {
       const userData = AuthService.getUserData();
       if (userData) {
-        navigate("/dashboard", { replace: true });
+        navigate("/", { replace: true });
       }
     }
 

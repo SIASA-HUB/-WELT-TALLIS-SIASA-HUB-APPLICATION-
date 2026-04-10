@@ -1,4 +1,5 @@
-// LeaderHeader.js - Complete with Instagram-style Add Story button
+// LeaderHeader.js - Fixed with smaller, cleaner add story button and improved design
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -53,7 +54,7 @@ const slideInRight = keyframes`
 
 const pulse = keyframes`
   0% { transform: scale(1); }
-  50% { transform: scale(1.08); }
+  50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 `;
 
@@ -91,12 +92,12 @@ export const VerifiedBadge = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: default;
 
   .verified-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -108,14 +109,14 @@ export const VerifiedBadge = styled.div`
   }
 
   .verified-text {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 500;
     color: ${(props) => (props.$verified ? "#10b981" : "#9ca3af")};
   }
 
   svg {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
   }
 `;
 
@@ -124,14 +125,14 @@ export const BoostButton = styled.button`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   background: none;
   border: none;
 
   .boost-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -143,7 +144,7 @@ export const BoostButton = styled.button`
   }
 
   .boost-text {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 500;
     color: #dc2626;
   }
@@ -163,14 +164,14 @@ export const ShareButton = styled.button`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   background: none;
   border: none;
 
   .share-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -182,7 +183,7 @@ export const ShareButton = styled.button`
   }
 
   .share-text {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.7);
   }
@@ -202,12 +203,12 @@ export const ViewCounter = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: default;
 
   .view-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -218,13 +219,13 @@ export const ViewCounter = styled.div`
   }
 
   .view-count {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.7);
   }
 
   .view-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.5);
   }
@@ -286,8 +287,8 @@ const IconButton = styled.button`
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   border: none;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 30px;
   display: flex;
   align-items: center;
@@ -302,13 +303,13 @@ const IconButton = styled.button`
   }
 `;
 
-// Side Actions
+// Side Actions - Smaller and cleaner
 const SideActions = styled.div`
   position: fixed;
   right: 12px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   z-index: 100;
   animation: ${slideInRight} 0.3s ease-out;
   transition:
@@ -319,7 +320,7 @@ const SideActions = styled.div`
     props.$visible ? "translateX(0)" : "translateX(20px)"};
   pointer-events: ${(props) => (props.$visible ? "auto" : "none")};
   top: ${(props) => {
-    if (props.$scrolledPast) return "20px";
+    if (props.$scrolledPast) return "80px";
     return "50%";
   }};
   transform: ${(props) => {
@@ -328,52 +329,35 @@ const SideActions = styled.div`
   }};
 `;
 
-// Instagram-style Add Story Button - Beautiful design
+// Clean Add Story Button - Small and elegant
 const AddStoryButton = styled.button`
   position: fixed;
-  bottom: ${(props) => (props.$visible ? "90px" : "-80px")};
+  bottom: ${(props) => (props.$visible ? "20px" : "-60px")};
   right: 20px;
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #25d366, #128c7e);
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   z-index: 99;
-  transition: all 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transition: all 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
   opacity: ${(props) => (props.$visible ? 1 : 0)};
   animation: ${(props) => (props.$visible ? fadeInUp : fadeOutDown)} 0.3s
     ease-out;
 
   &:hover {
-    transform: scale(1.08);
-    box-shadow: 0 6px 25px rgba(37, 211, 102, 0.5);
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
   }
 
   &:active {
     transform: scale(0.95);
   }
-`;
-
-// Instagram-style Story Ring around button
-const AddStoryRing = styled.div`
-  position: fixed;
-  bottom: ${(props) => (props.$visible ? "82px" : "-88px")};
-  right: 12px;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff5c01, #ff8c01, #ffcc00);
-  padding: 3px;
-  z-index: 98;
-  transition: all 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
-  opacity: ${(props) => (props.$visible ? 0.6 : 0)};
-  pointer-events: none;
-  animation: ${pulse} 2s infinite;
 `;
 
 // Profile Card
@@ -488,8 +472,8 @@ const CompetitorStoryItem = styled.div`
 `;
 
 const CompetitorRing = styled.div`
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   padding: 2px;
   background: ${(props) =>
@@ -521,18 +505,18 @@ const CompetitorAvatar = styled.div`
     justify-content: center;
     background: #2a2a2a;
     svg {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       color: rgba(255, 255, 255, 0.3);
     }
   }
 `;
 
 const CompetitorName = styled.div`
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
-  max-width: 64px;
+  max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -545,12 +529,12 @@ const TopCompetitorBadge = styled.div`
   right: -4px;
   background: #f59e0b;
   border-radius: 50%;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: bold;
   color: white;
 `;
@@ -815,10 +799,8 @@ const LeaderHeader = ({ leader, onBack }) => {
 
       // Show/hide add button based on scroll direction
       if (isScrollingUp) {
-        // Scrolling UP - show button
         setAddButtonVisible(true);
       } else if (currentScrollY > 50) {
-        // Scrolling DOWN and not at top - hide button
         setAddButtonVisible(false);
       }
 
@@ -835,12 +817,11 @@ const LeaderHeader = ({ leader, onBack }) => {
         clearTimeout(scrollTimeoutRef.current);
       }
 
-      // Show side actions after scrolling stops (300ms after last scroll)
+      // Show side actions after scrolling stops
       scrollTimeoutRef.current = setTimeout(() => {
         setSideActionsVisible(true);
       }, 300);
 
-      // Update last scroll position
       lastScrollYRef.current = currentScrollY;
     };
 
@@ -853,7 +834,7 @@ const LeaderHeader = ({ leader, onBack }) => {
     };
   }, []);
 
-  // Fetch REAL views from backend API
+  // Fetch views
   const fetchViews = useCallback(async () => {
     if (!leader?.leader_id) return;
     try {
@@ -911,7 +892,7 @@ const LeaderHeader = ({ leader, onBack }) => {
     return position;
   };
 
-  // Fetch competitors for this leader
+  // Fetch competitors
   const fetchCompetitors = useCallback(async () => {
     if (!leader?.leader_id) return;
 
@@ -1013,9 +994,8 @@ const LeaderHeader = ({ leader, onBack }) => {
   const coverImage =
     leader?.primary_image ||
     "https://images.unsplash.com/photo-1570126688035-1e6adbd61053?auto=format&fit=crop&q=80&w=1400";
-  const avatarImage =
-    leader?.primary_image ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=f59e0b&color=fff&size=100`;
+  const avatarImage = leader?.image_url || 
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100`;
   const partyName = leader?.party || leader?.political_party || "Independent";
   const partyLogo = getPartyLogo(partyName);
   const isVerified =
@@ -1054,30 +1034,30 @@ const LeaderHeader = ({ leader, onBack }) => {
         </TopNav>
       </HeroSection>
 
-      {/* Side Actions */}
+      {/* Side Actions - Smaller and cleaner */}
       <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
         <ViewCounter>
           <div className="view-icon">
-            <Eye size={22} />
+            <Eye size={18} />
           </div>
           <div className="view-count">{viewCount.toLocaleString()}</div>
           <div className="view-label">Views</div>
         </ViewCounter>
         <ShareButton onClick={() => setShowShareModal(true)}>
           <div className="share-icon">
-            <Share2 size={22} />
+            <Share2 size={18} />
           </div>
           <div className="share-text">Share</div>
         </ShareButton>
         <BoostButton onClick={() => setShowBoostModal(true)}>
           <div className="boost-icon">
-            <TrendingUp size={22} />
+            <TrendingUp size={18} />
           </div>
           <div className="boost-text">Boost</div>
         </BoostButton>
         <VerifiedBadge $verified={isVerified}>
           <div className="verified-icon">
-            {isVerified ? <CheckCircle size={22} /> : <AlertCircle size={22} />}
+            {isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
           </div>
           <div className="verified-text">
             {isVerified ? "Verified" : "Pending"}
@@ -1085,17 +1065,16 @@ const LeaderHeader = ({ leader, onBack }) => {
         </VerifiedBadge>
       </SideActions>
 
-      {/* Instagram-style Add Story Button - Beautiful design */}
-      <AddStoryRing $visible={addButtonVisible} />
+      {/* Clean Add Story Button - Small and elegant */}
       <AddStoryButton onClick={handleAddStory} $visible={addButtonVisible}>
-        <Plus size={24} color="white" />
+        <Plus size={20} color="white" />
       </AddStoryButton>
 
       {/* Profile Section */}
       <ProfileCard>
         <ProfileTopRow>
           <AvatarWrapper>
-            <Avatar src={avatarImage} alt={leader.name} />
+            <Avatar src={getFullImageUrl(avatarImage)} alt={leader.name} />
             <VerifiedIcon $verified={isVerified}>
               {isVerified ? (
                 <CheckCircle size={12} fill="#10b981" color="white" />
@@ -1139,7 +1118,7 @@ const LeaderHeader = ({ leader, onBack }) => {
                             />
                           ) : (
                             <div className="default-avatar">
-                              <User size={28} />
+                              <User size={24} />
                             </div>
                           )}
                         </CompetitorAvatar>

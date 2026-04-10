@@ -1,3 +1,5 @@
+// LoginAspirant.jsx - Fixed Version
+
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import styled from "styled-components";
@@ -15,9 +17,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+// API Configuration - Fixed
+const API_BASE_URL = "http://localhost:8002/api/v1/leaders";
+
+// Create axios instance
 const API = axios.create({
-  baseURL:
-    "https://apartments-adopt-cities-consent.trycloudflare.com/api/v1/leaders",
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 30000,
 });
 
 // --- Styled Components ---
@@ -135,9 +144,15 @@ const LoginButton = styled.button`
   justify-content: center;
   gap: 12px;
   margin-top: 10px;
+  transition: all 0.3s ease;
+  &:hover {
+    background: #2a4a8a;
+    transform: translateY(-1px);
+  }
   &:disabled {
     background: #9ca3af;
     cursor: not-allowed;
+    transform: none;
   }
 `;
 
@@ -151,6 +166,9 @@ const RegisterLink = styled.p`
     font-weight: 700;
     cursor: pointer;
     margin-left: 5px;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 `;
 
@@ -166,66 +184,132 @@ const ErrorAlert = styled.div`
   font-size: 13px;
 `;
 
+const SuccessMessage = styled.div`
+  background: #d1fae5;
+  color: #059669;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+`;
+
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
 // --- Component Logic ---
 
 const LoginAspirant = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true); // New state to handle redirect check
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: location.state?.name || location.state?.username || "",
     password: "",
   });
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // CHECK IF ALREADY LOGGED IN
   useEffect(() => {
-    const token = localStorage.getItem("leaderToken");
-    const leaderData = localStorage.getItem("leaderData");
+    const checkAuth = async () => {
+      const token = localStorage.getItem("leaderToken");
+      const leaderData = localStorage.getItem("leaderData");
 
-    if (token && leaderData) {
-      // User is already logged in, skip to dashboard
-      navigate("/aspirant-dashboard");
-    } else {
-      // No valid session, show the login form
+      if (token && leaderData) {
+        try {
+          // Verify token is still valid
+          const response = await API.get("/profile/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          if (response.data.success) {
+            // User is already logged in, redirect to dashboard
+            navigate("/aspirant-dashboard");
+            return;
+          }
+        } catch (err) {
+          // Token is invalid, clear localStorage
+          console.log("Token invalid, clearing storage");
+          localStorage.removeItem("leaderToken");
+          localStorage.removeItem("leaderData");
+          localStorage.removeItem("currentLeaderId");
+        }
+      }
+      
       setCheckingAuth(false);
-    }
+    };
+
+    checkAuth();
   }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError("");
+    setSuccessMessage("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.password) {
-      setError("Please enter your name and password");
+    
+    if (!formData.name || !formData.name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    
+    if (!formData.password) {
+      setError("Please enter your password");
       return;
     }
 
     setLoading(true);
     setError("");
+    setSuccessMessage("");
 
     try {
+      console.log("📤 Sending login request:", { name: formData.name });
+      
       const response = await API.post("/login", {
-        name: formData.name,
+        name: formData.name.trim(),
         password: formData.password,
       });
+
+      console.log("📥 Login response:", response.data);
 
       if (response.data.success) {
         const { token, leader } = response.data.data;
 
+        // Store in localStorage
         localStorage.setItem("leaderToken", token);
         localStorage.setItem("leaderData", JSON.stringify(leader));
-
+        
         const leaderId = leader.leader_id || leader.id || leader._id;
-        localStorage.setItem("currentLeaderId", leaderId);
+        if (leaderId) {
+          localStorage.setItem("currentLeaderId", leaderId);
+        }
 
+        setSuccessMessage(`Welcome back, ${leader.name}! Redirecting...`);
+        
         toast.success(`Welcome back, ${leader.name}!`);
 
+        // Redirect after a short delay
         setTimeout(() => {
           navigate("/aspirant-dashboard");
         }, 1500);
@@ -233,19 +317,41 @@ const LoginAspirant = () => {
         setError(response.data.message || "Login failed");
       }
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err.response?.data?.message || "Invalid name or password");
+      console.error("❌ Login error:", err);
+      
+      if (err.response) {
+        // Server responded with error
+        const errorMsg = err.response.data?.message || 
+                        err.response.data?.error || 
+                        "Invalid name or password";
+        setError(errorMsg);
+        
+        if (err.response.status === 401) {
+          setError("Invalid name or password. Please try again.");
+        } else if (err.response.status === 404) {
+          setError("Account not found. Please register first.");
+        } else if (err.response.status === 403) {
+          setError("Account is not active. Please contact support.");
+        }
+      } else if (err.request) {
+        // Request made but no response
+        setError("Cannot connect to server. Please check your connection.");
+      } else {
+        // Something else happened
+        setError(err.message || "An error occurred during login");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // While checking if the user is already logged in, show a simple loader or empty state
+  // While checking if the user is already logged in, show a simple loader
   if (checkingAuth) {
     return (
       <PageWrapper>
         <div style={{ textAlign: "center", color: "#1e3c72" }}>
-          <p style={{ fontWeight: "600" }}>Checking session...</p>
+          <Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} />
+          <p style={{ fontWeight: "600", marginTop: "10px" }}>Checking session...</p>
         </div>
       </PageWrapper>
     );
@@ -271,6 +377,13 @@ const LoginAspirant = () => {
             </ErrorAlert>
           )}
 
+          {successMessage && (
+            <SuccessMessage>
+              <LogIn size={16} />
+              {successMessage}
+            </SuccessMessage>
+          )}
+
           <InputWrapper>
             <InputIcon>
               <User size={18} />
@@ -282,6 +395,7 @@ const LoginAspirant = () => {
               value={formData.name}
               onChange={handleChange}
               error={!!error}
+              disabled={loading}
             />
           </InputWrapper>
 
@@ -296,6 +410,7 @@ const LoginAspirant = () => {
               value={formData.password}
               onChange={handleChange}
               error={!!error}
+              disabled={loading}
             />
             <PasswordToggle
               type="button"
@@ -306,8 +421,17 @@ const LoginAspirant = () => {
           </InputWrapper>
 
           <LoginButton type="submit" disabled={loading}>
-            {loading ? "Verifying..." : "Login to Dashboard"}
-            {!loading && <LogIn size={18} />}
+            {loading ? (
+              <>
+                <LoadingSpinner />
+                Verifying...
+              </>
+            ) : (
+              <>
+                Login to Dashboard
+                <LogIn size={18} />
+              </>
+            )}
           </LoginButton>
 
           <RegisterLink>

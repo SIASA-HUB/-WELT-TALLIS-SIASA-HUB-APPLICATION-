@@ -1,12 +1,6 @@
-// BattleArena.js - Sleek, Compact & Interactive with Internal Leader Fetch
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  lazy,
-  Suspense,
-} from "react";
+// BattleArena.js - Simplified Version (No Ended Battles, Fixed Keyframes)
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import axios from "axios";
 import io from "socket.io-client";
@@ -26,64 +20,14 @@ import {
   Volume2,
   VolumeX,
   Flame,
-  History,
-  Trophy,
   Zap,
   Heart,
-  Star,
   Crown,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8009/api/v1";
-const SOCKET_URL = "https://bidding-dollar-right-oct.trycloudflare.com";
-
+const API_BASE = "http://localhost:8002/api/v1";
+const SOCKET_URL = "http://localhost:8002";
 const BATTLE_API = `${API_BASE}/battles`;
-
-// Lazy load components
-const EndedBattles = lazy(() => import("./endedBattles"));
-
-// ==================== SOUND SYSTEM ====================
-class SoundManager {
-  constructor() {
-    this.sounds = {};
-    this.enabled = true;
-    this.init();
-  }
-
-  init() {
-    const soundFiles = {
-      gift: "https://assets.mixkit.co/sfx/preview/mixkit-coin-win-notification-1990.mp3",
-      bigGift:
-        "https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3",
-      vote: "https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3",
-      battleEnd:
-        "https://assets.mixkit.co/sfx/preview/mixkit-crowd-cheering-975.mp3",
-      boost:
-        "https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3",
-    };
-
-    Object.entries(soundFiles).forEach(([key, url]) => {
-      this.sounds[key] = new Audio(url);
-      this.sounds[key].preload = "auto";
-    });
-  }
-
-  play(soundName, volume = 0.5) {
-    if (!this.enabled) return;
-    const sound = this.sounds[soundName];
-    if (sound) {
-      sound.volume = volume;
-      sound.currentTime = 0;
-      sound.play().catch(() => {});
-    }
-  }
-
-  setEnabled(enabled) {
-    this.enabled = enabled;
-  }
-}
-
-const soundManager = new SoundManager();
 
 // ==================== ANIMATIONS ====================
 const slideIn = keyframes`
@@ -100,12 +44,6 @@ const livePulse = keyframes`
 const modalFadeIn = keyframes`
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
-`;
-
-const scorePop = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); color: #ffd700; }
-  100% { transform: scale(1); }
 `;
 
 // ==================== STYLED COMPONENTS ====================
@@ -222,42 +160,6 @@ const RefreshButton = styled.button`
   }
 `;
 
-const NavTabs = styled.div`
-  display: flex;
-  gap: 8px;
-  padding: 0 16px;
-  border-bottom: 1px solid #f0f0f0;
-`;
-
-const NavTab = styled.button`
-  background: transparent;
-  color: ${({ $active }) => ($active ? "#1e3c72" : "#999")};
-  border: none;
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: ${({ $active }) => ($active ? "#1e3c72" : "transparent")};
-  }
-
-  &:hover {
-    color: #1e3c72;
-  }
-`;
-
 const BattleScroll = styled.div`
   display: flex;
   gap: 12px;
@@ -281,7 +183,6 @@ const BattleScroll = styled.div`
   }
 `;
 
-// Import BattleCard component
 import BattleCard from "./BattleCard";
 
 const LoadingSpinner = styled.div`
@@ -542,17 +443,6 @@ const GiftAlert = styled.div`
   font-weight: 600;
 `;
 
-const ScoreAnimation = styled.div`
-  position: absolute;
-  top: -20px;
-  right: 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: #ffd700;
-  animation: ${scorePop} 0.4s ease-out;
-  pointer-events: none;
-`;
-
 // ==================== HELPER FUNCTIONS ====================
 const getDeviceId = () => {
   let deviceId = localStorage.getItem("battle_device_id");
@@ -564,21 +454,17 @@ const getDeviceId = () => {
 };
 
 // ==================== MAIN COMPONENT ====================
-const BattleArena = ({ currentUser = null, onBoost }) => {
+const BattleArena = ({ currentUser = null }) => {
   const [battles, setBattles] = useState([]);
-  const [completedBattles, setCompletedBattles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLeft, setSelectedLeft] = useState(null);
   const [selectedRight, setSelectedRight] = useState(null);
   const [selectedDuration, setSelectedDuration] = useState("7d");
-  const [battleTitle, setBattleTitle] = useState("");
-  const [activeTab, setActiveTab] = useState("live");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [giftAlerts, setGiftAlerts] = useState([]);
   const [comments, setComments] = useState({});
   const [modalSearch, setModalSearch] = useState("");
-  const [scoreAnimations, setScoreAnimations] = useState({});
   const [submittingVote, setSubmittingVote] = useState({});
   const [countdowns, setCountdowns] = useState({});
   const [reactionCounts, setReactionCounts] = useState({});
@@ -586,7 +472,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
   const [openComments, setOpenComments] = useState(null);
   const [newComment, setNewComment] = useState("");
 
-  // Leader fetching states
   const [availableLeaders, setAvailableLeaders] = useState([]);
   const [leadersLoading, setLeadersLoading] = useState(false);
 
@@ -603,35 +488,46 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     { value: "7d", label: "7d" },
   ];
 
-  // Fetch leaders when modal opens
   const fetchLeadersForModal = async () => {
     setLeadersLoading(true);
     try {
       const res = await axios.get(`${API_BASE}/leaders`, {
-        timeout: 10000,
+        params: { limit: 100 }
       });
 
-      if (res.data?.data) {
-        setAvailableLeaders(res.data.data);
-      } else {
-        setAvailableLeaders([]);
+      let leaders = [];
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        res.data.data.forEach(group => {
+          if (group.leaders && Array.isArray(group.leaders)) {
+            leaders = [...leaders, ...group.leaders];
+          }
+        });
       }
+      
+      const uniqueLeaders = [];
+      const seenIds = new Set();
+      for (const leader of leaders) {
+        if (!seenIds.has(leader.leader_id)) {
+          seenIds.add(leader.leader_id);
+          uniqueLeaders.push(leader);
+        }
+      }
+      
+      setAvailableLeaders(uniqueLeaders);
     } catch (err) {
-      console.error("Error fetching leaders for battle:", err);
+      console.error("Error fetching leaders:", err);
       setAvailableLeaders([]);
     } finally {
       setLeadersLoading(false);
     }
   };
 
-  // Trigger leader fetch when modal opens
   useEffect(() => {
     if (showCreateModal && availableLeaders.length === 0 && !leadersLoading) {
       fetchLeadersForModal();
     }
   }, [showCreateModal]);
 
-  // Socket connection
   useEffect(() => {
     socketRef.current = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -646,12 +542,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
             ? { ...b, votesLeft: data.votesLeft, votesRight: data.votesRight }
             : b,
         ),
-      );
-      setScoreAnimations((prev) => ({ ...prev, [data.battleId]: Date.now() }));
-      setTimeout(
-        () =>
-          setScoreAnimations((prev) => ({ ...prev, [data.battleId]: null })),
-        400,
       );
     });
 
@@ -686,25 +576,16 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     });
 
     socketRef.current.on("battle-ended", (data) => {
-      soundManager.play("battleEnd", 0.6);
       setBattles((prev) => prev.filter((b) => b.id !== data.battleId));
-      setCompletedBattles((prev) => [data.battle, ...prev]);
     });
 
     return () => socketRef.current?.disconnect();
   }, []);
 
-  // Fetch battles
   const fetchBattles = useCallback(async () => {
     try {
-      const [activeRes, completedRes] = await Promise.all([
-        axios.get(`${BATTLE_API}/active`),
-        axios.get(`${BATTLE_API}/completed`),
-      ]);
-
+      const activeRes = await axios.get(`${BATTLE_API}/active`);
       if (activeRes.data?.success) setBattles(activeRes.data.data);
-      if (completedRes.data?.success)
-        setCompletedBattles(completedRes.data.data);
     } catch (err) {
       console.error("Error fetching battles:", err);
     } finally {
@@ -716,7 +597,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     fetchBattles();
   }, [fetchBattles]);
 
-  // Vote function
   const vote = async (battleId, candidateId) => {
     if (voteCooldownRef.current[battleId]) return;
     voteCooldownRef.current[battleId] = true;
@@ -732,7 +612,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
       });
 
       if (res.data?.success) {
-        soundManager.play("vote", 0.3);
         socketRef.current?.emit("battle-vote", {
           battleId,
           candidateId,
@@ -747,7 +626,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     }
   };
 
-  // Add reaction
   const addReaction = async (battleId, emoji) => {
     try {
       const deviceId = getDeviceId();
@@ -762,7 +640,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     }
   };
 
-  // Add comment
   const addComment = async (battleId) => {
     if (!newComment.trim()) return;
     try {
@@ -778,7 +655,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     }
   };
 
-  // Send gift
   const sendGift = async (battleId, giftValue) => {
     try {
       await axios.post(`${BATTLE_API}/gift`, {
@@ -786,7 +662,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
         gift_value: giftValue,
         device_id: getDeviceId(),
       });
-      soundManager.play(giftValue >= 100 ? "bigGift" : "gift", 0.5);
       setGiftAlerts((prev) => [
         ...prev,
         { id: Date.now(), message: `🎉 ${giftValue} coins sent!` },
@@ -797,15 +672,6 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
     }
   };
 
-  // Boost candidate
-  const handleBoost = async (candidateId, amount) => {
-    if (onBoost) {
-      onBoost(candidateId, amount);
-      soundManager.play("boost", 0.6);
-    }
-  };
-
-  // Create battle
   const createBattle = async () => {
     if (!selectedLeft || !selectedRight) return;
     try {
@@ -813,14 +679,13 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
         challenger1_id: selectedLeft.leader_id,
         challenger2_id: selectedRight.leader_id,
         duration: selectedDuration,
-        title: battleTitle || `${selectedLeft.name} vs ${selectedRight.name}`,
+        title: `${selectedLeft.name} vs ${selectedRight.name}`,
       });
       if (res.data?.success) {
         setBattles([res.data.data, ...battles]);
         setShowCreateModal(false);
         setSelectedLeft(null);
         setSelectedRight(null);
-        setBattleTitle("");
         setModalSearch("");
       }
     } catch (err) {
@@ -856,10 +721,7 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
         </Title>
         <HeaderButtons>
           <IconButton
-            onClick={() => {
-              soundManager.setEnabled(!soundEnabled);
-              setSoundEnabled(!soundEnabled);
-            }}
+            onClick={() => setSoundEnabled(!soundEnabled)}
             $active={soundEnabled}
           >
             {soundEnabled ? <Volume2 /> : <VolumeX />}
@@ -873,66 +735,36 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
         </HeaderButtons>
       </BattleHeader>
 
-      <NavTabs>
-        <NavTab
-          $active={activeTab === "live"}
-          onClick={() => setActiveTab("live")}
-        >
-          <Flame size={14} /> Live ({battles.length})
-        </NavTab>
-        <NavTab
-          $active={activeTab === "ended"}
-          onClick={() => setActiveTab("ended")}
-        >
-          <History size={14} /> Ended ({completedBattles.length})
-        </NavTab>
-      </NavTabs>
-
-      {activeTab === "live" &&
-        (battles.length === 0 ? (
-          <EmptyState>
-            <Swords size={48} />
-            <p>No active battles</p>
-            <CreateButton onClick={() => setShowCreateModal(true)}>
-              Create First Battle
-            </CreateButton>
-          </EmptyState>
-        ) : (
-          <BattleScroll>
-            {battles.map((battle) => (
-              <BattleCard
-                key={battle.id}
-                battle={battle}
-                countdowns={countdowns}
-                reactionCounts={reactionCounts}
-                floatingReactions={floatingReactions}
-                comments={comments}
-                openComments={openComments}
-                setOpenComments={setOpenComments}
-                newComment={newComment}
-                setNewComment={setNewComment}
-                scoreAnimations={scoreAnimations}
-                onVote={vote}
-                onAddReaction={addReaction}
-                onAddComment={addComment}
-                onSendGift={sendGift}
-                onBoost={handleBoost}
-                currentUser={currentUser}
-              />
-            ))}
-          </BattleScroll>
-        ))}
-
-      {activeTab === "ended" && (
-        <Suspense
-          fallback={
-            <LoadingSpinner>
-              <Loader size={24} /> Loading...
-            </LoadingSpinner>
-          }
-        >
-          <EndedBattles battles={completedBattles} onRefresh={fetchBattles} />
-        </Suspense>
+      {battles.length === 0 ? (
+        <EmptyState>
+          <Swords size={48} />
+          <p>No active battles</p>
+          <CreateButton onClick={() => setShowCreateModal(true)}>
+            Create First Battle
+          </CreateButton>
+        </EmptyState>
+      ) : (
+        <BattleScroll>
+          {battles.map((battle) => (
+            <BattleCard
+              key={battle.id}
+              battle={battle}
+              countdowns={countdowns}
+              reactionCounts={reactionCounts}
+              floatingReactions={floatingReactions}
+              comments={comments}
+              openComments={openComments}
+              setOpenComments={setOpenComments}
+              newComment={newComment}
+              setNewComment={setNewComment}
+              onVote={vote}
+              onAddReaction={addReaction}
+              onAddComment={addComment}
+              onSendGift={sendGift}
+              currentUser={currentUser}
+            />
+          ))}
+        </BattleScroll>
       )}
 
       {giftAlerts.map((alert) => (
@@ -961,26 +793,13 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
               onChange={(e) => setModalSearch(e.target.value)}
             />
 
-            {/* First Leader Selection */}
             <LeaderList>
               {leadersLoading ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
                   <Loader size={24} /> Loading leaders...
                 </div>
               ) : filteredLeaders.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
                   No leaders found
                 </div>
               ) : (
@@ -991,25 +810,17 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
                     onClick={() => setSelectedLeft(l)}
                   >
                     <LeaderAvatar>
-                      {l.primary_image || l.image_url ? (
-                        <img
-                          src={l.primary_image || l.image_url}
-                          alt={l.name}
-                        />
+                      {l.image_url ? (
+                        <img src={l.image_url} alt={l.name} />
                       ) : (
-                        l.name?.charAt(0)
+                        l.name?.charAt(0).toUpperCase()
                       )}
                     </LeaderAvatar>
                     <LeaderInfo>
                       <h4>{l.name}</h4>
-                      <p>
-                        {l.party || "No party"} •{" "}
-                        {l.position_running_for || l.position || "Candidate"}
-                      </p>
+                      <p>{l.party || "No party"} • {l.position || "Candidate"}</p>
                     </LeaderInfo>
-                    {selectedLeft?.leader_id === l.leader_id && (
-                      <Check size={16} color="#ff4444" />
-                    )}
+                    {selectedLeft?.leader_id === l.leader_id && <Check size={16} color="#ff4444" />}
                   </LeaderItem>
                 ))
               )}
@@ -1017,16 +828,9 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
 
             <VsDivider>VS</VsDivider>
 
-            {/* Second Leader Selection */}
             <LeaderList>
               {leadersLoading ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
                   <Loader size={24} /> Loading leaders...
                 </div>
               ) : (
@@ -1039,25 +843,17 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
                       onClick={() => setSelectedRight(l)}
                     >
                       <LeaderAvatar>
-                        {l.primary_image || l.image_url ? (
-                          <img
-                            src={l.primary_image || l.image_url}
-                            alt={l.name}
-                          />
+                        {l.image_url ? (
+                          <img src={l.image_url} alt={l.name} />
                         ) : (
-                          l.name?.charAt(0)
+                          l.name?.charAt(0).toUpperCase()
                         )}
                       </LeaderAvatar>
                       <LeaderInfo>
                         <h4>{l.name}</h4>
-                        <p>
-                          {l.party || "No party"} •{" "}
-                          {l.position_running_for || l.position || "Candidate"}
-                        </p>
+                        <p>{l.party || "No party"} • {l.position || "Candidate"}</p>
                       </LeaderInfo>
-                      {selectedRight?.leader_id === l.leader_id && (
-                        <Check size={16} color="#ff4444" />
-                      )}
+                      {selectedRight?.leader_id === l.leader_id && <Check size={16} color="#ff4444" />}
                     </LeaderItem>
                   ))
               )}
@@ -1085,12 +881,7 @@ const BattleArena = ({ currentUser = null, onBoost }) => {
         </ModalOverlay>
       )}
 
-      <VoiceControl
-        onClick={() => {
-          soundManager.setEnabled(!soundEnabled);
-          setSoundEnabled(!soundEnabled);
-        }}
-      >
+      <VoiceControl onClick={() => setSoundEnabled(!soundEnabled)}>
         {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
       </VoiceControl>
     </BattleContainer>

@@ -1,4 +1,5 @@
-// BattleCard.js - Complete Fixed Version
+// BattleCard.js - Complete Fixed Version (No Keyframe Errors)
+
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -11,11 +12,9 @@ import {
   Clock,
   X,
   Gift,
-  Flame,
   Swords,
   Send,
 } from "lucide-react";
-import BoostModal from "../../Wallet/boostModal";
 
 // ==================== ANIMATIONS ====================
 const slideIn = keyframes`
@@ -61,12 +60,6 @@ const countdownPulse = keyframes`
   0% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.05); }
   100% { opacity: 0.7; transform: scale(1); }
-`;
-
-const giftPulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); background: #ff8844; }
-  100% { transform: scale(1); }
 `;
 
 // ==================== STYLED COMPONENTS ====================
@@ -222,9 +215,7 @@ const VsBadge = styled.div`
   font-size: 20px;
   color: white;
   z-index: 15;
-  box-shadow:
-    0 0 0 4px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(255, 68, 68, 0.5);
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 68, 68, 0.5);
   animation: ${livePulse} 2s infinite;
 `;
 
@@ -581,18 +572,11 @@ const CommentButton = styled.button`
   }
 `;
 
-const BoostButtons = styled.div`
+const GiftButton = styled.button`
   position: absolute;
   bottom: 100px;
   right: 12px;
-  display: flex;
-  gap: 8px;
-  z-index: 15;
-`;
-
-const BoostButton = styled.button`
   background: linear-gradient(135deg, #ff8844, #ff4444);
-  backdrop-filter: blur(8px);
   border: none;
   padding: 6px 12px;
   border-radius: 25px;
@@ -603,11 +587,11 @@ const BoostButton = styled.button`
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  z-index: 15;
+  transition: 0.2s;
 
   &:active {
     transform: scale(0.95);
-    animation: ${giftPulse} 0.3s ease;
   }
 `;
 
@@ -643,12 +627,17 @@ const BattleCard = ({
   onVote,
   onAddReaction,
   onAddComment,
-  onBoost,
+  onSendGift,
   currentUser,
 }) => {
-  const [showBoostModal, setShowBoostModal] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [ripples, setRipples] = useState({});
+  const [localReactionCounts, setLocalReactionCounts] = useState({});
+
+  useEffect(() => {
+    if (reactionCounts && reactionCounts[battle?.id]) {
+      setLocalReactionCounts(reactionCounts[battle.id]);
+    }
+  }, [reactionCounts, battle?.id]);
 
   const total = (battle.votesLeft || 0) + (battle.votesRight || 0);
   const leftPercent = total ? ((battle.votesLeft || 0) / total) * 100 : 50;
@@ -671,12 +660,17 @@ const BattleCard = ({
     onVote(battle.id, candidateId);
   };
 
-  const handleBoostClick = (candidate) => {
-    setSelectedCandidate(candidate);
-    setShowBoostModal(true);
+  const handleReactionClick = async (emoji) => {
+    setLocalReactionCounts((prev) => ({
+      ...prev,
+      [emoji]: (prev[emoji] || 0) + 1,
+    }));
+    await onAddReaction(battle.id, emoji);
   };
 
   const reactions = ["🔥", "❤️", "😂", "👏", "💯"];
+
+  if (!battle) return null;
 
   return (
     <BattleCardStyled>
@@ -698,7 +692,6 @@ const BattleCard = ({
         </HostBadge>
       )}
 
-      {/* Winner/Loser Effects */}
       {isLeftWinner ? (
         <>
           <WinnerEffect $side="left" />
@@ -711,7 +704,6 @@ const BattleCard = ({
         </>
       )}
 
-      {/* Winner Crown */}
       {isLeftWinner && <WinnerCrown $side="left">👑</WinnerCrown>}
       {!isLeftWinner && <WinnerCrown $side="right">👑</WinnerCrown>}
 
@@ -817,12 +809,10 @@ const BattleCard = ({
           ))}
       </CandidateSide>
 
-      {/* Progress Bar */}
       <ProgressContainer>
         <ProgressBar $percent={leftPercent} />
       </ProgressContainer>
 
-      {/* Vote Numbers */}
       <VoteNumbers $left $animate={scoreAnimations?.[battle.id]}>
         <span className="number">{formatNumber(battle.votesLeft || 0)}</span> (
         {Math.round(leftPercent)}%)
@@ -832,7 +822,6 @@ const BattleCard = ({
         {Math.round(100 - leftPercent)}%)
       </VoteNumbers>
 
-      {/* Comment Button */}
       <CommentButton
         onClick={() =>
           setOpenComments(openComments === battle.id ? null : battle.id)
@@ -841,17 +830,10 @@ const BattleCard = ({
         <MessageCircle size={12} /> {comments?.[battle.id]?.length || 0}
       </CommentButton>
 
-      {/* Boost Buttons */}
-      <BoostButtons>
-        <BoostButton onClick={() => handleBoostClick(battle.left)}>
-          <Gift size={10} /> Boost {battle.left?.name?.split(" ")[0]}
-        </BoostButton>
-        <BoostButton onClick={() => handleBoostClick(battle.right)}>
-          <Gift size={10} /> Boost {battle.right?.name?.split(" ")[0]}
-        </BoostButton>
-      </BoostButtons>
+      <GiftButton onClick={() => onSendGift && onSendGift(battle.id, 10)}>
+        <Gift size={10} /> Send Gift
+      </GiftButton>
 
-      {/* Comments Section */}
       <CommentsSection $open={openComments === battle.id}>
         <CommentsHeader>
           <span>💬 Comments ({comments?.[battle.id]?.length || 0})</span>
@@ -891,24 +873,19 @@ const BattleCard = ({
         </CommentInput>
       </CommentsSection>
 
-      {/* Reaction Buttons */}
       <ReactionButtons>
         {reactions.map((emoji) => (
-          <ReactionBtn
-            key={emoji}
-            onClick={() => onAddReaction(battle.id, emoji)}
-          >
+          <ReactionBtn key={emoji} onClick={() => handleReactionClick(emoji)}>
             {emoji}
-            {reactionCounts?.[battle.id]?.[emoji] > 0 && (
+            {(localReactionCounts?.[emoji] || 0) > 0 && (
               <span className="count">
-                {formatNumber(reactionCounts[battle.id][emoji])}
+                {formatNumber(localReactionCounts[emoji] || 0)}
               </span>
             )}
           </ReactionBtn>
         ))}
       </ReactionButtons>
 
-      {/* Floating Reactions */}
       {floatingReactions?.[battle.id]?.map((r, i) => (
         <FloatingReaction
           key={r.id}
@@ -921,7 +898,6 @@ const BattleCard = ({
         </FloatingReaction>
       ))}
 
-      {/* Battle Stats */}
       <BattleStats>
         <StatItem>
           <Eye size={10} /> {formatNumber(battle.views || 0)}
@@ -932,7 +908,7 @@ const BattleCard = ({
         <StatItem>
           <Heart size={10} />{" "}
           {formatNumber(
-            Object.values(reactionCounts?.[battle.id] || {}).reduce(
+            Object.values(localReactionCounts || {}).reduce(
               (a, b) => a + b,
               0,
             ),
@@ -942,23 +918,6 @@ const BattleCard = ({
           <Gift size={10} /> {formatNumber(battle.giftTotal || 0)}
         </StatItem>
       </BattleStats>
-
-      {/* Boost Modal */}
-      {showBoostModal && selectedCandidate && (
-        <BoostModal
-          leader={selectedCandidate}
-          onClose={() => {
-            setShowBoostModal(false);
-            setSelectedCandidate(null);
-          }}
-          onBoostSuccess={(amount) => {
-            if (onBoost) {
-              onBoost(selectedCandidate.leader_id, amount);
-            }
-            setShowBoostModal(false);
-          }}
-        />
-      )}
     </BattleCardStyled>
   );
 };

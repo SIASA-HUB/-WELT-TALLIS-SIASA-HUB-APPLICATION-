@@ -1,10 +1,14 @@
+// routes/battleRoutes.js - Complete Working Version
+
 const express = require("express");
 const router = express.Router();
 const {
   createBattle,
   getActiveBattles,
+  getCompletedBattles,
   getBattleById,
   voteBattle,
+  sendGift,
   addReaction,
   getReactions,
   addComment,
@@ -12,30 +16,41 @@ const {
   endBattle,
   getBattleLeaderboard,
   getUserVotes,
-  cleanupExpiredBattles,
   getBattleStats,
+  countdownTick,
+
 } = require("../controllers/BattleController");
 
-// Battle routes
-router.post("/create", createBattle);
-router.get("/active", getActiveBattles);
-router.get("/:battleId", getBattleById);
-router.post("/vote", voteBattle);
-router.post("/reaction", addReaction);
-router.get("/:battleId/reactions", getReactions);
-router.post("/comment", addComment);
-router.get("/:battleId/comments", getComments);
-router.put("/:battleId/end", endBattle);
-router.get("/leaderboard", getBattleLeaderboard);
-router.get("/user/:deviceId/votes", getUserVotes);
-router.get("/stats", getBattleStats);
+// ================================
+// BATTLE ROUTES (ORDER MATTERS!)
+// ================================
 
-// Cron job for cleanup (run every hour)
-setInterval(
-  () => {
-    cleanupExpiredBattles();
-  },
-  60 * 60 * 1000,
-); // Every hour
+// Stats & Leaderboard (before ID routes)
+router.get("/stats", getBattleStats);
+router.get("/leaderboard", getBattleLeaderboard);
+
+
+// Active & Completed
+router.get("/active", getActiveBattles);
+router.get("/completed", getCompletedBattles);
+
+// User votes
+router.get("/user-votes/:deviceId", getUserVotes);
+
+// Actions (POST)
+router.post("/create", createBattle);
+router.post("/vote", voteBattle);
+router.post("/gift", sendGift);
+router.post("/reaction", addReaction);
+router.post("/comment", addComment);
+router.post("/countdown", countdownTick);
+
+// Battle specific (with ID - MUST be last)
+router.get("/:battleId", getBattleById);
+router.get("/:battleId/reactions", getReactions);
+router.get("/:battleId/comments", getComments);
+router.post("/:battleId/end", endBattle);
+
+
 
 module.exports = router;

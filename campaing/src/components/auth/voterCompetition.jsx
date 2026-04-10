@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import theme from "../../utils/Theme";
 import AppLoadingBar from "../../utils/LoadingBar";
+import   API_URL   from  "./apiConfig"
 
-const API_URL = "http://localhost:8004/api/v1/users";
 
 // --- ANIMATIONS ---
 const numberPop = keyframes`

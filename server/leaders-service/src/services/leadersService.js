@@ -13,7 +13,7 @@ const {
   bulkDeleteLocalImages,
   optimizeExistingImage,
   getLocalImageInfo,
-} = require("../utils/images/localImageProcessing");
+} = require("../utils/images/imageProcessing");
 
 const LeaderService = {
   // ===== CREATE LEADER =====

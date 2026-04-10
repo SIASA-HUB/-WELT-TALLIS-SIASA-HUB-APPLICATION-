@@ -1,3 +1,5 @@
+// RegisterAspirant.jsx - Fixed Main Registration
+
 import React, { useState } from "react";
 import axios from "axios";
 import styled, { keyframes } from "styled-components";
@@ -20,10 +22,8 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API = axios.create({
-  baseURL:
-    "https://apartments-adopt-cities-consent.trycloudflare.com/api/v1/leaders",
-});
+// API Configuration
+const API_BASE_URL = "http://localhost:8002/api/v1/leaders";
 
 const slideIn = keyframes`
   from { opacity: 0; transform: translateX(-20px); }
@@ -250,53 +250,14 @@ const SectionTitle = styled.h3`
 `;
 
 const CountyList = [
-  "Mombasa",
-  "Kwale",
-  "Kilifi",
-  "Tana River",
-  "Lamu",
-  "Taita Taveta",
-  "Garissa",
-  "Wajir",
-  "Mandera",
-  "Marsabit",
-  "Isiolo",
-  "Meru",
-  "Tharaka Nithi",
-  "Embu",
-  "Kitui",
-  "Machakos",
-  "Makueni",
-  "Nyandarua",
-  "Nyeri",
-  "Kirinyaga",
-  "Murang'a",
-  "Kiambu",
-  "Turkana",
-  "West Pokot",
-  "Samburu",
-  "Trans Nzoia",
-  "Uasin Gishu",
-  "Elgeyo Marakwet",
-  "Nandi",
-  "Baringo",
-  "Laikipia",
-  "Nakuru",
-  "Narok",
-  "Kajiado",
-  "Kericho",
-  "Bomet",
-  "Kakamega",
-  "Vihiga",
-  "Bungoma",
-  "Busia",
-  "Siaya",
-  "Kisumu",
-  "Homa Bay",
-  "Migori",
-  "Kisii",
-  "Nyamira",
-  "Nairobi",
+  "Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita Taveta",
+  "Garissa", "Wajir", "Mandera", "Marsabit", "Isiolo", "Meru",
+  "Tharaka Nithi", "Embu", "Kitui", "Machakos", "Makueni", "Nyandarua",
+  "Nyeri", "Kirinyaga", "Murang'a", "Kiambu", "Turkana", "West Pokot",
+  "Samburu", "Trans Nzoia", "Uasin Gishu", "Elgeyo Marakwet", "Nandi",
+  "Baringo", "Laikipia", "Nakuru", "Narok", "Kajiado", "Kericho", "Bomet",
+  "Kakamega", "Vihiga", "Bungoma", "Busia", "Siaya", "Kisumu", "Homa Bay",
+  "Migori", "Kisii", "Nyamira", "Nairobi",
 ];
 
 const RegisterAspirant = () => {
@@ -379,10 +340,9 @@ const RegisterAspirant = () => {
       submitData.append("password", formData.password);
       if (formData.party) submitData.append("party", formData.party);
       if (formData.slogan) submitData.append("slogan", formData.slogan);
-      if (formData.position) submitData.append("position", formData.position);
-      if (formData.county) submitData.append("county", formData.county);
-      if (formData.constituency)
-        submitData.append("constituency", formData.constituency);
+      submitData.append("position", formData.position);
+      submitData.append("county", formData.county);
+      if (formData.constituency) submitData.append("constituency", formData.constituency);
       if (formData.ward) submitData.append("ward", formData.ward);
       if (formData.image) submitData.append("image", formData.image);
 
@@ -397,9 +357,12 @@ const RegisterAspirant = () => {
         submitData.append("education", JSON.stringify(validEducation));
       }
 
-      const response = await API.post("/register", submitData, {
+      // Make the API call to the correct endpoint
+      const response = await axios.post(`${API_BASE_URL}/register`, submitData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
+      console.log("Registration response:", response.data);
 
       if (response.data.success) {
         toast.success("Account created successfully! Please login.");
