@@ -1,8 +1,9 @@
-// TrendingStoriesRow.js - Instagram Style Stories with Rich Black Background
+// TrendingStoriesRow.js - Fixed to use available endpoints
+
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import axios from "axios";
-import { ChevronRight, Sparkles, Heart } from "lucide-react";
+import { ChevronRight, Sparkles, Heart, Flame } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 
 const API_BASE_URL = "http://localhost:8009";
@@ -28,10 +29,9 @@ const ringPulse = keyframes`
 `;
 
 // ============================================
-// STYLED COMPONENTS - INSTAGRAM STYLE
+// STYLED COMPONENTS
 // ============================================
 
-// Instagram uses #0A0A0A (very dark, not pure black)
 const Section = styled.div`
   margin: 12px 0 20px;
   background: #0a0a0a;
@@ -92,8 +92,6 @@ const StoriesContainer = styled.div`
   padding: 8px 16px 20px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-
-  /* Hide scrollbar completely */
   scrollbar-width: none;
   -ms-overflow-style: none;
 
@@ -153,7 +151,7 @@ const StoryAvatar = styled.div`
   }
 `;
 
-const LiveBadge = styled.div`
+const HotBadge = styled.div`
   position: absolute;
   bottom: -3px;
   left: 50%;
@@ -197,7 +195,6 @@ const EngagementBadge = styled.div`
   }
 `;
 
-// Skeleton Loader
 const SkeletonRing = styled.div`
   width: 78px;
   height: 78px;
@@ -218,7 +215,6 @@ const SkeletonText = styled.div`
   margin: 4px auto 0;
 `;
 
-// See All Link
 const SeeAllLink = styled.button`
   background: transparent;
   border: none;
@@ -238,10 +234,33 @@ const SeeAllLink = styled.button`
   }
 `;
 
-// Main Component
+const ErrorMessage = styled.div`
+  text-align: center;
+  padding: 20px;
+  color: #888;
+  font-size: 12px;
+`;
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Calculate trending score based on engagement
+const calculateTrendingScore = (story) => {
+  const likes = story.likes || 0;
+  const boosts = story.boost_count || 0;
+  const comments = story.comments || 0;
+  // Weight: likes (1), comments (2), boosts (5)
+  return likes + comments * 2 + boosts * 5;
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedStory, setSelectedStory] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [viewedStories, setViewedStories] = useState(new Set());
@@ -252,16 +271,64 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
 
   const fetchTrendingStories = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/endorsements/trending/global?limit=${limit}&days=7`,
-        { withCredentials: true },
+      // Since there's no global trending endpoint, we need to fetch recent endorsements
+      // from multiple sources and combine them
+      
+      console.log("📊 Fetching trending stories...");
+      
+      // Fetch recent endorsements (most recent first)
+      const recentResponse = await axios.get(
+        `${API_BASE_URL}/api/v1/endorsements/recent?limit=100`,
+        { withCredentials: true, timeout: 10000 }
       );
-      if (response.data?.success) {
-        setStories(response.data.data);
+      
+      let allStories = [];
+      
+      if (recentResponse.data?.success && recentResponse.data?.data) {
+        allStories = recentResponse.data.data;
+        console.log(`📥 Fetched ${allStories.length} recent endorsements`);
       }
+      
+      // Also try to get boosted endorsements (they have higher engagement)
+      try {
+        // We need a leaderId for boosted endpoint, so we might need to fetch from multiple leaders
+        // For now, just use recent endorsements and sort by engagement
+        console.log("Using recent endorsements sorted by engagement");
+      } catch (boostErr) {
+        console.log("Could not fetch boosted endorsements:", boostErr.message);
+      }
+      
+      if (allStories.length === 0) {
+        setStories([]);
+        setError("No stories available");
+        setLoading(false);
+        return;
+      }
+      
+      // Calculate trending score for each story and sort
+      const storiesWithScore = allStories.map(story => ({
+        ...story,
+        trendingScore: calculateTrendingScore(story)
+      }));
+      
+      // Sort by trending score (highest first)
+      storiesWithScore.sort((a, b) => b.trendingScore - a.trendingScore);
+      
+      // Take top stories
+      const trendingStories = storiesWithScore.slice(0, limit);
+      
+      console.log(`🔥 Found ${trendingStories.length} trending stories`);
+      trendingStories.forEach((story, idx) => {
+        console.log(`  ${idx + 1}. Score: ${story.trendingScore} - ${story.user_name}`);
+      });
+      
+      setStories(trendingStories);
     } catch (error) {
       console.error("Fetch error", error);
+      setError("Unable to load trending stories");
+      setStories([]);
     } finally {
       setLoading(false);
     }
@@ -277,9 +344,9 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
   };
 
   const getEngagementLevel = (story) => {
-    const total = (story.likes || 0) + (story.boost_count || 0);
-    if (total > 100) return "trending";
-    if (total > 50) return "hot";
+    const score = calculateTrendingScore(story);
+    if (score > 50) return "trending";
+    if (score > 20) return "hot";
     return "normal";
   };
 
@@ -296,8 +363,12 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
           <HeaderLeft>
             <HeaderTitle>
               <Sparkles size={14} color="#ffcc00" />
-              Stories
+              Trending Stories
             </HeaderTitle>
+            <LiveIndicator>
+              <div className="dot" />
+              <span>LIVE</span>
+            </LiveIndicator>
           </HeaderLeft>
         </SectionHeader>
         <StoriesContainer>
@@ -315,6 +386,22 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
     );
   }
 
+  if (error && stories.length === 0) {
+    return (
+      <Section>
+        <SectionHeader>
+          <HeaderLeft>
+            <HeaderTitle>
+              <Flame size={14} color="#ff3b3b" />
+              Trending Stories
+            </HeaderTitle>
+          </HeaderLeft>
+        </SectionHeader>
+        <ErrorMessage>{error}</ErrorMessage>
+      </Section>
+    );
+  }
+
   if (!stories.length) return null;
 
   return (
@@ -323,27 +410,26 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
         <SectionHeader>
           <HeaderLeft>
             <HeaderTitle>
-              <Sparkles size={14} color="#ffcc00" />
-              Stories
+              <Flame size={14} color="#ff3b3b" />
+              Trending Stories
             </HeaderTitle>
             <LiveIndicator>
               <div className="dot" />
-              <span>LIVE</span>
+              <span>HOT</span>
             </LiveIndicator>
           </HeaderLeft>
-          <SeeAllLink>
-            See All <ChevronRight size={14} />
+          <SeeAllLink onClick={fetchTrendingStories}>
+            Refresh <ChevronRight size={14} />
           </SeeAllLink>
         </SectionHeader>
 
         <StoriesContainer>
-          {stories.slice(0, 20).map((story, index) => {
+          {stories.map((story, index) => {
             const isViewed = viewedStories.has(story.id);
             const engagementLevel = getEngagementLevel(story);
             const isTrending = engagementLevel === "trending";
             const isHot = engagementLevel === "hot";
-            const totalEngagement =
-              (story.likes || 0) + (story.boost_count || 0);
+            const score = calculateTrendingScore(story);
 
             return (
               <StoryItem
@@ -357,15 +443,15 @@ const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
                 >
                   <StoryAvatar>
                     <img src={getAvatarUrl(story)} alt="" />
-                    {(isTrending || totalEngagement > 100) && (
-                      <LiveBadge>HOT</LiveBadge>
+                    {(isTrending || score > 50) && (
+                      <HotBadge>HOT</HotBadge>
                     )}
                   </StoryAvatar>
                 </StoryRing>
                 <StoryUsername>
                   {story.user_name?.substring(0, 12) || "User"}
                 </StoryUsername>
-                {totalEngagement > 0 && (
+                {score > 0 && (
                   <EngagementBadge>
                     <Heart size={8} />
                     {story.likes || 0}
