@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { X, Heart, MessageCircle, TrendingUp, Clock, Play, Send } from "lucide-react";
 import axios from "axios";
-import BoostModal from "../Wallet/boostModal";
+import BoostModal from "../wallet/boostModal";
 
 const slideUp = keyframes`
   from { transform: translateY(100%); opacity: 0; }

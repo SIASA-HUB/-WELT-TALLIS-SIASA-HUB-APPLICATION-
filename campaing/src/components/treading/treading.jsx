@@ -4,9 +4,9 @@ import LoadingBar from "react-top-loading-bar";
 
 import TopFypHeader from "./fyp";
 
-import TrendingStoriesRow from "../Stories/tredingStoriesRow";
+import TrendingStoriesRow from "../stories/tredingStoriesRow";
 import TrendingManifestos from "../leaders/manifestos/TredingManifestos";
-import RalliesSection from "../Rallies/ralliessection";
+import RalliesSection from "../rallies/ralliessection";
 import TrendingLeaders from "../leaders/TrendingLeaders";
 
 
