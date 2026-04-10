@@ -257,7 +257,7 @@ const calculateTrendingScore = (story) => {
 // ============================================
 // MAIN COMPONENT
 // ============================================
-const TrendingStoriesRow = ({ currentUser, limit = 20 }) => {
+const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
