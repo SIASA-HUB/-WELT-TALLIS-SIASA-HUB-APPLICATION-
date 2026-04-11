@@ -118,14 +118,14 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Upload endpoint
-app.post("/api/upload", upload.single("image"), (req, res) => {
+app.post("/api/v1/upload", upload.single("image"), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
     const folder = req.body.folder || "products";
-    const imageUrl = `/uploads/${folder}/${req.file.filename}`;
+    const imageUrl = `/api/v1/uploads/${folder}/${req.file.filename}`;
 
     res.json({
       success: true,
@@ -142,8 +142,8 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
 });
 
 // API Routes
-app.use("/api/products", productRoutes);
-app.use("/api/cart", cartRoutes);
+app.use("/api/v1/products", productRoutes);
+app.use("/api/v1/cart", cartRoutes);
 
 // API Reference
 app.use(
@@ -154,7 +154,7 @@ app.use(
         openapi: "3.1.0",
         info: { title: "Marketplace Service API", version: "1.0.0" },
         paths: {
-          "/api/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
+          "/api/v1/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
         }
       }
     }
@@ -221,9 +221,9 @@ const startServer = async () => {
       Logger.info(`🚀 Marketplace service running on port ${PORT}`);
       console.log(`                                                       
   📡 Local: http://localhost:${PORT}                                                                                          
-  📦 Products API: /api/products                             
-  🛒 Cart API: /api/cart                                     
-   📸 Upload API: /api/upload 
+  📦 Products API: /api/v1/products                             
+  🛒 Cart API: /api/v1/cart                                     
+   📸 Upload API: /api/v1/upload 
       `);
     });
   } catch (error) {

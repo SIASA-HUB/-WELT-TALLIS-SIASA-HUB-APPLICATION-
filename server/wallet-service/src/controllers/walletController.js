@@ -50,7 +50,7 @@ const getPesapalAuthToken = async () => {
     Logger.info("🔑 Requesting Pesapal auth token...");
 
     const response = await axios.post(
-      `${PESAPAL_URL}/api/Auth/RequestToken`,
+      `${PESAPAL_URL}/api/v1/Auth/RequestToken`,
       {
         consumer_key: PESAPAL_CONSUMER_KEY,
         consumer_secret: PESAPAL_CONSUMER_SECRET,
@@ -87,7 +87,7 @@ const registerIPN = async (authToken) => {
     Logger.info("📡 Registering IPN URL...");
 
     const response = await axios.post(
-      `${PESAPAL_URL}/api/URLSetup/RegisterIPN`,
+      `${PESAPAL_URL}/api/v1/URLSetup/RegisterIPN`,
       {
         url: IPN_URL,
         ipn_notification_type: "POST",
@@ -662,7 +662,7 @@ const initiateDeposit = asyncHandler(async (req, res) => {
     Logger.info(`📤 Sending order to Pesapal: ${JSON.stringify(orderData)}`);
 
     const orderResponse = await axios.post(
-      `${PESAPAL_URL}/api/Transactions/SubmitOrderRequest`,
+      `${PESAPAL_URL}/api/v1/Transactions/SubmitOrderRequest`,
       orderData,
       {
         headers: {
@@ -733,7 +733,7 @@ const handlePesapalCallback = asyncHandler(async (req, res) => {
     if (transaction && transaction.status === "pending") {
       const authToken = await getPesapalAuthToken();
       const statusResponse = await axios.get(
-        `${PESAPAL_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
+        `${PESAPAL_URL}/api/v1/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
         { headers: { Authorization: `Bearer ${authToken}` } },
       );
 
@@ -783,7 +783,7 @@ const handlePesapalIPN = asyncHandler(async (req, res) => {
     if (transaction && transaction.status === "pending") {
       const authToken = await getPesapalAuthToken();
       const statusResponse = await axios.get(
-        `${PESAPAL_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
+        `${PESAPAL_URL}/api/v1/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
         { headers: { Authorization: `Bearer ${authToken}` } },
       );
 

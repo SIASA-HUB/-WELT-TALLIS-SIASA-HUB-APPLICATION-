@@ -354,13 +354,13 @@ const HOST = process.env.HOST || "0.0.0.0";
       });
       Logger.info(`📁 Static files served from: ${uploadsPath}`);
       Logger.info(
-        `📸 Images accessible at: http://${HOST}:${PORT}/uploads/endorsements/`,
+        `📸 Images accessible at: http://${HOST}:${PORT}/api/v1/uploads/endorsements/`,
       );
       Logger.info(
         `🔍 Debug endpoint: http://${HOST}:${PORT}/api/v1/debug/directories`,
       );
       Logger.info(`🌐 CORS enabled for all origins`);
-      Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/cors-test`);
+      Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/api/v1/cors-test`);
     });
 
     const shutdown = async () => {
