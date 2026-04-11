@@ -5,7 +5,7 @@ import { BookOpen, Info } from "lucide-react";
 import axios from "axios";
 import theme from "../../utils/theme.jsx";
 import AppLoadingBar from "../../utils/LoadingBar.jsx";
-
+import API_BASE_URL from "./apiConfig.jsx";
 // Lazy load components
 const LeaderHeader = lazy(() => import("./leaderHeader.jsx"));
 const ManifestoPage = lazy(() => import("./manifestos/manifestoPage"));
@@ -175,7 +175,7 @@ const BioText = styled.p`
   margin: 0;
 `;
 
-const API_BASE_URL = "/api/v1/users";
+
 
 const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
   const { id: urlId } = useParams();

@@ -3,10 +3,10 @@ require("dotenv").config();
 
 const express = require("express");
 const helmet = require("helmet");
-const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
-const { apiReference } = require("@scalar/express-api-reference");
+const corsMiddleware = require("../global/middlewares/corsMiddleware");
+
 const knex = require("knex");
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
@@ -30,48 +30,8 @@ process.on("unhandledRejection", (reason) => {
   setTimeout(() => process.exit(1), 1000);
 });
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://127.0.0.1:5173",
-  "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
-  "http://127.0.0.1:5174",
-  "https://your-cloudflare-tunnel.trycloudflare.com", // Add your Cloudflare tunnel URL
-  // Add any other origins you need
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log("Blocked origin:", origin);
-      callback(null, false); // Blocked, but return false instead of error
-      // Or use: callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-CSRF-Token",
-    "x-csrf-token",
-    "Accept",
-  ],
-  exposedHeaders: ["Set-Cookie"],
-  exposedHeaders: ["Content-Length", "X-Requested-With"],
-  credentials: true, // Important for cookies
-  optionsSuccessStatus: 200,
-  preflightContinue: false,
-};
-
-app.use(cors(corsOptions));
-
-// REMOVED: app.options("*", cors(corsOptions)); - this causes the error
-// Express's cors middleware automatically handles OPTIONS preflight requests
+// CORS middleware
+app.use(corsMiddleware);
 
 // Security headers but relaxed for CORS
 app.use(
@@ -81,7 +41,7 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net", "http://localhost:*", "https://*.ballot.com"],
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -94,80 +54,84 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================
-// FIXED: Images are actually saved in src/uploads
+// FIXED: Multiple possible upload locations
 // ============================================
-const uploadsPath = path.join(__dirname, "src", "uploads");
+
+// Possible upload directories (in order of priority)
+const possibleUploadPaths = [
+  path.join(__dirname, "src", "uploads"),           // src/uploads
+  path.join(__dirname, "uploads"),                   // root/uploads
+  path.join(__dirname, "..", "uploads"),             // parent/uploads
+  path.join(process.cwd(), "uploads"),               // cwd/uploads
+];
+
+let actualUploadsPath = null;
+
+// Find the actual uploads directory
+for (const testPath of possibleUploadPaths) {
+  if (fs.existsSync(testPath)) {
+    actualUploadsPath = testPath;
+    console.log(`✅ Found uploads directory: ${actualUploadsPath}`);
+    break;
+  }
+}
+
+// If none exists, create one
+if (!actualUploadsPath) {
+  actualUploadsPath = path.join(__dirname, "src", "uploads");
+  fs.mkdirSync(actualUploadsPath, { recursive: true });
+  fs.mkdirSync(path.join(actualUploadsPath, "endorsements"), { recursive: true });
+  console.log(`📁 Created uploads directory: ${actualUploadsPath}`);
+}
 
 console.log("=".repeat(60));
 console.log("📁 STATIC FILE SERVING CONFIGURATION:");
 console.log("Server directory:", __dirname);
-console.log("Serving static files from:", uploadsPath);
-console.log("Directory exists:", fs.existsSync(uploadsPath));
+console.log("Serving static files from:", actualUploadsPath);
+console.log("Directory exists:", fs.existsSync(actualUploadsPath));
 
-// Check if the directory exists and what's in it
-if (fs.existsSync(uploadsPath)) {
-  const contents = fs.readdirSync(uploadsPath);
-  console.log("Uploads directory contents:", contents);
-
-  const endorsementsPath = path.join(uploadsPath, "endorsements");
-  if (fs.existsSync(endorsementsPath)) {
-    console.log("✅ Endorsements directory exists");
-    const years = fs.readdirSync(endorsementsPath);
-    console.log("Years:", years);
-
-    // Check 2026 folder
-    const year2026Path = path.join(endorsementsPath, "2026");
-    if (fs.existsSync(year2026Path)) {
-      const months = fs.readdirSync(year2026Path);
-      console.log("Months in 2026:", months);
-
-      // Check March folder
-      const marchPath = path.join(year2026Path, "03");
-      if (fs.existsSync(marchPath)) {
-        const files = fs.readdirSync(marchPath);
-        console.log(`📸 Found ${files.length} images in March`);
-        if (files.length > 0) {
-          console.log("Sample images:", files.slice(0, 3));
-        }
+// Check directory contents
+if (fs.existsSync(actualUploadsPath)) {
+  const listDir = (dir, level = 0) => {
+    if (level > 3) return;
+    try {
+      const items = fs.readdirSync(dir);
+      console.log(`${"  ".repeat(level)}📁 ${path.basename(dir)}: ${items.length} items`);
+      if (level < 2 && items.length > 0 && items.length < 10) {
+        items.forEach(item => {
+          const itemPath = path.join(dir, item);
+          if (fs.statSync(itemPath).isDirectory()) {
+            listDir(itemPath, level + 1);
+          } else {
+            console.log(`${"  ".repeat(level + 1)}📄 ${item}`);
+          }
+        });
       }
-    }
-  } else {
-    console.log("⚠️ Endorsements directory not found, creating...");
-    fs.mkdirSync(endorsementsPath, { recursive: true });
-  }
-} else {
-  console.log("⚠️ Uploads directory not found, creating...");
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  fs.mkdirSync(path.join(uploadsPath, "endorsements"), { recursive: true });
+    } catch (e) {}
+  };
+  listDir(actualUploadsPath);
 }
 console.log("=".repeat(60));
 
-// Serve static files from the correct uploads directory with CORS headers
+// ============================================
+// SERVE STATIC FILES FROM MULTIPLE LOCATIONS
+// ============================================
+
+// Primary static serving from actual uploads directory
 app.use(
   "/uploads",
   (req, res, next) => {
-    // Add CORS headers for static files
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-    // Handle preflight for static files
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }
     next();
   },
-  express.static(uploadsPath, {
+  express.static(actualUploadsPath, {
     maxAge: "30d",
     immutable: true,
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
-      // Log every image request for debugging
-      console.log("📸 Serving file:", path.basename(filePath));
-
-      // Set proper content type based on file extension
       const ext = path.extname(filePath).toLowerCase();
       if (ext === ".jpg" || ext === ".jpeg") {
         res.setHeader("Content-Type", "image/jpeg");
@@ -178,13 +142,73 @@ app.use(
       } else if (ext === ".gif") {
         res.setHeader("Content-Type", "image/gif");
       }
-
-      // Enable CORS for images
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
     },
   }),
 );
+
+// Also serve from src/uploads if different
+const srcUploadsPath = path.join(__dirname, "src", "uploads");
+if (srcUploadsPath !== actualUploadsPath && fs.existsSync(srcUploadsPath)) {
+  app.use("/uploads", express.static(srcUploadsPath));
+  console.log(`📁 Also serving from: ${srcUploadsPath}`);
+}
+
+// Serve from root uploads as well
+const rootUploadsPath = path.join(__dirname, "uploads");
+if (rootUploadsPath !== actualUploadsPath && fs.existsSync(rootUploadsPath)) {
+  app.use("/uploads", express.static(rootUploadsPath));
+  console.log(`📁 Also serving from: ${rootUploadsPath}`);
+}
+
+// ============================================
+// DEBUG ENDPOINT - Check image URLs
+// ============================================
+app.get("/api/v1/debug/images", (req, res) => {
+  try {
+    const endorsementsDir = path.join(actualUploadsPath, "endorsements");
+    const result = {
+      uploadsPath: actualUploadsPath,
+      endorsementsDirExists: fs.existsSync(endorsementsDir),
+      files: [],
+    };
+
+    if (fs.existsSync(endorsementsDir)) {
+      const years = fs.readdirSync(endorsementsDir);
+      for (const year of years) {
+        const yearPath = path.join(endorsementsDir, year);
+        if (fs.statSync(yearPath).isDirectory()) {
+          const months = fs.readdirSync(yearPath);
+          for (const month of months) {
+            const monthPath = path.join(yearPath, month);
+            if (fs.statSync(monthPath).isDirectory()) {
+              const files = fs.readdirSync(monthPath);
+              files.forEach(file => {
+                result.files.push({
+                  path: `/uploads/endorsements/${year}/${month}/${file}`,
+                  fullPath: path.join(monthPath, file),
+                  size: fs.statSync(path.join(monthPath, file)).size,
+                });
+              });
+            }
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: result,
+      sampleUrls: result.files.slice(0, 5).map(f => ({
+        url: f.path,
+        testUrl: `http://localhost:${PORT}${f.path}`
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Request logging
 app.use((req, res, next) => {
@@ -200,102 +224,12 @@ app.use((req, res, next) => {
 // Routes
 app.use("/api/v1/endorsements", endorsementRoutes);
 
-// API Reference
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Endorsement Service API", version: "1.0.0" },
-        paths: {
-          "/api/v1/endorsements": { get: { summary: "Endorsement APIs", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
-
-// Health check
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    uptime: process.uptime(),
-    timestamp: Date.now(),
-    cors_enabled: true,
-  });
-});
-
-// CORS test endpoint
+// Test CORS endpoint
 app.get("/cors-test", (req, res) => {
   res.json({
-    success: true,
     message: "CORS is working!",
-    origin: req.headers.origin,
-    method: req.method,
-  });
-});
-
-// Debug endpoint to list directories
-app.get("/api/v1/debug/directories", (req, res) => {
-  const paths = {
-    current_dir: __dirname,
-    uploads_path: uploadsPath,
-    uploads_exists: fs.existsSync(uploadsPath),
-  };
-
-  let files = {};
-
-  if (fs.existsSync(uploadsPath)) {
-    files.root = fs.readdirSync(uploadsPath);
-
-    const endorsementsFullPath = path.join(uploadsPath, "endorsements");
-    if (fs.existsSync(endorsementsFullPath)) {
-      files.endorsements = fs.readdirSync(endorsementsFullPath);
-
-      // Check each year folder
-      const years = fs.readdirSync(endorsementsFullPath);
-      for (const year of years) {
-        const yearPath = path.join(endorsementsFullPath, year);
-        if (fs.statSync(yearPath).isDirectory()) {
-          files[`${year}_files`] = fs.readdirSync(yearPath);
-
-          // Check month folders
-          const months = fs.readdirSync(yearPath);
-          for (const month of months) {
-            const monthPath = path.join(yearPath, month);
-            if (fs.statSync(monthPath).isDirectory()) {
-              files[`${year}_${month}_files`] = fs.readdirSync(monthPath);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  res.json({ paths, files });
-});
-
-// Debug endpoint to check a specific image
-app.get("/api/v1/debug/image/:year/:month/:filename", (req, res) => {
-  const { year, month, filename } = req.params;
-
-  const imagePath = path.join(
-    uploadsPath,
-    "endorsements",
-    year,
-    month,
-    filename,
-  );
-  const exists = fs.existsSync(imagePath);
-
-  res.json({
-    requested: { year, month, filename },
-    path: imagePath,
-    exists: exists,
-    size: exists ? fs.statSync(imagePath).size : null,
-    url: `/uploads/endorsements/${year}/${month}/${filename}`,
-    full_url: `http://localhost:${PORT}/uploads/endorsements/${year}/${month}/${filename}`,
+    timestamp: Date.now(),
+    headers: req.headers,
   });
 });
 
@@ -324,9 +258,9 @@ async function runMigrations() {
   try {
     Logger.info("Running database migrations...", { environment });
     await db.migrate.latest();
-    Logger.info("✅ Migrations completed successfully");
+    Logger.info(" Migrations completed successfully");
   } catch (error) {
-    Logger.error("❌ Migration error:", {
+    Logger.error(" Migration error:", {
       error: error.message,
       stack: error.stack,
     });
@@ -352,14 +286,9 @@ const HOST = process.env.HOST || "0.0.0.0";
         action: "server_started",
         environment,
       });
-      Logger.info(`📁 Static files served from: ${uploadsPath}`);
-      Logger.info(
-        `📸 Images accessible at: http://${HOST}:${PORT}/uploads/endorsements/`,
-      );
-      Logger.info(
-        `🔍 Debug endpoint: http://${HOST}:${PORT}/api/v1/debug/directories`,
-      );
-      Logger.info(`🌐 CORS enabled for all origins`);
+      Logger.info(`📁 Static files served from: ${actualUploadsPath}`);
+      Logger.info(`📸 Test image URL: http://${HOST}:${PORT}/uploads/endorsements/`);
+      Logger.info(`🔍 Debug images: http://${HOST}:${PORT}/api/v1/debug/images`);
       Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/cors-test`);
     });
 

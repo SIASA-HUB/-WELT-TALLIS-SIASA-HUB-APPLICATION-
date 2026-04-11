@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const LEADER_API_URL = "/api/v1/users";
-const ENDORSEMENT_API_URL = "/api/v1";
+const LEADER_API_URL = "http://localhost:8006/api/v1/leaders";
+const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
 
 // Animations
 const fadeInUp = keyframes`

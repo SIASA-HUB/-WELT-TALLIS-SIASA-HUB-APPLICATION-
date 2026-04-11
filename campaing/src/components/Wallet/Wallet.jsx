@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import axios from "axios";
 import {
   Zap,
   Smartphone,
@@ -13,7 +14,15 @@ import {
   CheckCircle,
   AtSign,
 } from "lucide-react";
-import walletApi from "./ApiConfig"; // Import the wallet API
+
+import API_BASE_URL from "./ApiConfig";
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  timeout: 30000,
+});
 
 const Container = styled.div`
   padding: 40px 24px;
@@ -315,7 +324,17 @@ const formatKenyanPhone = (phone) => {
   return cleaned;
 };
 
-const Header = () => {
+const calculateBonusAmount = (amount) => {
+  if (amount < 5) return 0;
+  if (amount < 100) return 0;
+  if (amount < 500) return Math.floor(amount * 0.1);
+  if (amount < 1000) return Math.floor(amount * 0.2);
+  if (amount < 5000) return Math.floor(amount * 0.25);
+  if (amount < 10000) return Math.floor(amount * 0.3);
+  return Math.floor(amount * 0.35);
+};
+
+const WalletPage = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedAmount, setSelectedAmount] = useState(100);
   const [customAmount, setCustomAmount] = useState("");
@@ -329,30 +348,16 @@ const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState(null);
 
-  // Get logged-in user from localStorage/cookies
+  // Get logged-in user from localStorage
   useEffect(() => {
     const user = getCurrentUser();
     if (user && user.user_id) {
       setCurrentUser(user);
       setUserId(user.user_id);
       setIsAuthenticated(true);
-      console.log("✅ User found in localStorage:", user.user_id);
+      console.log("✅ User found:", user.user_id);
     } else {
-      // Try to get from cookie using walletApi
-      const getUserFromCookie = async () => {
-        try {
-          const response = await walletApi.get("/user-info");
-          if (response.data.success) {
-            setCurrentUser(response.data.user);
-            setUserId(response.data.user.user_id);
-            setIsAuthenticated(true);
-            console.log("✅ User found in cookie:", response.data.user.user_id);
-          }
-        } catch (err) {
-          console.error("❌ No logged-in user found");
-        }
-      };
-      getUserFromCookie();
+      console.log("❌ No user found in localStorage");
     }
   }, []);
 
@@ -365,22 +370,6 @@ const Header = () => {
   }, [userId]);
 
   // Calculate bonus based on amount
-  const calculateBonus = (amount) => {
-    if (amount >= 5 && amount < 100) return 0;
-    if (amount >= 100 && amount < 500) return Math.floor(amount * 0.1);
-    if (amount >= 500 && amount < 1000) return Math.floor(amount * 0.2);
-    if (amount >= 1000 && amount < 5000) return Math.floor(amount * 0.25);
-    if (amount >= 5000 && amount < 10000) return Math.floor(amount * 0.3);
-    if (amount >= 10000) return Math.floor(amount * 0.35);
-    return 0;
-  };
-
-  // Update bonus when amount changes
-  useEffect(() => {
-    const amount = getCurrentAmount();
-    setBonus(calculateBonus(amount));
-  }, [selectedAmount, customAmount]);
-
   const getCurrentAmount = () => {
     if (customAmount && customAmount !== "") {
       return parseInt(customAmount) || 0;
@@ -388,16 +377,23 @@ const Header = () => {
     return selectedAmount;
   };
 
+  // Update bonus when amount changes
+  useEffect(() => {
+    const amount = getCurrentAmount();
+    setBonus(calculateBonusAmount(amount));
+  }, [selectedAmount, customAmount]);
+
   const fetchBalance = async () => {
     if (!userId) return;
     try {
       console.log("🔍 Fetching balance for user:", userId);
-      const response = await walletApi.get(`/balance/${userId}`);
-      console.log("📊 Balance response:", response.data);
+      const response = await api.get(`/wallet/balance/${userId}`);
+      console.log("📥 Balance response:", response.data);
+
       if (response.data.success) {
-        setBalance(response.data.data.balance);
+        setBalance(response.data.data.balance || 0);
       } else {
-        console.error("❌ Balance fetch failed:", response.data.message);
+        console.log("❌ Balance fetch failed:", response.data.message);
       }
     } catch (err) {
       console.error("❌ Error fetching balance:", err);
@@ -408,7 +404,7 @@ const Header = () => {
   const fetchTransactions = async () => {
     if (!userId) return;
     try {
-      const response = await walletApi.get(`/transactions/${userId}?limit=5`);
+      const response = await api.get(`/wallet/transactions/${userId}?limit=5`);
       if (response.data.success) {
         setTransactions(response.data.data || []);
       }
@@ -447,9 +443,7 @@ const Header = () => {
       };
 
       console.log("📤 Sending deposit request:", payload);
-
-      const response = await walletApi.post("/deposit", payload);
-
+      const response = await api.post("/wallet/deposit", payload);
       console.log("📥 Deposit response:", response.data);
 
       if (response.data.success) {
@@ -460,10 +454,9 @@ const Header = () => {
             `Payment initiated! Check your phone for M-Pesa prompt...`,
           );
           setTimeout(() => {
-            if (response.data.data?.redirect_url) {
-              window.location.href = response.data.data.redirect_url;
-            }
-          }, 2000);
+            fetchBalance();
+            fetchTransactions();
+          }, 3000);
         }
       } else {
         setError(response.data.message || "Failed to initiate payment");
@@ -517,6 +510,9 @@ const Header = () => {
     );
   }
 
+  const currentAmount = getCurrentAmount();
+  const totalPoints = currentAmount + bonus;
+
   return (
     <Container>
       <TopBar>
@@ -564,7 +560,7 @@ const Header = () => {
         <Coins size={10} /> Choose Amount (KES)
       </MiniLabel>
       <ChipGrid>
-        {[10, 50, 100, 200, 500, 1000].map((val) => (
+        {[10, 50, 100, 200, 500, 1000, 2000, 5000].map((val) => (
           <SmallChip
             key={val}
             $active={selectedAmount === val && !customAmount}
@@ -596,8 +592,8 @@ const Header = () => {
           <LoadingSpinner />
         ) : (
           <>
-            Pay KES {getCurrentAmount()} via M-Pesa
-            {bonus > 0 && ` (Get ${getCurrentAmount() + bonus} points)`}
+            Pay KES {currentAmount} via M-Pesa
+            {bonus > 0 && ` (Get ${totalPoints} points)`}
             <ArrowRight size={14} />
           </>
         )}
@@ -641,7 +637,7 @@ const Header = () => {
                     ? "💳 Deposit"
                     : tx.type === "bonus"
                       ? "🎁 Bonus"
-                      : tx.type === "endorsement"
+                      : tx.type === "withdrawal"
                         ? "✨ Endorsement"
                         : tx.type}
                 </div>
@@ -679,4 +675,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default WalletPage;

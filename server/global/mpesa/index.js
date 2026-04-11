@@ -100,14 +100,15 @@ class MpesaConfig {
       const password = this.generatePassword(timestamp);
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
 
+      const isTillNumber = process.env.MPESA_TYPE === "till";
       const payload = {
-        BusinessShortCode: this.shortCode,
+        BusinessShortCode: isTillNumber ? process.env.MPESA_STORE_NUMBER : this.shortCode,
         Password: password,
         Timestamp: timestamp,
-        TransactionType: "CustomerPayBillOnline",
+        TransactionType: isTillNumber ? "CustomerBuyGoodsOnline" : "CustomerPayBillOnline",
         Amount: Math.round(amount),
         PartyA: formattedPhone,
-        PartyB: this.shortCode,
+        PartyB: isTillNumber ? process.env.MPESA_STORE_NUMBER : this.shortCode,
         PhoneNumber: formattedPhone,
         CallBackURL: callbackUrl,
         AccountReference: accountReference.substring(0, 12),

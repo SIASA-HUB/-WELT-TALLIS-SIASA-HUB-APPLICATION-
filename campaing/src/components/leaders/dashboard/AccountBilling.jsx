@@ -18,10 +18,7 @@ import {
   X,
   Loader,
 } from "lucide-react";
-import axios from "axios";
-
-const API_URL = "/api/v1";
-const WALLET_API_URL = "/api/v1/reactions";
+import api from "@/api/api";
 
 // --- Animations ---
 const fadeInUp = keyframes`
@@ -498,11 +495,9 @@ const AccountBillingSection = ({ leader = null }) => {
 
   const fetchTransactions = async (userId) => {
     try {
-      const response = await axios.get(
-        `${WALLET_API_URL}/api/v1/wallet/transactions/${userId}?limit=10`,
-      );
-      if (response.data?.success) {
-        setTransactions(response.data.data || []);
+      const response = await api.get(`/wallet/transactions/${userId}?limit=10`);
+      if (response.success) {
+        setTransactions(response.data || []);
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -541,30 +536,29 @@ const AccountBillingSection = ({ leader = null }) => {
         formattedPhone = "254" + formattedPhone;
       }
 
-      // Call STK Push endpoint
-      const response = await axios.post(`${API_URL}/api/v1/stkpush`, {
-        phone: formattedPhone,
+      // Call STK Push endpoint via global api
+      const response = await api.post("/wallet/mpesa/stkpush", {
+        phoneNumber: formattedPhone,
         amount: selectedService.amount,
-        account: selectedService.name,
-        user_id: currentUser.user_id,
+        accountReference: selectedService.name.substring(0, 12),
+        userId: currentUser.user_id,
         leader_id: leader?.leader_id,
       });
 
-      if (response.data?.success) {
+      if (response.success) {
         setPaymentStatus({
           type: "success",
           message:
-            response.data.message ||
+            response.message ||
             "Payment initiated! Check your phone for M-Pesa prompt.",
         });
 
         // Poll for transaction status
+        const checkoutRequestId = response.data.checkoutRequestId;
         const checkInterval = setInterval(async () => {
           try {
-            const statusRes = await axios.get(
-              `${API_URL}/api/v1/stkpush/status/${response.data.checkoutRequestID}`,
-            );
-            if (statusRes.data?.success) {
+            const statusRes = await api.get(`/wallet/status/${checkoutRequestId}`);
+            if (statusRes.success && statusRes.data?.status === "completed") {
               clearInterval(checkInterval);
               setPaymentStatus({
                 type: "success",
@@ -577,6 +571,12 @@ const AccountBillingSection = ({ leader = null }) => {
                 setSelectedService(null);
                 setPhoneNumber("");
               }, 2000);
+            } else if (statusRes.success && statusRes.data?.status === "failed") {
+              clearInterval(checkInterval);
+              setPaymentStatus({
+                type: "error",
+                message: "Payment failed or cancelled.",
+              });
             }
           } catch (err) {
             console.error("Error checking payment status:", err);
@@ -591,7 +591,7 @@ const AccountBillingSection = ({ leader = null }) => {
         setPaymentStatus({
           type: "error",
           message:
-            response.data?.message || "Payment failed. Please try again.",
+            response.message || "Payment failed. Please try again.",
         });
       }
     } catch (error) {
@@ -599,7 +599,7 @@ const AccountBillingSection = ({ leader = null }) => {
       setPaymentStatus({
         type: "error",
         message:
-          error.response?.data?.message ||
+          error.message ||
           "Payment failed. Please check your phone number and try again.",
       });
     } finally {

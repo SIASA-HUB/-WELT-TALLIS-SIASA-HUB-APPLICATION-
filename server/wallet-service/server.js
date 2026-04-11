@@ -2,9 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const helmet = require("helmet");
-const cors = require("cors");
 const path = require("path");
-const { apiReference } = require("@scalar/express-api-reference");
+const corsMiddleware = require("../global/middlewares/corsMiddleware");
 
 // ============================================
 // SIMPLE CONSOLE LOGGER (fallback)
@@ -40,6 +39,17 @@ try {
 const app = express();
 
 // ============================================
+// CORS CONFIGURATION
+// ============================================
+// Define allowed origins for CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080'];
+
+// Apply CORS middleware with allowed origins
+app.use(corsMiddleware);
+
+// ============================================
 // PROCESS ERROR HANDLERS
 // ============================================
 process.on("uncaughtException", (error) => {
@@ -56,51 +66,6 @@ process.on("unhandledRejection", (reason) => {
   });
   setTimeout(() => process.exit(1), 1000);
 });
-
-// ============================================
-// CORS CONFIGURATION - FIXED
-// ============================================
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:5173",
-  "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
-  "http://127.0.0.1:5174",
-  "https://pin-frequently-rapids-refuse.trycloudflare.com",
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      logger.debug(`✅ CORS allowed: ${origin}`);
-      callback(null, true);
-    } else {
-      logger.warn(`❌ CORS blocked: ${origin}`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-    "Access-Control-Allow-Origin",
-  ],
-  optionsSuccessStatus: 200,
-  maxAge: 86400, // 24 hours
-};
-
-app.use(cors(corsOptions));
 
 // ============================================
 // MIDDLEWARES
@@ -141,22 +106,6 @@ if (walletRoutes) {
   app.use("/api/v1/wallet", walletRoutes);
 }
 
-// API Reference
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Wallet Service API", version: "1.0.0" },
-        paths: {
-          "/api/v1/wallet": { get: { summary: "Wallet APIs", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
-
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -165,19 +114,19 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     cors: {
-      allowedOrigins,
-      requestOrigin: req.headers.origin,
+      allowedOrigins: allowedOrigins,
+      requestOrigin: req.headers.origin || null,
     },
   });
 });
 
-// CORS test endpoint
+// Test CORS endpoint (optional - useful for debugging)
 app.get("/cors-test", (req, res) => {
-  res.json({
-    success: true,
-    message: "CORS is working!",
-    origin: req.headers.origin,
-    allowedOrigins,
+  res.status(200).json({
+    message: "CORS test endpoint",
+    allowedOrigins: allowedOrigins,
+    requestOrigin: req.headers.origin || null,
+    isAllowed: req.headers.origin ? allowedOrigins.includes(req.headers.origin) : false,
   });
 });
 
@@ -199,7 +148,7 @@ app.use((err, req, res, next) => {
 // ============================================
 // START SERVER
 // ============================================
-const PORT = process.env.PORT || 8003;
+const PORT = process.env.PORT || 8005;
 const HOST = process.env.HOST || "0.0.0.0";
 
 const startServer = async () => {
@@ -213,6 +162,7 @@ const startServer = async () => {
       logger.info(`✅ Wallet Service running on port ${PORT}`);
       logger.info(`📍 CORS allowed origins: ${allowedOrigins.join(", ")}`);
       logger.info(`🔧 Test CORS: http://${HOST}:${PORT}/cors-test`);
+      logger.info(`🔍 Health check: http://${HOST}:${PORT}/health`);
     });
 
     // Graceful shutdown

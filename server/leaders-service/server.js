@@ -8,14 +8,13 @@ const http = require("http");
 const socketIo = require("socket.io");
 const path = require("path");
 const fs = require("fs");
-const { apiReference } = require("@scalar/express-api-reference");
 
 const Logger = require("./src/utils/logger/logger");
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/Leader");
 const battleRoutes = require("./src/routes/battle");
 const battleController = require("./src/controllers/BattleController");
-const { connectRabbitMQ } = require("./src/Qeues/rabbit");
+const corsMiddleware = require("../global/middlewares/corsMiddleware");
 
 const app = express();
 const server = http.createServer(app);
@@ -51,50 +50,8 @@ app.use('/uploads', (req, res, next) => {
 // CORS CONFIGURATION
 // ============================================
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
-  "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
-  "https://dem-cartridge-basketball-intervention.trycloudflare.com",
-  "http://localhost:5174",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:5174",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "https://pin-frequently-rapids-refuse.trycloudflare.com",
-];
-
-// CORS options
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) {
-      console.log("CORS allowed: no origin");
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      console.log("CORS allowed for:", origin);
-      callback(null, true);
-    } else {
-      console.log("CORS blocked origin:", origin);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200,
-  maxAge: 86400,
-};
-
 // CORS middleware
-app.use(cors(corsOptions));
+app.use(corsMiddleware);
 
 // ============================================
 // SOCKET.IO CONFIGURATION
@@ -102,7 +59,7 @@ app.use(cors(corsOptions));
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: "*", // Socket.IO CORS is separate, but we can allow all in dev gateway environment
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -270,22 +227,6 @@ app.use((req, res, next) => {
 app.use("/api/v1/leaders", leaderRoutes);
 app.use("/api/v1/battles", battleRoutes);
 
-// API Reference
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Leaders Service API", version: "1.0.0" },
-        paths: {
-          "/api/v1/leaders": { get: { summary: "Leaders APIs", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
-
 // Health check
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -295,19 +236,8 @@ app.get("/health", (req, res) => {
     sockets: connectedClients.size,
     uploadsPath: uploadsDir,
     cors: {
-      allowedOrigins,
-      currentOrigin: req.headers.origin,
+      status: "global_middleware_active",
     },
-  });
-});
-
-// CORS test endpoint
-app.get("/cors-test", (req, res) => {
-  res.json({
-    success: true,
-    message: "CORS is working!",
-    origin: req.headers.origin,
-    method: req.method,
   });
 });
 
@@ -362,14 +292,10 @@ const HOST = process.env.HOST || "0.0.0.0";
       host: HOST,
       nodeEnv: process.env.NODE_ENV,
       uploadsPath: uploadsDir,
-      allowedOrigins,
     });
 
     Logger.info("Starting database", { action: "start_database" });
     await initDB();
-
-    Logger.info("Connecting to RabbitMQ", { action: "connect_rabbitmq" });
-    await connectRabbitMQ();
 
     server.listen(PORT, HOST, () => {
       Logger.info("Server running with Socket.IO", {
@@ -382,8 +308,6 @@ const HOST = process.env.HOST || "0.0.0.0";
       console.log(`📁 Serving static files from: ${uploadsDir}`);
       console.log(`🔗 Image URL example: http://${HOST}:${PORT}/uploads/leaders/LDR_xxx/image.webp`);
       console.log(`🏥 Health check: http://${HOST}:${PORT}/health`);
-      console.log(`🔧 CORS Test: http://${HOST}:${PORT}/cors-test`);
-      console.log(`✅ Allowed origins:`, allowedOrigins);
       console.log(`\n📡 Ready to accept connections\n`);
     });
 

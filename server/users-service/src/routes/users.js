@@ -158,6 +158,14 @@ router.get("/", authenticate, authorize("admin"), async (req, res) => {
 });
 
 // ============================================
+// STATIC ASSETS
+// ============================================
+// Serve leader and user uploads - mapped to the leaders-service uploads folder
+// for consistency with the requested URLs
+const path = require("path");
+router.use("/uploads", express.static(path.join(__dirname, "../../../leaders-service/uploads")));
+
+// ============================================
 // DYNAMIC ROUTES (Must be at the end)
 // ============================================
 

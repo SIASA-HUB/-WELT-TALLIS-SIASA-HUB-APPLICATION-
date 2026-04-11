@@ -507,8 +507,18 @@ const getUserFromCookie = asyncHandler(async (req, res) => {
   }
 
   try {
-    const userData =
-      typeof userInfo === "string" ? JSON.parse(userInfo) : userInfo;
+    let userData;
+    try {
+      userData = typeof userInfo === "string" ? JSON.parse(userInfo) : userInfo;
+    } catch (parseError) {
+      Logger.error("Failed to parse userInfo cookie", { error: parseError.message });
+      clearAuthCookies(res);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid session data",
+        isAuthenticated: false,
+      });
+    }
 
     // Verify the user still exists in database
     const user = await AuthModel.findUserById(userData.user_id);
@@ -527,10 +537,10 @@ const getUserFromCookie = asyncHandler(async (req, res) => {
       isAuthenticated: true,
     });
   } catch (error) {
-    Logger.error("Error parsing user info", { error: error.message });
+    Logger.error("Error in getUserFromCookie", { error: error.message });
     return res.status(500).json({
       success: false,
-      message: "Error parsing user info",
+      message: "Error retrieving user info",
     });
   }
 });
@@ -583,10 +593,20 @@ const checkAuthStatus = asyncHandler(async (req, res) => {
       });
     }
 
-    const userInfo =
-      typeof userInfoCookie === "string"
-        ? JSON.parse(userInfoCookie)
-        : userInfoCookie;
+    let userInfo;
+    try {
+      userInfo =
+        typeof userInfoCookie === "string"
+          ? JSON.parse(userInfoCookie)
+          : userInfoCookie;
+    } catch (parseError) {
+      Logger.error("Failed to parse userInfo cookie in status check", { error: parseError.message });
+      return res.status(200).json({
+        success: true,
+        isAuthenticated: false,
+        message: "Invalid session data format",
+      });
+    }
 
     return res.status(200).json({
       success: true,

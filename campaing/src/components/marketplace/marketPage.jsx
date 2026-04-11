@@ -12,8 +12,8 @@ import Home from "./components/Home";
 import Cart from "./components/cart/cart";
 import DetailView from "./components/ItemDetails/DetailView";
 import Checkout from "./checkout/checkout";
+import API_BASE_URL from "./apiConfig"
 
-const API_URL = "http://localhost:8007";
 
 // Animations
 const spin = keyframes`
@@ -147,7 +147,7 @@ const MarketplacePage = () => {
         setLoading(true);
         setError(null);
 
-        const response = await axios.get(`${API_URL}/api/products`, {
+        const response = await axios.get(`${API_BASE_URL}/products`, {
           timeout: 10000,
           headers: {
             "Content-Type": "application/json",

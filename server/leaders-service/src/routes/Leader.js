@@ -12,12 +12,13 @@ const {
   boostLeader,getPersonalizedFeed,getPopularLeaders,
   getLeaderAnalyticsByCounty,getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard,getLeaderAnalyticsByPosition,getLeaderDashboardAnalytics,
+  requestVerification,
 } = require("../controllers/LeaderController");
 
 const {
   createManifesto,
   getTrendingManifestos,
-  editManifesto,
+  updateManifesto: editManifesto,
   getManifestoByLeaderId,
   getManifestoStats,
   voteOnManifesto,
@@ -73,10 +74,23 @@ router.post("/:leaderId/boost", boostLeader);
 router.get("/:leaderId", getLeaderById);
 router.get("/profile/me", getMyProfile);
 router.put("/profile/me", updateMyProfile);
+router.post("/verification/request", requestVerification);
 
 // Admin routes
 router.post("/create", handleMultipleUpload, processAndSaveImages, createLeader);
 router.put("/:leaderId", handleMultipleUpload, processAndSaveImages, updateLeader);
+router.patch("/verify/:leaderId", async (req, res) => {
+  const { verifyLeader } = require("../controllers/LeaderController");
+  return verifyLeader(req, res);
+});
+router.patch("/reject/:leaderId", async (req, res) => {
+  const { rejectLeader } = require("../controllers/LeaderController");
+  return rejectLeader(req, res);
+});
+router.delete("/:leaderId", async (req, res) => {
+  const { deleteLeader } = require("../controllers/LeaderController");
+  return deleteLeader(req, res);
+});
 router.post("/interact", handleInteraction);
 
 module.exports = router;

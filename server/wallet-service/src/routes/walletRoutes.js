@@ -2,10 +2,13 @@ const express = require("express");
 const router = express.Router();
 const {
   getWalletBalance,
+  getUserStats,
   getRechargePackages,
   initiateDeposit,
   directDeposit,
   handlePesapalIPN,
+  initiateStkPush,
+  handleMpesaCallback,
   checkPaymentStatus,
   useWalletForEndorsement,
   getTransactionHistory,
@@ -32,6 +35,7 @@ router.get("/health", (req, res) => {
 });
 
 router.get("/balance/:user_id", getWalletBalance);
+router.get("/users/:user_id/stats", getUserStats);
 router.get("/packages", getRechargePackages);
 router.get("/transactions/:user_id", getTransactionHistory);
 router.get("/status/:transactionId", checkPaymentStatus);
@@ -42,6 +46,13 @@ router.get("/status/:transactionId", checkPaymentStatus);
 
 router.post("/deposit", initiateDeposit);
 router.post("/pesapal-ipn", handlePesapalIPN);
+
+// ============================================
+// M-PESA PAYMENT ROUTES
+// ============================================
+
+router.post("/mpesa/stkpush", initiateStkPush);
+router.post("/mpesa/callback", handleMpesaCallback);
 
 // ============================================
 // TEST ROUTES

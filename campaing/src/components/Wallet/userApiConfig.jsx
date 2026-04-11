@@ -1,17 +1,14 @@
-// services/walletApi.js
-
 import axios from "axios";
 
-// Wallet Service API Configuration
-const WALLET_API_BASE_URL = "/api/v1/marketplace/users";
+const USERS_URL = "http://localhost:8004/api/v1";
 
-const walletApi = axios.create({
-  baseURL: WALLET_API_BASE_URL,
+const userApi = axios.create({
+  baseURL: USERS_URL,
   headers: {
     "Content-Type": "application/json",
   },
   timeout: 10000,
-  withCredentials: true, // Include cookies for authentication
+  withCredentials: true,
 });
 
-export default walletApi;
+export default userApi;

@@ -56,10 +56,12 @@ export default defineConfig({
     cors: true,
     proxy: {
       "/api": {
-        target: API_URL,
+        target: "http://localhost:8009",
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        // No rewrite needed if the gateway expects /api/v1
+        // But the gateway uses app.use("/api/v1/...", ...)
+        // So we keep /api/v1 in the request
       },
     },
     headers: {

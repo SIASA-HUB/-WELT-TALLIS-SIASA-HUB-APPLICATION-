@@ -1,16 +1,12 @@
-// TrendingStoriesRow.js - Fixed to use available endpoints
+// TrendingStoriesRow.js - Fixed with proper API calls using axios
 
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import axios from "axios";
-import { ChevronRight, Sparkles, Heart, Flame } from "lucide-react";
+import { Sparkles, Flame, ChevronRight, Heart } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
+import API_BASE_URL from "./apiConfig";
 
-const API_BASE_URL = "";
-
-// ============================================
-// ANIMATIONS
-// ============================================
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.02); opacity: 1; }
@@ -241,22 +237,29 @@ const ErrorMessage = styled.div`
   font-size: 12px;
 `;
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
+// Helper function to build image URL
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
+  }
+  let baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  if (imageUrl.startsWith("/uploads")) {
+    return `${baseUrl}${imageUrl}`;
+  }
+  if (imageUrl.startsWith("uploads")) {
+    return `${baseUrl}/${imageUrl}`;
+  }
+  return `${baseUrl}/${imageUrl}`;
+};
 
-// Calculate trending score based on engagement
 const calculateTrendingScore = (story) => {
   const likes = story.likes || 0;
   const boosts = story.boost_count || 0;
   const comments = story.comments || 0;
-  // Weight: likes (1), comments (2), boosts (5)
   return likes + comments * 2 + boosts * 5;
 };
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
 const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -273,57 +276,53 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     setLoading(true);
     setError(null);
     try {
-      // Since there's no global trending endpoint, we need to fetch recent endorsements
-      // from multiple sources and combine them
-      
       console.log("📊 Fetching trending stories...");
-      
-      // Fetch recent endorsements (most recent first)
-      const recentResponse = await axios.get(
-        `${API_BASE_URL}/api/v1/endorsements/recent?limit=100`,
-        { withCredentials: true, timeout: 10000 }
+
+      // Fetch recent endorsements using axios
+      const response = await axios.get(
+        `${API_BASE_URL}/endorsements/recent?limit=100`,
+        {
+          withCredentials: true,
+        },
       );
-      
+
       let allStories = [];
-      
-      if (recentResponse.data?.success && recentResponse.data?.data) {
-        allStories = recentResponse.data.data;
+
+      if (response.data?.success && response.data?.data) {
+        allStories = response.data.data;
         console.log(`📥 Fetched ${allStories.length} recent endorsements`);
+      } else if (Array.isArray(response.data)) {
+        allStories = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        allStories = response.data.data;
       }
-      
-      // Also try to get boosted endorsements (they have higher engagement)
-      try {
-        // We need a leaderId for boosted endpoint, so we might need to fetch from multiple leaders
-        // For now, just use recent endorsements and sort by engagement
-        console.log("Using recent endorsements sorted by engagement");
-      } catch (boostErr) {
-        console.log("Could not fetch boosted endorsements:", boostErr.message);
-      }
-      
+
       if (allStories.length === 0) {
         setStories([]);
         setError("No stories available");
         setLoading(false);
         return;
       }
-      
+
       // Calculate trending score for each story and sort
-      const storiesWithScore = allStories.map(story => ({
+      const storiesWithScore = allStories.map((story) => ({
         ...story,
-        trendingScore: calculateTrendingScore(story)
+        trendingScore: calculateTrendingScore(story),
       }));
-      
+
       // Sort by trending score (highest first)
       storiesWithScore.sort((a, b) => b.trendingScore - a.trendingScore);
-      
+
       // Take top stories
       const trendingStories = storiesWithScore.slice(0, limit);
-      
+
       console.log(`🔥 Found ${trendingStories.length} trending stories`);
       trendingStories.forEach((story, idx) => {
-        console.log(`  ${idx + 1}. Score: ${story.trendingScore} - ${story.user_name}`);
+        console.log(
+          `  ${idx + 1}. Score: ${story.trendingScore} - ${story.user_name}`,
+        );
       });
-      
+
       setStories(trendingStories);
     } catch (error) {
       console.error("Fetch error", error);
@@ -336,9 +335,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
 
   const getAvatarUrl = (story) => {
     if (story?.image_url) {
-      return story.image_url.startsWith("http")
-        ? story.image_url
-        : `${API_BASE_URL}${story.image_url}`;
+      return buildImageUrl(story.image_url);
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(story?.user_name || "U")}&background=ff3b3b&color=fff&bold=true&size=80`;
   };
@@ -443,9 +440,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
                 >
                   <StoryAvatar>
                     <img src={getAvatarUrl(story)} alt="" />
-                    {(isTrending || score > 50) && (
-                      <HotBadge>HOT</HotBadge>
-                    )}
+                    {(isTrending || score > 50) && <HotBadge>HOT</HotBadge>}
                   </StoryAvatar>
                 </StoryRing>
                 <StoryUsername>

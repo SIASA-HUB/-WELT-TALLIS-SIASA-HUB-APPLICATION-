@@ -1,4 +1,4 @@
-// routes/battleRoutes.js - Complete Working Version
+// routes/battleRoutes.js - Complete Working Version (without getTopCreators)
 
 const express = require("express");
 const router = express.Router();
@@ -8,7 +8,7 @@ const {
   getCompletedBattles,
   getBattleById,
   voteBattle,
-  sendGift,
+ 
   addReaction,
   getReactions,
   addComment,
@@ -29,7 +29,6 @@ const {
 router.get("/stats", getBattleStats);
 router.get("/leaderboard", getBattleLeaderboard);
 
-
 // Active & Completed
 router.get("/active", getActiveBattles);
 router.get("/completed", getCompletedBattles);
@@ -40,7 +39,6 @@ router.get("/user-votes/:deviceId", getUserVotes);
 // Actions (POST)
 router.post("/create", createBattle);
 router.post("/vote", voteBattle);
-router.post("/gift", sendGift);
 router.post("/reaction", addReaction);
 router.post("/comment", addComment);
 router.post("/countdown", countdownTick);
@@ -50,7 +48,5 @@ router.get("/:battleId", getBattleById);
 router.get("/:battleId/reactions", getReactions);
 router.get("/:battleId/comments", getComments);
 router.post("/:battleId/end", endBattle);
-
-
 
 module.exports = router;

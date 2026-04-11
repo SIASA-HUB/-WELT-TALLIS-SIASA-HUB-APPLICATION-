@@ -482,7 +482,7 @@ const CreateRally = () => {
 
         // Navigate after 2 seconds
         setTimeout(() => {
-          navigate(`/rallies/${response.data.data.rally_id}`);
+          navigate(`/`);
         }, 2000);
       }
     } catch (err) {

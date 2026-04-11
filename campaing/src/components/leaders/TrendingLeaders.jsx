@@ -2,31 +2,21 @@ import React, { useState, useEffect, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  Heart,
-  Eye,
-  Flame,
-  ChevronRight,
-  Trophy,
-  Verified,
-} from "lucide-react";
+import { Flame, ChevronRight, Trophy, Verified } from "lucide-react";
 import AppLoadingBar from "../../utils/LoadingBar";
 import theme from "../../utils/theme";
 
-// Added fallbacks to prevent "Cannot read properties of undefined"
 const COLORS = theme?.COLORS || { success: "#10b981", primary: "#ff4500" };
 const TRANSITIONS = theme?.TRANSITIONS || { default: "0.3s ease" };
 
-const API_BASE_URL = "/api/v1";
+import API_BASE_URL from "./apiConfig";
 
-// --- ANIMATIONS ---
 const glow = keyframes`
   0% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
   50% { filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.7)); }
   100% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
 `;
 
-// --- STYLED COMPONENTS ---
 const SectionWrapper = styled.section`
   margin: 16px 0 24px 0;
 `;
@@ -64,11 +54,10 @@ const ViewAllLink = styled.div`
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  /* Added optional chaining here */
-  transition: ${TRANSITIONS?.default || "0.3s ease"};
+  transition: ${TRANSITIONS.default};
 
   &:hover {
-    color: ${COLORS?.success || "#10b981"};
+    color: ${COLORS.success};
   }
 `;
 
@@ -87,7 +76,7 @@ const LeaderCard = styled.div`
   position: relative;
   width: 150px;
   min-width: 150px;
-  height: 220px;
+  height: 200px;
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
@@ -112,7 +101,7 @@ const ImageWrapper = styled.div`
     background: linear-gradient(
       to bottom,
       transparent 40%,
-      rgba(0, 0, 0, 0.85) 100%
+      rgba(0, 0, 0, 0.75) 100%
     );
     z-index: 1;
   }
@@ -134,18 +123,18 @@ const RankBadge = styled.div`
   top: 10px;
   left: 10px;
   background: ${(props) =>
-    props.$rank === 1 ? "#ffca28" : "rgba(255,255,255,0.9)"};
-  color: #1e293b;
-  width: 26px;
-  height: 26px;
+    props.$rank === 1 ? "#ffca28" : "rgba(0, 0, 0, 0.6)"};
+  color: ${(props) => (props.$rank === 1 ? "#1e293b" : "white")};
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   z-index: 3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(4px);
 `;
 
 const ContentOverlay = styled.div`
@@ -161,10 +150,11 @@ const ContentOverlay = styled.div`
 const Name = styled.div`
   font-size: 14px;
   font-weight: 800;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   gap: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 `;
 
 const Party = styled.div`
@@ -172,33 +162,31 @@ const Party = styled.div`
   opacity: 0.85;
   font-weight: 600;
   letter-spacing: 0.2px;
-  margin-bottom: 8px;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 `;
 
-const StatsPill = styled.div`
-  display: flex;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  width: fit-content;
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+// Helper function to build correct image URL
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
 
-  .stat {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 9px;
-    font-weight: 700;
+  // If it's already a full URL
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
   }
-`;
 
-const formatNumber = (num) => {
-  if (!num) return "0";
-  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-  return num.toString();
+  // If it starts with /uploads, prepend API base URL
+  if (imageUrl.startsWith("/uploads")) {
+    return `${API_BASE_URL}${imageUrl}`;
+  }
+
+  // If it starts with uploads (no slash)
+  if (imageUrl.startsWith("uploads")) {
+    return `${API_BASE_URL}/${imageUrl}`;
+  }
+
+  // Default: prepend with / and base URL
+  return `${API_BASE_URL}/${imageUrl}`;
 };
 
 const TrendingLeaders = () => {
@@ -233,9 +221,9 @@ const TrendingLeaders = () => {
         <TitleSection>
           <Flame
             size={20}
-            fill={COLORS?.success || "#10b981"}
+            fill={COLORS.success}
             className="fire-icon"
-            color={COLORS?.success || "#10b981"}
+            color={COLORS.success}
           />
           <div className="main-title">Trending Aspirants</div>
         </TitleSection>
@@ -245,47 +233,47 @@ const TrendingLeaders = () => {
       </HeaderRow>
 
       <CardsContainer>
-        {leaders.map((leader, index) => (
-          <LeaderCard
-            key={leader.leader_id}
-            onClick={() => navigate(`/leader/${leader.leader_id}`)}
-          >
-            <RankBadge $rank={index + 1}>
-              {index === 0 ? <Trophy size={12} /> : index + 1}
-            </RankBadge>
+        {leaders.map((leader, index) => {
+          // Build the correct image URL
+          const imageSrc = buildImageUrl(
+            leader.image_url || leader.primary_image,
+          );
 
-            <ImageWrapper>
-              <LeaderImage
-                src={
-                  leader.primary_image ||
-                  leader.image_url ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=10b981&color=fff&bold=true`
-                }
-                alt={leader.name}
-              />
-            </ImageWrapper>
+          return (
+            <LeaderCard
+              key={leader.leader_id}
+              onClick={() => navigate(`/leader/${leader.leader_id}`)}
+            >
+              <RankBadge $rank={index + 1}>
+                {index === 0 ? <Trophy size={12} /> : index + 1}
+              </RankBadge>
 
-            <ContentOverlay>
-              <Name>
-                {leader.name?.split(" ").slice(0, 2).join(" ") || "Leader"}
-                {leader.verification === 1 && (
-                  <Verified size={12} fill="#3b82f6" color="white" />
-                )}
-              </Name>
-              <Party>{leader.party || "Independent"}</Party>
-              <StatsPill>
-                <div className="stat">
-                  <Heart size={10} fill="#ff4b4b" color="#ff4b4b" />
-                  {formatNumber(leader.likes || 0)}
-                </div>
-                <div className="stat">
-                  <Eye size={10} color="white" />
-                  {formatNumber(leader.views || 0)}
-                </div>
-              </StatsPill>
-            </ContentOverlay>
-          </LeaderCard>
-        ))}
+              <ImageWrapper>
+                <LeaderImage
+                  src={
+                    imageSrc ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=10b981&color=fff&bold=true&size=150`
+                  }
+                  alt={leader.name}
+                  onError={(e) => {
+                    console.log(`Failed to load image: ${imageSrc}`);
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=10b981&color=fff&bold=true&size=150`;
+                  }}
+                />
+              </ImageWrapper>
+
+              <ContentOverlay>
+                <Name>
+                  {leader.name?.split(" ").slice(0, 2).join(" ") || "Leader"}
+                  {leader.verification === 1 && (
+                    <Verified size={12} fill="#3b82f6" color="white" />
+                  )}
+                </Name>
+                <Party>{leader.party || "Independent"}</Party>
+              </ContentOverlay>
+            </LeaderCard>
+          );
+        })}
       </CardsContainer>
     </SectionWrapper>
   );

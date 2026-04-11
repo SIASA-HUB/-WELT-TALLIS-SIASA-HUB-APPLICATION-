@@ -79,30 +79,6 @@ const MenuButton = styled.button`
   }
 `;
 
-const SearchContainer = styled.div`
-  flex: 1;
-  max-width: 500px;
-  margin: 0 20px;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const MobileSearchButton = styled.button`
-  display: none;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 8px;
-
-  @media (max-width: 768px) {
-    display: flex;
-    align-items: center;
-  }
-`;
-
 const DesktopButtons = styled.div`
   margin-left: auto;
 
@@ -227,30 +203,11 @@ const Header = () => {
             </Logo>
           </LogoContainer>
 
-          {/* Desktop Search */}
-          <SearchContainer>
-            <SearchInput />
-          </SearchContainer>
-
-          {/* Mobile Search Button */}
-          <MobileSearchButton
-            onClick={() => setShowMobileSearch(!showMobileSearch)}
-          >
-            <Search size={18} />
-          </MobileSearchButton>
-
           {/* Desktop Buttons */}
           <DesktopButtons>
             <CustomButtons />
           </DesktopButtons>
         </Toolbar>
-
-        {/* Mobile Search Bar (when toggled) */}
-        {showMobileSearch && (
-          <MobileSearchBar>
-            <SearchInput />
-          </MobileSearchBar>
-        )}
       </AppBar>
 
       {/* Mobile Drawer */}
@@ -278,83 +235,6 @@ const Header = () => {
         </DrawerContent>
       </Drawer>
     </>
-  );
-};
-
-// Search Input Component
-const SearchInputWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  background: white;
-  border-radius: 8px;
-  padding: 6px 12px;
-  width: 100%;
-`;
-
-const SearchInputField = styled.input`
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 8px;
-  font-size: 14px;
-
-  &::placeholder {
-    color: #999;
-  }
-`;
-
-const SearchButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  color: ${({ theme }) => theme.colors?.primary || "#bb0000"};
-
-  &:hover {
-    opacity: 0.7;
-  }
-`;
-
-const MobileSearchBar = styled.div`
-  position: absolute;
-  top: 60px;
-  left: 0;
-  right: 0;
-  background: white;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-
-  @media (min-width: 769px) {
-    display: none;
-  }
-`;
-
-const SearchInput = () => {
-  const [query, setQuery] = useState("");
-
-  const handleSearch = () => {
-    if (query.trim()) {
-      console.log("Searching for:", query);
-      // Handle search logic here
-    }
-  };
-
-  return (
-    <SearchInputWrapper>
-      <SearchInputField
-        type="text"
-        placeholder="Search campaign merch..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-      />
-      <SearchButton onClick={handleSearch}>
-        <Search size={18} />
-      </SearchButton>
-    </SearchInputWrapper>
   );
 };
 

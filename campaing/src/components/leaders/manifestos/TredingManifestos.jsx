@@ -2,25 +2,25 @@ import React, { useState, useEffect, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  ChevronRight,
-  Zap,
-  Flame,
-  TrendingUp,
-  Eye,
-  Heart,
-  MessageCircle,
-} from "lucide-react";
+import { ChevronRight, Zap, Flame, Sparkles } from "lucide-react";
+import API_BASE_URL from "./apiConfig";
 
-// --- API CONSTANT ---
-const API_BASE_URL = "";
+// --- HELPER: Build image URL ---
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
+  }
+  if (imageUrl.startsWith("/uploads")) {
+    return `${API_BASE_URL}${imageUrl}`;
+  }
+  if (imageUrl.startsWith("uploads")) {
+    return `${API_BASE_URL}/${imageUrl}`;
+  }
+  return `${API_BASE_URL}/${imageUrl}`;
+};
 
 // --- ANIMATIONS ---
-const slideIn = keyframes`
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-`;
-
 const pulse = keyframes`
   0% { opacity: 0.6; }
   50% { opacity: 1; }
@@ -71,26 +71,25 @@ const Header = styled.div`
     font-weight: 600;
     color: #e11d48;
   }
+
+  .location-badge {
+    background: rgba(34, 197, 94, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 7px;
+    font-weight: 600;
+    color: #22c55e;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
 `;
 
-const ScrollContainer = styled.div`
-  max-height: 480px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-
-  &::-webkit-scrollbar {
-    width: 3px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 10px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #22c55e;
-    border-radius: 10px;
-  }
+// NO SCROLL - just normal flow
+const ManifestosContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 `;
 
 const LoadingState = styled.div`
@@ -141,14 +140,6 @@ const SkeletonRow = styled.div`
       background: rgba(255, 255, 255, 0.05);
       border-radius: 3px;
     }
-
-    .skeleton-stats {
-      width: 120px;
-      height: 7px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 3px;
-      margin-top: 3px;
-    }
   }
 
   .skeleton-action {
@@ -162,30 +153,31 @@ const SkeletonRow = styled.div`
 const ManifestoRow = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
+  padding: 12px;
+  background: ${(props) =>
+    props.$isLocal ? "rgba(34, 197, 94, 0.08)" : "rgba(255, 255, 255, 0.02)"};
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-bottom: 4px;
-  gap: 10px;
+  gap: 12px;
+  border-left: ${(props) => (props.$isLocal ? "3px solid #22c55e" : "none")};
 
   &:hover {
-    background: rgba(34, 197, 94, 0.05);
-    transform: translateX(2px);
+    background: rgba(34, 197, 94, 0.1);
+    transform: translateX(4px);
 
     .action-icon {
       color: #22c55e;
-      transform: translateX(2px);
+      transform: translateX(4px);
     }
   }
 `;
 
 const Index = styled.div`
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.25);
-  min-width: 28px;
+  color: rgba(255, 255, 255, 0.3);
+  min-width: 30px;
   font-family: monospace;
 
   ${ManifestoRow}:hover & {
@@ -194,8 +186,8 @@ const Index = styled.div`
 `;
 
 const Avatar = styled.div`
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #22c55e, #16a34a);
   display: flex;
@@ -217,12 +209,12 @@ const Content = styled.div`
 `;
 
 const LeaderName = styled.div`
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   color: #71717a;
   letter-spacing: 0.5px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -231,64 +223,49 @@ const LeaderName = styled.div`
   .party {
     color: #22c55e;
     background: rgba(34, 197, 94, 0.1);
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 8px;
-    font-size: 6px;
+    font-size: 7px;
     font-weight: 600;
   }
 
   .position {
     color: #e11d48;
     background: rgba(225, 29, 72, 0.1);
-    padding: 1px 5px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 7px;
+    font-weight: 600;
+  }
+
+  .local-tag {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.2);
+    padding: 2px 6px;
     border-radius: 8px;
     font-size: 6px;
-    font-weight: 600;
+    font-weight: 700;
+    text-transform: uppercase;
   }
 `;
 
-const ManifestoTitle = styled.h4`
-  font-size: 12px;
+const ManifestoText = styled.h4`
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-`;
-
-const EngagementPreview = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 3px;
-  flex-wrap: wrap;
-
-  span {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 7px;
-    color: #5a5a66;
-  }
-
-  .trend-score {
-    color: #22c55e;
-    background: rgba(34, 197, 94, 0.1);
-    padding: 1px 6px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 7px;
-  }
 `;
 
 const ActionIcon = styled.div`
   color: rgba(255, 255, 255, 0.2);
   transition: all 0.2s ease;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -296,8 +273,8 @@ const ActionIcon = styled.div`
   flex-shrink: 0;
 
   svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 `;
 
@@ -325,61 +302,89 @@ const EmptyState = styled.div`
   }
 `;
 
-const TrendingManifestos = () => {
+const TrendingManifestos = ({ userId, currentUser }) => {
   const [manifestos, setManifestos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchTrending = async () => {
+    const fetchManifestos = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await axios.get(
-          `${API_BASE_URL}/api/v1/leaders/manifestos/trending?limit=20`,
-        );
+        const finalUserId =
+          userId || currentUser?.user_id || localStorage.getItem("user_id");
+        // Limit to 10 items
+        let url = `/manifestos/trending?limit=10`;
+        if (finalUserId) {
+          url += `&user_id=${finalUserId}`;
+        }
 
-        if (res.data?.success) {
-          let manifestosData = [];
+        const res = await axios.get(`${API_BASE_URL}${url}`, {
+          withCredentials: true,
+        });
 
-          if (res.data?.data?.manifestos) {
-            manifestosData = res.data.data.manifestos;
-          } else if (Array.isArray(res.data?.data)) {
-            manifestosData = res.data.data;
-          } else if (res.data?.data) {
-            manifestosData = [res.data.data];
-          }
-
-          if (manifestosData.length > 0) {
-            setManifestos(manifestosData);
-          } else {
-            setError("No manifestos available");
+        if (res.data.success) {
+          setManifestos(res.data.data || []);
+          if (res.data.meta?.user_location) {
+            setUserLocation(res.data.meta.user_location);
           }
         } else {
-          setError(res.data?.message || "Failed to fetch manifestos");
+          setError("No manifestos available");
         }
       } catch (err) {
-        console.error("Backend Error:", err);
-        setError(err.response?.data?.message || "Failed to connect to server");
+        console.error("Error:", err);
+        setError("Failed to connect");
       } finally {
         setLoading(false);
       }
     };
-    fetchTrending();
-  }, []);
 
-  const formatNumber = (num) => {
-    if (!num) return "0";
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-    return num.toString();
-  };
+    fetchManifestos();
+  }, [userId, currentUser]);
 
   const getAvatarUrl = (leaderName, imageUrl) => {
-    if (imageUrl) return imageUrl;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leaderName?.charAt(0) || "C")}&background=22c55e&color=fff&size=64&bold=true&length=1`;
+    const builtUrl = buildImageUrl(imageUrl);
+    if (builtUrl) {
+      return builtUrl;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leaderName?.charAt(0) || "C")}&background=22c55e&color=fff&size=80&bold=true&length=2`;
+  };
+
+  const isLocalLeader = (manifesto) => {
+    if (!userLocation) return false;
+    if (userLocation.ward && manifesto.ward === userLocation.ward) return true;
+    if (
+      userLocation.constituency &&
+      manifesto.constituency === userLocation.constituency
+    )
+      return true;
+    if (userLocation.county && manifesto.county === userLocation.county)
+      return true;
+    return false;
+  };
+
+  const getDisplayText = (manifesto) => {
+    if (manifesto.main_agenda && manifesto.main_agenda.length > 10) {
+      return manifesto.main_agenda;
+    }
+    if (manifesto.agenda_items) {
+      try {
+        const items =
+          typeof manifesto.agenda_items === "string"
+            ? JSON.parse(manifesto.agenda_items)
+            : manifesto.agenda_items;
+        if (Array.isArray(items) && items.length > 0) {
+          return items[0];
+        }
+      } catch (e) {
+        return manifesto.agenda_items;
+      }
+    }
+    return "Policy Agenda 2027";
   };
 
   if (loading) {
@@ -387,7 +392,7 @@ const TrendingManifestos = () => {
       <Section>
         <Header>
           <h2>
-            <Zap size={10} fill="#e11d48" /> TRENDING AGENDA
+            <Sparkles size={10} fill="#e11d48" /> MANIFESTO HIGHLIGHTS
           </h2>
           <span className="badge">
             <Flame size={8} /> LOADING
@@ -401,7 +406,6 @@ const TrendingManifestos = () => {
               <div className="skeleton-content">
                 <div className="skeleton-name" />
                 <div className="skeleton-title" />
-                <div className="skeleton-stats" />
               </div>
               <div className="skeleton-action" />
             </SkeletonRow>
@@ -416,13 +420,12 @@ const TrendingManifestos = () => {
       <Section>
         <Header>
           <h2>
-            <Zap size={10} fill="#e11d48" /> TRENDING AGENDA
+            <Sparkles size={10} fill="#e11d48" /> MANIFESTO HIGHLIGHTS
           </h2>
         </Header>
         <EmptyState>
-          <TrendingUp size={24} />
+          <Zap size={24} />
           <p>{error}</p>
-          <p className="sub">Pull to refresh</p>
         </EmptyState>
       </Section>
     );
@@ -433,12 +436,12 @@ const TrendingManifestos = () => {
       <Section>
         <Header>
           <h2>
-            <Zap size={10} fill="#e11d48" /> TRENDING AGENDA
+            <Sparkles size={10} fill="#e11d48" /> MANIFESTO HIGHLIGHTS
           </h2>
         </Header>
         <EmptyState>
           <Flame size={24} />
-          <p>No manifestos yet</p>
+          <p>No manifesto highlights yet</p>
           <p className="sub">Check back soon</p>
         </EmptyState>
       </Section>
@@ -449,73 +452,64 @@ const TrendingManifestos = () => {
     <Section>
       <Header>
         <h2>
-          <Zap size={10} fill="#e11d48" /> TRENDING AGENDA
+          <Sparkles size={10} fill="#e11d48" /> MANIFESTO HIGHLIGHTS
         </h2>
         <div style={{ display: "flex", gap: "6px" }}>
+          {userLocation && userLocation.county && (
+            <span className="location-badge">
+              📍{" "}
+              {userLocation.ward ||
+                userLocation.constituency ||
+                userLocation.county}
+            </span>
+          )}
           <span className="badge">
-            <Flame size={8} /> HOT
+            <Flame size={8} /> TOP {manifestos.length}
           </span>
-          <span className="count-badge">{manifestos.length}</span>
         </div>
       </Header>
 
-      <ScrollContainer>
-        {manifestos.slice(0, 20).map((m, i) => (
-          <ManifestoRow
-            key={m.id || m.manifesto_id || i}
-            onClick={() => navigate(`/leaders/${m.leader_id}`)}
-          >
-            <Index>#{i + 1}</Index>
+      <ManifestosContainer>
+        {manifestos.map((m, i) => {
+          const local = isLocalLeader(m);
+          const displayText = getDisplayText(m);
+          const imageUrl = m.leader_image || m.image_url;
 
-            <Avatar>
-              <img
-                src={getAvatarUrl(m.leader_name, m.leader_image)}
-                alt={m.leader_name}
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.leader_name?.charAt(0) || "C")}&background=22c55e&color=fff&size=64&bold=true&length=1`;
-                }}
-              />
-            </Avatar>
+          return (
+            <ManifestoRow
+              key={m.id || m.manifesto_id || i}
+              $isLocal={local}
+              onClick={() => navigate(`/leaders/${m.leader_id}`)}
+            >
+              <Index>#{i + 1}</Index>
 
-            <Content>
-              <LeaderName>
-                {m.leader_name || "Candidate"}
-                {m.position && <span className="position">{m.position}</span>}
-                {m.party && <span className="party">{m.party}</span>}
-              </LeaderName>
-              <ManifestoTitle>
-                {m.title || m.main_agenda || "Policy Agenda 2027"}
-              </ManifestoTitle>
-              <EngagementPreview>
-                {m.likes > 0 && (
-                  <span>
-                    <Heart size={7} /> {formatNumber(m.likes)}
-                  </span>
-                )}
-                {m.views > 0 && (
-                  <span>
-                    <Eye size={7} /> {formatNumber(m.views)}
-                  </span>
-                )}
-                {m.comments > 0 && (
-                  <span>
-                    <MessageCircle size={7} /> {formatNumber(m.comments)}
-                  </span>
-                )}
-                {m.trending_score > 0 && (
-                  <span className="trend-score">
-                    <Flame size={6} /> {m.trending_score}
-                  </span>
-                )}
-              </EngagementPreview>
-            </Content>
+              <Avatar>
+                <img
+                  src={getAvatarUrl(m.leader_name, imageUrl)}
+                  alt={m.leader_name}
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.leader_name?.charAt(0) || "C")}&background=22c55e&color=fff&size=80&bold=true&length=2`;
+                  }}
+                />
+              </Avatar>
 
-            <ActionIcon className="action-icon">
-              <ChevronRight size={12} />
-            </ActionIcon>
-          </ManifestoRow>
-        ))}
-      </ScrollContainer>
+              <Content>
+                <LeaderName>
+                  {m.leader_name || "Candidate"}
+                  {m.position && <span className="position">{m.position}</span>}
+                  {m.party && <span className="party">{m.party}</span>}
+                  {local && <span className="local-tag">📍 LOCAL</span>}
+                </LeaderName>
+                <ManifestoText>{displayText}</ManifestoText>
+              </Content>
+
+              <ActionIcon className="action-icon">
+                <ChevronRight size={16} />
+              </ActionIcon>
+            </ManifestoRow>
+          );
+        })}
+      </ManifestosContainer>
     </Section>
   );
 };

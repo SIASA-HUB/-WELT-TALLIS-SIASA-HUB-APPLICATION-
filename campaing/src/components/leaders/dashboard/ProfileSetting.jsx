@@ -1,22 +1,5 @@
-// ProfileSettingsSection.js - Clean, Professional Profile Settings
-import React, { useState, useEffect } from "react";
-import styled from "styled-components";
-import axios from "axios";
-import {
-  User,
-  MapPin,
-  Briefcase,
-  Mail,
-  Phone,
-  Save,
-  Camera,
-  X,
-  CheckCircle,
-  AlertCircle,
-  Edit2,
-} from "lucide-react";
-
-const API_URL = "/api/v1/marketplace"; // Leaders service
+import api from "@/api/api";
+import styled, { keyframes } from "styled-components";
 
 const Card = styled.div`
   background: white;
@@ -244,11 +227,37 @@ const StatusBadge = styled.span`
         ? "#fff3e0"
         : "#ffebee"};
   color: ${(props) =>
-    props.status === "active"
+    props.status === "active" || props.status === "verified"
       ? "#2e7d32"
       : props.status === "pending"
         ? "#ed6c02"
         : "#c62828"};
+`;
+
+const VerifyButton = styled.button`
+  padding: 6px 12px;
+  background: #1e3c72;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #152c54;
+  }
+
+  &:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
 `;
 
 const ProfileSettingsSection = ({ leader, onUpdate }) => {
@@ -317,26 +326,10 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
     setMessage(null);
 
     try {
-      // Get token from localStorage
-      const token = localStorage.getItem("leaderToken");
+      // Update profile via global api
+      const response = await api.put("/leaders/profile/update", formData);
 
-      if (!token) {
-        throw new Error("Not authenticated");
-      }
-
-      // Update profile
-      const response = await axios.put(
-        `${API_URL}/api/v1/leaders/profile/update`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (response.data.success) {
+      if (response.success) {
         setMessage({ type: "success", text: "Profile updated successfully!" });
         setIsEditing(false);
         if (onUpdate) onUpdate(formData);
@@ -344,25 +337,40 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
         // Clear message after 3 seconds
         setTimeout(() => setMessage(null), 3000);
       } else {
-        throw new Error(response.data.message || "Update failed");
+        throw new Error(response.message || "Update failed");
       }
     } catch (error) {
       console.error("Update error:", error);
       setMessage({
         type: "error",
-        text: error.response?.data?.message || "Failed to update profile",
+        text: error.message || "Failed to update profile",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRequestVerification = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post("/leaders/verification/request");
+      if (response.success) {
+        setMessage({ type: "success", text: "Verification request sent successfully!" });
+        // You might want to trigger a data refresh here
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || "Failed to send request" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusLabel = () => {
-    if (leader?.status === "active")
-      return { text: "Active", icon: <CheckCircle size={12} /> };
+    if (leader?.status === "active" || leader?.status === "verified")
+      return { text: "Verified", icon: <CheckCircle size={12} /> };
     if (leader?.status === "pending")
-      return { text: "Pending Approval", icon: <AlertCircle size={12} /> };
-    return { text: "Inactive", icon: <X size={12} /> };
+      return { text: "Verification Pending", icon: <AlertCircle size={12} /> };
+    return { text: "Unverified", icon: <AlertCircle size={12} /> };
   };
 
   const status = getStatusLabel();
@@ -400,10 +408,16 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
               )}
             </AvatarWrapper>
 
-            <div style={{ marginTop: "12px" }}>
+            <div style={{ marginTop: "12px", display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <StatusBadge status={leader?.status}>
                 {status.icon} {status.text}
               </StatusBadge>
+              {!isEditing && leader?.status !== "verified" && leader?.status !== "pending" && (
+                <VerifyButton type="button" onClick={handleRequestVerification} disabled={loading}>
+                  <ShieldCheck size={12} />
+                  {loading ? "Requesting..." : "Verify Account"}
+                </VerifyButton>
+              )}
             </div>
           </AvatarSection>
 

@@ -300,7 +300,7 @@ const createUser = asyncHandler(async (req, res) => {
       personal_email: personal_email || null,
     });
 
-    // ADD WELCOME BONUS: 150 points to wallet
+    // ADD WELCOME BONUS: 100 points to wallet
     let welcomeBonusAdded = false;
     try {
       const { db } = require("../../../global/index");
@@ -315,14 +315,14 @@ const createUser = asyncHandler(async (req, res) => {
       if (!existingWallet || existingWallet.length === 0) {
         await db.query(
           `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
-           VALUES (?, 150, 0, 150, NOW(), NOW())`,
+           VALUES (?, 100, 0, 100, NOW(), NOW())`,
           [user_id],
         );
       } else {
         await db.query(
           `UPDATE user_wallets 
-           SET balance = balance + 150, 
-               total_bonus = total_bonus + 150, 
+           SET balance = balance + 100, 
+               total_bonus = total_bonus + 100, 
                updated_at = NOW() 
            WHERE user_id = ?`,
           [user_id],
@@ -333,7 +333,7 @@ const createUser = asyncHandler(async (req, res) => {
       await db.query(
         `INSERT INTO wallet_transactions 
          (transaction_id, user_id, amount, type, description, status, completed_at, created_at)
-         VALUES (?, ?, 150, 'bonus', 'Welcome bonus for new user registration', 'completed', NOW(), NOW())`,
+         VALUES (?, ?, 100, 'bonus', 'Welcome bonus for new user registration', 'completed', NOW(), NOW())`,
         [transactionId, user_id],
       );
 
@@ -360,7 +360,7 @@ const createUser = asyncHandler(async (req, res) => {
     return res.status(201).json({
       success: true,
       message: welcomeBonusAdded
-        ? `User created successfully! Username: ${finalUsername}. 150 welcome points added to your wallet.`
+        ? `User created successfully! Username: ${finalUsername}. 100 welcome points added to your wallet.`
         : `User created successfully! Username: ${finalUsername}. Welcome bonus failed. Please contact support.`,
       data: {
         user_id,
@@ -368,7 +368,7 @@ const createUser = asyncHandler(async (req, res) => {
         username_auto_generated: usernameGenerated,
         real_name: real_name.trim(),
         role: userRole,
-        welcome_bonus: welcomeBonusAdded ? 150 : 0,
+        welcome_bonus: welcomeBonusAdded ? 100 : 0,
       },
     });
   } catch (error) {

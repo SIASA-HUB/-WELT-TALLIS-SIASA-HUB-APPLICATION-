@@ -18,9 +18,7 @@ import {
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
 
-// Direct API URL - hardcoded for reliability
-const ENDORSEMENT_API_URL = "/api/v1";
-
+import API_BASE_URL from "./apiConfig";
 // Animations
 const slideUp = keyframes`
   from { transform: translateY(100%); }
@@ -455,7 +453,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     }
 
     // Use hardcoded URL
-    const url = `${ENDORSEMENT_API_URL}/api/v1/endorsements/create`;
+    const url = `${API_BASE_URL}/endorsements/create`;
     console.log("📤 Posting story to:", url);
     console.log("📍 Leader ID:", leaderId);
     console.log("📝 Post type:", media.file ? media.type : "text");

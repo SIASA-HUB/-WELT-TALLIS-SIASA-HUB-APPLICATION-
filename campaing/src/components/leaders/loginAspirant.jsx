@@ -17,8 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// API Configuration - Fixed
-const API_BASE_URL = "/api/v1/users/leaders";
+import   API_BASE_URL  from './apiConfig'
 
 // Create axios instance
 const API = axios.create({
@@ -286,7 +285,7 @@ const LoginAspirant = () => {
     try {
       console.log("📤 Sending login request:", { name: formData.name });
       
-      const response = await API.post("/login", {
+      const response = await API.post("/leaders/login", {
         name: formData.name.trim(),
         password: formData.password,
       });

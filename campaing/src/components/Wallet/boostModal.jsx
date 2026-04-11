@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
+import API_BASE_URL from "./ApiConfig";
 // Kenyan Quotes for the boost cards
 const BOOST_AMOUNTS = [
   {
@@ -324,9 +325,7 @@ const QuoteStrip = styled.div`
   gap: 8px;
 `;
 
-// Service URLs
-const WALLET_API_URL = "/api/v1/reactions";
-const LEADERS_API_URL = "/api/v1/users";
+
 
 const getLoggedInUserId = () => {
   const userData = localStorage.getItem("user_data");
@@ -390,22 +389,20 @@ const BoostModal = ({
     const fetchBalance = async () => {
       setLoading(true);
       try {
-        console.log(
-          `🔍 Fetching wallet balance for user ${userId} from ${WALLET_API_URL}`,
-        );
+       
         const response = await axios.get(
-          `${WALLET_API_URL}/api/v1/wallet/balance/${userId}`,
+          `${API_BASE_URL}/wallet/balance/${userId}`,
           { withCredentials: true },
         );
         if (response.data?.success) {
           setWalletBalance(response.data.data.balance || 0);
-          console.log(`✅ Balance fetched: ${response.data.data.balance}`);
+        
         } else {
           console.error("❌ Failed to fetch balance:", response.data);
           setWalletBalance(0);
         }
       } catch (err) {
-        console.error("❌ Error fetching balance:", err);
+       
         setError("Could not fetch wallet balance. Please try again.");
         setWalletBalance(0);
       } finally {

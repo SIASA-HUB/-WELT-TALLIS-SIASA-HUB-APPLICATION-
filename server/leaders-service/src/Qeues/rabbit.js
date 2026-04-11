@@ -18,6 +18,11 @@ const QUEUES = {
 
 // Connect to RabbitMQ
 const connectRabbitMQ = async () => {
+  if (process.env.RABBITMQ_ENABLED === "false") {
+    Logger.warn("⚠️ RabbitMQ is disabled via RABBITMQ_ENABLED=false. Skipping connection.");
+    return null;
+  }
+
   try {
     connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
@@ -40,8 +45,14 @@ const connectRabbitMQ = async () => {
 
     return channel;
   } catch (error) {
-    Logger.error("❌ RabbitMQ connection error:", error);
-    setTimeout(connectRabbitMQ, 5000);
+    Logger.error("❌ RabbitMQ connection error:", error.message);
+    // Don't retry if connection refused and disabled
+    if (error.code === 'ECONNREFUSED') {
+       Logger.warn("RabbitMQ server refused connection. Retrying in 30s...");
+       setTimeout(connectRabbitMQ, 30000);
+    } else {
+       setTimeout(connectRabbitMQ, 5000);
+    }
     return null;
   }
 };

@@ -1,4 +1,4 @@
-// endorsementController.js - Complete Fixed Version
+// endorsementController.js - COMPLETE FIXED VERSION
 
 const path = require("path");
 const fs = require("fs");
@@ -35,7 +35,7 @@ const isStoryExpired = (createdAt, boostPoints, totalBoostAmount) => {
 };
 
 // ============================================
-// CACHE MANAGER
+// CACHE MANAGER - COMPLETELY FIXED
 // ============================================
 class CacheManager {
   constructor() {
@@ -72,24 +72,51 @@ class CacheManager {
     }
   }
 
+  // FIXED: Universal Redis pattern deleter - works with any Redis client
   async delPattern(pattern) {
     try {
       let deletedCount = 0;
-      let cursor = "0";
-
-      do {
-        const result = await redis.call("SCAN", cursor, "MATCH", pattern, "COUNT", "100");
-        cursor = result[0];
-        const keys = result[1];
-
-        if (keys && keys.length > 0) {
-          for (const key of keys) {
-            await redis.del(key);
-            deletedCount++;
+      
+      // Try different methods based on what's available
+      if (typeof redis.scan === 'function') {
+        // Method 1: Use SCAN (ioredis style)
+        let cursor = '0';
+        do {
+          const result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
+          cursor = result[0];
+          const keys = result[1];
+          
+          if (keys && keys.length > 0) {
+            await redis.del(...keys);
+            deletedCount += keys.length;
           }
+        } while (cursor !== '0');
+      } 
+      else if (typeof redis.keys === 'function') {
+        // Method 2: Use KEYS (node-redis style)
+        const keys = await redis.keys(pattern);
+        if (keys && keys.length > 0) {
+          await redis.del(...keys);
+          deletedCount = keys.length;
         }
-      } while (cursor !== "0");
-
+      }
+      else if (typeof redis.sendCommand === 'function') {
+        // Method 3: Use sendCommand for raw Redis commands
+        try {
+          const keys = await redis.sendCommand('KEYS', [pattern]);
+          if (keys && keys.length > 0) {
+            await redis.sendCommand('DEL', keys);
+            deletedCount = keys.length;
+          }
+        } catch (cmdError) {
+          Logger.warn(`sendCommand failed: ${cmdError.message}`);
+        }
+      }
+      else {
+        // Method 4: Can't delete patterns, just log warning
+        Logger.warn(`Cannot clear cache pattern: ${pattern} - Redis client doesn't support keys/scan`);
+      }
+      
       if (deletedCount > 0) {
         Logger.info(`Cleared ${deletedCount} cache keys matching: ${pattern}`);
       }
@@ -115,6 +142,7 @@ class CacheManager {
       totalCleared += cleared;
     }
 
+    // Clear global patterns
     await this.delPattern("global:trending_endorsements:*");
     await this.delPattern("global:trending:*");
 
@@ -139,8 +167,9 @@ class CacheManager {
 const cacheManager = new CacheManager();
 
 // ============================================
-// CREATE ENDORSEMENT
+// CREATE ENDORSEMENT - COMPLETELY FREE
 // ============================================
+
 const createEndorsement = [
   uploadEndorsementMedia,
   asyncHandler(async (req, res) => {
@@ -183,62 +212,83 @@ const createEndorsement = [
     }
 
     try {
-      let result;
+      // Check daily limit
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const dailyCount = await safeQuery(
+        `SELECT COUNT(*) as count FROM endorsements WHERE user_id = ? AND created_at >= ? AND status = 'active'`,
+        [finalUserId, todayStart]
+      );
+      const endorsementsToday = dailyCount[0]?.count || 0;
 
-      await transaction(async (query) => {
-        const leader = await query(`SELECT leader_id, name FROM leaders WHERE leader_id = ?`, [leader_id]);
-        if (!leader || leader.length === 0) {
-          throw new Error("Leader not found");
-        }
+      if (endorsementsToday >= 100) {
+        return res.status(429).json({ 
+          success: false, 
+          message: `Daily limit reached. You can only make 100 endorsements per day.` 
+        });
+      }
 
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const dailyCount = await query(
-          `SELECT COUNT(*) as count FROM endorsements WHERE user_id = ? AND created_at >= ? AND status = 'active'`,
-          [finalUserId, todayStart]
-        );
-        const endorsementsToday = dailyCount[0]?.count || 0;
+      // Check if leader exists
+      const leader = await safeQueryOne(`SELECT leader_id, name FROM leaders WHERE leader_id = ?`, [leader_id]);
+      if (!leader) {
+        return res.status(404).json({ success: false, message: "Leader not found" });
+      }
 
-        if (endorsementsToday >= 100) {
-          throw new Error(`Daily limit reached. You can only make 100 endorsements per day.`);
-        }
+      // Prepare message
+      let finalMessage = userMessage;
+      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) {
+        finalMessage = "📷 Photo";
+      }
+      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) {
+        finalMessage = "📹 Video";
+      }
+      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) {
+        finalMessage = "💬 Support message";
+      }
+      finalMessage = finalMessage.trim();
 
-        let finalMessage = userMessage;
-        if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) {
-          finalMessage = "📷 Photo";
-        }
-        if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) {
-          finalMessage = "📹 Video";
-        }
-        if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) {
-          finalMessage = "💬 Support message";
-        }
-        finalMessage = finalMessage.trim();
+      // Insert endorsement (NO CHARGES - amount = 0)
+      const insertResult = await safeQuery(
+        `INSERT INTO endorsements (
+          leader_id, user_id, user_name, amount, phrase, message, 
+          image_url, thumbnail_url, media_type, post_type, level, 
+          status, created_at, boost_count, total_boost_amount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bronze', 'active', NOW(), 0, 0)`,
+        [leader_id, finalUserId, finalUserName, 0, finalMessage.slice(0, 50), finalMessage, mediaUrl, null, mediaType, mediaType === "text" ? "text" : mediaType]
+      );
 
-        const insertResult = await query(
-          `INSERT INTO endorsements (
-            leader_id, user_id, user_name, amount, phrase, message, 
-            image_url, thumbnail_url, media_type, post_type, level, 
-            status, created_at, boost_count, total_boost_amount
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bronze', 'active', NOW(), 0, 0)`,
-          [leader_id, finalUserId, finalUserName, 0, finalMessage.slice(0, 50), finalMessage, mediaUrl, null, mediaType, mediaType === "text" ? "text" : mediaType]
-        );
+      // Update leader endorsement count
+      await safeQuery(`UPDATE leaders SET endorsement_count = COALESCE(endorsement_count, 0) + 1 WHERE leader_id = ?`, [leader_id]);
 
-        await query(`UPDATE leaders SET endorsement_count = COALESCE(endorsement_count, 0) + 1 WHERE leader_id = ?`, [leader_id]);
+      // Get the created endorsement
+      const result = await safeQueryOne(`SELECT * FROM endorsements WHERE id = ?`, [insertResult.insertId]);
 
-        result = await query(`SELECT * FROM endorsements WHERE id = ?`, [insertResult.insertId]);
-      });
-
-      await cacheManager.clearLeaderCache(leader_id);
+      // Clear cache (with error handling so it doesn't break the response)
+      try {
+        await cacheManager.clearLeaderCache(leader_id);
+      } catch (cacheError) {
+        Logger.warn("Cache clear failed but endorsement was created:", cacheError.message);
+        // Don't fail the request because cache clear failed
+      }
 
       return res.status(201).json({
         success: true,
-        message: "Story posted successfully!",
-        data: { ...result[0], image_url: mediaUrl, media_type: mediaType },
+        message: "Story posted successfully! (Free - No charges)",
+        data: {
+          ...result,
+          image_url: mediaUrl,
+          media_type: mediaType,
+          amount: 0,
+          isFree: true
+        },
       });
     } catch (error) {
       Logger.error("Error creating story:", error.message);
-      return res.status(400).json({ success: false, message: error.message || "Failed to post story" });
+      console.error("Full error:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || "Failed to post story" 
+      });
     }
   }),
 ];
@@ -345,13 +395,16 @@ const getActiveStories = asyncHandler(async (req, res) => {
 // ============================================
 // GET BOOSTED ENDORSEMENTS
 // ============================================
+
+// ===== GET BOOSTED ENDORSEMENTS (WITH FALLBACK TO RECENT) =====
 const getBoostedEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const cacheKey = `leader:${leaderId}:boosted_endorsements:${limit}`;
 
   const data = await cacheManager.getOrSet(cacheKey, async () => {
-    const endorsements = await safeQuery(
+    // First try to get boosted endorsements
+    let endorsements = await safeQuery(
       `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments,
               boost_count, total_boost_amount, created_at
@@ -362,21 +415,49 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
       [leaderId, limit]
     );
 
+    // If no boosted endorsements found, fallback to most recent
+    if (!endorsements || endorsements.length === 0) {
+      console.log(`No boosted endorsements found for leader ${leaderId}, fetching most recent...`);
+      
+      endorsements = await safeQuery(
+        `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
+                media_type, post_type, level, likes, views, shares, comments,
+                boost_count, total_boost_amount, created_at
+         FROM endorsements 
+         WHERE leader_id = ? AND status = 'active'
+         ORDER BY created_at DESC
+         LIMIT ?`,
+        [leaderId, limit]
+      );
+    }
+
+    // If still no endorsements, return empty array
+    if (!endorsements || endorsements.length === 0) {
+      return [];
+    }
+
     return endorsements.map((e) => ({
       ...e,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
       expiresIn: getExpirationHours(e.boost_count, e.total_boost_amount),
-      isBoosted: true,
+      isBoosted: (e.boost_count > 0 || e.total_boost_amount > 0),
     }));
   }, 300);
 
-  return res.status(200).json({ success: true, data });
+  return res.status(200).json({ 
+    success: true, 
+    data: data || [],
+    count: data?.length || 0,
+    source: data?.length > 0 && data[0]?.isBoosted ? "boosted" : "recent"
+  });
 });
 
 // ============================================
 // GET TRENDING ENDORSEMENTS
 // ============================================
+
+// ===== GET TRENDING ENDORSEMENTS (WITH FALLBACK TO MOST RECENT) =====
 const getTrendingEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
@@ -384,7 +465,8 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
   const cacheKey = `leader:${leaderId}:trending_endorsements:${limit}:days:${days}`;
 
   const data = await cacheManager.getOrSet(cacheKey, async () => {
-    const endorsements = await safeQuery(
+    // First try to get trending endorsements
+    let endorsements = await safeQuery(
       `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments,
               boost_count, total_boost_amount, created_at,
@@ -397,18 +479,63 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
       [leaderId, days, limit]
     );
 
+    // If no trending endorsements found, fallback to most recent
+    if (!endorsements || endorsements.length === 0) {
+      console.log(`No trending endorsements found for leader ${leaderId}, fetching most recent...`);
+      
+      endorsements = await safeQuery(
+        `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
+                media_type, post_type, level, likes, views, shares, comments,
+                boost_count, total_boost_amount, created_at,
+                0 as trending_score
+         FROM endorsements 
+         WHERE leader_id = ? AND status = 'active'
+         ORDER BY created_at DESC
+         LIMIT ?`,
+        [leaderId, limit]
+      );
+    }
+
+    // If still no endorsements, return empty array
+    if (!endorsements || endorsements.length === 0) {
+      return [];
+    }
+
     return endorsements.map((e) => ({
-      ...e,
+      id: e.id,
+      user_id: e.user_id,
+      user_name: e.user_name,
+      message: e.message || "",
+      media_type: e.media_type || "text",
+      image_url: e.image_url,
+      thumbnail_url: e.thumbnail_url,
+      amount: e.amount,
+      phrase: e.phrase,
+      level: e.level,
+      likes: e.likes || 0,
+      views: e.views || 0,
+      shares: e.shares || 0,
+      comments: e.comments || 0,
+      boost_count: e.boost_count || 0,
+      total_boost_amount: e.total_boost_amount || 0,
+      created_at: e.created_at,
+      trending_score: e.trending_score || 0,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
     }));
   }, 180);
 
-  return res.status(200).json({ success: true, data });
+  // Always return something - either endorsements or empty array
+  return res.status(200).json({ 
+    success: true, 
+    data: data || [],
+    count: data?.length || 0,
+    source: data?.length > 0 ? (data[0]?.trending_score > 0 ? "trending" : "recent") : "none"
+  });
 });
 
 // ============================================
-// LIKE ENDORSEMENT - FIXED
+// LIKE ENDORSEMENT
 // ============================================
 const likeEndorsement = asyncHandler(async (req, res) => {
   const { endorsementId } = req.params;
@@ -420,7 +547,6 @@ const likeEndorsement = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Get endorsement info
     const endorsement = await safeQueryOne(
       `SELECT id, leader_id, likes FROM endorsements WHERE id = ?`,
       [endorsementId]
@@ -434,28 +560,28 @@ const likeEndorsement = asyncHandler(async (req, res) => {
     let liked = false;
     let likesCount = endorsement.likes || 0;
 
-    // Check if user already liked
     const existingLike = await safeQueryOne(
       `SELECT id FROM endorsement_likes WHERE endorsement_id = ? AND user_id = ?`,
       [endorsementId, finalUserId]
     );
 
     if (existingLike) {
-      // Unlike
       await safeQuery(`DELETE FROM endorsement_likes WHERE endorsement_id = ? AND user_id = ?`, [endorsementId, finalUserId]);
       await safeQuery(`UPDATE endorsements SET likes = GREATEST(likes - 1, 0) WHERE id = ?`, [endorsementId]);
       liked = false;
       likesCount = Math.max((endorsement.likes || 0) - 1, 0);
     } else {
-      // Like
       await safeQuery(`INSERT INTO endorsement_likes (endorsement_id, user_id, created_at) VALUES (?, ?, NOW())`, [endorsementId, finalUserId]);
       await safeQuery(`UPDATE endorsements SET likes = likes + 1 WHERE id = ?`, [endorsementId]);
       liked = true;
       likesCount = (endorsement.likes || 0) + 1;
     }
 
-    // Clear cache
-    await cacheManager.clearLeaderCache(leaderId);
+    try {
+      await cacheManager.clearLeaderCache(leaderId);
+    } catch (cacheError) {
+      Logger.warn("Cache clear failed:", cacheError.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -521,8 +647,12 @@ const boostEndorsement = asyncHandler(async (req, res) => {
       [boostAmount, endorsementId]
     );
 
-    await cacheManager.clearLeaderCache(leaderId);
-    await cacheManager.delPattern("global:trending:*");
+    try {
+      await cacheManager.clearLeaderCache(leaderId);
+      await cacheManager.delPattern("global:trending:*");
+    } catch (cacheError) {
+      Logger.warn("Cache clear failed:", cacheError.message);
+    }
 
     const updatedWallet = await safeQueryOne(`SELECT balance FROM user_wallets WHERE user_id = ?`, [finalUserId]);
     const newExpiration = getExpirationHours(
@@ -548,7 +678,7 @@ const boostEndorsement = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// ADD COMMENT - FIXED
+// ADD COMMENT
 // ============================================
 const addComment = asyncHandler(async (req, res) => {
   const { endorsementId } = req.params;
@@ -564,14 +694,12 @@ const addComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Check if endorsement exists
     const endorsement = await safeQueryOne(`SELECT id, leader_id FROM endorsements WHERE id = ?`, [endorsementId]);
 
     if (!endorsement) {
       return res.status(404).json({ success: false, message: "Endorsement not found" });
     }
 
-    // Create table if not exists
     await safeQuery(`
       CREATE TABLE IF NOT EXISTS endorsement_comments (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -587,24 +715,20 @@ const addComment = asyncHandler(async (req, res) => {
       )
     `);
 
-    // Insert comment
     const insertResult = await safeQuery(
       `INSERT INTO endorsement_comments (endorsement_id, user_id, user_name, user_avatar, comment, created_at)
        VALUES (?, ?, ?, ?, ?, NOW())`,
       [endorsementId, finalUserId, finalUserName, user_avatar || null, comment]
     );
 
-    // Update comments count on endorsement
     await safeQuery(`UPDATE endorsements SET comments = comments + 1 WHERE id = ?`, [endorsementId]);
 
-    // Get the new comment
     const newComment = await safeQueryOne(
       `SELECT id, user_id, user_name, user_avatar, comment, likes, created_at 
        FROM endorsement_comments WHERE id = ?`,
       [insertResult.insertId]
     );
 
-    // Clear comment cache
     await cacheManager.delPattern(`endorsement:${endorsementId}:comments:*`);
 
     return res.status(201).json({
@@ -619,7 +743,7 @@ const addComment = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET COMMENTS - FIXED
+// GET COMMENTS
 // ============================================
 const getComments = asyncHandler(async (req, res) => {
   const { endorsementId } = req.params;
@@ -663,7 +787,7 @@ const getComments = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// LIKE COMMENT - FIXED
+// LIKE COMMENT
 // ============================================
 const likeComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
@@ -676,7 +800,6 @@ const likeComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Check if comment exists
     const comment = await safeQueryOne(`SELECT id, likes FROM endorsement_comments WHERE id = ?`, [commentId]);
 
     if (!comment) {
@@ -686,7 +809,6 @@ const likeComment = asyncHandler(async (req, res) => {
     let liked = false;
     let likesCount = comment.likes || 0;
 
-    // Create table if not exists
     await safeQuery(`
       CREATE TABLE IF NOT EXISTS comment_likes (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -697,24 +819,20 @@ const likeComment = asyncHandler(async (req, res) => {
       )
     `);
 
-    // Check if already liked
     const existingLike = await safeQueryOne(`SELECT id FROM comment_likes WHERE comment_id = ? AND user_id = ?`, [commentId, finalUserId]);
 
     if (existingLike) {
-      // Unlike
       await safeQuery(`DELETE FROM comment_likes WHERE comment_id = ? AND user_id = ?`, [commentId, finalUserId]);
       await safeQuery(`UPDATE endorsement_comments SET likes = GREATEST(likes - 1, 0) WHERE id = ?`, [commentId]);
       liked = false;
       likesCount = Math.max((comment.likes || 0) - 1, 0);
     } else {
-      // Like
       await safeQuery(`INSERT INTO comment_likes (comment_id, user_id, created_at) VALUES (?, ?, NOW())`, [commentId, finalUserId]);
       await safeQuery(`UPDATE endorsement_comments SET likes = likes + 1 WHERE id = ?`, [commentId]);
       liked = true;
       likesCount = (comment.likes || 0) + 1;
     }
 
-    // Clear comment cache
     await cacheManager.delPattern(`endorsement:*:comments:*`);
 
     return res.status(200).json({

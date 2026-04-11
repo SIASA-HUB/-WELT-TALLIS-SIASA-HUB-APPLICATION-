@@ -10,7 +10,7 @@ const knex = require("knex");
 const redis = require("./src/utils/redis/redis");
 const { initDB } = require("./src/configurations/db");
 const userRoutes = require("./src/routes/users");
-const { corsOptions } = require("./src/helpers/cors/corsConfig");
+const corsMiddleware = require("../global/middlewares/corsMiddleware");
 const knexConfig = require("./knexfile");
 
 const app = express();
@@ -55,7 +55,7 @@ app.use(
 );
 const cookieParser = require("cookie-parser");
 
-app.use(cors(corsOptions));
+app.use(corsMiddleware);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

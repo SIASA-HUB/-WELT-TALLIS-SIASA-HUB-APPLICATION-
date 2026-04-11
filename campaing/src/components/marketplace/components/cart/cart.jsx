@@ -16,10 +16,8 @@ import {
   LogIn,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../../../api/api";
 import AdBanner from "../ItemDetails/AdBanner";
-
-const API_URL = "http://localhost:8007";
 
 // Color Theme
 const COLORS = {
@@ -625,7 +623,7 @@ const MpesaIcon = styled.div`
 
 // Helper function to decode token
 const getUserFromToken = () => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token") || localStorage.getItem("leaderToken");
   if (!token) return null;
 
   try {
@@ -637,7 +635,13 @@ const getUserFromToken = () => {
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
         .join(""),
     );
-    return JSON.parse(jsonPayload);
+    const decoded = JSON.parse(jsonPayload);
+    // Standardize user ID field (some use id, some use userId)
+    return {
+      ...decoded,
+      id: decoded.id || decoded.userId || decoded.sub,
+      name: decoded.name || decoded.fullName || decoded.username
+    };
   } catch (error) {
     console.error("Error decoding token:", error);
     return null;
@@ -743,8 +747,8 @@ const Cart = () => {
     const total = getTotalPrice();
 
     try {
-      // Call your backend M-Pesa STK Push endpoint
-      const response = await axios.post(`${API_URL}/api/mpesa/stkpush`, {
+      // Call your backend M-Pesa STK Push endpoint via global api
+      const response = await api.post("/wallet/mpesa/stkpush", {
         phoneNumber: phoneNumber.replace(/^0/, "254"), // Convert to international format
         amount: total,
         accountReference: `CART-${Date.now()}`,
@@ -752,7 +756,7 @@ const Cart = () => {
         userId: user?.id,
       });
 
-      if (response.data.success) {
+      if (response.success) {
         setError(null);
         alert(
           `M-Pesa STK Push sent to ${phoneNumber}. Please check your phone and enter PIN to complete payment.`,
@@ -764,7 +768,7 @@ const Cart = () => {
         setShowMpesaModal(false);
         navigate("/marketplace");
       } else {
-        setError(response.data.message || "Payment failed. Please try again.");
+        setError(response.message || "Payment failed. Please try again.");
       }
     } catch (err) {
       console.error("M-Pesa payment error:", err);

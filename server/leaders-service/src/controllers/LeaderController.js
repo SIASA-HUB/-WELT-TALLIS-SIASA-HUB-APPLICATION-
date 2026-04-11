@@ -206,7 +206,7 @@ const getLeaderById = asyncHandler(async (req, res) => {
     const boosts = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [safeLeaderId]);
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [safeLeaderId]);
 
-    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8002}`;
+    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
     const formatImageUrl = (url) => url ? (url.startsWith('http') ? url : `${imageBaseUrl}${url}`) : null;
 
     const responseData = {
@@ -251,7 +251,10 @@ const getLeaderById = asyncHandler(async (req, res) => {
 // ============================================
 const registerAspirant = asyncHandler(async (req, res) => {
   try {
-    const { name, password, email, party, slogan, position, county, constituency, ward, experience, education } = req.body;
+    const { 
+      name, password, email, party, slogan, position, county, constituency, ward, experience, education,
+      facebook, twitter, linkedin, instagram, website 
+    } = req.body;
     const image = req.file;
 
     if (!name) return res.status(400).json({ success: false, message: "Name is required" });
@@ -324,6 +327,27 @@ const registerAspirant = asyncHandler(async (req, res) => {
       console.error("Image processing error:", imgError);
     }
 
+    // Save Social Links to leader_portfolio
+    try {
+      const socialLinks = [
+        { type: 'facebook', url: facebook },
+        { type: 'twitter', url: twitter },
+        { type: 'linkedin', url: linkedin },
+        { type: 'instagram', url: instagram },
+        { type: 'website', url: website }
+      ].filter(link => link.url && link.url.trim() !== "");
+
+      for (const link of socialLinks) {
+        await safeQuery(
+          `INSERT INTO leader_portfolio (leader_id, type, url, created_at)
+           VALUES (?, ?, ?, NOW())`,
+          [leaderId, link.type, link.url]
+        );
+      }
+    } catch (socialError) {
+      console.error("Social links save error:", socialError);
+    }
+
     // Clear caches
     try {
       await redis.del('leaders:featured:10');
@@ -345,37 +369,113 @@ const registerAspirant = asyncHandler(async (req, res) => {
 // ============================================
 // LOGIN ASPIRANT
 // ============================================
+
 const loginAspirant = asyncHandler(async (req, res) => {
   try {
     const { name, password } = req.body;
-    if (!name || !password) return res.status(400).json({ success: false, message: "Name and password required" });
+    
+    console.log("Login attempt for:", name);
+    
+    // Validate input
+    if (!name || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Name and password are required" 
+      });
+    }
 
+    // Normalize input for case-insensitive search (trim and lowercase)
     const normalizedInput = name.trim().toLowerCase();
+    
+    // Search by name (case-insensitive) - also check both raw and normalized
     const leader = await safeQueryOne(
-      `SELECT leader_id, name, email, password_hash, party, slogan, position, county, constituency, ward, image_url, status, verification
-       FROM leaders WHERE status != 'deleted' AND (LOWER(name) = ? OR LOWER(email) = ?)`,
-      [normalizedInput, normalizedInput]
+      `SELECT leader_id, name, password_hash, party, slogan, 
+              position, position_running_for, county, constituency, ward, 
+              image_url, status, verification, created_at
+       FROM leaders 
+       WHERE status = 'active' 
+       AND (LOWER(name) = LOWER(?) OR name = ?)`,
+      [normalizedInput, name]
     );
 
-    if (!leader) return res.status(401).json({ success: false, message: "Invalid credentials" });
-    if (leader.status !== "active") return res.status(401).json({ success: false, message: "Account not active" });
+    // Check if leader exists
+    if (!leader) {
+      console.log("Leader not found for name:", name);
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid credentials. Account not found." 
+      });
+    }
 
-    const isValid = await bcrypt.compare(password, leader.password_hash);
-    if (!isValid) return res.status(401).json({ success: false, message: "Invalid credentials" });
+    console.log("Found leader:", leader.name);
+    console.log("Stored password hash:", leader.password_hash ? "Exists" : "MISSING");
 
+    // Check if password_hash exists
+    if (!leader.password_hash) {
+      console.error("No password hash found for leader:", leader.leader_id);
+      return res.status(401).json({ 
+        success: false, 
+        message: "Account has no password set. Please contact support." 
+      });
+    }
+
+    // Verify password using bcrypt
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, leader.password_hash);
+      console.log("Password validation result:", isValidPassword);
+    } catch (bcryptError) {
+      console.error("Bcrypt error:", bcryptError);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Error validating password" 
+      });
+    }
+    
+    if (!isValidPassword) {
+      console.log("Password mismatch for:", leader.name);
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid credentials. Wrong password." 
+      });
+    }
+
+    // Generate JWT token with 25 minutes expiration
     const token = jwt.sign(
-      { leaderId: leader.leader_id, name: leader.name, email: leader.email, role: "aspirant" },
+      { 
+        leaderId: leader.leader_id,
+        name: leader.name,
+        role: "aspirant",
+        position: leader.position_running_for || leader.position,
+        party: leader.party
+      },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "7d" }
+      { expiresIn: "25m" }
     );
 
+    // Remove sensitive data before sending response
     const { password_hash, ...leaderData } = leader;
-    res.status(200).json({ success: true, message: "Login successful", data: { token, leader: leaderData } });
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Login successful",
+      data: { 
+        token,
+        leader: leaderData,
+        expiresIn: 1500
+      }
+    });
+
   } catch (error) {
+    console.error("Login error:", error);
     Logger.error("Login error:", error);
-    res.status(500).json({ success: false, message: "Failed to login" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to login. Please try again." 
+    });
   }
 });
+
 
 // ============================================
 // GET MY PROFILE
@@ -428,20 +528,135 @@ const updateLeader = asyncHandler(async (req, res) => {
 // ============================================
 // GET POPULAR LEADERS
 // ============================================
+// ============================================
+// GET POPULAR LEADERS - WITH CACHING & FULL URLs
+// ============================================
 const getPopularLeaders = asyncHandler(async (req, res) => {
+  const cacheKey = 'popular_leaders_v2';
+  const limit = parseInt(req.query.limit) || 20;
+  
   try {
+    // Try to get from cache first
+    let cachedLeaders = null;
+    try {
+      cachedLeaders = await redis.get(cacheKey);
+      if (cachedLeaders) {
+        console.log("📊 Returning cached popular leaders");
+        return res.status(200).json({ 
+          success: true, 
+          data: JSON.parse(cachedLeaders),
+          count: JSON.parse(cachedLeaders).length,
+          cached: true
+        });
+      }
+    } catch (redisErr) {
+      Logger.warn(`Redis get failed: ${redisErr.message}`);
+    }
+
+    // Get leaders from database
     const leaders = await safeQuery(
-      `SELECT l.leader_id, l.name, l.party, l.position, l.county, COALESCE(l.image_url, li.image_url) as image_url,
-        l.verification, l.views, l.boost_score, l.followers
-       FROM leaders l LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
-       WHERE l.status = 'active'
-       ORDER BY l.boost_score DESC, l.views DESC LIMIT 20`,
-      []
+      `SELECT 
+        l.leader_id, 
+        l.name, 
+        l.party, 
+        l.position, 
+        l.position_running_for,
+        l.county, 
+        l.constituency, 
+        l.ward,
+        l.image_url as leader_image_url,
+        li.image_url,
+        li.thumbnail_url,
+        li.medium_url,
+        li.social_url,
+        l.verification, 
+        l.views, 
+        l.boost_score, 
+        l.followers,
+        l.slogan,
+        l.status,
+        l.created_at,
+        (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') as endorsement_count
+      FROM leaders l 
+      LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
+      WHERE l.status = 'active'
+      ORDER BY 
+        (l.boost_score * 10 + l.views * 2 + l.followers * 3) DESC,
+        l.created_at DESC
+      LIMIT ?`,
+      [limit]
     );
-    res.status(200).json({ success: true, data: leaders });
+
+    // Get image base URL
+    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
+    
+    // Helper to format image URLs
+    const formatImageUrl = (url) => {
+      if (!url) return null;
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      if (url.startsWith('data:')) return url;
+      return `${imageBaseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+    };
+
+    // Format leaders with proper image URLs
+    const formattedLeaders = leaders.map(leader => {
+      // Get the best available image
+      const bestImage = leader.image_url || leader.leader_image_url;
+      
+      return {
+        leader_id: leader.leader_id,
+        name: leader.name,
+        party: leader.party || "Independent",
+        position: leader.position_running_for || leader.position || "Candidate",
+        county: leader.county,
+        constituency: leader.constituency,
+        ward: leader.ward,
+        image_url: formatImageUrl(bestImage),
+        thumbnail_url: formatImageUrl(leader.thumbnail_url),
+        medium_url: formatImageUrl(leader.medium_url),
+        social_url: formatImageUrl(leader.social_url),
+        avatar: formatImageUrl(bestImage) || `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=200&bold=true`,
+        verification: leader.verification === 1,
+        verification_status: leader.verification === 1 ? "verified" : "pending",
+        views: leader.views || 0,
+        boost_score: leader.boost_score || 0,
+        followers: leader.followers || 0,
+        endorsement_count: leader.endorsement_count || 0,
+        slogan: leader.slogan,
+        created_at: leader.created_at
+      };
+    });
+
+    console.log(`📊 Popular leaders fetched: ${formattedLeaders.length} leaders`);
+    if (formattedLeaders.length > 0) {
+      console.log(`📊 First leader: ${formattedLeaders[0].name}, Image: ${formattedLeaders[0].image_url?.substring(0, 50)}...`);
+    }
+
+    // Cache for 5 minutes
+    try {
+      await redis.set(cacheKey, JSON.stringify(formattedLeaders), 'EX', 300);
+    } catch (redisErr) {
+      Logger.warn(`Redis set failed: ${redisErr.message}`);
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      data: formattedLeaders,
+      count: formattedLeaders.length,
+      cached: false
+    });
+    
   } catch (error) {
     Logger.error("Get popular leaders error:", error);
-    res.status(200).json({ success: true, data: [] });
+    console.error("Popular leaders error:", error);
+    
+    // Return empty array with success true to prevent frontend errors
+    res.status(200).json({ 
+      success: true, 
+      data: [],
+      count: 0,
+      message: "Unable to fetch popular leaders at this time"
+    });
   }
 });
 
@@ -493,31 +708,24 @@ const boostLeader = asyncHandler(async (req, res) => {
   }
 });
 
-// ============================================
-// GET PERSONALIZED FEED
-// ============================================
+
+
 
 // ============================================
-// GET PERSONALIZED FEED - Working Version
+// GET PERSONALIZED FEED - DEBUG & FIXED
 // ============================================
 const getPersonalizedFeed = asyncHandler(async (req, res) => {
   try {
     // Get user context from query params
-    const userCounty = req.query.county || req.query.user_county || req.user?.county || null;
-    const userWard = req.query.ward || req.query.user_ward || req.user?.ward || null;
-    const userConstituency = req.query.constituency || req.user?.constituency || null;
-    const userParty = req.query.party || req.query.user_party || req.user?.political_party || null;
-    const limit = parseInt(req.query.limit) || 100;
-
-    console.log(`📊 Building personalized feed for:`, {
-      county: userCounty,
-      ward: userWard,
-      constituency: userConstituency,
-      party: userParty
-    });
-
-    // Get ALL active leaders
-    const allActiveLeaders = await safeQuery(
+    const userCounty = req.query.user_county || req.query.county || null;
+    const userWard = req.query.user_ward || req.query.ward || null;
+    const userConstituency = req.query.user_constituency || req.query.constituency || null;
+    const userParty = req.query.user_party || req.query.party || null;
+    
+    console.log("📊 Building feed with:", { userCounty, userWard, userConstituency, userParty });
+    
+    // Get ALL active leaders - NO FILTERING
+    const allLeaders = await safeQuery(
       `SELECT 
         l.leader_id, 
         l.name, 
@@ -530,203 +738,282 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
         l.ward, 
         COALESCE(l.image_url, li.image_url) as image_url,
         l.verification, 
-        l.views, 
-        l.boost_score, 
-        l.followers, 
         l.status, 
-        l.created_at
+        l.created_at,
+        l.endorsement_count
       FROM leaders l
       LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
       WHERE l.status = 'active'
       ORDER BY l.created_at DESC
-      LIMIT ?`,
-      [limit]
+      LIMIT 1000`,
+      []
     );
 
-    if (!allActiveLeaders || allActiveLeaders.length === 0) {
+    console.log(`📊 Total leaders in DB: ${allLeaders.length}`);
+    
+    // Log sample leaders to debug
+    if (allLeaders.length > 0) {
+      console.log("📊 Sample leader:", {
+        name: allLeaders[0].name,
+        county: allLeaders[0].county,
+        constituency: allLeaders[0].constituency,
+        ward: allLeaders[0].ward,
+        party: allLeaders[0].party
+      });
+    }
+
+    if (!allLeaders || allLeaders.length === 0) {
       return res.status(200).json({
         success: true,
         data: [],
-        userContext: { county: userCounty, ward: userWard, party: userParty },
+        userContext: { county: userCounty, ward: userWard },
         totalLeaders: 0
       });
     }
 
-    // Calculate scores for each leader
-    const leadersWithScores = allActiveLeaders.map((leader) => {
-      try {
-        const boost_score = leader.boost_score || 0;
-        const views = leader.views || 0;
-        const verification = leader.verification || 0;
-        const created_at = leader.created_at;
-        
-        // Base metrics (0-60 points)
-        const boostScore = Math.min((boost_score / 100) * 30, 30);
-        const viewScore = Math.min(Math.log10(views + 1) * 10, 20);
-        const verificationScore = verification === 1 ? 10 : 0;
-        
-        // Recency score (0-10 points)
-        let recencyScore = 0;
-        if (created_at) {
-          const daysSinceCreation = (Date.now() - new Date(created_at).getTime()) / (1000 * 60 * 60 * 24);
-          recencyScore = Math.max(0, 10 - (daysSinceCreation / 30) * 10);
-        }
-        
-        // Personalization bonuses (0-40 points)
-        let personalizationScore = 0;
-        
-        if (userCounty && leader.county && leader.county.toLowerCase() === userCounty.toLowerCase()) {
-          personalizationScore += 25;
-        }
-        if (userWard && leader.ward && leader.ward.toLowerCase() === userWard.toLowerCase()) {
-          personalizationScore += 35;
-        }
-        if (userConstituency && leader.constituency && leader.constituency.toLowerCase() === userConstituency.toLowerCase()) {
-          personalizationScore += 20;
-        }
-        if (userParty && leader.party && leader.party.toLowerCase() === userParty.toLowerCase()) {
-          personalizationScore += 15;
-        }
-        
-        const totalScore = boostScore + viewScore + verificationScore + recencyScore + personalizationScore;
-        
-        return {
-          ...leader,
-          personalization_score: personalizationScore,
-          score: Math.min(Math.round(totalScore), 100)
-        };
-      } catch (err) {
-        return { ...leader, personalization_score: 0, score: 0 };
-      }
-    });
+    // Helper to get position
+    const getPosition = (leader) => {
+      const pos = leader.position_running_for || leader.position || "";
+      if (!pos) return "Other";
+      const lowerPos = pos.toLowerCase();
+      if (lowerPos.includes("president")) return "President";
+      if (lowerPos.includes("governor")) return "Governor";
+      if (lowerPos.includes("senator")) return "Senator";
+      if (lowerPos.includes("women")) return "Women Representative";
+      if (lowerPos.includes("mp")) return "Member of Parliament";
+      if (lowerPos.includes("mca")) return "Member of County Assembly";
+      return pos;
+    };
 
-    // Sort by score descending
-    leadersWithScores.sort((a, b) => b.score - a.score);
-
-    // Separate presidential candidates
-    const presidentialCandidates = leadersWithScores.filter(
-      (l) => (l.position && l.position.toLowerCase() === "president") ||
-             (l.position_running_for && l.position_running_for.toLowerCase() === "president")
-    );
-
-    // High match leaders (user's county, ward, or party)
-    const highMatchLeaders = leadersWithScores.filter(l => 
-      l.personalization_score >= 20 && 
-      l.leader_id !== (presidentialCandidates[0]?.leader_id)
-    );
-
-    // Other leaders
-    const otherLeaders = leadersWithScores.filter(l => 
-      l.personalization_score < 20 && 
-      l.leader_id !== (presidentialCandidates[0]?.leader_id) &&
-      !highMatchLeaders.find(hm => hm.leader_id === l.leader_id)
-    );
-
-    // Build response groups
     const responseGroups = [];
-
-    // 1. Presidential Candidates
-    if (presidentialCandidates.length > 0) {
+    const usedIds = new Set();
+    
+    // Helper to add unique leaders
+    const addUnique = (leaders, maxCount = 30) => {
+      const result = [];
+      for (const l of leaders) {
+        if (!usedIds.has(l.leader_id) && result.length < maxCount) {
+          result.push(l);
+          usedIds.add(l.leader_id);
+        }
+      }
+      return result;
+    };
+    
+    // 1. PRESIDENTIAL CANDIDATES
+    const presidential = allLeaders.filter(l => getPosition(l) === "President");
+    const presList = addUnique(presidential, 30);
+    if (presList.length > 0) {
       responseGroups.push({
         id: "presidential",
-        title: "🇰🇪 Presidential Candidates",
-        subtitle: "National Leadership",
+        title: "👑 Presidential Candidates",
+        subtitle: `${presList.length} candidates running for President`,
         type: "presidential",
-        leaders: presidentialCandidates.slice(0, 10),
-        count: presidentialCandidates.length,
-        total: presidentialCandidates.length
+        leaders: presList,
+        count: presList.length,
+        total: presidential.length
       });
     }
-
-    // 2. Your Local Leaders
-    if (highMatchLeaders.length > 0) {
-      const wardMatches = highMatchLeaders.filter(l => userWard && l.ward === userWard);
-      const countyMatches = highMatchLeaders.filter(l => userCounty && l.county === userCounty && !wardMatches.find(w => w.leader_id === l.leader_id));
-      const partyMatches = highMatchLeaders.filter(l => userParty && l.party === userParty && !wardMatches.find(w => w.leader_id === l.leader_id) && !countyMatches.find(c => c.leader_id === l.leader_id));
-      
-      if (wardMatches.length > 0) {
-        responseGroups.push({
-          id: "your_ward",
-          title: `📍 Your Ward: ${userWard}`,
-          subtitle: `${wardMatches.length} local aspirant${wardMatches.length !== 1 ? "s" : ""} in your area`,
-          type: "ward",
-          leaders: wardMatches.slice(0, 15),
-          count: wardMatches.length,
-          total: wardMatches.length
-        });
-      }
-      
-      if (countyMatches.length > 0) {
-        responseGroups.push({
-          id: "your_county",
-          title: `🏛️ Your County: ${userCounty}`,
-          subtitle: `${countyMatches.length} aspirant${countyMatches.length !== 1 ? "s" : ""} in your county`,
-          type: "county",
-          leaders: countyMatches.slice(0, 15),
-          count: countyMatches.length,
-          total: countyMatches.length
-        });
-      }
-      
-      if (partyMatches.length > 0) {
-        responseGroups.push({
-          id: "your_party",
-          title: `🎯 Your Party: ${userParty}`,
-          subtitle: `${partyMatches.length} aspirant${partyMatches.length !== 1 ? "s" : ""} from your party`,
-          type: "party",
-          leaders: partyMatches.slice(0, 15),
-          count: partyMatches.length,
-          total: partyMatches.length
-        });
-      }
-    }
-
-    // 3. Trending Leaders
-    const trendingLeaders = [...leadersWithScores]
-      .sort((a, b) => (b.views || 0) - (a.views || 0))
-      .slice(0, 12);
     
-    if (trendingLeaders.length > 0 && !responseGroups.some(g => g.id === "trending")) {
+    // 2. HOT & NEW (Last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const hotNewLeaders = allLeaders.filter(l => {
+      if (!l.created_at) return false;
+      return new Date(l.created_at) > sevenDaysAgo;
+    });
+    const hotList = addUnique(hotNewLeaders, 30);
+    if (hotList.length > 0) {
       responseGroups.push({
-        id: "trending",
-        title: "🔥 Trending Now",
-        subtitle: "Most viewed leaders",
-        type: "trending",
-        leaders: trendingLeaders,
-        count: trendingLeaders.length,
-        total: trendingLeaders.length
+        id: "hot_new",
+        title: "🔥 Hot & New",
+        subtitle: `${hotList.length} leaders joined in last 7 days`,
+        type: "hot",
+        leaders: hotList,
+        count: hotList.length,
+        total: hotNewLeaders.length
       });
     }
-
-    // 4. Other Leaders by County
-    const countyMap = new Map();
-    for (const leader of otherLeaders) {
-      const county = leader.county || "Other";
-      if (!countyMap.has(county)) {
-        countyMap.set(county, {
-          name: county,
-          leaders: []
-        });
-      }
-      countyMap.get(county).leaders.push(leader);
+    
+    // 3. YOUR COUNTY - SHOW ALL LEADERS IN COUNTY (case insensitive)
+    if (userCounty) {
+      const countyLeaders = allLeaders.filter(l => 
+        l.county && l.county.toLowerCase().trim() === userCounty.toLowerCase().trim()
+      );
+      console.log(`📊 County ${userCounty}: Found ${countyLeaders.length} leaders`);
+      const countyList = addUnique(countyLeaders, 50);
+      responseGroups.push({
+        id: "your_county",
+        title: `🏛️ ${userCounty}`,
+        subtitle: countyList.length > 0 ? `${countyList.length} aspirant${countyList.length !== 1 ? "s" : ""} in your county` : "No aspirants in your county yet",
+        type: "county",
+        leaders: countyList,
+        count: countyList.length,
+        total: countyLeaders.length
+      });
     }
-
-    const sortedCounties = Array.from(countyMap.values())
-      .sort((a, b) => b.leaders.length - a.leaders.length)
-      .slice(0, 8);
-
-    for (const county of sortedCounties) {
-      if (county.leaders.length > 0) {
-        responseGroups.push({
-          id: `county_${county.name.replace(/\s/g, '_')}`,
-          title: county.name,
-          subtitle: `${county.leaders.length} aspirant${county.leaders.length !== 1 ? "s" : ""}`,
-          type: "county",
-          leaders: county.leaders.slice(0, 12),
-          count: county.leaders.length,
-          total: county.leaders.length
-        });
-      }
+    
+    // 4. YOUR WARD - SHOW ALL LEADERS IN WARD
+    if (userWard) {
+      const wardLeaders = allLeaders.filter(l => 
+        l.ward && l.ward.toLowerCase().trim() === userWard.toLowerCase().trim()
+      );
+      console.log(`📊 Ward ${userWard}: Found ${wardLeaders.length} leaders`);
+      const wardList = addUnique(wardLeaders, 50);
+      responseGroups.push({
+        id: "your_ward",
+        title: `🏘️ ${userWard}`,
+        subtitle: wardList.length > 0 ? `${wardList.length} aspirant${wardList.length !== 1 ? "s" : ""} in your ward` : "No aspirants in your ward yet",
+        type: "ward",
+        leaders: wardList,
+        count: wardList.length,
+        total: wardLeaders.length
+      });
+    }
+    
+    // 5. YOUR CONSTITUENCY
+    if (userConstituency) {
+      const constLeaders = allLeaders.filter(l => 
+        l.constituency && l.constituency.toLowerCase().trim() === userConstituency.toLowerCase().trim()
+      );
+      console.log(`📊 Constituency ${userConstituency}: Found ${constLeaders.length} leaders`);
+      const constList = addUnique(constLeaders, 50);
+      responseGroups.push({
+        id: "your_constituency",
+        title: `📍 ${userConstituency}`,
+        subtitle: constList.length > 0 ? `${constList.length} aspirant${constList.length !== 1 ? "s" : ""} in your constituency` : "No aspirants in your constituency yet",
+        type: "constituency",
+        leaders: constList,
+        count: constList.length,
+        total: constLeaders.length
+      });
+    }
+    
+    // 6. YOUR PARTY - SHOW ALL LEADERS FROM YOUR PARTY
+    if (userParty) {
+      const partyLeaders = allLeaders.filter(l => 
+        l.party && l.party.toLowerCase().trim() === userParty.toLowerCase().trim()
+      );
+      console.log(`📊 Party ${userParty}: Found ${partyLeaders.length} leaders`);
+      const partyList = addUnique(partyLeaders, 50);
+      responseGroups.push({
+        id: "your_party",
+        title: `🎯 ${userParty}`,
+        subtitle: partyList.length > 0 ? `${partyList.length} ${userParty} aspirant${partyList.length !== 1 ? "s" : ""}` : `No ${userParty} aspirants yet`,
+        type: "party",
+        leaders: partyList,
+        count: partyList.length,
+        total: partyLeaders.length
+      });
+    }
+    
+    // 7. GOVERNORS
+    const governors = allLeaders.filter(l => getPosition(l) === "Governor");
+    const govList = addUnique(governors, 30);
+    if (govList.length > 0) {
+      responseGroups.push({
+        id: "governors",
+        title: "🏛️ Governors",
+        subtitle: `${govList.length} candidates for Governor`,
+        type: "governors",
+        leaders: govList,
+        count: govList.length,
+        total: governors.length
+      });
+    }
+    
+    // 8. SENATORS
+    const senators = allLeaders.filter(l => getPosition(l) === "Senator");
+    const senList = addUnique(senators, 30);
+    if (senList.length > 0) {
+      responseGroups.push({
+        id: "senators",
+        title: "⚖️ Senators",
+        subtitle: `${senList.length} candidates for Senator`,
+        type: "senators",
+        leaders: senList,
+        count: senList.length,
+        total: senators.length
+      });
+    }
+    
+    // 9. WOMEN REPRESENTATIVES
+    const womenReps = allLeaders.filter(l => getPosition(l) === "Women Representative");
+    const womenList = addUnique(womenReps, 30);
+    if (womenList.length > 0) {
+      responseGroups.push({
+        id: "women_reps",
+        title: "👩‍⚖️ Women Representatives",
+        subtitle: `${womenList.length} candidates for Women Rep`,
+        type: "women_reps",
+        leaders: womenList,
+        count: womenList.length,
+        total: womenReps.length
+      });
+    }
+    
+    // 10. MEMBERS OF PARLIAMENT (MPs)
+    const mps = allLeaders.filter(l => getPosition(l) === "Member of Parliament");
+    const mpList = addUnique(mps, 30);
+    if (mpList.length > 0) {
+      responseGroups.push({
+        id: "mps",
+        title: "🏛️ Members of Parliament",
+        subtitle: `${mpList.length} MP candidates`,
+        type: "mps",
+        leaders: mpList,
+        count: mpList.length,
+        total: mps.length
+      });
+    }
+    
+    // 11. MCAs
+    const mcas = allLeaders.filter(l => getPosition(l) === "Member of County Assembly");
+    const mcaList = addUnique(mcas, 30);
+    if (mcaList.length > 0) {
+      responseGroups.push({
+        id: "mcas",
+        title: "🏘️ MCAs",
+        subtitle: `${mcaList.length} MCA candidates`,
+        type: "mcas",
+        leaders: mcaList,
+        count: mcaList.length,
+        total: mcas.length
+      });
+    }
+    
+    // 12. VERIFIED LEADERS
+    const verifiedLeaders = allLeaders.filter(l => l.verification === 1 && !usedIds.has(l.leader_id));
+    const verifiedList = addUnique(verifiedLeaders, 30);
+    if (verifiedList.length > 0) {
+      responseGroups.push({
+        id: "verified",
+        title: "⭐ Verified Leaders",
+        subtitle: `${verifiedList.length} trusted and verified aspirants`,
+        type: "verified",
+        leaders: verifiedList,
+        count: verifiedList.length,
+        total: verifiedLeaders.length
+      });
+    }
+    
+    // 13. FOR YOU (Random remaining)
+    const remaining = allLeaders.filter(l => !usedIds.has(l.leader_id));
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+    const forYouList = addUnique(remaining, 40);
+    if (forYouList.length > 0) {
+      responseGroups.push({
+        id: "for_you",
+        title: "📱 For You",
+        subtitle: `${forYouList.length} personalized recommendations`,
+        type: "for_you",
+        leaders: forYouList,
+        count: forYouList.length,
+        total: remaining.length
+      });
     }
 
     const responseData = {
@@ -739,34 +1026,26 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
         party: userParty,
         isAuthenticated: !!(userCounty || userParty)
       },
-      totalLeaders: allActiveLeaders.length,
-      personalizedCount: highMatchLeaders.length,
+      totalLeaders: allLeaders.length,
       timestamp: new Date().toISOString()
     };
 
-    console.log(`✅ Personalized feed built: ${responseGroups.length} groups, ${allActiveLeaders.length} leaders`);
+    console.log(`✅ Feed built: ${responseGroups.length} groups with ${allLeaders.length} total leaders`);
     res.status(200).json(responseData);
     
   } catch (error) {
     console.error("Get personalized feed error:", error);
     Logger.error("Get personalized feed error:", error);
 
-    // Always return a valid response even on error
     res.status(200).json({
       success: true,
       data: [],
-      userContext: {
-        county: req.query.county || null,
-        ward: req.query.ward || null,
-        party: req.query.party || null,
-        isAuthenticated: false
-      },
+      userContext: { isAuthenticated: false },
       totalLeaders: 0,
       message: "Unable to load personalized feed at this time"
     });
   }
 });
-
 // ============================================
 // ANALYTICS FUNCTIONS
 // ============================================
@@ -866,6 +1145,76 @@ const getLeaderStats = asyncHandler(async (req, res) => {
   }
 });
 
+// ============================================
+// VERIFICATION REQUESTS
+// ============================================
+const requestVerification = asyncHandler(async (req, res) => {
+  const leaderId = req.user?.leaderId;
+  if (!leaderId) {
+    return res.status(401).json({ success: false, message: "Not authenticated as a leader" });
+  }
+
+  try {
+    const leader = await safeQueryOne(`SELECT status FROM leaders WHERE leader_id = ?`, [leaderId]);
+    if (!leader) return res.status(404).json({ success: false, message: "Leader not found" });
+
+    if (leader.status === "verified") {
+      return res.status(400).json({ success: false, message: "Account is already verified" });
+    }
+
+    await safeQuery(`UPDATE leaders SET status = 'pending', updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
+    
+    // Clear cache
+    await redis.del(`leader:${leaderId}`);
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Verification request submitted successfully. Our team will review your profile." 
+    });
+  } catch (error) {
+    Logger.error("Verification request error:", error);
+    res.status(500).json({ success: false, message: "Failed to submit verification request" });
+  }
+});
+
+// ============================================
+// ADMIN ACTIONS
+// ============================================
+const verifyLeader = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  try {
+    await safeQuery(`UPDATE leaders SET verification = 1, updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
+    await redis.del(`leader:${leaderId}`);
+    await redis.del('global:all_leaders');
+    res.status(200).json({ success: true, message: "Leader verified successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+const rejectLeader = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  try {
+    await safeQuery(`UPDATE leaders SET verification = 0, updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
+    await redis.del(`leader:${leaderId}`);
+    res.status(200).json({ success: true, message: "Leader status set to pending/rejected" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+const deleteLeader = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  try {
+    await safeQuery(`UPDATE leaders SET status = 'deleted', updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
+    await redis.del(`leader:${leaderId}`);
+    await redis.del('global:all_leaders');
+    res.status(200).json({ success: true, message: "Leader deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = {
   startLeaderWorkers,
   createLeader,
@@ -883,5 +1232,9 @@ module.exports = {
   getLeaderAnalyticsByWard,
   getLeaderAnalyticsByPosition,
   getLeaderDashboardAnalytics,
-  getLeaderStats
+  getLeaderStats,
+  requestVerification,
+  verifyLeader,
+  rejectLeader,
+  deleteLeader
 };

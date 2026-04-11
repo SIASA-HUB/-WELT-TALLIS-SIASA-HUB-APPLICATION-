@@ -1,9 +1,12 @@
-// components/LeaderCard.jsx - Fixed with proper full URL for images
+// components/LeaderCard.jsx - Fixed with correct image URL (no /api/v1 prefix)
 
 import React, { memo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, MapPin, ArrowRight, Zap, User } from "lucide-react";
+
+// API Base URL - use the same as your backend
+import API_BASE_URL from "./apiConfig";
 
 const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(15px); }
@@ -67,14 +70,14 @@ const FallbackImage = styled.div`
   justify-content: center;
   flex-direction: column;
   color: white;
-  
+
   svg {
     width: 48px;
     height: 48px;
     opacity: 0.5;
     margin-bottom: 8px;
   }
-  
+
   span {
     font-size: 12px;
     opacity: 0.6;
@@ -184,7 +187,7 @@ const StatsRow = styled.div`
   margin-top: 8px;
   font-size: 10px;
   color: #a1a1aa;
-  
+
   span {
     display: flex;
     align-items: center;
@@ -192,8 +195,32 @@ const StatsRow = styled.div`
   }
 `;
 
-// API Base URL for images (adjust to your backend URL)
-const API_BASE_URL = "/api/v1/users";
+// Helper function to build full image URL - REMOVE /api/v1 prefix
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl || imageUrl === "null" || imageUrl === "") return null;
+
+  // If it's already a full URL
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
+  }
+
+  // If it starts with /uploads, prepend API_BASE_URL (without /api/v1)
+  if (imageUrl.startsWith("/uploads")) {
+    // Extract just the base URL without /api/v1
+    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+    return `${baseUrl}${imageUrl}`;
+  }
+
+  // If it starts with uploads (no slash)
+  if (imageUrl.startsWith("uploads")) {
+    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+    return `${baseUrl}/${imageUrl}`;
+  }
+
+  // Default: prepend with base URL
+  const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  return `${baseUrl}/${imageUrl}`;
+};
 
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();
@@ -215,33 +242,22 @@ const LeaderCard = ({ leader }) => {
     endorsement_count = 0,
   } = leader || {};
 
-  // Get the correct image URL with full path
-  const getImageUrl = () => {
-    if (imageError) return null;
-    
-    if (image_url && image_url !== "null" && image_url !== "") {
-      // If it's already a full URL, use it
-      if (image_url.startsWith("http")) return image_url;
-      // If it's a relative path, prepend the API base URL
-      if (image_url.startsWith("/")) return `${API_BASE_URL}${image_url}`;
-      // Otherwise, assume it's a relative path
-      return `${API_BASE_URL}/${image_url}`;
-    }
-    
-    return null;
-  };
-
   // Get display location
   const getDisplayLocation = () => {
     if (ward && ward !== "null" && ward !== "") return ward;
-    if (constituency && constituency !== "null" && constituency !== "") return constituency;
+    if (constituency && constituency !== "null" && constituency !== "")
+      return constituency;
     if (county && county !== "null" && county !== "") return county;
     return "Kenya";
   };
 
   // Get display position
   const getDisplayPosition = () => {
-    if (position_running_for && position_running_for !== "null" && position_running_for !== "") {
+    if (
+      position_running_for &&
+      position_running_for !== "null" &&
+      position_running_for !== ""
+    ) {
       return position_running_for;
     }
     if (position && position !== "null" && position !== "") {
@@ -250,7 +266,7 @@ const LeaderCard = ({ leader }) => {
     return null;
   };
 
-  const imageUrl = getImageUrl();
+  const imageUrl = buildImageUrl(image_url);
   const displayLocation = getDisplayLocation();
   const displayPosition = getDisplayPosition();
 
@@ -288,7 +304,9 @@ const LeaderCard = ({ leader }) => {
         </PartyBadge>
         {displayPosition && (
           <PositionBadge>
-            {displayPosition.length > 10 ? `${displayPosition.substring(0, 8)}...` : displayPosition}
+            {displayPosition.length > 10
+              ? `${displayPosition.substring(0, 8)}...`
+              : displayPosition}
           </PositionBadge>
         )}
       </TopBar>
@@ -306,14 +324,19 @@ const LeaderCard = ({ leader }) => {
         </Name>
 
         <Location title={displayLocation}>
-          <MapPin size={13} /> {displayLocation?.length > 25 ? `${displayLocation.substring(0, 22)}...` : displayLocation}
+          <MapPin size={13} />{" "}
+          {displayLocation?.length > 25
+            ? `${displayLocation.substring(0, 22)}...`
+            : displayLocation}
         </Location>
 
         {(views > 0 || followers > 0 || endorsement_count > 0) && (
           <StatsRow>
             {views > 0 && <span>👁️ {views.toLocaleString()}</span>}
             {followers > 0 && <span>❤️ {followers.toLocaleString()}</span>}
-            {endorsement_count > 0 && <span>⭐ {endorsement_count.toLocaleString()}</span>}
+            {endorsement_count > 0 && (
+              <span>⭐ {endorsement_count.toLocaleString()}</span>
+            )}
           </StatsRow>
         )}
 

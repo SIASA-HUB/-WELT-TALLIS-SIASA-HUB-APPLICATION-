@@ -165,6 +165,69 @@ class ManifestoModel {
     ]);
     return true;
   }
+
+
+  // In your ManifestoModel.js
+static async getTrending(limit = 20) {
+  const query = `
+    SELECT 
+      m.*,
+      l.name as leader_name,
+      l.party as leader_party,
+      l.position as leader_position,
+      l.county as leader_county,
+      l.constituency as leader_constituency,
+      l.ward as leader_ward,
+      l.image_url as leader_image,
+      COALESCE(m.likes, 0) as likes,
+      COALESCE(m.views, 0) as views,
+      COALESCE(m.comments, 0) as comments,
+      (COALESCE(m.likes, 0) * 2 + COALESCE(m.views, 0) + COALESCE(m.comments, 0) * 3) as trending_score
+    FROM manifestos m
+    JOIN leaders l ON m.leader_id = l.leader_id
+    WHERE m.status = 'active' AND l.status = 'active'
+    ORDER BY trending_score DESC, m.created_at DESC
+    LIMIT ?
+  `;
+  
+  return await safeQuery(query, [limit]);
+}
+
+// Add method to get manifestos by location
+static async getByLocation(county, ward = null, limit = 20) {
+  let query = `
+    SELECT 
+      m.*,
+      l.name as leader_name,
+      l.party as leader_party,
+      l.position as leader_position,
+      l.county,
+      l.constituency,
+      l.ward,
+      l.image_url as leader_image,
+      COALESCE(m.likes, 0) as likes,
+      COALESCE(m.views, 0) as views,
+      COALESCE(m.comments, 0) as comments
+    FROM manifestos m
+    JOIN leaders l ON m.leader_id = l.leader_id
+    WHERE m.status = 'active' 
+      AND l.status = 'active'
+      AND l.county = ?
+  `;
+  
+  const params = [county];
+  
+  if (ward) {
+    query += ` AND l.ward = ?`;
+    params.push(ward);
+  }
+  
+  query += ` ORDER BY m.created_at DESC LIMIT ?`;
+  params.push(limit);
+  
+  return await safeQuery(query, params);
+}
+
 }
 
 module.exports = ManifestoModel;

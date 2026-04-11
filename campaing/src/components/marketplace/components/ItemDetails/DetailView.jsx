@@ -24,7 +24,7 @@ import axios from "axios";
 import TrendingManifestos from "../../../leaders/manifestos/TredingManifestos";
 import AdBanner from "./AdBanner";
 
-const API_URL = "http://localhost:8007";
+const API_URL = "/api/v1/marketplace";
 
 // Modern Color Theme
 const COLORS = {

@@ -28,7 +28,7 @@ import NavMenu from "./utils/navMenu";
 import Checkout from "./components/marketplace/checkout/checkout";
 
 import UsersAdmin from "./components/auth/adminUsers";
-import Aspirants from "./components/leaders/aspirantsAdmin";
+import AdminDashboard from "./components/admin/AdminDashboard";
 
 // --- Optimized Lazy Loading ---
 const lazyWithPreload = (importFn) => {
@@ -181,7 +181,7 @@ const AppLayout = () => {
             {/* Social Routes */}
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/admin/users" element={<UsersAdmin />} />
-            <Route path="/admin/aspirants" element={<Aspirants />} />
+            <Route path="/admin/aspirants" element={<AdminDashboard />} />
 
             {/* Auth Routes */}
             <Route path="/login" element={<LoginPage />} />

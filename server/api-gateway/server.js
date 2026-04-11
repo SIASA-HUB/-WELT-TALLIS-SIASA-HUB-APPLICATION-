@@ -16,14 +16,14 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 // Service URLs
 const SERVICES = {
-  leaders: process.env.LEADERS_SERVICE_URL || "http://leaders-service:8006",
-  media: process.env.MEDIA_SERVICE_URL || "http://media-service:8007",
-  rallies: process.env.RALLY_SERVICE_URL || "http://rally-service:8001",
-  users: process.env.USERS_SERVICE_URL || "http://users-service:8002",
-  wallet: process.env.WALLET_SERVICE_URL || "http://wallet-service:8008",
-  endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://endorsement-service:8003",
-  marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://marketplace-service:8004",
-  reaction: process.env.REACTION_SERVICE_URL || "http://reaction-service:8005",
+  leaders: process.env.LEADERS_SERVICE_URL || "http://localhost:8006",
+  media: process.env.MEDIA_SERVICE_URL || "http://localhost:8007",
+  rallies: process.env.RALLY_SERVICE_URL || "http://localhost:8001",
+  users: process.env.USERS_SERVICE_URL || "http://localhost:8002",
+  wallet: process.env.WALLET_SERVICE_URL || "http://localhost:8008",
+  endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://localhost:8003",
+  marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://localhost:8004",
+  reaction: process.env.REACTION_SERVICE_URL || "http://localhost:8005",
 };
 
 // Simple logger

@@ -1,36 +1,41 @@
 const express = require("express");
 const helmet = require("helmet");
-
-const cors = require("cors");
 const path = require("path");
 const dotenv = require("dotenv");
-const { initDB, safeQuery } = require("./src/configurations/db");
-const Logger = require("./src/utils/logger/logger");
 const multer = require("multer");
 const fs = require("fs");
 const knex = require("knex");
-const knexConfig = require("./knexfile");
-const { apiReference } = require("@scalar/express-api-reference");
+const cors = require("cors");
 
+// Load environment variables
 dotenv.config();
 
-// Allowed origins
-const allowedOrigins = [
-  "https://reseller-add-banana-api.trycloudflare.com",
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:5173",
-];
+// Import local modules
+const corsMiddleware = require("../global/middlewares/corsMiddleware");
+const { initDB, safeQuery } = require("./src/configurations/db");
+const Logger = require("./src/utils/logger/logger");
+const knexConfig = require("./knexfile");
 
 // Initialize knex
 const environment = process.env.NODE_ENV || "development";
 const db = knex(knexConfig[environment]);
 
-// Import routes
-const productRoutes = require("./src/routes/productRoutes");
-const cartRoutes = require("./src/routes/cartRoutes");
+// Import routes with error handling
+let productRoutes, cartRoutes;
+try {
+  productRoutes = require("./src/routes/productRoutes");
+  cartRoutes = require("./src/routes/cartRoutes");
+  console.log("✅ Routes loaded successfully");
+} catch (error) {
+  console.error("❌ Failed to load routes:", error.message);
+  // Create fallback routes
+  const router = express.Router();
+  router.get("/", (req, res) => {
+    res.status(500).json({ error: "Route module failed to load", details: error.message });
+  });
+  productRoutes = router;
+  cartRoutes = router;
+}
 
 const app = express();
 const PORT = process.env.PORT || 8004;
@@ -66,34 +71,10 @@ const upload = multer({
   },
 });
 
+// ============ MIDDLEWARE ============
+
 // CORS configuration
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (process.env.NODE_ENV !== "production") {
-        return callback(null, true);
-      }
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.log("Blocked origin:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-      "Access-Control-Allow-Origin",
-    ],
-    exposedHeaders: ["Content-Length", "X-Total-Count"],
-  }),
-);
+app.use(corsMiddleware);
 
 // Security headers
 app.use(
@@ -107,15 +88,22 @@ app.use(
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" },
-  }),
+  })
 );
 
 // Body parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Serve static images from uploads folder
+// ============ STATIC FILES ============
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ============ TEST ROUTE ============
+app.get("/ping", (req, res) => {
+  res.json({ message: "pong", timestamp: Date.now() });
+});
+
+// ============ API ROUTES ============
 
 // Upload endpoint
 app.post("/api/upload", upload.single("image"), (req, res) => {
@@ -141,25 +129,9 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
   }
 });
 
-// API Routes
+// Product and Cart routes
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
-
-// API Reference
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Marketplace Service API", version: "1.0.0" },
-        paths: {
-          "/api/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
 
 // Health check endpoint
 app.get("/health", async (req, res) => {
@@ -181,6 +153,24 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Debug endpoint - Check if products table exists
+app.get("/debug/tables", async (req, res) => {
+  try {
+    const tables = await safeQuery("SHOW TABLES");
+    const productsExist = await safeQuery("SHOW TABLES LIKE 'products'");
+    res.json({
+      success: true,
+      allTables: tables.map(row => Object.values(row)[0]),
+      productsTableExists: productsExist.length > 0,
+      message: productsExist.length > 0 ? "✅ Products table exists" : "❌ Products table MISSING"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============ ERROR HANDLERS ============
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -199,13 +189,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Run migrations and start server
+// ============ SERVER STARTUP ============
+
 const startServer = async () => {
   try {
-    // Run migrations first
-    console.log(" Running database migrations...");
+    // Run migrations
+    console.log("🔄 Running database migrations...");
     await db.migrate.latest();
-    console.log(" Migrations completed successfully");
+    console.log("✅ Migrations completed successfully");
 
     // Create uploads directory
     const uploadsDir = path.join(__dirname, "uploads");
@@ -213,22 +204,27 @@ const startServer = async () => {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
+    // Initialize database connection
     await initDB();
     Logger.info("✅ Database connected successfully");
 
-    // Listen on all network interfaces
+    // Start server
     app.listen(PORT, "0.0.0.0", () => {
       Logger.info(`🚀 Marketplace service running on port ${PORT}`);
-      console.log(`                                                       
-  📡 Local: http://localhost:${PORT}                                                                                          
-  📦 Products API: /api/products                             
-  🛒 Cart API: /api/cart                                     
-   📸 Upload API: /api/upload 
+      console.log(`
+  ═══════════════════════════════════════════════════════
+  📡 Local:            http://localhost:${PORT}
+  📦 Products API:     http://localhost:${PORT}/api/products
+  🛒 Cart API:         http://localhost:${PORT}/api/cart
+  📸 Upload API:       http://localhost:${PORT}/api/upload
+  💚 Health Check:     http://localhost:${PORT}/health
+  🔧 Debug Tables:     http://localhost:${PORT}/debug/tables
+  ═══════════════════════════════════════════════════════
       `);
     });
   } catch (error) {
     Logger.error("Failed to start server:", error);
-    console.error("Failed to start server:", error.message);
+    console.error("❌ Failed to start server:", error.message);
     process.exit(1);
   }
 };
@@ -246,4 +242,5 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
+// Start the server
 startServer();

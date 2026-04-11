@@ -23,7 +23,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // API Configuration
-const API_BASE_URL = "/api/v1/users/leaders";
+import API_BASE_URL from "./apiConfig";
 
 const slideIn = keyframes`
   from { opacity: 0; transform: translateX(-20px); }
@@ -250,14 +250,53 @@ const SectionTitle = styled.h3`
 `;
 
 const CountyList = [
-  "Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita Taveta",
-  "Garissa", "Wajir", "Mandera", "Marsabit", "Isiolo", "Meru",
-  "Tharaka Nithi", "Embu", "Kitui", "Machakos", "Makueni", "Nyandarua",
-  "Nyeri", "Kirinyaga", "Murang'a", "Kiambu", "Turkana", "West Pokot",
-  "Samburu", "Trans Nzoia", "Uasin Gishu", "Elgeyo Marakwet", "Nandi",
-  "Baringo", "Laikipia", "Nakuru", "Narok", "Kajiado", "Kericho", "Bomet",
-  "Kakamega", "Vihiga", "Bungoma", "Busia", "Siaya", "Kisumu", "Homa Bay",
-  "Migori", "Kisii", "Nyamira", "Nairobi",
+  "Mombasa",
+  "Kwale",
+  "Kilifi",
+  "Tana River",
+  "Lamu",
+  "Taita Taveta",
+  "Garissa",
+  "Wajir",
+  "Mandera",
+  "Marsabit",
+  "Isiolo",
+  "Meru",
+  "Tharaka Nithi",
+  "Embu",
+  "Kitui",
+  "Machakos",
+  "Makueni",
+  "Nyandarua",
+  "Nyeri",
+  "Kirinyaga",
+  "Murang'a",
+  "Kiambu",
+  "Turkana",
+  "West Pokot",
+  "Samburu",
+  "Trans Nzoia",
+  "Uasin Gishu",
+  "Elgeyo Marakwet",
+  "Nandi",
+  "Baringo",
+  "Laikipia",
+  "Nakuru",
+  "Narok",
+  "Kajiado",
+  "Kericho",
+  "Bomet",
+  "Kakamega",
+  "Vihiga",
+  "Bungoma",
+  "Busia",
+  "Siaya",
+  "Kisumu",
+  "Homa Bay",
+  "Migori",
+  "Kisii",
+  "Nyamira",
+  "Nairobi",
 ];
 
 const RegisterAspirant = () => {
@@ -275,6 +314,11 @@ const RegisterAspirant = () => {
     image: null,
     experience: [""],
     education: [""],
+    facebook: "",
+    twitter: "",
+    linkedin: "",
+    instagram: "",
+    website: "",
   });
 
   const handleChange = (e) => {
@@ -342,7 +386,8 @@ const RegisterAspirant = () => {
       if (formData.slogan) submitData.append("slogan", formData.slogan);
       submitData.append("position", formData.position);
       submitData.append("county", formData.county);
-      if (formData.constituency) submitData.append("constituency", formData.constituency);
+      if (formData.constituency)
+        submitData.append("constituency", formData.constituency);
       if (formData.ward) submitData.append("ward", formData.ward);
       if (formData.image) submitData.append("image", formData.image);
 
@@ -357,10 +402,22 @@ const RegisterAspirant = () => {
         submitData.append("education", JSON.stringify(validEducation));
       }
 
+      // Add social links
+      if (formData.facebook) submitData.append("facebook", formData.facebook);
+      if (formData.twitter) submitData.append("twitter", formData.twitter);
+      if (formData.linkedin) submitData.append("linkedin", formData.linkedin);
+      if (formData.instagram)
+        submitData.append("instagram", formData.instagram);
+      if (formData.website) submitData.append("website", formData.website);
+
       // Make the API call to the correct endpoint
-      const response = await axios.post(`${API_BASE_URL}/register`, submitData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/leaders/register`,
+        submitData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
 
       console.log("Registration response:", response.data);
 
@@ -516,6 +573,57 @@ const RegisterAspirant = () => {
               name="ward"
               placeholder="Electoral Ward"
               value={formData.ward}
+              onChange={handleChange}
+            />
+
+            <SectionTitle>
+              <Users size={18} /> Social Media & Web
+            </SectionTitle>
+            <Grid>
+              <div>
+                <Label>Facebook</Label>
+                <Input
+                  name="facebook"
+                  placeholder="https://facebook.com/yourprofile"
+                  value={formData.facebook}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <Label>Twitter (X)</Label>
+                <Input
+                  name="twitter"
+                  placeholder="https://twitter.com/yourhandle"
+                  value={formData.twitter}
+                  onChange={handleChange}
+                />
+              </div>
+            </Grid>
+            <Grid>
+              <div>
+                <Label>LinkedIn</Label>
+                <Input
+                  name="linkedin"
+                  placeholder="https://linkedin.com/in/yourprofile"
+                  value={formData.linkedin}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <Label>Instagram</Label>
+                <Input
+                  name="instagram"
+                  placeholder="https://instagram.com/yourhandle"
+                  value={formData.instagram}
+                  onChange={handleChange}
+                />
+              </div>
+            </Grid>
+            <Label>Website</Label>
+            <Input
+              name="website"
+              placeholder="https://yourwebsite.com"
+              value={formData.website}
               onChange={handleChange}
             />
 

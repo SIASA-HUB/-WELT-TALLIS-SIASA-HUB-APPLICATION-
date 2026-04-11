@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import AppLoadingBar from "../../../utils/LoadingBar";
 import axios from "axios";
+import API_BASE_URL from "./apiConfig";
+import { useAuth } from "../../hooks/useAuth";
 
 const KENYA = {
   black: "#050505",
@@ -46,19 +48,21 @@ const FixedHeader = styled.header`
   justify-content: space-between;
   border-bottom: 1px solid ${KENYA.border};
 
-  h1 {
-    font-size: 12px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-    margin: 0;
-    color: ${KENYA.red};
+  button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
   }
 `;
 
 const ManifestoContainer = styled.div`
   max-width: 700px;
   margin: 0 auto;
+  padding: 20px;
 `;
 
 const MagazineHeader = styled.div`
@@ -236,9 +240,8 @@ const LoadingState = styled.div`
   color: ${KENYA.muted};
 `;
 
-const API_BASE = "/api/v1/users";
-
 const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
+  const { user } = useAuth();
   const loadingBarRef = useRef(null);
   const [manifesto, setManifesto] = useState(null);
   const [agendaItems, setAgendaItems] = useState([]);
@@ -247,7 +250,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const [error, setError] = useState(null);
   const [voting, setVoting] = useState({});
 
-  const DUMMY_USER_ID = "USR-80c0410e-6ee2";
+  const userId = user?.user_id || user?.id || "guest";
 
   useEffect(() => {
     if (leaderId) {
@@ -262,10 +265,10 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const trackView = async () => {
     if (!leaderId) return;
     try {
-      await axios.post(`${API_BASE}/leaders/interact`, {
+      await axios.post(`${API_BASE_URL}/interact`, {
         leaderId: leaderId,
         interactionType: "info_view",
-        metadata: { deviceId: DUMMY_USER_ID, source: "manifesto_page" },
+        metadata: { deviceId: userId, source: "manifesto_page" },
       });
     } catch (err) {
       console.error("Error tracking view:", err);
@@ -280,7 +283,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
 
     try {
       const response = await axios.get(
-        `${API_BASE}/leaders/manifestos/leader/${leaderId}`,
+        `${API_BASE_URL}/manifestos/leader/${leaderId}`,
         { timeout: 10000 },
       );
 
@@ -293,9 +296,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
           agendaItems = JSON.parse(agendaItems);
         }
 
-        // Initialize with default stats (zero votes)
-        const itemsWithDefaultStats = (agendaItems || []).map((item) => ({
+        const itemsWithDefaultStats = (agendaItems || []).map((item, idx) => ({
           ...item,
+          id: item.agenda_item_id || item.id || idx,
           stats: {
             approve_count: 0,
             reject_count: 0,
@@ -308,27 +311,22 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         }));
         setAgendaItems(itemsWithDefaultStats);
 
-        // Fetch real stats if manifesto_id exists
         const manifestoId = manifestoData.manifesto_id || manifestoData.id;
         if (manifestoId) {
           try {
             const statsResponse = await axios.get(
-              `${API_BASE}/leaders/manifestos/${manifestoId}/stats`,
+              `${API_BASE_URL}/manifestos/${manifestoId}/stats`,
             );
             if (statsResponse.data.success) {
               setAgendaItems((prev) =>
-                prev.map((item) => ({
+                prev.map((item, idx) => ({
                   ...item,
-                  stats: statsResponse.data.data,
+                  stats: statsResponse.data.data[idx] || item.stats,
                 })),
               );
             }
           } catch (statsErr) {
-            console.error(
-              "Error fetching stats, using default zeros:",
-              statsErr,
-            );
-            // Keep default zero stats
+            console.error("Error fetching stats:", statsErr);
           }
         }
       } else {
@@ -343,11 +341,12 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     }
   };
 
-  const handleVote = async (itemId, voteType) => {
+  const handleVote = async (item, voteType) => {
     if (!manifesto) return;
 
     const manifestoId = manifesto.manifesto_id || manifesto.id;
-    const voteKey = `${manifestoId}_${itemId}`;
+    const agendaItemId = item.agenda_item_id || item.id;
+    const voteKey = `${manifestoId}_${agendaItemId}`;
 
     if (voting[voteKey]) return;
 
@@ -361,19 +360,23 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
 
     try {
       const response = await axios.post(
-        `${API_BASE}/leaders/manifestos/${manifestoId}/vote`,
+        `${API_BASE_URL}/manifestos/${manifestoId}/vote`,
         {
-          user_id: DUMMY_USER_ID,
+          manifesto_id: manifestoId,
+          agenda_item_id: agendaItemId,
+          user_id: userId,
           vote_type: voteType === "approve" ? "approve" : "reject",
         },
       );
 
       if (response.data.success) {
+        // Update stats for this agenda item
         setAgendaItems((prev) =>
-          prev.map((item, idx) => ({
-            ...item,
-            stats: idx === itemId ? response.data.data.stats : item.stats,
-          })),
+          prev.map((i) =>
+            i.agenda_item_id === agendaItemId || i.id === agendaItemId
+              ? { ...i, stats: response.data.data.stats }
+              : i,
+          ),
         );
       } else {
         setUserVotes((prev) => ({ ...prev, [voteKey]: previousVote }));
@@ -386,8 +389,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     }
   };
 
-  const getPercentages = (stats, itemId) => {
-    // Get current stats (already includes user's vote from the API)
+  const getPercentages = (stats) => {
     const total = stats?.total_votes || 0;
     const approves = stats?.approve_count || 0;
     const rejects = stats?.reject_count || 0;
@@ -396,12 +398,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
       return { support: 0, reject: 0 };
     }
 
-    const supportPercent = ((approves / total) * 100).toFixed(1);
-    const rejectPercent = ((rejects / total) * 100).toFixed(1);
-
     return {
-      support: supportPercent,
-      reject: rejectPercent,
+      support: ((approves / total) * 100).toFixed(1),
+      reject: ((rejects / total) * 100).toFixed(1),
     };
   };
 
@@ -417,8 +416,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
       <Page>
         <AppLoadingBar ref={loadingBarRef} color={KENYA.red} />
         <FixedHeader>
-          <ArrowLeft onClick={onBack} size={22} />
-          <h1>National Gazette</h1>
+          <button onClick={onBack}>
+            <ArrowLeft size={22} />
+          </button>
           <Share2 size={18} />
         </FixedHeader>
         <LoadingState>Loading manifesto...</LoadingState>
@@ -430,8 +430,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     return (
       <Page>
         <FixedHeader>
-          <ArrowLeft onClick={onBack} size={22} />
-          <h1>National Gazette</h1>
+          <button onClick={onBack}>
+            <ArrowLeft size={22} />
+          </button>
           <Share2 size={18} />
         </FixedHeader>
         <ErrorContainer>
@@ -446,8 +447,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   return (
     <Page>
       <FixedHeader>
-        <ArrowLeft onClick={onBack} size={22} />
-        <h1>National Gazette</h1>
+        <button onClick={onBack}>
+          <ArrowLeft size={22} />
+        </button>
         <Share2 size={18} />
       </FixedHeader>
 
@@ -463,12 +465,14 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         </MagazineHeader>
 
         {agendaItems.map((item, index) => {
-          const stats = getPercentages(item.stats, index);
-          const voteKey = `${manifesto.manifesto_id || manifesto.id}_${index}`;
+          const stats = getPercentages(item.stats);
+          const manifestoId = manifesto.manifesto_id || manifesto.id;
+          const agendaItemId = item.agenda_item_id || item.id;
+          const voteKey = `${manifestoId}_${agendaItemId}`;
           const currentVote = userVotes[voteKey];
 
           return (
-            <ArticleWrapper key={index}>
+            <ArticleWrapper key={agendaItemId || index}>
               <CategoryRow>
                 <CategoryLabel
                   $color={index % 2 === 0 ? KENYA.red : KENYA.green}
@@ -511,7 +515,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
                   <IconButton
                     $color={KENYA.green}
                     $active={currentVote === "approve"}
-                    onClick={() => handleVote(index, "approve")}
+                    onClick={() => handleVote(item, "approve")}
                     disabled={voting[voteKey]}
                   >
                     <ThumbsUp size={14} /> APPROVE
@@ -519,20 +523,11 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
                   <IconButton
                     $color={KENYA.red}
                     $active={currentVote === "reject"}
-                    onClick={() => handleVote(index, "reject")}
+                    onClick={() => handleVote(item, "reject")}
                     disabled={voting[voteKey]}
                   >
                     <ThumbsDown size={14} /> REJECT
                   </IconButton>
-                </div>
-                <div
-                  style={{
-                    color: KENYA.red,
-                    fontSize: "11px",
-                    cursor: "pointer",
-                  }}
-                >
-                  READ ANALYSIS
                 </div>
               </InteractionBar>
             </ArticleWrapper>

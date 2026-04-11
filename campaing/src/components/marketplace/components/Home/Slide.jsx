@@ -11,7 +11,8 @@ import {
   Truck,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8007";
+import   API_BASE_URL   from  '../../apiConfig'
+
 
 // Animations
 const fadeInUp = keyframes`
@@ -102,17 +103,25 @@ const ProductsGrid = styled.div`
 `;
 
 const ProductCard = styled.div`
-  background: ${COLORS.white};
-  border-radius: 12px;
+  background: white;
+  border-radius: 20px;
   overflow: hidden;
-  transition: all 0.2s ease;
-  border: 1px solid ${COLORS.border};
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     border-color: ${COLORS.primary};
+
+    .hover-actions {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 `;
 
@@ -120,80 +129,73 @@ const ImageWrapper = styled(Link)`
   position: relative;
   display: block;
   overflow: hidden;
-  background: ${COLORS.background};
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1.1;
+  background: #fdfdfd;
 `;
 
 const ProductImage = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.6s ease;
 
-  ${ImageWrapper}:hover & {
-    transform: scale(1.03);
+  ${ProductCard}:hover & {
+    transform: scale(1.1);
   }
 `;
 
-const DiscountBadge = styled.div`
+const HoverActions = styled.div`
   position: absolute;
-  top: 8px;
-  left: 8px;
-  background: ${COLORS.accent};
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  z-index: 2;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 15px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  z-index: 3;
 `;
 
-const WishlistButton = styled.button`
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: ${COLORS.white};
+const ActionButton = styled.button`
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: white;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: ${COLORS.primary};
 
   &:hover {
     background: ${COLORS.primary};
-    transform: scale(1.05);
-
-    svg {
-      color: ${COLORS.white};
-    }
-  }
-
-  svg {
-    width: 14px;
-    height: 14px;
-    color: #999;
-    transition: all 0.2s;
+    color: white;
+    transform: scale(1.1);
   }
 `;
 
 const ProductInfo = styled.div`
-  padding: 10px;
+  padding: 15px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ProductName = styled.h4`
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
   color: ${COLORS.text};
   line-height: 1.4;
+  height: 2.8em;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 `;
@@ -201,8 +203,8 @@ const ProductName = styled.h4`
 const Rating = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 8px;
 
   .stars {
     display: flex;
@@ -210,113 +212,56 @@ const Rating = styled.div`
     gap: 2px;
   }
 
-  .rating-value {
-    font-size: 10px;
-    font-weight: 600;
-    color: ${COLORS.text};
-  }
-
   .reviews {
-    font-size: 9px;
+    font-size: 11px;
     color: ${COLORS.textLight};
+    font-weight: 500;
   }
 `;
 
 const PriceSection = styled.div`
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
 `;
 
 const CurrentPrice = styled.span`
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: ${COLORS.primary};
-
-  small {
-    font-size: 10px;
-    font-weight: 500;
-  }
 `;
 
 const OriginalPrice = styled.span`
-  font-size: 11px;
-  color: ${COLORS.textLight};
+  font-size: 12px;
+  color: #999;
   text-decoration: line-through;
 `;
 
-const DeliveryInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 10px;
-  font-size: 9px;
-  color: ${COLORS.success};
-
-  svg {
-    width: 10px;
-    height: 10px;
-  }
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 8px;
-`;
-
 const OrderButton = styled.button`
-  flex: 1;
+  margin-top: 12px;
+  width: 100%;
   background: ${COLORS.primary};
-  color: ${COLORS.white};
+  color: white;
   border: none;
-  padding: 8px 6px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  transition: all 0.2s;
+  gap: 8px;
+  transition: all 0.3s ease;
 
   &:hover {
-    background: ${COLORS.primaryDark};
+    background: #000;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   }
 
-  svg {
-    width: 12px;
-    height: 12px;
-  }
-`;
-
-const ViewButton = styled(Link)`
-  flex: 1;
-  background: ${COLORS.background};
-  color: ${COLORS.textLight};
-  border: none;
-  padding: 8px 6px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  text-decoration: none;
-  transition: all 0.2s;
-
-  &:hover {
-    background: ${COLORS.border};
-    color: ${COLORS.primary};
-  }
-
-  svg {
-    width: 12px;
-    height: 12px;
+  &:active {
+    transform: scale(0.98);
   }
 `;
 
@@ -409,9 +354,9 @@ const getImageUrl = (imagePath) => {
     return imagePath;
   }
   if (imagePath.startsWith("/")) {
-    return `${API_URL}${imagePath}`;
+    return `${API_BASE_URL}${imagePath}`;
   }
-  return `${API_URL}/${imagePath}`;
+  return `${API_BASE_URL}/${imagePath}`;
 };
 
 const Slide = ({ data, title, timer, multi, onAddToCart, loading = false }) => {
@@ -531,9 +476,6 @@ const Slide = ({ data, title, timer, multi, onAddToCart, loading = false }) => {
             <ProductCard key={product.id}>
               <ImageWrapper to={`/marketplace/product/${product.id}`}>
                 {discount > 0 && <DiscountBadge>-{discount}%</DiscountBadge>}
-                <WishlistButton onClick={(e) => toggleWishlist(product.id, e)}>
-                  <Heart fill={isWishlisted ? COLORS.primary : "none"} />
-                </WishlistButton>
                 <ProductImage
                   src={
                     imageUrl ||
@@ -545,6 +487,14 @@ const Slide = ({ data, title, timer, multi, onAddToCart, loading = false }) => {
                       "https://placehold.co/300x300/f5f5f5/ccc?text=No+Image";
                   }}
                 />
+                <HoverActions className="hover-actions">
+                  <ActionButton onClick={(e) => toggleWishlist(product.id, e)}>
+                    <Heart size={18} fill={isWishlisted ? COLORS.primary : "none"} />
+                  </ActionButton>
+                  <ActionButton onClick={(e) => handleAddToCart(product, e)}>
+                    <ShoppingCart size={18} />
+                  </ActionButton>
+                </HoverActions>
               </ImageWrapper>
 
               <ProductInfo>
@@ -552,7 +502,7 @@ const Slide = ({ data, title, timer, multi, onAddToCart, loading = false }) => {
 
                 <Rating>
                   <div className="stars">{renderStars(rating)}</div>
-                  <span className="reviews">({reviewCount})</span>
+                  <span className="reviews">({reviewCount} reviews)</span>
                 </Rating>
 
                 <PriceSection>
@@ -566,21 +516,9 @@ const Slide = ({ data, title, timer, multi, onAddToCart, loading = false }) => {
                   )}
                 </PriceSection>
 
-                <DeliveryInfo>
-                  <Truck size={10} />
-                  <span>Free delivery over KES 2k</span>
-                </DeliveryInfo>
-
-                <ButtonGroup>
-                  <OrderButton onClick={(e) => handleAddToCart(product, e)}>
-                    <ShoppingCart size={12} />
-                    Cart
-                  </OrderButton>
-                  <ViewButton to={`/marketplace/product/${product.id}`}>
-                    <Eye size={12} />
-                    View
-                  </ViewButton>
-                </ButtonGroup>
+                <OrderButton onClick={(e) => handleAddToCart(product, e)}>
+                  <ShoppingCart size={16} /> Add to Cart
+                </OrderButton>
               </ProductInfo>
             </ProductCard>
           );

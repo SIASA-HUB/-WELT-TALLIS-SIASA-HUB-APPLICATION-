@@ -3,6 +3,7 @@ const axios = require("axios");
 const {
   asyncHandler,
   db: { safeQuery, safeQueryOne },
+  mpesa: mpesaConfig,
 } = require("../../../global/index");
 const Logger = require("../utils/logger/logger");
 
@@ -161,19 +162,30 @@ const getWalletBalance = asyncHandler(async (req, res) => {
     console.log("💰 Wallet found:", wallet);
 
     if (!wallet) {
-      // Create wallet for new user
-      console.log("🆕 Creating new wallet for user:", user_id);
+      // Create wallet for new user with default 100 points
+      console.log("🆕 Creating new wallet with 100 points for user:", user_id);
+      
+      const initialPoints = 100;
       await safeQuery(
         `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
-         VALUES (?, 0, 0, 0, NOW(), NOW())`,
-        [user_id],
+         VALUES (?, ?, 0, ?, NOW(), NOW())`,
+        [user_id, initialPoints, initialPoints],
+      );
+
+      // Create a bonus transaction record
+      const transactionId = `WELCOME-${Date.now()}-${uuidv4().substring(0, 8)}`;
+      await safeQuery(
+        `INSERT INTO wallet_transactions 
+         (transaction_id, user_id, amount, type, description, status, completed_at)
+         VALUES (?, ?, ?, 'bonus', 'Welcome bonus points', 'completed', NOW())`,
+        [transactionId, user_id, initialPoints],
       );
 
       const newWallet = {
         user_id,
-        balance: 0,
+        balance: initialPoints,
         total_deposited: 0,
-        total_bonus: 0,
+        total_bonus: initialPoints,
         updated_at: new Date().toISOString(),
       };
 
@@ -183,6 +195,7 @@ const getWalletBalance = asyncHandler(async (req, res) => {
       return res.json({
         success: true,
         data: newWallet,
+        message: "Welcome! 100 points have been added to your wallet.",
       });
     }
 
@@ -816,13 +829,219 @@ const handlePesapalIPN = asyncHandler(async (req, res) => {
   }
 });
 
+// ============================================
+// GET USER WALLET STATS
+// ============================================
+const getUserStats = asyncHandler(async (req, res) => {
+  const { user_id } = req.params;
+
+  if (!user_id) {
+    return res.status(400).json({
+      success: false,
+      message: "User ID is required",
+    });
+  }
+
+  try {
+    // Get wallet summary
+    const wallet = await safeQueryOne(
+      `SELECT balance, total_deposited, total_bonus FROM user_wallets WHERE user_id = ?`,
+      [user_id],
+    );
+
+    // Get counts for different transaction types
+    const stats = await safeQueryOne(
+      `SELECT 
+        COUNT(*) as total_transactions,
+        SUM(CASE WHEN type = 'deposit' AND status = 'completed' THEN amount ELSE 0 END) as total_deposits,
+        SUM(CASE WHEN type IN ('endorsement', 'boost') AND status = 'completed' THEN amount ELSE 0 END) as total_spent,
+        SUM(CASE WHEN type = 'bonus' AND status = 'completed' THEN amount ELSE 0 END) as total_bonus_received
+       FROM wallet_transactions 
+       WHERE user_id = ?`,
+      [user_id],
+    );
+
+// Default values for new users
+    if (!wallet) {
+      const initialPoints = 100;
+      console.log("🆕 Initializing default wallet with 100 points for user:", user_id);
+      
+      await safeQuery(
+        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
+         VALUES (?, ?, 0, ?, NOW(), NOW())`,
+        [user_id, initialPoints, initialPoints],
+      );
+
+      const transactionId = `WELCOME-STATS-${Date.now()}-${uuidv4().substring(0, 8)}`;
+      await safeQuery(
+        `INSERT INTO wallet_transactions 
+         (transaction_id, user_id, amount, type, description, status, completed_at)
+         VALUES (?, ?, ?, 'bonus', 'Welcome bonus points', 'completed', NOW())`,
+        [transactionId, user_id, initialPoints],
+      );
+    }
+
+    const currentBalance = wallet ? wallet.balance : 100;
+    const deposited = stats ? stats.total_deposits : 0;
+    const spent = stats ? stats.total_spent : 0;
+    const bonus = stats ? stats.total_bonus_received : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        balance: currentBalance,
+        total_deposited: deposited,
+        total_spent: spent,
+        total_bonus: bonus,
+        transaction_count: stats ? stats.total_transactions : 0,
+        currency: "Points",
+        is_new_user: !wallet
+      },
+    });
+  } catch (error) {
+    Logger.error("Error fetching user wallet stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch wallet statistics",
+    });
+  }
+});
+
+// ============================================
+// M-PESA STK PUSH
+// ============================================
+const initiateStkPush = asyncHandler(async (req, res) => {
+  const { phoneNumber, amount, user_id, userId } = req.body;
+  const targetUserId = userId || user_id || req.user?.id;
+
+  Logger.info(`📲 [M-Pesa] Initiating STK Push for ${phoneNumber}, Amount: ${amount}`);
+
+  if (!phoneNumber || !amount || !targetUserId) {
+    return res.status(400).json({ success: false, message: "Missing phone, amount, or user ID" });
+  }
+
+  try {
+    const reference = `STK-${Date.now()}`;
+    const desc = "Wallet Top-up";
+    const callbackUrl = process.env.MPESA_CALLBACK_URL || `${FRONTEND_URL}/api/v1/wallet/mpesa/callback`;
+
+    const result = await mpesaConfig.stkPush(
+      phoneNumber,
+      amount,
+      reference,
+      desc,
+      callbackUrl
+    );
+
+    if (result.ResponseCode === "0") {
+      // Save pending transaction
+      await safeQuery(
+        `INSERT INTO wallet_transactions 
+         (transaction_id, user_id, amount, type, description, status, reference_id, created_at)
+         VALUES (?, ?, ?, 'deposit', ?, 'pending', ?, NOW())`,
+        [result.CheckoutRequestID, targetUserId, amount, `M-Pesa STK Push to ${phoneNumber}`, reference]
+      );
+
+      return res.json({
+        success: true,
+        message: "STK Push initiated successfully. Please check your phone.",
+        data: {
+          checkoutRequestId: result.CheckoutRequestID,
+          customerMessage: result.CustomerMessage
+        }
+      });
+    }
+
+    throw new Error(result.CustomerMessage || "Failed to initiate push");
+  } catch (error) {
+    Logger.error("M-Pesa STK Push fail controller:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ============================================
+// M-PESA CALLBACK
+// ============================================
+const handleMpesaCallback = asyncHandler(async (req, res) => {
+  const { Body } = req.body;
+  
+  if (!Body || !Body.stkCallback) {
+    return res.status(400).json({ success: false, message: "Invalid callback data" });
+  }
+
+  const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
+
+  Logger.info(`🔔 [M-Pesa] Callback: ${CheckoutRequestID}, Result: ${ResultCode} (${ResultDesc})`);
+
+  try {
+    const transaction = await safeQueryOne(
+      `SELECT * FROM wallet_transactions WHERE transaction_id = ?`,
+      [CheckoutRequestID]
+    );
+
+    if (!transaction) {
+      Logger.warn(`⚠️ Transaction not found for M-Pesa callback: ${CheckoutRequestID}`);
+      return res.status(200).json({ success: true }); // Acknowledge anyway
+    }
+
+    if (ResultCode === 0 && CallbackMetadata) {
+      // Success! Update wallet
+      const bonus = calculateBonus(transaction.amount);
+      const totalPoints = transaction.amount + bonus;
+
+      await safeQuery("START TRANSACTION");
+
+      // Update wallet balance
+      await safeQuery(
+        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, updated_at) 
+         VALUES (?, ?, ?, ?, NOW()) 
+         ON DUPLICATE KEY UPDATE 
+         balance = balance + ?, 
+         total_deposited = total_deposited + ?, 
+         total_bonus = total_bonus + ?, 
+         updated_at = NOW()`,
+        [transaction.user_id, totalPoints, transaction.amount, bonus, totalPoints, transaction.amount, bonus]
+      );
+
+      // Update transaction status
+      await safeQuery(
+        `UPDATE wallet_transactions 
+         SET status = 'completed', completed_at = NOW(), description = ? 
+         WHERE transaction_id = ?`,
+        [`${transaction.description} | Completed`, CheckoutRequestID]
+      );
+
+      await safeQuery("COMMIT");
+      memoryCache.delete(`wallet_${transaction.user_id}`);
+      Logger.info(`✅ Wallet updated for user ${transaction.user_id} via M-Pesa STK`);
+    } else {
+      // Failed or cancelled
+      await safeQuery(
+        `UPDATE wallet_transactions 
+         SET status = 'failed', description = ? 
+         WHERE transaction_id = ?`,
+        [`${transaction.description} | ${ResultDesc}`, CheckoutRequestID]
+      );
+      Logger.warn(`❌ M-Pesa STK Failed for ${CheckoutRequestID}: ${ResultDesc}`);
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    Logger.error("Error processing M-Pesa callback:", error);
+    res.status(500).json({ success: false });
+  }
+});
+
 module.exports = {
   getWalletBalance,
+  getUserStats,
   getRechargePackages,
   initiateDeposit,
   directDeposit,
   handlePesapalCallback,
   handlePesapalIPN,
+  initiateStkPush,
+  handleMpesaCallback,
   checkPaymentStatus,
   useWalletForEndorsement,
   getTransactionHistory,

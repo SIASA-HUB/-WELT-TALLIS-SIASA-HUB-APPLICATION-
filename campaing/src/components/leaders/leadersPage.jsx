@@ -1,6 +1,13 @@
 // pages/LeadersPage.jsx - Fixed version with proper error handling
 
-import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  Suspense,
+  lazy,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
@@ -25,7 +32,7 @@ import TrendingManifestos from "./manifestos/TredingManifestos";
 const LeaderCard = lazy(() => import("./leadersCard"));
 
 // API Configuration
-const API_BASE_URL = "/api/v1/users";
+import API_BASE_URL from "./apiConfig";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -36,13 +43,13 @@ const api = axios.create({
 // Add request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
-    console.log(`📤 API Request: ${config.method.toUpperCase()} ${config.url}`);
+    console.log(` API Request: ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
-    console.error("❌ Request Error:", error);
+    console.error(" Request Error:", error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add request interceptor for debugging
@@ -54,7 +61,7 @@ api.interceptors.request.use(
   (error) => {
     console.error("❌ Request Error:", error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add response interceptor for debugging
@@ -64,9 +71,13 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("❌ Response Error:", error.response?.status, error.response?.data);
+    console.error(
+      "❌ Response Error:",
+      error.response?.status,
+      error.response?.data,
+    );
     return Promise.reject(error);
-  }
+  },
 );
 
 // Animations
@@ -208,14 +219,14 @@ const UserInfoBar = styled.div`
   flex-wrap: wrap;
   font-size: 12px;
   color: white;
-  
+
   .user-details {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
   }
-  
+
   .info-badge {
     display: flex;
     align-items: center;
@@ -224,19 +235,19 @@ const UserInfoBar = styled.div`
     padding: 4px 12px;
     border-radius: 20px;
     font-weight: 500;
-    
+
     svg {
       opacity: 0.8;
     }
   }
-  
+
   .greeting {
     font-weight: 600;
     display: flex;
     align-items: center;
     gap: 6px;
   }
-  
+
   .personalized-note {
     font-size: 11px;
     opacity: 0.8;
@@ -287,13 +298,21 @@ const SectionBadge = styled.span`
   align-items: center;
   gap: 4px;
   background: ${(props) =>
-    props.$type === "presidential" ? "#ff000010" : 
-    props.$type === "your-county" ? "#10b98110" :
-    props.$type === "your-party" ? "#3b82f610" : "#f0f0f0"};
+    props.$type === "presidential"
+      ? "#ff000010"
+      : props.$type === "your-county"
+        ? "#10b98110"
+        : props.$type === "your-party"
+          ? "#3b82f610"
+          : "#f0f0f0"};
   color: ${(props) =>
-    props.$type === "presidential" ? "#ff0000" : 
-    props.$type === "your-county" ? "#10b981" :
-    props.$type === "your-party" ? "#3b82f6" : "#666"};
+    props.$type === "presidential"
+      ? "#ff0000"
+      : props.$type === "your-county"
+        ? "#10b981"
+        : props.$type === "your-party"
+          ? "#3b82f6"
+          : "#666"};
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 10px;
@@ -374,21 +393,26 @@ const LeadersPage = () => {
           setIsUserLoggedIn(true);
           return;
         }
-        
+
         const fetchUserFromCookie = async () => {
           try {
-            const response = await api.get("/users/me", { withCredentials: true });
+            const response = await api.get("/users/me", {
+              withCredentials: true,
+            });
             if (response.data?.success && response.data?.user) {
               setUserData(response.data.user);
               setIsUserLoggedIn(true);
-              localStorage.setItem("user_data", JSON.stringify(response.data.user));
+              localStorage.setItem(
+                "user_data",
+                JSON.stringify(response.data.user),
+              );
             }
           } catch (err) {
             console.log("User not logged in");
             setIsUserLoggedIn(false);
           }
         };
-        
+
         fetchUserFromCookie();
       } catch (err) {
         console.error("Error loading user data:", err);
@@ -410,6 +434,21 @@ const LeadersPage = () => {
   // Fetch personalized feed based on user's data
   useEffect(() => {
     const fetchPersonalizedFeed = async () => {
+      // Try to load from cache first for instant feel
+      const cacheKey = `feed_cache_${userData?.user_id || "guest"}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData && !dataFetchedRef.current) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          if (Date.now() - parsed.timestamp < 300000) {
+            // 5 min cache
+            console.log("🚀 Using cached feed data");
+            setFeedGroups(parsed.data);
+            setLoading(false);
+          }
+        } catch (e) {}
+      }
+
       if (dataFetchedRef.current) return;
 
       if (loadingBarRef.current) {
@@ -418,7 +457,7 @@ const LeadersPage = () => {
 
       try {
         const params = { limit: 300 };
-        
+
         if (userData) {
           if (userData.county) {
             params.county = userData.county;
@@ -432,24 +471,30 @@ const LeadersPage = () => {
             params.party = userData.political_party;
             params.user_party = userData.political_party;
           }
-          if (userData.employment_status) {
-            params.employment = userData.employment_status;
-          }
         }
-        
-        console.log("📤 Fetching personalized feed with params:", params);
+
+        console.log("Fetching personalized feed with params:", params);
 
         const response = await api.get("/leaders", {
           params: params,
           withCredentials: true,
         });
 
-        console.log("📥 Feed response:", response.data);
-
         if (response.data?.success) {
-          // FIX: Ensure data is always an array
-          const groups = Array.isArray(response.data.data) ? response.data.data : [];
+          const groups = Array.isArray(response.data.data)
+            ? response.data.data
+            : [];
           setFeedGroups(groups);
+
+          // Update cache
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              timestamp: Date.now(),
+              data: groups,
+            }),
+          );
+
           setError(null);
         } else {
           setFeedGroups([]);
@@ -460,7 +505,6 @@ const LeadersPage = () => {
       } catch (err) {
         console.error("Error fetching personalized feed:", err);
         setError(err.message || "Failed to load leaders");
-        setFeedGroups([]);
       } finally {
         setLoading(false);
         if (loadingBarRef.current) {
@@ -471,7 +515,7 @@ const LeadersPage = () => {
 
     const timer = setTimeout(() => {
       fetchPersonalizedFeed();
-    }, 500);
+    }, 100); // Shorter delay
 
     return () => clearTimeout(timer);
   }, [userData]);
@@ -490,13 +534,14 @@ const LeadersPage = () => {
         const leaders = Array.isArray(group.leaders) ? group.leaders : [];
         return {
           ...group,
-          leaders: leaders.filter((leader) =>
-            leader.name?.toLowerCase().includes(term) ||
-            leader.party?.toLowerCase().includes(term) ||
-            leader.position?.toLowerCase().includes(term) ||
-            leader.county?.toLowerCase().includes(term) ||
-            leader.constituency?.toLowerCase().includes(term) ||
-            leader.ward?.toLowerCase().includes(term)
+          leaders: leaders.filter(
+            (leader) =>
+              leader.name?.toLowerCase().includes(term) ||
+              leader.party?.toLowerCase().includes(term) ||
+              leader.position?.toLowerCase().includes(term) ||
+              leader.county?.toLowerCase().includes(term) ||
+              leader.constituency?.toLowerCase().includes(term) ||
+              leader.ward?.toLowerCase().includes(term),
           ),
         };
       })
@@ -505,7 +550,10 @@ const LeadersPage = () => {
 
   const totalLeaders = useMemo(() => {
     if (!Array.isArray(filteredGroups)) return 0;
-    return filteredGroups.reduce((sum, group) => sum + (group.leaders?.length || 0), 0);
+    return filteredGroups.reduce(
+      (sum, group) => sum + (group.leaders?.length || 0),
+      0,
+    );
   }, [filteredGroups]);
 
   const clearSearch = () => {
@@ -592,8 +640,6 @@ const LeadersPage = () => {
           </RegisterButton>
         </SearchContainer>
 
-     
-
         <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
 
@@ -626,25 +672,39 @@ const LeadersPage = () => {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         {Array.isArray(filteredGroups) && filteredGroups.length > 0 ? (
           filteredGroups.map((group, index) => (
-            <Section key={group.id || group.title || index} $delay={`${index * 0.05}s`}>
+            <Section
+              key={group.id || group.title || index}
+              $delay={`${index * 0.05}s`}
+            >
               <SectionHeader>
                 <h2>
-                  {group.type === "presidential" && <Star size={14} color="#ff0000" />}
+                  {group.type === "presidential" && (
+                    <Star size={14} color="#ff0000" />
+                  )}
                   {group.type === "county" && <MapPin size={14} />}
                   {group.type === "party" && <Users size={14} />}
                   {group.title || "Leaders"}
                   {group.type === "presidential" && (
-                    <SectionBadge $type="presidential">🇰🇪 National</SectionBadge>
+                    <SectionBadge $type="presidential">
+                      🇰🇪 National
+                    </SectionBadge>
                   )}
-                  {group.type === "county" && userData?.county === group.title && (
-                    <SectionBadge $type="your-county">📍 Your County</SectionBadge>
-                  )}
-                  {group.type === "party" && userData?.political_party === group.title && (
-                    <SectionBadge $type="your-party">🎯 Your Party</SectionBadge>
-                  )}
+                  {group.type === "county" &&
+                    userData?.county === group.title && (
+                      <SectionBadge $type="your-county">
+                        📍 Your County
+                      </SectionBadge>
+                    )}
+                  {group.type === "party" &&
+                    userData?.political_party === group.title && (
+                      <SectionBadge $type="your-party">
+                        🎯 Your Party
+                      </SectionBadge>
+                    )}
                 </h2>
                 <span className="count">
-                  {group.leaders?.length || 0} / {group.total || group.leaders?.length || 0}
+                  {group.leaders?.length || 0} /{" "}
+                  {group.total || group.leaders?.length || 0}
                 </span>
               </SectionHeader>
               <Tray>
@@ -681,7 +741,10 @@ const LeadersPage = () => {
             )}
             {!searchTerm && !isUserLoggedIn && (
               <>
-                <p>Login to see personalized feed based on your location and preferences</p>
+                <p>
+                  Login to see personalized feed based on your location and
+                  preferences
+                </p>
                 <button
                   onClick={() => navigate("/login")}
                   style={{
