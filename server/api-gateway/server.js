@@ -107,7 +107,8 @@ app.use("/api/v1/rallies", createProxy(SERVICES.rallies));
 app.use("/api/v1/users", createProxy(SERVICES.users));
 app.use("/api/v1/wallet", createProxy(SERVICES.wallet));
 app.use("/api/v1/endorsements", createProxy(SERVICES.endorsement));
-app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
+app.use("/api/v1/products", createProxy(SERVICES.marketplace));
+app.use("/api/v1/cart", createProxy(SERVICES.marketplace));
 app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
 
 
@@ -128,12 +129,8 @@ app.use(
 );
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/api/v1/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ success: true, message: "API Gateway is running" });
 });
 
 // 404 handler

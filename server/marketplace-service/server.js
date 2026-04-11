@@ -106,14 +106,14 @@ app.get("/ping", (req, res) => {
 // ============ API ROUTES ============
 
 // Upload endpoint
-app.post("/api/upload", upload.single("image"), (req, res) => {
+app.post("/api/v1/upload", upload.single("image"), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
     const folder = req.body.folder || "products";
-    const imageUrl = `/uploads/${folder}/${req.file.filename}`;
+    const imageUrl = `/api/v1/uploads/${folder}/${req.file.filename}`;
 
     res.json({
       success: true,
@@ -129,10 +129,33 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // Product and Cart routes
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 
+=======
+// API Routes
+app.use("/api/v1/products", productRoutes);
+app.use("/api/v1/cart", cartRoutes);
+
+// API Reference
+app.use(
+  "/reference",
+  apiReference({
+    spec: {
+      content: {
+        openapi: "3.1.0",
+        info: { title: "Marketplace Service API", version: "1.0.0" },
+        paths: {
+          "/api/v1/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
+        }
+      }
+    }
+  })
+);
+
+>>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
 // Health check endpoint
 app.get("/health", async (req, res) => {
   try {
@@ -211,6 +234,7 @@ const startServer = async () => {
     // Start server
     app.listen(PORT, "0.0.0.0", () => {
       Logger.info(`🚀 Marketplace service running on port ${PORT}`);
+<<<<<<< HEAD
       console.log(`
   ═══════════════════════════════════════════════════════
   📡 Local:            http://localhost:${PORT}
@@ -220,6 +244,13 @@ const startServer = async () => {
   💚 Health Check:     http://localhost:${PORT}/health
   🔧 Debug Tables:     http://localhost:${PORT}/debug/tables
   ═══════════════════════════════════════════════════════
+=======
+      console.log(`                                                       
+  📡 Local: http://localhost:${PORT}                                                                                          
+  📦 Products API: /api/v1/products                             
+  🛒 Cart API: /api/v1/cart                                     
+   📸 Upload API: /api/v1/upload 
+>>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
       `);
     });
   } catch (error) {

@@ -2,7 +2,7 @@ const express = require('express');
 const proxy = require('express-http-proxy');
 const app = express();
 app.use('/api/v1/:service*', (req, res, next) => {
-  return proxy('http://127.0.0.1:9000', {
+  return proxy('http://localhost:8008', {
     proxyReqPathResolver: (req) => {
       console.log('Resolver called! Returning:', req.originalUrl);
       return req.originalUrl;

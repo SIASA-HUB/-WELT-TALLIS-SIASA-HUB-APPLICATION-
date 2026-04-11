@@ -4,7 +4,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 
 app.use('/api/v1/users', createProxyMiddleware({
-  target: 'http://127.0.0.1:9090',
+  target: 'http://localhost:8002',
   changeOrigin: true,
   pathRewrite: (path, req) => {
     console.log("REWRITE CALLED, req.originalUrl =", req.originalUrl);

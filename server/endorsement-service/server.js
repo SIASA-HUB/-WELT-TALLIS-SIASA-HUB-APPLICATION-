@@ -286,10 +286,22 @@ const HOST = process.env.HOST || "0.0.0.0";
         action: "server_started",
         environment,
       });
+<<<<<<< HEAD
       Logger.info(`📁 Static files served from: ${actualUploadsPath}`);
       Logger.info(`📸 Test image URL: http://${HOST}:${PORT}/uploads/endorsements/`);
       Logger.info(`🔍 Debug images: http://${HOST}:${PORT}/api/v1/debug/images`);
       Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/cors-test`);
+=======
+      Logger.info(`📁 Static files served from: ${uploadsPath}`);
+      Logger.info(
+        `📸 Images accessible at: http://${HOST}:${PORT}/api/v1/uploads/endorsements/`,
+      );
+      Logger.info(
+        `🔍 Debug endpoint: http://${HOST}:${PORT}/api/v1/debug/directories`,
+      );
+      Logger.info(`🌐 CORS enabled for all origins`);
+      Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/api/v1/cors-test`);
+>>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
     });
 
     const shutdown = async () => {
