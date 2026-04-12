@@ -34,8 +34,17 @@ const get = async (key) => {
 const set = async (key, value, ttlSeconds = null) => {
   const stringValue =
     typeof value === "object" ? JSON.stringify(value) : String(value);
+    
   if (ttlSeconds) {
-    return await redis.set(key, stringValue, "EX", ttlSeconds);
+    // Handle both number and object like { ttl: 300 }
+    let finalTtl = typeof ttlSeconds === "object" ? (ttlSeconds.ttl || ttlSeconds.expiry) : ttlSeconds;
+    
+    // Ensure it's a valid integer
+    finalTtl = Math.floor(Number(finalTtl));
+    
+    if (!isNaN(finalTtl) && finalTtl > 0) {
+      return await redis.set(key, stringValue, "EX", finalTtl);
+    }
   }
   return await redis.set(key, stringValue);
 };
@@ -49,19 +58,25 @@ const exists = async (key) => {
 };
 
 const expire = async (key, seconds) => {
-  return await redis.expire(key, seconds);
+  let finalSeconds = typeof seconds === "object" ? (seconds.ttl || seconds.expiry) : seconds;
+  finalSeconds = Math.floor(Number(finalSeconds));
+  if (!isNaN(finalSeconds)) {
+    return await redis.expire(key, finalSeconds);
+  }
+  return false;
 };
 
 const incr = async (key) => {
   return await redis.incr(key);
 };
 
+
 module.exports = {
-  redis, // Raw Redis client
-  get, // Get with JSON parsing
-  set, // Set with JSON stringify
-  del, // Delete keys
-  exists, // Check existence
-  expire, // Set expiration
-  incr, // Increment
+  redis,
+  get, 
+  set, 
+  del, 
+  exists, 
+  expire,
+  incr, 
 };

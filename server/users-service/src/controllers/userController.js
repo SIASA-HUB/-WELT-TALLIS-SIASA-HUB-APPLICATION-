@@ -1,4 +1,5 @@
-// controllers/userController.js - With Automatic Role Assignment
+// controllers/userController.js - With Automatic Role Assignment and Default Users
+
 const asyncHandler = require("express-async-handler");
 const {
   UserModel,
@@ -8,6 +9,8 @@ const {
 } = require("../models/userModel");
 
 const { safeQuery, safeQueryOne } = require("../configurations/db");
+const crypto = require("crypto");
+const Logger = require("../utils/logger/logger");
 
 // ============================================
 // HELPER FUNCTIONS
@@ -84,6 +87,7 @@ const generateUsernameFromName = (realName) => {
   return `${namePart}${randomNum}`;
 };
 
+
 // Main createUser function
 const createUser = asyncHandler(async (req, res) => {
   const {
@@ -153,7 +157,7 @@ const createUser = asyncHandler(async (req, res) => {
     if (!UserModel.isValidRole(role)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid role. Must be one of: user, admin, market_admin, super_admin, ceo`,
+        message: `Invalid role. Must be one of: user, admin, market_admin, administrator`,
       });
     }
     userRole = role;
@@ -340,22 +344,14 @@ const createUser = asyncHandler(async (req, res) => {
       await db.query("COMMIT");
       welcomeBonusAdded = true;
 
-      console.log(
-        `[Welcome Bonus] 150 points credited to user ${finalUsername} (ID: ${user_id})`,
-      );
     } catch (walletError) {
       try {
         const { db } = require("../../../global/index");
         await db.query("ROLLBACK");
-      } catch (rollbackError) {
-        console.error("[Rollback Error]", rollbackError);
       }
-      console.error(`[Welcome Bonus Failed] User ${user_id}:`, walletError);
+      Logger.error(`[Welcome Bonus Failed] User ${user_id}:`, { error: walletError.message });
     }
 
-    console.log(
-      `[User Created] ${finalUsername} - ${user_id} - Role: ${userRole} - Username Generated: ${usernameGenerated}`,
-    );
 
     return res.status(201).json({
       success: true,
@@ -372,7 +368,6 @@ const createUser = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[createUser] Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to create user. Please try again.",
@@ -430,7 +425,6 @@ const getUserById = asyncHandler(async (req, res) => {
 
     return res.status(200).json({ success: true, data: userData });
   } catch (error) {
-    console.error("[getUserById] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch user" });
@@ -600,7 +594,6 @@ const updateUser = asyncHandler(async (req, res) => {
       message: "User updated successfully",
     });
   } catch (error) {
-    console.error("[updateUser] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to update user" });
@@ -654,7 +647,6 @@ const updateUserRole = asyncHandler(async (req, res) => {
       message: `User role updated to ${role} successfully`,
     });
   } catch (error) {
-    console.error("[updateUserRole] Error:", error);
     return res.status(403).json({
       success: false,
       message: error.message || "Failed to update user role",
@@ -688,7 +680,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[getAllUsers] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch users" });
@@ -707,7 +698,6 @@ const getRoleDistribution = asyncHandler(async (req, res) => {
       data: distribution,
     });
   } catch (error) {
-    console.error("[getRoleDistribution] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch role distribution" });
@@ -759,7 +749,6 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
           : "Username is reserved",
     });
   } catch (error) {
-    console.error("[checkUsernameAvailability] Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to check username availability",
@@ -768,7 +757,7 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET ANALYTICS (Demographic Stats) - FIXED VERSION
+// GET ANALYTICS (Demographic Stats)
 // ============================================
 const getAnalytics = asyncHandler(async (req, res) => {
   try {
@@ -1098,17 +1087,10 @@ const getAnalytics = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET COUNTY STATS - FIXED VERSION
-// ============================================\
-
-// ============================================
-// GET COUNTY STATS - FIXED VERSION
+// GET COUNTY STATS
 // ============================================
 const getCountyStats = asyncHandler(async (req, res) => {
   try {
-    // Use the already imported safeQuery and safeQueryOne from the top of the file
-    // Don't re-import them inside the function
-    
     // Get total users count
     const totalResult = await safeQueryOne(
       "SELECT COUNT(*) as total FROM users WHERE status = 'active' OR status IS NULL"
@@ -1208,7 +1190,77 @@ const getCountyStats = asyncHandler(async (req, res) => {
   }
 });
 
+// ============================================
+// TRACK APP INSTALL (PWA)
+// ============================================
+const trackAppInstall = asyncHandler(async (req, res) => {
+  try {
+    const { user_id } = req.body;
 
+    // Ensure app_stats table row exists
+    const existing = await safeQueryOne(
+      `SELECT id FROM app_stats WHERE stat_key = 'install_count' LIMIT 1`
+    );
+
+    if (!existing) {
+      await safeQuery(
+        `INSERT INTO app_stats (stat_key, stat_value, updated_at) VALUES ('install_count', 1, NOW())`
+      );
+    } else {
+      await safeQuery(
+        `UPDATE app_stats SET stat_value = stat_value + 1, updated_at = NOW() WHERE stat_key = 'install_count'`
+      );
+    }
+
+    // Log user install if user_id provided
+    if (user_id) {
+      try {
+        await safeQuery(
+          `INSERT IGNORE INTO app_installs (user_id, installed_at) VALUES (?, NOW())`,
+          [user_id]
+        );
+      } catch (e) {
+        // table may not exist yet, that's fine
+      }
+    }
+
+    const count = await safeQueryOne(
+      `SELECT stat_value FROM app_stats WHERE stat_key = 'install_count'`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Install tracked successfully",
+      data: { install_count: count?.stat_value || 1 }
+    });
+  } catch (error) {
+    console.error("[trackAppInstall] Error:", error);
+    res.status(500).json({ success: false, message: "Failed to track install" });
+  }
+});
+
+// ============================================
+// GET INSTALL COUNT
+// ============================================
+const getInstallCount = asyncHandler(async (req, res) => {
+  try {
+    const count = await safeQueryOne(
+      `SELECT stat_value FROM app_stats WHERE stat_key = 'install_count'`
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { install_count: count?.stat_value || 0 }
+    });
+  } catch (error) {
+    console.error("[getInstallCount] Error:", error);
+    res.status(200).json({ success: true, data: { install_count: 0 } });
+  }
+});
+
+// ============================================
+// EXPORTS
+// ============================================
 module.exports = {
   createUser,
   getUserById,
@@ -1219,4 +1271,7 @@ module.exports = {
   checkUsernameAvailability,
   getAnalytics,
   getCountyStats,
+  trackAppInstall,
+  getInstallCount,
+ 
 };

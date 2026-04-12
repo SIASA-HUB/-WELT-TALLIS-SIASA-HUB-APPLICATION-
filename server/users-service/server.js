@@ -4,7 +4,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const path = require("path");
-const { apiReference } = require("@scalar/express-api-reference");
+
 const knex = require("knex");
 
 const redis = require("./src/utils/redis/redis");
@@ -13,20 +13,20 @@ const userRoutes = require("./src/routes/users");
 const corsMiddleware = require("../global/middlewares/corsMiddleware");
 const knexConfig = require("./knexfile");
 
+
+
+
 const app = express();
 
-/* =====================================================
-   GLOBAL ERROR HANDLERS
-===================================================== */
+
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
-  process.exit(1);
+
+
+  if (err.code !== 'ECONNREFUSED' && err.code !== 'ENOTFOUND') {
+    process.exit(1);
+  }
 });
 
-process.on("unhandledRejection", (reason) => {
-  console.error(" Unhandled Rejection:", reason);
-  process.exit(1);
-});
 
 /* =====================================================
    REDIS EVENTS
@@ -72,23 +72,6 @@ app.get("/health", (req, res) => {
 
 app.use("/api/v1/users", userRoutes);
 
-/* =====================================================
-   API REFERENCE
-===================================================== */
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Users Service API", version: "1.0.0" },
-        paths: {
-          "/api/v1/users": { get: { summary: "Get Users", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
 
 /* =====================================================
    SERVER CONFIG

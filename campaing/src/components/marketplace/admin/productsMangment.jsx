@@ -101,6 +101,8 @@ const LoadingContainer = styled.div`
   padding: 40px;
 `;
 
+import { adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from "../components/api";
+
 const ProductsManagement = ({ products, loading, onRefresh }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -118,7 +120,7 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
   const handleDeleteProduct = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await axios.delete(`${API_URL}/api/products/${id}`);
+        await adminDeleteProduct(id);
         onRefresh();
       } catch (error) {
         console.error("Error deleting product:", error);
@@ -130,12 +132,9 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
   const handleSaveProduct = async (productData) => {
     try {
       if (editingProduct) {
-        await axios.put(
-          `${API_URL}/api/products/${editingProduct.id}`,
-          productData,
-        );
+        await adminUpdateProduct(editingProduct.id, productData);
       } else {
-        await axios.post(`${API_URL}/api/products`, productData);
+        await adminCreateProduct(productData);
       }
       onRefresh();
       setModalOpen(false);
@@ -209,7 +208,7 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
                       {product.title?.substring(0, 40)}
                     </div>
                   </td>
-                  <td>₹{product.price}</td>
+                  <td>KSH {Number(product.price).toLocaleString()}</td>
                   <td>
                     <span style={{ textTransform: "uppercase", fontSize: 12 }}>
                       {product.category}

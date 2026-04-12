@@ -101,6 +101,9 @@ const SupporterStats = styled.div`
   }
 `;
 
+const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
+import axios from "axios";
+
 const SupportersSection = ({ leader }) => {
   const [supporters, setSupporters] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,38 +112,22 @@ const SupportersSection = ({ leader }) => {
   useEffect(() => {
     // Fetch supporters from API
     const fetchSupporters = async () => {
-      try {
-        // Replace with actual API call
-        // const response = await axios.get(`/api/v1/leaders/${leader.leader_id}/supporters`);
-        // setSupporters(response.data);
+      const leaderId = leader?.leader_id || leader?.id;
+      if (!leaderId) return;
 
-        // Mock data for now
-        setSupporters([
-          {
-            id: 1,
-            name: "John Kamau",
-            county: "Nairobi",
-            avatar: null,
-            engagements: 45,
-            since: "2024-01-15",
-          },
-          {
-            id: 2,
-            name: "Mary Wanjiku",
-            county: "Kiambu",
-            avatar: null,
-            engagements: 32,
-            since: "2024-01-20",
-          },
-          {
-            id: 3,
-            name: "Peter Omondi",
-            county: "Kisumu",
-            avatar: null,
-            engagements: 28,
-            since: "2024-02-01",
-          },
-        ]);
+      try {
+        const response = await axios.get(`${ENDORSEMENT_API_URL}/endorsements/leader/${leaderId}/recent?limit=50`);
+        if (response.data?.success) {
+          setSupporters(response.data.data.map(s => ({
+            id: s.endorsement_id || s.id,
+            name: s.user_name || "Anonymous",
+            county: s.county || "Kenya",
+            avatar: s.image_url,
+            engagements: s.amount > 0 ? "Paid" : "Free",
+            since: s.created_at,
+            phrase: s.phrase
+          })));
+        }
       } catch (error) {
         console.error("Error fetching supporters:", error);
       } finally {

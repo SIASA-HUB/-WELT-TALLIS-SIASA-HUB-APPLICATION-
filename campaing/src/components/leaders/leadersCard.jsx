@@ -5,8 +5,9 @@ import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, MapPin, ArrowRight, Zap, User } from "lucide-react";
 
-// API Base URL - use the same as your backend
-import API_BASE_URL from "./apiConfig";
+// API Configuration
+import API from "../../api/config";
+
 
 const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(15px); }
@@ -97,7 +98,7 @@ const TopBar = styled.div`
 const PartyBadge = styled.div`
   background: #dc2626;
   color: white;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 6px;
   font-size: 10px;
   font-weight: 800;
@@ -106,7 +107,7 @@ const PartyBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+ 
   max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
@@ -195,7 +196,7 @@ const StatsRow = styled.div`
   }
 `;
 
-// Helper function to build full image URL - REMOVE /api/v1 prefix
+// Helper function to build full image URL via Gateway (Port 8009)
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "") return null;
 
@@ -204,23 +205,15 @@ const buildImageUrl = (imageUrl) => {
     return imageUrl;
   }
 
-  // If it starts with /uploads, prepend API_BASE_URL (without /api/v1)
-  if (imageUrl.startsWith("/uploads")) {
-    // Extract just the base URL without /api/v1
-    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  // Gateway handles /uploads prefix
+  const baseUrl = API.IMAGES; 
+  if (imageUrl.startsWith("/")) {
     return `${baseUrl}${imageUrl}`;
   }
 
-  // If it starts with uploads (no slash)
-  if (imageUrl.startsWith("uploads")) {
-    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
-    return `${baseUrl}/${imageUrl}`;
-  }
-
-  // Default: prepend with base URL
-  const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
   return `${baseUrl}/${imageUrl}`;
 };
+
 
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();
@@ -271,12 +264,17 @@ const LeaderCard = ({ leader }) => {
   const displayPosition = getDisplayPosition();
 
   const handleImageError = () => {
-    console.log(`❌ Image failed to load for ${name}: ${imageUrl}`);
+    
     setImageError(true);
   };
 
   const handleClick = () => {
-    navigate(`/leaders/${leader_id}`);
+    // Prefer slug-based SEO URL, fallback to leader_id
+    if (leader?.slug) {
+      navigate(`/aspirants/${leader.slug}`);
+    } else {
+      navigate(`/leaders/${leader_id}`);
+    }
   };
 
   return (

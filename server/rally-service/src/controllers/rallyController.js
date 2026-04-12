@@ -78,13 +78,33 @@ const getAllRallies = asyncHandler(async (req, res) => {
       search: req.query.search,
     };
 
-    const result = await RallyModel.getAll(filters);
+    // Try to get from cache first
+    const cacheKey = `rallies:list:${JSON.stringify(filters)}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        Logger.info("[GET ALL RALLIES] Returning cached data");
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      Logger.warn("[CACHE READ ERROR]", cacheError);
+    }
 
-    res.status(200).json({
+    const result = await RallyModel.getAll(filters);
+    const response = {
       success: true,
       data: result.data,
       pagination: result.pagination,
-    });
+    };
+
+    // Store in cache for 5 minutes
+    try {
+      await redis.set(cacheKey, JSON.stringify(response), "EX", 300);
+    } catch (cacheError) {
+      Logger.error("[CACHE WRITE ERROR]", cacheError);
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     Logger.error("[GET ALL RALLIES] Error:", error);
     res.status(500).json({
@@ -100,13 +120,34 @@ const getUpcomingRallies = asyncHandler(async (req, res) => {
     Logger.info("[GET UPCOMING RALLIES] Request received");
 
     const limit = req.query.limit || 10;
-    const rallies = await RallyModel.getUpcoming(limit);
+    const cacheKey = `rallies:upcoming:${limit}`;
 
-    res.status(200).json({
+    // Try to get from cache first
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        Logger.info("[GET UPCOMING RALLIES] Returning cached data");
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      Logger.warn("[CACHE READ ERROR]", cacheError);
+    }
+
+    const rallies = await RallyModel.getUpcoming(limit);
+    const response = {
       success: true,
       count: rallies.length,
       data: rallies,
-    });
+    };
+
+    // Store in cache for 5 minutes
+    try {
+      await redis.set(cacheKey, JSON.stringify(response), "EX", 300);
+    } catch (cacheError) {
+      Logger.error("[CACHE WRITE ERROR]", cacheError);
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     Logger.error("[GET UPCOMING RALLIES] Error:", error);
     res.status(500).json({

@@ -5,7 +5,7 @@ import axios from "axios";
 import { Flame, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
 import RallyCard from "./rallycard";
 
-import { API_BASE_URL } from "./apiConfig";
+import api from "../../api/api";
 
 // --- ANIMATIONS ---
 const slideIn = keyframes`
@@ -191,70 +191,23 @@ const RalliesSection = ({ limit = 6 }) => {
     setLoading(true);
     setError(null);
 
-    try {
-      console.log("📡 Fetching rallies from:", `${API_BASE_URL}/rallies`);
-
-      const res = await axios.get(`${API_BASE_URL}/rallies`, {
-        timeout: 15000,
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      console.log("✅ Rallies response:", res.data);
-
-      if (res.data?.success && Array.isArray(res.data?.data)) {
-        const sorted = res.data.data.sort(
+    const handleRalliesUpdate = (data) => {
+      const ralliesArray = data.success ? data.data : (data.data || data);
+      if (Array.isArray(ralliesArray)) {
+        const sorted = ralliesArray.sort(
           (a, b) => (b.likes_count || 0) - (a.likes_count || 0),
         );
         setRallies(sorted);
-        localStorage.setItem("siasa_rallies_cache", JSON.stringify(sorted));
-      } else if (res.data?.data && Array.isArray(res.data.data)) {
-        const sorted = res.data.data.sort(
-          (a, b) => (b.likes_count || 0) - (a.likes_count || 0),
-        );
-        setRallies(sorted);
-        localStorage.setItem("siasa_rallies_cache", JSON.stringify(sorted));
-      } else if (Array.isArray(res.data)) {
-        const sorted = res.data.sort(
-          (a, b) => (b.likes_count || 0) - (a.likes_count || 0),
-        );
-        setRallies(sorted);
-        localStorage.setItem("siasa_rallies_cache", JSON.stringify(sorted));
-      } else {
-        throw new Error("Invalid data format");
       }
+    };
+
+    try {
+      await api.getWithCache("/rallies", handleRalliesUpdate, {
+        timeout: 30000, // Increased timeout for stability
+      });
     } catch (err) {
       console.error("Error fetching rallies:", err);
-
-      let errorMessage = "Failed to load rallies";
-      if (err.response) {
-        errorMessage = `Server error: ${err.response.status}`;
-        console.error("Response data:", err.response.data);
-      } else if (err.request) {
-        errorMessage =
-          "No response from server. Please check if server is running.";
-        console.error("No response received");
-      } else {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-
-      // Try to load from cache
-      const cached = localStorage.getItem("siasa_rallies_cache");
-      if (cached) {
-        try {
-          const cachedData = JSON.parse(cached);
-          if (cachedData.length) {
-            setRallies(cachedData);
-            setError(null);
-            console.log("📦 Loaded from cache:", cachedData.length, "items");
-          }
-        } catch (e) {
-          console.error("Cache parse error:", e);
-        }
-      }
+      setError(err.message || "Failed to load rallies");
     } finally {
       setLoading(false);
       fetchedRef.current = true;
@@ -263,25 +216,6 @@ const RalliesSection = ({ limit = 6 }) => {
 
   useEffect(() => {
     if (!fetchedRef.current) {
-      // Try to load from cache first for instant display
-      const cached = localStorage.getItem("siasa_rallies_cache");
-      if (cached) {
-        try {
-          const cachedData = JSON.parse(cached);
-          if (cachedData.length) {
-            setRallies(cachedData);
-            setLoading(false);
-            console.log(
-              "📦 Loaded from cache on mount:",
-              cachedData.length,
-              "items",
-            );
-          }
-        } catch (e) {
-          console.error("Cache parse error:", e);
-        }
-      }
-
       fetchRallies();
     }
   }, []);

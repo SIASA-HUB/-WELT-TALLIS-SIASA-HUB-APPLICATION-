@@ -1,11 +1,10 @@
-// TrendingStoriesRow.js - Fixed with proper API calls using axios
+// TrendingStoriesRow.js - Instagram + WhatsApp Status style
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled, { keyframes } from "styled-components";
-import axios from "axios";
-import { Sparkles, Flame, ChevronRight, Heart } from "lucide-react";
-import EndorsementDetailModal from "./EndorsementDetailModal";
-import API_BASE_URL from "./apiConfig";
+import { Sparkles, Flame, ChevronRight, Heart, Play, X, Pause, Eye } from "lucide-react";
+import API from "../../api/config";
+import api from "../../api/api";
 
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 0.8; }
@@ -25,7 +24,7 @@ const ringPulse = keyframes`
 `;
 
 // ============================================
-// STYLED COMPONENTS
+// STYLED COMPONENTS - Instagram + WhatsApp Style
 // ============================================
 
 const Section = styled.div`
@@ -237,18 +236,290 @@ const ErrorMessage = styled.div`
   font-size: 12px;
 `;
 
-// Helper function to build image URL
+// ============================================
+// STORY PLAYER MODAL (WhatsApp Status Style)
+// ============================================
+
+const StoryModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+`;
+
+const StoryProgressContainer = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 12px;
+  z-index: 10;
+`;
+
+const StoryProgressBar = styled.div`
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+`;
+
+const StoryProgressFill = styled.div`
+  height: 100%;
+  background: white;
+  width: ${(props) => props.$width}%;
+  transition: width 0.05s linear;
+`;
+
+const StoryHeader = styled.div`
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+`;
+
+const StoryUserAvatar = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ff3b3b;
+`;
+
+const StoryUserInfo = styled.div`
+  flex: 1;
+  
+  .name {
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+  }
+  
+  .time {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+`;
+
+const StoryContent = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+`;
+
+const StoryText = styled.div`
+  position: absolute;
+  bottom: 100px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  color: white;
+  font-size: 18px;
+  font-weight: 500;
+`;
+
+const TouchZone = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 20;
+`;
+
+const LeftZone = styled(TouchZone)`
+  left: 0;
+`;
+
+const RightZone = styled(TouchZone)`
+  right: 0;
+`;
+
+const StoryFooter = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  z-index: 10;
+`;
+
+const ViewCount = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  margin-bottom: 10px;
+  
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+`;
+
+// ============================================
+// STORY PLAYER COMPONENT
+// ============================================
+
+const StoryPlayer = ({ story, onClose, onNext, onPrev, hasNext, hasPrev }) => {
+  const [progress, setProgress] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const timerRef = useRef(null);
+  const STORY_DURATION = 5000;
+
+  useEffect(() => {
+    if (isPaused) return;
+    
+    const interval = 100;
+    const step = 100 / (STORY_DURATION / interval);
+    
+    timerRef.current = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(timerRef.current);
+          onNext();
+          return 0;
+        }
+        return prev + step;
+      });
+    }, interval);
+    
+    return () => clearInterval(timerRef.current);
+  }, [isPaused, onNext]);
+
+  const handleTouchStart = (e) => {
+    setIsPaused(true);
+  };
+
+  const handleTouchEnd = () => {
+    setIsPaused(false);
+  };
+
+  const handleLeftClick = () => {
+    if (hasPrev) {
+      setProgress(0);
+      onPrev();
+    }
+  };
+
+  const handleRightClick = () => {
+    if (hasNext) {
+      setProgress(0);
+      onNext();
+    }
+  };
+
+  const getMediaUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    const base = API.UPLOAD_BASE || "http://localhost:5000";
+    return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
+  };
+
+  const mediaUrl = getMediaUrl(story.image_url);
+  const isVideo = story.media_type === "video" || (story.image_url && story.image_url.match(/\.(mp4|webm|mov)$/i));
+  
+  // Get avatar URL (use story image or fallback)
+  const getAvatarUrl = () => {
+    if (story.user_avatar) return getMediaUrl(story.user_avatar);
+    return `https://ui-avatars.com/api/?name=${story.user_name?.charAt(0) || "U"}&background=ff3b3b&color=fff`;
+  };
+
+  return (
+    <StoryModalOverlay>
+      <StoryProgressContainer>
+        <StoryProgressBar>
+          <StoryProgressFill $width={progress} />
+        </StoryProgressBar>
+      </StoryProgressContainer>
+      
+      <StoryHeader>
+        <StoryUserAvatar src={getAvatarUrl()} />
+        <StoryUserInfo>
+          <div className="name">{story.user_name || "Anonymous"}</div>
+          <div className="time">
+            {new Date(story.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </StoryUserInfo>
+        <CloseButton onClick={onClose}>
+          <X size={24} />
+        </CloseButton>
+      </StoryHeader>
+      
+      <LeftZone onClick={handleLeftClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
+      <RightZone onClick={handleRightClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
+      
+      <StoryContent>
+        {mediaUrl ? (
+          isVideo ? (
+            <video src={mediaUrl} autoPlay playsInline />
+          ) : (
+            <img src={mediaUrl} alt="Story" />
+          )
+        ) : (
+          <StoryText>{story.message || "💬 Support message"}</StoryText>
+        )}
+      </StoryContent>
+      
+      <StoryFooter>
+        <ViewCount>
+          <Eye size={14} />
+          <span>{story.views || 0} views</span>
+        </ViewCount>
+      </StoryFooter>
+    </StoryModalOverlay>
+  );
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Helper function to build image URL via Gateway
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
-  let baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
-  if (imageUrl.startsWith("/uploads")) {
+  const baseUrl = API.UPLOAD_BASE || "http://localhost:5000";
+  if (imageUrl.startsWith("/")) {
     return `${baseUrl}${imageUrl}`;
-  }
-  if (imageUrl.startsWith("uploads")) {
-    return `${baseUrl}/${imageUrl}`;
   }
   return `${baseUrl}/${imageUrl}`;
 };
@@ -257,15 +528,19 @@ const calculateTrendingScore = (story) => {
   const likes = story.likes || 0;
   const boosts = story.boost_count || 0;
   const comments = story.comments || 0;
-  return likes + comments * 2 + boosts * 5;
+  const views = story.views || 0;
+  return likes + comments * 2 + boosts * 5 + views * 0.5;
 };
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedStory, setSelectedStory] = useState(null);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState(null);
   const [viewedStories, setViewedStories] = useState(new Set());
 
   useEffect(() => {
@@ -276,25 +551,17 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log("📊 Fetching trending stories...");
+      
 
-      // Fetch recent endorsements using axios
-      const response = await axios.get(
-        `${API_BASE_URL}/endorsements/recent?limit=100`,
-        {
-          withCredentials: true,
-        },
-      );
+      const responseData = await api.get("/endorsements/recent?limit=100");
 
       let allStories = [];
 
-      if (response.data?.success && response.data?.data) {
-        allStories = response.data.data;
-        console.log(`📥 Fetched ${allStories.length} recent endorsements`);
-      } else if (Array.isArray(response.data)) {
-        allStories = response.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        allStories = response.data.data;
+      if (responseData?.success && responseData?.data) {
+        allStories = responseData.data;
+        
+      } else if (Array.isArray(responseData)) {
+        allStories = responseData;
       }
 
       if (allStories.length === 0) {
@@ -304,25 +571,33 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         return;
       }
 
-      // Calculate trending score for each story and sort
-      const storiesWithScore = allStories.map((story) => ({
+      // Filter: must have image OR meaningful message
+      const validStories = allStories.filter((s) => {
+        const hasImage = s.image_url;
+        const hasMeaningfulMessage = s.message && 
+          !s.message.includes("📷") && 
+          !s.message.includes("📹") &&
+          s.message !== "Support message" &&
+          s.message !== "💬 Support message";
+        return hasImage || hasMeaningfulMessage;
+      });
+
+      // Calculate trending score for each story
+      const storiesWithScore = validStories.map((story) => ({
         ...story,
         trendingScore: calculateTrendingScore(story),
       }));
 
-      // Sort by trending score (highest first)
-      storiesWithScore.sort((a, b) => b.trendingScore - a.trendingScore);
+      // Sort by trending score (highest first), then by recency
+      storiesWithScore.sort((a, b) => {
+        if (b.trendingScore !== a.trendingScore) {
+          return b.trendingScore - a.trendingScore;
+        }
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
 
       // Take top stories
       const trendingStories = storiesWithScore.slice(0, limit);
-
-      console.log(`🔥 Found ${trendingStories.length} trending stories`);
-      trendingStories.forEach((story, idx) => {
-        console.log(
-          `  ${idx + 1}. Score: ${story.trendingScore} - ${story.user_name}`,
-        );
-      });
-
       setStories(trendingStories);
     } catch (error) {
       console.error("Fetch error", error);
@@ -334,6 +609,11 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
   };
 
   const getAvatarUrl = (story) => {
+    // Use user_avatar if available
+    if (story.user_avatar) {
+      return buildImageUrl(story.user_avatar);
+    }
+    // Use story image as fallback for avatar
     if (story?.image_url) {
       return buildImageUrl(story.image_url);
     }
@@ -347,10 +627,27 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     return "normal";
   };
 
-  const handleStoryClick = (story, index) => {
-    setViewedStories((prev) => new Set(prev).add(story.id));
-    setSelectedStory(story);
-    setSelectedIndex(index);
+  const handleStoryClick = (index) => {
+    setViewedStories((prev) => new Set(prev).add(stories[index].id));
+    setSelectedStoryIndex(index);
+  };
+
+  const handleClosePlayer = () => {
+    setSelectedStoryIndex(null);
+  };
+
+  const handleNextStory = () => {
+    if (selectedStoryIndex < stories.length - 1) {
+      setSelectedStoryIndex(selectedStoryIndex + 1);
+    } else {
+      setSelectedStoryIndex(null);
+    }
+  };
+
+  const handlePrevStory = () => {
+    if (selectedStoryIndex > 0) {
+      setSelectedStoryIndex(selectedStoryIndex - 1);
+    }
   };
 
   if (loading) {
@@ -370,10 +667,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         </SectionHeader>
         <StoriesContainer>
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div
-              key={i}
-              style={{ width: "84px", flexShrink: 0, textAlign: "center" }}
-            >
+            <div key={i} style={{ width: "84px", flexShrink: 0, textAlign: "center" }}>
               <SkeletonRing />
               <SkeletonText />
             </div>
@@ -399,7 +693,21 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     );
   }
 
-  if (!stories.length) return null;
+  if (!stories.length && !loading) {
+    return (
+      <Section>
+        <SectionHeader>
+          <HeaderLeft>
+            <HeaderTitle>
+              <Flame size={14} color="#ff3b3b" />
+              Trending Stories
+            </HeaderTitle>
+          </HeaderLeft>
+        </SectionHeader>
+        <ErrorMessage>No trending stories available yet. Be the first to start a story!</ErrorMessage>
+      </Section>
+    );
+  }
 
   return (
     <>
@@ -427,20 +735,20 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
             const isTrending = engagementLevel === "trending";
             const isHot = engagementLevel === "hot";
             const score = calculateTrendingScore(story);
+            const avatarUrl = getAvatarUrl(story);
 
             return (
-              <StoryItem
-                key={story.id}
-                onClick={() => handleStoryClick(story, index)}
-              >
-                <StoryRing
-                  $viewed={isViewed}
-                  $trending={isTrending}
-                  $hot={isHot}
-                >
+              <StoryItem key={story.id} onClick={() => handleStoryClick(index)}>
+                <StoryRing $viewed={isViewed} $trending={isTrending} $hot={isHot}>
                   <StoryAvatar>
-                    <img src={getAvatarUrl(story)} alt="" />
-                    {(isTrending || score > 50) && <HotBadge>HOT</HotBadge>}
+                    <img 
+                      src={avatarUrl} 
+                      alt={story.user_name || "User"}
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${(story.user_name || "U").charAt(0)}&background=ff3b3b&color=fff`;
+                      }}
+                    />
+                    {(isTrending || score > 50) && <HotBadge>🔥 HOT</HotBadge>}
                   </StoryAvatar>
                 </StoryRing>
                 <StoryUsername>
@@ -458,13 +766,14 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         </StoriesContainer>
       </Section>
 
-      {selectedStory && (
-        <EndorsementDetailModal
-          isOpen={!!selectedStory}
-          onClose={() => setSelectedStory(null)}
-          endorsements={stories}
-          initialIndex={selectedIndex}
-          currentUser={currentUser}
+      {selectedStoryIndex !== null && stories[selectedStoryIndex] && (
+        <StoryPlayer
+          story={stories[selectedStoryIndex]}
+          onClose={handleClosePlayer}
+          onNext={handleNextStory}
+          onPrev={handlePrevStory}
+          hasNext={selectedStoryIndex < stories.length - 1}
+          hasPrev={selectedStoryIndex > 0}
         />
       )}
     </>

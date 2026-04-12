@@ -54,7 +54,8 @@ class CacheManager {
 
   async set(key, data, ttl = this.defaultTTL) {
     try {
-      await redis.set(key, JSON.stringify(data), { ttl });
+      const stringifiedData = typeof data === 'string' ? data : JSON.stringify(data);
+      await redis.set(key, stringifiedData, ttl);
       return true;
     } catch (error) {
       Logger.error(`Cache set error: ${key}`, error);
@@ -188,9 +189,9 @@ const createEndorsement = [
     if (req.fileProcessed && req.mediaUrl) {
       mediaUrl = req.mediaUrl;
       mediaType = req.mediaType || "image";
-      console.log(`📸 Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
+      Logger.info(`📸 Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
     } else if (req.file && !req.mediaUrl) {
-      console.log("⚠️ Middleware didn't set mediaUrl, using fallback");
+      Logger.warn("⚠️ Middleware didn't set mediaUrl, using fallback");
       const file = req.file;
       const now = new Date();
       const year = now.getFullYear();
@@ -204,7 +205,7 @@ const createEndorsement = [
         fs.mkdirSync(uploadDir, { recursive: true });
       }
       fs.writeFileSync(path.join(uploadDir, fileName), file.buffer);
-      console.log(`📸 Fallback - Media saved: ${mediaUrl}`);
+      Logger.info(`📸 Fallback - Media saved: ${mediaUrl}`);
     }
 
     if (!leader_id || !finalUserId) {
@@ -284,7 +285,7 @@ const createEndorsement = [
       });
     } catch (error) {
       Logger.error("Error creating story:", error.message);
-      console.error("Full error:", error);
+      Logger.error("Full error:", { error: error.message, stack: error.stack });
       return res.status(500).json({ 
         success: false, 
         message: error.message || "Failed to post story" 
@@ -417,7 +418,7 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
 
     // If no boosted endorsements found, fallback to most recent
     if (!endorsements || endorsements.length === 0) {
-      console.log(`No boosted endorsements found for leader ${leaderId}, fetching most recent...`);
+      Logger.info(`No boosted endorsements found for leader ${leaderId}, fetching most recent...`);
       
       endorsements = await safeQuery(
         `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
@@ -481,7 +482,7 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
 
     // If no trending endorsements found, fallback to most recent
     if (!endorsements || endorsements.length === 0) {
-      console.log(`No trending endorsements found for leader ${leaderId}, fetching most recent...`);
+      Logger.info(`No trending endorsements found for leader ${leaderId}, fetching most recent...`);
       
       endorsements = await safeQuery(
         `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
@@ -901,6 +902,55 @@ const getLeaderEndorsementStats = asyncHandler(async (req, res) => {
 });
 
 // ============================================
+// ADMIN: GET GLOBAL STATS
+// ============================================
+const getEndorsementAdminStats = asyncHandler(async (req, res) => {
+  const cacheKey = "admin:endorsement_stats";
+  
+  const stats = await cacheManager.getOrSet(cacheKey, async () => {
+    // Total stats
+    const totals = await safeQueryOne(`
+      SELECT 
+        COUNT(*) as total_endorsements,
+        SUM(boost_count) as total_boosts,
+        SUM(total_boost_amount) as total_revenue,
+        COUNT(DISTINCT user_id) as total_supporters
+      FROM endorsements
+      WHERE status = 'active'
+    `);
+
+    // County distribution
+    const countyDistribution = await safeQuery(`
+      SELECT l.county, COUNT(e.id) as count
+      FROM endorsements e
+      JOIN leaders l ON e.leader_id = l.leader_id
+      WHERE e.status = 'active'
+      GROUP BY l.county
+      ORDER BY count DESC
+    `);
+
+    // Top leaders
+    const topLeaders = await safeQuery(`
+      SELECT l.name, l.county, COUNT(e.id) as count
+      FROM endorsements e
+      JOIN leaders l ON e.leader_id = l.leader_id
+      WHERE e.status = 'active'
+      GROUP BY l.leader_id, l.name, l.county
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+
+    return {
+      totals,
+      countyDistribution,
+      topLeaders
+    };
+  }, 300); // 5 minute cache
+
+  return res.status(200).json({ success: true, data: stats });
+});
+
+// ============================================
 // CLEANUP EXPIRED STORIES
 // ============================================
 const cleanupExpiredStories = async () => {
@@ -935,9 +985,10 @@ module.exports = {
   likeEndorsement,
   boostEndorsement,
   getLeaderEndorsementStats,
+  getEndorsementAdminStats,
   cleanupExpiredStories,
   addComment,
   getComments,
   likeComment,
   getEndorsementStats,
-};
+};

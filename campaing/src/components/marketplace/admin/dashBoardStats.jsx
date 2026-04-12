@@ -125,28 +125,32 @@ const StatusBadge = styled.span`
 const DashboardStats = ({ stats, orders }) => {
   const statItems = [
     {
-      title: "Total Products",
-      value: stats.totalProducts,
-      icon: "Package",
-      color: "#bb0000",
+      title: "Total Revenue",
+      value: `KSH ${Number(stats.totalRevenue).toLocaleString()}`,
+      icon: "Coins",
+      color: "#22c55e",
+      bg: "#f0fdf4"
+    },
+    {
+      title: "Pending Orders",
+      value: stats.pendingOrders || 0,
+      icon: "Clock",
+      color: "#f59e0b",
+      bg: "#fffbeb"
     },
     {
       title: "Total Orders",
       value: stats.totalOrders,
       icon: "ShoppingCart",
       color: "#bb0000",
-    },
-    {
-      title: "Total Revenue",
-      value: `₹${stats.totalRevenue.toLocaleString()}`,
-      icon: "IndianRupee",
-      color: "#bb0000",
+      bg: "#fff1f2"
     },
     {
       title: "Low Stock Items",
       value: stats.lowStock,
       icon: "AlertTriangle",
-      color: "#ff9800",
+      color: "#ef4444",
+      bg: "#fef2f2"
     },
   ];
 
@@ -157,7 +161,7 @@ const DashboardStats = ({ stats, orders }) => {
           <StatCard key={idx}>
             <StatHeader>
               <StatTitle>{item.title}</StatTitle>
-              <IconWrapper>
+              <IconWrapper style={{ background: item.bg, color: item.color }}>
                 {React.createElement(Icons[item.icon], { size: 24 })}
               </IconWrapper>
             </StatHeader>
@@ -167,11 +171,14 @@ const DashboardStats = ({ stats, orders }) => {
       </StatsGrid>
 
       <RecentOrdersSection>
-        <SectionTitle>Recent Orders</SectionTitle>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <SectionTitle style={{ margin: 0 }}>Recent Campaign Orders</SectionTitle>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>Latest 5 entries</div>
+        </div>
         <OrdersTable>
           <thead>
             <tr>
-              <th>Order ID</th>
+              <th>Order #</th>
               <th>Customer</th>
               <th>Total</th>
               <th>Status</th>
@@ -179,19 +186,30 @@ const DashboardStats = ({ stats, orders }) => {
             </tr>
           </thead>
           <tbody>
-            {orders.slice(0, 5).map((order) => (
-              <tr key={order.id}>
-                <td>#{order.id}</td>
-                <td>{order.customer}</td>
-                <td>₹{order.total}</td>
-                <td>
-                  <StatusBadge $status={order.status}>
-                    {order.status}
-                  </StatusBadge>
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                  No recent orders available
                 </td>
-                <td>{order.date}</td>
               </tr>
-            ))}
+            ) : (
+              orders.slice(0, 5).map((order) => (
+                <tr key={order.id}>
+                  <td>{order.order_number}</td>
+                  <td>
+                    <div>{order.customer_name}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>{order.customer_email}</div>
+                  </td>
+                  <td>KSH {Number(order.total_amount).toLocaleString()}</td>
+                  <td>
+                    <StatusBadge $status={order.status}>
+                      {order.status}
+                    </StatusBadge>
+                  </td>
+                  <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </OrdersTable>
       </RecentOrdersSection>

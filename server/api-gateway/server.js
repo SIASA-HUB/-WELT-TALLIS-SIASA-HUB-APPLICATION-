@@ -7,6 +7,7 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const { apiReference } = require("@scalar/express-api-reference");
+const Logger = require("./src/utils/logger/logger");
 
 const app = express();
 
@@ -26,8 +27,6 @@ const SERVICES = {
   reaction: process.env.REACTION_SERVICE_URL || "http://localhost:8005",
 };
 
-// Simple logger
-const log = (msg, data = "") => console.log(`[${new Date().toISOString()}] ${msg}`, data);
 
 // Simple in-memory rate limiter (no Redis needed)
 const apiLimiter = rateLimit({
@@ -48,40 +47,57 @@ const strictLimiter = rateLimit({
 });
 
 // Middleware
-app.use(cors({ origin: "*", credentials: true }));
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow any localhost origin or any port on localhost for dev ease
+    if (!origin || origin.startsWith('http://localhost:')) return callback(null, true);
+    
+    const allowed = [
+      'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000',
+      'http://localhost:8080',
+      ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+    ];
+    if (allowed.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin ${origin} not permitted`));
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','x-csrf-token'],
+}));
 
-// Static files
-const staticPath = path.join(__dirname, "../../public/uploads");
-app.use("/uploads", express.static(staticPath, { maxAge: '1y' }));
+app.use(helmet({ 
+  contentSecurityPolicy: false, 
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
-// Request logger
-app.use((req, res, next) => {
-  log(`${req.method} ${req.originalUrl}`, { ip: req.ip });
-  next();
-});
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Apply rate limiters
 app.use("/api/v1/", apiLimiter);
 
-// Stricter limits for sensitive routes
-const sensitiveRoutes = ["/api/v1/users/login", "/api/v1/users/register", "/api/v1/wallet/transactions"];
+// Route-specific strict limits (applied BEFORE general limiter)
+const AUTH_LIMITER = rateLimit({ windowMs: 15*60*1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' } });
+const WALLET_LIMITER = rateLimit({ windowMs: 10*60*1000, max: 15, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many wallet requests. Please wait.' } });
+const VOTE_LIMITER = rateLimit({ windowMs: 60*1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Voting rate limit exceeded.' } });
+
 app.use((req, res, next) => {
-  if (sensitiveRoutes.some(route => req.originalUrl.startsWith(route))) {
-    return strictLimiter(req, res, next);
-  }
+  if (req.originalUrl.match(/\/users\/(login|register|refresh)/)) return AUTH_LIMITER(req, res, next);
+  if (req.originalUrl.startsWith('/api/v1/wallet')) return WALLET_LIMITER(req, res, next);
+  if (req.originalUrl.includes('/manifestos/vote')) return VOTE_LIMITER(req, res, next);
   next();
 });
 
-// Proxy generator function using http-proxy-middleware v3 syntax
+// Proxy generator 
 const createProxy = (targetUrl) => {
   return createProxyMiddleware({
     target: targetUrl,
     changeOrigin: true,
+    proxyTimeout: 120000, // 2 minutes
+    timeout: 120000,      // 2 minutes
     pathRewrite: (path, req) => {
-      // Explicitly return the original URL to bypass Express app.use path stripping
+      
       return req.originalUrl;
     },
     on: {
@@ -91,14 +107,32 @@ const createProxy = (targetUrl) => {
         }
       },
       error: (err, req, res) => {
-        log("Proxy error:", err.message);
+        Logger.error(`Proxy error for ${req.url}: ${err.message}`);
         if (!res.headersSent) {
-          res.status(503).json({ success: false, message: "Service temporarily unavailable" });
+          res.status(503).json({ success: false, message: "Service temporarily delayed or unavailable" });
         }
       }
     }
   });
+
 };
+
+// ============================================
+// UPLOADS PROXY (EACH SERVICE SERVES ITS OWN IMAGES)
+// ============================================
+
+// Proxy uploads to their respective services
+app.use("/uploads/leaders", createProxy(SERVICES.leaders));
+app.use("/uploads/endorsements", createProxy(SERVICES.endorsement));
+app.use("/uploads/marketplace", createProxy(SERVICES.marketplace));
+app.use("/uploads/rallies", createProxy(SERVICES.rallies));
+app.use("/uploads/users", createProxy(SERVICES.users));
+app.use("/uploads/products", createProxy(SERVICES.marketplace));
+
+
+// ============================================
+// SERVICE PROXY ROUTES
+// ============================================
 
 app.use("/api/v1/leaders", createProxy(SERVICES.leaders));
 app.use("/api/v1/battles", createProxy(SERVICES.leaders));
@@ -108,8 +142,11 @@ app.use("/api/v1/users", createProxy(SERVICES.users));
 app.use("/api/v1/wallet", createProxy(SERVICES.wallet));
 app.use("/api/v1/endorsements", createProxy(SERVICES.endorsement));
 app.use("/api/v1/products", createProxy(SERVICES.marketplace));
+app.use("/api/v1/orders", createProxy(SERVICES.marketplace));
 app.use("/api/v1/cart", createProxy(SERVICES.marketplace));
+app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
 app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
+
 
 
 // API Reference
@@ -140,26 +177,22 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  log("Error:", err.message);
+  Logger.error(`Internal Server Error: ${err.message}`);
   res.status(500).json({ success: false, message: "Internal Server Error" });
 });
 
 // Start server
 const server = app.listen(PORT, HOST, () => {
-  console.log("\n=================================");
-  console.log(`🚀 API GATEWAY RUNNING`);
-  console.log(`📡 Port: ${PORT}`);
-  console.log(`🌍 Host: ${HOST}`);
-  console.log(`🔧 Services:`);
+
   Object.entries(SERVICES).forEach(([name, url]) => {
     console.log(`   - ${name}: ${url}`);
   });
-  console.log("=================================\n");
+
 });
 
 // Graceful shutdown
 process.on("SIGINT", () => {
-  log("Shutting down...");
+  Logger.info("Shutting down API Gateway...");
   server.close(() => process.exit(0));
 });
 

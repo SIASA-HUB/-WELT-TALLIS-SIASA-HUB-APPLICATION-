@@ -10,6 +10,8 @@ const {
   checkUsernameAvailability,
   getAnalytics,
   getCountyStats,
+  trackAppInstall,
+  getInstallCount,
 } = require("../controllers/userController");
 
 // Auth controllers
@@ -60,6 +62,10 @@ router.post("/register", createUser);
 // Get analytics/demographics (public data)
 router.get("/analytics", getAnalytics);
 router.get("/county/stats", getCountyStats);
+
+// PWA Install Tracking
+router.post("/install/track", trackAppInstall);
+router.get("/install/count", getInstallCount);
 
 // ============================================
 // PROTECTED ROUTES (Authentication required)

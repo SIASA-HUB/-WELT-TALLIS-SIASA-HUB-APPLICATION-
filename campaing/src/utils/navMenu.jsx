@@ -97,7 +97,7 @@ const NavMenu = () => {
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/leaders", label: "Aspirants", icon: UserCheck },
- 
+    { path: "/marketplace", label: "Market", icon: ShoppingBag },
     { path: "/profile", label: "Profile", icon: User },
   ];
 
@@ -117,7 +117,8 @@ const NavMenu = () => {
 
       <NavContainer $isVisible={isVisible}>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || 
+            (item.path === "/marketplace" && location.pathname.startsWith("/marketplace"));
 
           return (
             <NavItem

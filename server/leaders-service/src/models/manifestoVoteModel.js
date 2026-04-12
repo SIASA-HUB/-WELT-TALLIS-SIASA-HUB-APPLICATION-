@@ -1,95 +1,117 @@
-const { safeQuery } = require("../configurations/db");
+// ManifestoVoteModel.js - Fixed: uses raw pool connections, not knex
+const { safeQuery, safeQueryOne, getConnection } = require("../configurations/db");
 
 class ManifestoVoteModel {
-  static async upsert(
-    manifesto_id,
-    agenda_item_id,
-    leader_id,
-    user_id,
-    vote_type,
-  ) {
-    const now = new Date();
+  /**
+   * Vote on a specific agenda item (per-agenda normalized voting)
+   */
+  static async vote(agenda_id, user_id, vote_type) {
+    const conn = await getConnection();
+    try {
+      await conn.beginTransaction();
 
-    // Check if user already voted on this agenda item
-    const existingVote = await safeQuery(
-      `SELECT vote_id FROM manifesto_votes WHERE manifesto_id = ? AND agenda_item_id = ? AND user_id = ?`,
-      [manifesto_id, agenda_item_id, user_id],
+      // 1. Check duplicate vote
+      const [existing] = await conn.execute(
+        `SELECT id FROM agenda_votes WHERE agenda_id = ? AND user_id = ?`,
+        [agenda_id, user_id]
+      );
+      if (existing.length > 0) {
+        await conn.rollback();
+        conn.release();
+        return { success: false, already_voted: true, message: "Already voted on this agenda item" };
+      }
+
+      // 2. Insert vote
+      await conn.execute(
+        `INSERT INTO agenda_votes (agenda_id, user_id, vote_type, created_at) VALUES (?, ?, ?, NOW())`,
+        [agenda_id, user_id, vote_type]
+      );
+
+      // 3. Increment votes_count atomically
+      await conn.execute(
+        `UPDATE manifesto_agendas SET votes_count = votes_count + 1 WHERE id = ?`,
+        [agenda_id]
+      );
+
+      await conn.commit();
+      conn.release();
+
+      // 4. Return new count
+      const updated = await safeQueryOne(
+        `SELECT votes_count FROM manifesto_agendas WHERE id = ?`,
+        [agenda_id]
+      );
+
+      return { success: true, votes_count: updated?.votes_count || 0 };
+    } catch (error) {
+      try { await conn.rollback(); conn.release(); } catch {}
+      throw error;
+    }
+  }
+
+  /**
+   * Get a user's vote on a specific agenda item
+   */
+  static async getUserVote(agenda_id, user_id) {
+    const row = await safeQueryOne(
+      `SELECT vote_type FROM agenda_votes WHERE agenda_id = ? AND user_id = ? LIMIT 1`,
+      [agenda_id, user_id]
     );
-
-    if (existingVote.length > 0) {
-      await safeQuery(
-        `UPDATE manifesto_votes SET vote_type = ?, created_at = ? WHERE vote_id = ?`,
-        [vote_type, now, existingVote[0].vote_id],
-      );
-      return { action: "updated", vote_type };
-    } else {
-      await safeQuery(
-        `INSERT INTO manifesto_votes (manifesto_id, agenda_item_id, leader_id, user_id, vote_type, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [manifesto_id, agenda_item_id, leader_id, user_id, vote_type, now],
-      );
-      return { action: "created", vote_type };
-    }
+    return row?.vote_type || null;
   }
 
-  static async getStats(manifesto_id, agenda_item_id = null) {
-    let query = `
-      SELECT 
-          SUM(vote_type = 'approve') AS approve_count,
-          SUM(vote_type = 'reject') AS reject_count,
-          SUM(vote_type = 'neutral') AS neutral_count,
-          COUNT(*) AS total_votes
-       FROM manifesto_votes
-       WHERE manifesto_id = ?
-    `;
-    let params = [manifesto_id];
-
-    if (agenda_item_id) {
-      query += ` AND agenda_item_id = ?`;
-      params.push(agenda_item_id);
-    }
-
-    const statsRows = await safeQuery(query, params);
-
-    const stats = statsRows[0] || {
-      approve_count: 0,
-      reject_count: 0,
-      neutral_count: 0,
-      total_votes: 0,
-    };
-
-    return {
-      approve_count: Number(stats.approve_count) || 0,
-      reject_count: Number(stats.reject_count) || 0,
-      neutral_count: Number(stats.neutral_count) || 0,
-      total_votes: Number(stats.total_votes) || 0,
-    };
+  /**
+   * Get all votes by a user for a given manifesto
+   */
+  static async getUserVotesForManifesto(manifesto_id, user_id) {
+    return await safeQuery(
+      `SELECT av.agenda_id, av.vote_type
+       FROM agenda_votes av
+       JOIN manifesto_agendas ma ON av.agenda_id = ma.id
+       WHERE ma.manifesto_id = ? AND av.user_id = ?`,
+      [manifesto_id, user_id]
+    );
   }
 
+  /**
+   * Get vote stats for all agendas in a manifesto
+   */
+  static async getStats(manifesto_id, agenda_id = null) {
+    if (agenda_id) {
+      const row = await safeQueryOne(
+        `SELECT votes_count, title FROM manifesto_agendas WHERE id = ?`,
+        [agenda_id]
+      );
+      return { total_votes: row?.votes_count || 0 };
+    }
+
+    return await safeQuery(
+      `SELECT id as agenda_id, title, votes_count FROM manifesto_agendas 
+       WHERE manifesto_id = ? ORDER BY votes_count DESC`,
+      [manifesto_id]
+    );
+  }
+
+  /**
+   * Get recent votes across all agendas in a manifesto
+   */
   static async getRecentVotes(manifesto_id, limit = 10) {
     return await safeQuery(
-      `SELECT user_id, vote_type, created_at, agenda_item_id
-       FROM manifesto_votes
-       WHERE manifesto_id = ?
-       ORDER BY created_at DESC
+      `SELECT v.user_id, v.vote_type, v.created_at, v.agenda_id, a.title
+       FROM agenda_votes v
+       JOIN manifesto_agendas a ON v.agenda_id = a.id
+       WHERE a.manifesto_id = ?
+       ORDER BY v.created_at DESC
        LIMIT ?`,
-      [manifesto_id, limit],
+      [manifesto_id, limit]
     );
   }
 
-  static async getUserVote(manifesto_id, agenda_item_id, user_id) {
-    const rows = await safeQuery(
-      `SELECT vote_type FROM manifesto_votes WHERE manifesto_id = ? AND agenda_item_id = ? AND user_id = ?`,
-      [manifesto_id, agenda_item_id, user_id],
-    );
-    return rows.length > 0 ? rows[0].vote_type : null;
-  }
-
+  /**
+   * Delete votes for a manifesto (cascade handles this via FK)
+   */
   static async deleteByManifestoId(manifesto_id) {
-    await safeQuery(`DELETE FROM manifesto_votes WHERE manifesto_id = ?`, [
-      manifesto_id,
-    ]);
-    return true;
+    return true; // ON DELETE CASCADE handles it
   }
 }
 

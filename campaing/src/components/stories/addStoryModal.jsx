@@ -15,10 +15,10 @@ import {
   Lock,
   User,
 } from "lucide-react";
-import axios from "axios";
+import API from "../../api/config";
+import api from "../../api/api";
 import { useAuth } from "../hooks/useAuth";
 
-import API_BASE_URL from "./apiConfig";
 // Animations
 const slideUp = keyframes`
   from { transform: translateY(100%); }
@@ -452,21 +452,21 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       formData.append("media", media.file);
     }
 
-    // Use hardcoded URL
-    const url = `${API_BASE_URL}/endorsements/create`;
-    console.log("📤 Posting story to:", url);
-    console.log("📍 Leader ID:", leaderId);
-    console.log("📝 Post type:", media.file ? media.type : "text");
+    // Use centralized api instance
+    const path = "/endorsements/create";
+    
+    
+    
 
     try {
-      const response = await axios.post(url, formData, {
+      const responseData = await api.post(path, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-        withCredentials: true,
       });
 
-      if (response.data?.success) {
+      if (responseData?.success) {
         setSuccess("Story posted successfully!");
-        onComplete?.(response.data.data);
+        onComplete?.(responseData.data);
+
         setTimeout(() => {
           onClose();
         }, 1500);

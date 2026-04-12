@@ -10,6 +10,13 @@ import ProductsManagement from "./productsMangment";
 import OrdersManagement from "./orderMangment";
 import CategoriesManagement from "./categoriesMangment";
 
+import { 
+  getAllProducts, 
+  getAdminOrders, 
+  getAdminStats, 
+  updateOrderStatus 
+} from "../components/api";
+
 const API_URL = "/api/v1/marketplace";
 
 // Styled Components
@@ -172,14 +179,13 @@ const AdminPanel = () => {
 
   useEffect(() => {
     fetchProducts();
-    fetchOrders();
-    fetchStats();
+    fetchOrdersAndStats();
   }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/api/products`);
+      const response = await getAllProducts();
       setProducts(response.data.data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -188,52 +194,22 @@ const AdminPanel = () => {
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrdersAndStats = async () => {
     try {
-      // Mock orders - replace with actual API
-      setOrders([
-        {
-          id: "ORD001",
-          customer: "John Doe",
-          total: 1299,
-          status: "pending",
-          date: "2024-03-20",
-          items: 2,
-        },
-        {
-          id: "ORD002",
-          customer: "Jane Smith",
-          total: 2499,
-          status: "completed",
-          date: "2024-03-19",
-          items: 3,
-        },
-        {
-          id: "ORD003",
-          customer: "Bob Johnson",
-          total: 599,
-          status: "shipped",
-          date: "2024-03-18",
-          items: 1,
-        },
-      ]);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    }
-  };
+      const ordersRes = await getAdminOrders();
+      setOrders(ordersRes.data.data || []);
 
-  const fetchStats = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/api/products`);
-      const productsData = response.data.data || [];
+      const statsRes = await getAdminStats();
+      const statsData = statsRes.data.data;
+      
       setStats({
-        totalProducts: productsData.length,
-        totalOrders: 156,
-        totalRevenue: 45678,
-        lowStock: productsData.filter((p) => p.stock < 10).length,
+        totalProducts: products.length,
+        totalOrders: statsData.totalOrders || 0,
+        totalRevenue: statsData.totalRevenue || 0,
+        lowStock: products.filter((p) => p.stock < 10).length,
       });
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      console.error("Error fetching orders and stats:", error);
     }
   };
 

@@ -1,13 +1,13 @@
 // components/SloganSection.jsx
 import React from "react";
 import styled from "styled-components";
-import { MessageCircle, Code, Shield } from "lucide-react";
+import { MessageCircle, Shield } from "lucide-react";
 
 const FooterBase = styled.footer`
   width: 100%;
   background: #000000;
-  padding: 40px 0 30px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 35px 0 30px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 `;
 
 const ContentContainer = styled.div`
@@ -21,124 +21,144 @@ const ContentContainer = styled.div`
   text-align: center;
 `;
 
-const BrandText = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  h2 {
-    color: #ffffff;
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: -0.5px;
-    text-transform: uppercase;
-  }
-
-  p {
-    color: #475569;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 2px;
-    margin: 0;
-    text-transform: uppercase;
+const LogoImage = styled.img`
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+  
+  &:hover {
+    opacity: 1;
   }
 `;
 
-const WhatsAppButton = styled.a`
-  background: rgba(37, 211, 102, 0.1);
-  border: 1px solid rgba(37, 211, 102, 0.2);
-  padding: 10px 20px;
-  border-radius: 100px;
+const Tagline = styled.p`
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 3px;
+  margin: 0;
+  text-transform: uppercase;
+`;
+
+const BottomRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  transition: all 0.2s ease;
-
-  span {
-    color: #25d366;
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  &:hover {
-    background: rgba(37, 211, 102, 0.15);
-    transform: translateY(-2px);
-    border-color: rgba(37, 211, 102, 0.4);
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  
+  @media (max-width: 700px) {
+    gap: 20px;
+    flex-direction: column;
   }
 `;
 
-const BottomCredit = styled.div`
+const HorizontalGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 24px;
-  margin-top: 10px;
-  opacity: 0.5;
-
-  @media (max-width: 600px) {
-    flex-direction: column;
-    gap: 12px;
+  
+  @media (max-width: 700px) {
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 `;
 
 const CreditItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 600;
-
+  gap: 8px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  
   strong {
-    color: #ffffff;
+    color: #64748b;
+    font-weight: 600;
   }
 `;
 
+const WhatsAppLink = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(37, 211, 102, 0.08);
+  border: 1px solid rgba(37, 211, 102, 0.15);
+  padding: 6px 18px;
+  border-radius: 100px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  
+  span {
+    color: #25d366;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  &:hover {
+    background: rgba(37, 211, 102, 0.12);
+    transform: translateY(-1px);
+    border-color: rgba(37, 211, 102, 0.3);
+  }
+`;
+
+const Divider = styled.span`
+  color: #2a2a2a;
+  font-size: 12px;
+  
+  @media (max-width: 700px) {
+    display: none;
+  }
+`;
+
+const KenyaFlag = styled.span`
+  font-size: 14px;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+`;
+
 const SloganSection = () => {
-  const supportNumber = "254700000000"; // Replace with your actual WhatsApp number
-  const supportMessage = encodeURIComponent(
-    "Hello Siasa Hub Support, I need assistance.",
-  );
+  const whatsappGroupLink = "https://chat.whatsapp.com/DPLfiPjZSc7JX55U01wcHz";
 
   return (
     <FooterBase>
       <ContentContainer>
-        <BrandText>
-          <p>The Great Kenyan Comeback</p>
-          <h2>
-            Siasa Hub <span>2027</span>
-          </h2>
-        </BrandText>
+        <Tagline>THE GREAT KENYAN COMEBACK</Tagline>
+        
+        <LogoImage src="/image/siasa.png" alt="Siasa Hub" />
 
-        <WhatsAppButton
-          href={`https://wa.me/${supportNumber}?text=${supportMessage}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <MessageCircle size={18} color="#25d366" strokeWidth={2.5} />
-          <span>DIRECT SUPPORT</span>
-        </WhatsAppButton>
-
-        <BottomCredit>
-          <CreditItem>
-            <Code size={12} />
-            <span>
-              ENGINEERED BY <strong>WELT TALLIS</strong>
-            </span>
-          </CreditItem>
-
-          <CreditItem>
-            <Shield size={12} />
-            <span>
-              SECURED IN <strong>NAIROBI, KENYA</strong>
-            </span>
-          </CreditItem>
-        </BottomCredit>
-
-        <div style={{ fontSize: "12px", marginTop: "10px", opacity: 0.3 }}>
-          🇰🇪
-        </div>
+        <BottomRow>
+          <HorizontalGroup>
+            <WhatsAppLink 
+              href={whatsappGroupLink}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircle size={13} color="#25d366" strokeWidth={2} />
+              <span>JOIN COMMUNITY</span>
+            </WhatsAppLink>
+            
+            <CreditItem>
+              <Shield size={11} />
+              <span>BUILT BY <strong>WELT TALLIS</strong></span>
+            </CreditItem>
+            
+            <Divider>•</Divider>
+            
+            <CreditItem>
+              <span>📍 <strong>NAIROBI, KE</strong></span>
+            </CreditItem>
+            
+            <KenyaFlag>🇰🇪</KenyaFlag>
+          </HorizontalGroup>
+        </BottomRow>
       </ContentContainer>
     </FooterBase>
   );

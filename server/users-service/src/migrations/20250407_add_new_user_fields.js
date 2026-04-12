@@ -1,41 +1,55 @@
-// migrations/20250407_add_new_user_fields.js
+// 20250407_add_new_user_fields.js - Fixed to check if columns exist
+const TABLE_NAME = 'users';
 
-exports.up = function (knex) {
-  return knex.schema.table("users", function (table) {
-    // Add political leanings column
-    table
-      .enum("political_leanings", [
-        "Pro-Government",
-        "Opposition",
-        "Undecided",
-        "Prefer not to say",
-      ])
-      .defaultTo("Prefer not to say");
-
-    // Add vote frequency column
-    table
-      .enum("vote_frequency", [
-        "Always",
-        "Sometimes",
-        "Rarely",
-        "Never",
-        "First-time voter",
-        "Prefer not to say",
-      ])
-      .defaultTo("Prefer not to say");
-
-    // Add personal email column
-    table.string("personal_email", 255).unique().nullable();
-
-    // Add index for faster email lookups
-    table.index("personal_email", "idx_users_personal_email");
-  });
+exports.up = async function(knex) {
+  // Check existing columns first
+  const hasPoliticalLeanings = await knex.schema.hasColumn(TABLE_NAME, 'political_leanings');
+  const hasVoteFrequency = await knex.schema.hasColumn(TABLE_NAME, 'vote_frequency');
+  const hasPersonalEmail = await knex.schema.hasColumn(TABLE_NAME, 'personal_email');
+  
+  // Only add columns that don't exist
+  if (!hasPoliticalLeanings) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.enum('political_leanings', ['Pro-Government', 'Opposition', 'Undecided', 'Prefer not to say'])
+        .defaultTo('Prefer not to say');
+    });
+  }
+  
+  if (!hasVoteFrequency) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.enum('vote_frequency', ['Always', 'Sometimes', 'Rarely', 'Never', 'First-time voter', 'Prefer not to say'])
+        .defaultTo('Prefer not to say');
+    });
+  }
+  
+  if (!hasPersonalEmail) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.string('personal_email', 255).nullable().unique();
+    });
+  }
 };
 
-exports.down = function (knex) {
-  return knex.schema.table("users", function (table) {
-    table.dropColumn("political_leanings");
-    table.dropColumn("vote_frequency");
-    table.dropColumn("personal_email");
-  });
+exports.down = async function(knex) {
+  // Only drop columns if they exist
+  const hasPoliticalLeanings = await knex.schema.hasColumn(TABLE_NAME, 'political_leanings');
+  const hasVoteFrequency = await knex.schema.hasColumn(TABLE_NAME, 'vote_frequency');
+  const hasPersonalEmail = await knex.schema.hasColumn(TABLE_NAME, 'personal_email');
+  
+  if (hasPoliticalLeanings) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.dropColumn('political_leanings');
+    });
+  }
+  
+  if (hasVoteFrequency) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.dropColumn('vote_frequency');
+    });
+  }
+  
+  if (hasPersonalEmail) {
+    await knex.schema.table(TABLE_NAME, (table) => {
+      table.dropColumn('personal_email');
+    });
+  }
 };

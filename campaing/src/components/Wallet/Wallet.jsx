@@ -15,14 +15,7 @@ import {
   AtSign,
 } from "lucide-react";
 
-import API_BASE_URL from "./ApiConfig";
-
-// Create axios instance
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-  timeout: 30000,
-});
+import api from "../../api/api";
 
 const Container = styled.div`
   padding: 40px 24px;
@@ -39,20 +32,26 @@ const TopBar = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 32px;
-  opacity: 0.8;
 `;
 
 const Brand = styled.div`
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 3px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  span {
-    color: #10b981;
+  gap: 10px;
+  cursor: pointer;
+  
+  .logo-img {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
   }
+`;
+
+const BrandText = styled.span`
+  font-size: 18px;
+  font-weight: 700;
+  color: #10b981;
+  letter-spacing: 0.5px;
 `;
 
 const BalanceWrapper = styled.div`
@@ -61,11 +60,11 @@ const BalanceWrapper = styled.div`
 `;
 
 const MiniLabel = styled.div`
-  font-size: 9px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 600;
   color: #10b981;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -73,27 +72,27 @@ const MiniLabel = styled.div`
 `;
 
 const PointsDisplay = styled.h1`
-  font-size: 3.8rem;
-  font-weight: 900;
+  font-size: 3rem;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -4px;
-  line-height: 0.9;
+  letter-spacing: -2px;
+  line-height: 1;
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
 
   .points {
-    font-size: 3.8rem;
-    font-weight: 900;
-    letter-spacing: -4px;
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -2px;
   }
 
   .pts-label {
-    font-size: 11px;
-    letter-spacing: 2px;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.3);
+    font-size: 12px;
+    letter-spacing: 1px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
   }
 `;
@@ -140,10 +139,10 @@ const SmallChip = styled.button`
   color: ${(props) => (props.$active ? "#000" : "rgba(255,255,255,0.6)")};
   border: 1px solid
     ${(props) => (props.$active ? "#10b981" : "rgba(255,255,255,0.1)")};
-  padding: 12px 0;
-  border-radius: 10px;
+  padding: 10px 0;
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   transition: all 0.2s;
   cursor: pointer;
 
@@ -162,7 +161,7 @@ const CustomAmountInput = styled.div`
     flex: 1;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 12px;
     color: white;
     font-size: 14px;
@@ -182,8 +181,8 @@ const CustomAmountInput = styled.div`
 const BonusInfo = styled.div`
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 10px 12px;
   margin-bottom: 24px;
   font-size: 11px;
   display: flex;
@@ -196,7 +195,7 @@ const BonusInfo = styled.div`
   }
 
   .bonus-value {
-    font-weight: 800;
+    font-weight: 700;
     color: #10b981;
   }
 `;
@@ -206,16 +205,16 @@ const SleekButton = styled.button`
   color: white;
   width: 100%;
   border: none;
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: 8px;
+  padding: 14px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
 
@@ -355,9 +354,8 @@ const WalletPage = () => {
       setCurrentUser(user);
       setUserId(user.user_id);
       setIsAuthenticated(true);
-      console.log("✅ User found:", user.user_id);
     } else {
-      console.log("❌ No user found in localStorage");
+      
     }
   }, []);
 
@@ -386,17 +384,13 @@ const WalletPage = () => {
   const fetchBalance = async () => {
     if (!userId) return;
     try {
-      console.log("🔍 Fetching balance for user:", userId);
       const response = await api.get(`/wallet/balance/${userId}`);
-      console.log("📥 Balance response:", response.data);
 
       if (response.data.success) {
         setBalance(response.data.data.balance || 0);
-      } else {
-        console.log("❌ Balance fetch failed:", response.data.message);
       }
     } catch (err) {
-      console.error("❌ Error fetching balance:", err);
+      console.error("Error fetching balance:", err);
       setError("Failed to fetch balance");
     }
   };
@@ -442,17 +436,13 @@ const WalletPage = () => {
           currentUser?.real_name || currentUser?.username || "SiasaHub User",
       };
 
-      console.log("📤 Sending deposit request:", payload);
       const response = await api.post("/wallet/deposit", payload);
-      console.log("📥 Deposit response:", response.data);
 
       if (response.data.success) {
         if (response.data.data?.redirect_url) {
           window.location.href = response.data.data.redirect_url;
         } else {
-          setSuccess(
-            `Payment initiated! Check your phone for M-Pesa prompt...`,
-          );
+          setSuccess(`Payment initiated! Check your phone for M-Pesa prompt...`);
           setTimeout(() => {
             fetchBalance();
             fetchTransactions();
@@ -462,10 +452,10 @@ const WalletPage = () => {
         setError(response.data.message || "Failed to initiate payment");
       }
     } catch (err) {
-      console.error("❌ Deposit error:", err);
+      console.error("Deposit error:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to initiate payment. Please try again.",
+          "Failed to initiate payment. Please try again."
       );
     } finally {
       setLoading(false);
@@ -493,12 +483,22 @@ const WalletPage = () => {
       <Container>
         <TopBar>
           <Brand>
-            <Fingerprint size={14} /> Siasa <span>Credits</span>
+            <img 
+              src="/image/siasa.png" 
+              alt="SiasaHub" 
+              className="logo-img"
+              style={{ height: "40px" }}
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
           </Brand>
         </TopBar>
         <div style={{ textAlign: "center", marginTop: "100px" }}>
           <Shield size={48} color="#10b981" />
-          <h3 style={{ marginTop: 20, color: "white" }}>Please Login</h3>
+          <h3 style={{ marginTop: 20, color: "white", fontWeight: 600 }}>
+            Please Login
+          </h3>
           <p style={{ color: "rgba(255,255,255,0.5)", marginTop: 10 }}>
             You need to be logged in to access your wallet
           </p>
@@ -516,8 +516,17 @@ const WalletPage = () => {
   return (
     <Container>
       <TopBar>
-        <Brand>
-          <Fingerprint size={14} /> Siasa<span>Hub</span>
+        <Brand onClick={() => window.location.href = "/"}>
+          <img 
+            src="/image/siasa.png" 
+            alt="SiasaHub" 
+            className="logo-img"
+            style={{ height: "44px" }}
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
+          />
+          <BrandText>SiasaHub</BrandText>
         </Brand>
         <RefreshButton
           onClick={() => {
@@ -636,10 +645,10 @@ const WalletPage = () => {
                   {tx.type === "deposit"
                     ? "💳 Deposit"
                     : tx.type === "bonus"
-                      ? "🎁 Bonus"
-                      : tx.type === "withdrawal"
-                        ? "✨ Endorsement"
-                        : tx.type}
+                    ? "🎁 Bonus"
+                    : tx.type === "withdrawal"
+                    ? "✨ Endorsement"
+                    : tx.type}
                 </div>
                 <div
                   style={{ color: "rgba(255,255,255,0.4)", fontSize: "9px" }}
@@ -665,9 +674,7 @@ const WalletPage = () => {
       )}
 
       <div style={{ textAlign: "center", marginTop: "40px", opacity: 0.1 }}>
-        <span
-          style={{ fontSize: "7px", fontWeight: 900, letterSpacing: "5px" }}
-        >
+        <span style={{ fontSize: "7px", fontWeight: 600, letterSpacing: "3px" }}>
           POWERED BY PESAPAL • M-PESA
         </span>
       </div>

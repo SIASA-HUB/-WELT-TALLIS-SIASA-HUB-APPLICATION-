@@ -1,3 +1,4 @@
+// manifestoPage.jsx - Fixed with WTA style and features
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -10,8 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import AppLoadingBar from "../../../utils/LoadingBar";
-import axios from "axios";
-import API_BASE_URL from "./apiConfig";
+import api from "../../../api/api";
 import { useAuth } from "../../hooks/useAuth";
 
 const KENYA = {
@@ -78,7 +78,7 @@ const MagazineHeader = styled.div`
     color: ${KENYA.muted};
   }
 
-  h0 {
+  h1 {
     font-size: clamp(40px, 10vw, 64px);
     font-weight: 950;
     font-family: "Playfair Display", serif;
@@ -265,7 +265,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const trackView = async () => {
     if (!leaderId) return;
     try {
-      await axios.post(`${API_BASE_URL}/interact`, {
+      await api.post("/leaders/interact", {
         leaderId: leaderId,
         interactionType: "info_view",
         metadata: { deviceId: userId, source: "manifesto_page" },
@@ -282,9 +282,9 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     setLoading(true);
 
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/manifestos/leader/${leaderId}`,
-        { timeout: 10000 },
+      const response = await api.get(
+        `/leaders/manifestos/leader/${leaderId}`,
+        { timeout: 60000 },
       );
 
       if (response.data.success && response.data.data?.length > 0) {
@@ -314,8 +314,8 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         const manifestoId = manifestoData.manifesto_id || manifestoData.id;
         if (manifestoId) {
           try {
-            const statsResponse = await axios.get(
-              `${API_BASE_URL}/manifestos/${manifestoId}/stats`,
+            const statsResponse = await api.get(
+              `/leaders/manifestos/${manifestoId}/stats`,
             );
             if (statsResponse.data.success) {
               setAgendaItems((prev) =>
@@ -353,14 +353,15 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     setVoting((prev) => ({ ...prev, [voteKey]: true }));
 
     const previousVote = userVotes[voteKey];
+    // Optimistic update
     setUserVotes((prev) => ({
       ...prev,
       [voteKey]: previousVote === voteType ? null : voteType,
     }));
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/manifestos/${manifestoId}/vote`,
+      const response = await api.post(
+        `/leaders/manifestos/${manifestoId}/vote`,
         {
           manifesto_id: manifestoId,
           agenda_item_id: agendaItemId,
@@ -379,6 +380,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
           ),
         );
       } else {
+        // Revert optimistic update on failure
         setUserVotes((prev) => ({ ...prev, [voteKey]: previousVote }));
       }
     } catch (err) {
@@ -456,7 +458,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
       <ManifestoContainer>
         <MagazineHeader>
           <div className="issue-no">Special Edition • The Manifesto</div>
-          <h0>{leaderName?.split(" ")[0] || "Kenya"}'s Vision</h0>
+          <h1>{leaderName?.split(" ")[0] || "Kenya"}'s Vision</h1>
           <p
             style={{ fontSize: "14px", color: KENYA.muted, marginTop: "10px" }}
           >

@@ -10,10 +10,7 @@ import {
   Edit3,
   XCircle,
 } from "lucide-react";
-import axios from "axios";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import API_BASE_URL from "./apiConfig";
+import api from "../../../api/api";
 
 // --- Styled Components ---
 
@@ -190,8 +187,8 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
       }
 
       try {
-        const res = await axios.get(
-          `${API_BASE_URL}/manifestos/leader/${activeLeaderId}`,
+        const res = await api.get(
+          `/leaders/manifestos/leader/${activeLeaderId}`,
         );
         const existing = Array.isArray(res.data)
           ? res.data[0]
@@ -208,7 +205,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
           });
         }
       } catch (err) {
-        console.log("No existing manifesto found.");
+        
       } finally {
         setInitialLoading(false);
       }
@@ -263,8 +260,8 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
       let response;
       if (manifestoId) {
-        response = await axios.put(
-          `${API_BASE_URL}/manifestos/${manifestoId}`,
+        response = await api.put(
+          `/leaders/manifestos/${manifestoId}`,
           payload,
         );
         toast.update(toastId, {
@@ -274,8 +271,8 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
           autoClose: 3000,
         });
       } else {
-        response = await axios.post(
-          `${API_BASE_URL}/manifestos/create`,
+        response = await api.post(
+          `/leaders/manifestos/create`,
           payload,
         );
         if (response.data.success && response.data.data?.manifesto_id) {
@@ -323,7 +320,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
     const toastId = toast.loading("Deleting manifesto...");
 
     try {
-      await axios.delete(`${API_BASE_URL}/leaders/manifestos/${manifestoId}`);
+      await api.delete(`/leaders/manifestos/${manifestoId}`);
 
       toast.update(toastId, {
         render: "Manifesto deleted successfully!",

@@ -17,7 +17,11 @@ const {
   getComments,
   likeComment,
   getEndorsementStats,
+  getEndorsementAdminStats,
 } = require("../controllers/endorsementControl");
+
+// Import global auth middleware
+const { authenticate, authorize } = require("../../../global/index");
 
 // ============================================
 // ENDORSEMENT/STORIES ROUTES
@@ -57,7 +61,9 @@ router.post("/comments/:commentId/like", likeComment);
 router.get("/:endorsementId/stats", getEndorsementStats);
 
 // Admin routes
+router.get("/admin/stats", authenticate, authorize("admin"), getEndorsementAdminStats);
 router.post("/admin/cleanup", cleanupExpiredStories);
+
 
 // Health check
 router.get("/health", (req, res) => {

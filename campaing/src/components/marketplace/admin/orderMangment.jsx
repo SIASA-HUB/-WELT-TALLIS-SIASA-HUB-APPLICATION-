@@ -1,6 +1,7 @@
 import React from "react";
 import styled from "styled-components";
 import * as Icons from "lucide-react";
+import { updateOrderStatus } from "../components/api";
 
 const Container = styled.div`
   background: white;
@@ -75,16 +76,35 @@ const ActionButton = styled.button`
   }
 `;
 
-const OrdersManagement = ({ orders }) => {
+const StatusSelect = styled.select`
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+`;
+
+const OrdersManagement = ({ orders, onRefresh }) => {
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await updateOrderStatus(id, newStatus);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Failed to update status");
+    }
+  };
+
   return (
     <Container>
       <Title>Orders Management</Title>
       <Table>
         <thead>
           <tr>
-            <th>Order ID</th>
+            <th>Order Number</th>
             <th>Customer</th>
-            <th>Items</th>
+            <th>Contact</th>
             <th>Total</th>
             <th>Status</th>
             <th>Date</th>
@@ -101,20 +121,30 @@ const OrdersManagement = ({ orders }) => {
           ) : (
             orders.map((order) => (
               <tr key={order.id}>
-                <td>#{order.id}</td>
-                <td>{order.customer}</td>
-                <td>{order.items} items</td>
-                <td>₹{order.total}</td>
+                <td>{order.order_number}</td>
+                <td>
+                  <div style={{ fontWeight: 500 }}>{order.customer_name}</div>
+                  <div style={{ fontSize: "11px", color: "#666" }}>{order.customer_email}</div>
+                </td>
+                <td>{order.customer_phone || "N/A"}</td>
+                <td>KSH {Number(order.total_amount).toLocaleString()}</td>
                 <td>
                   <StatusBadge $status={order.status}>
                     {order.status}
                   </StatusBadge>
                 </td>
-                <td>{order.date}</td>
+                <td>{new Date(order.created_at).toLocaleDateString()}</td>
                 <td>
-                  <ActionButton title="View Details">
-                    <Icons.Eye size={18} />
-                  </ActionButton>
+                  <StatusSelect 
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="processed">Processed</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </StatusSelect>
                 </td>
               </tr>
             ))

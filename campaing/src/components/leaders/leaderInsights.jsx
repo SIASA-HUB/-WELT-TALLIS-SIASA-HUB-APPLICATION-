@@ -2,10 +2,15 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { BookOpen, Info } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 import axios from "axios";
 import theme from "../../utils/theme.jsx";
 import AppLoadingBar from "../../utils/LoadingBar.jsx";
-import API_BASE_URL from "./apiConfig.jsx";
+// API Configuration
+import API from "../../api/config";
+import api from "../../api/api";
+
+
 // Lazy load components
 const LeaderHeader = lazy(() => import("./leaderHeader.jsx"));
 const ManifestoPage = lazy(() => import("./manifestos/manifestoPage"));
@@ -175,12 +180,13 @@ const BioText = styled.p`
   margin: 0;
 `;
 
-
-
 const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
-  const { id: urlId } = useParams();
+  const { id: urlId, slug: urlSlug } = useParams();
   const navigate = useNavigate();
-  const activeLeaderId = propLeaderId || urlId;
+  
+  // Store the actual leader_id from the API response
+  const [actualLeaderId, setActualLeaderId] = useState(null);
+  const activeSlug = urlSlug;
 
   const loadingBarRef = useRef(null);
   const dataFetchedRef = useRef(false);
@@ -192,19 +198,30 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
 
   useEffect(() => {
     const loadLeaderData = async () => {
-      if (!activeLeaderId || dataFetchedRef.current) return;
+      const identifier = propLeaderId || urlId || urlSlug;
+      if (!identifier || dataFetchedRef.current) return;
 
       loadingBarRef.current?.continuousStart(30);
       setIsLoading(true);
 
       try {
-        const leaderRes = await axios.get(
-          `${API_BASE_URL}/leaders/${activeLeaderId}`,
-          { timeout: 10000 },
-        );
+        let endpoint;
+        if (urlSlug || (identifier && !identifier.startsWith("LDR_"))) {
+          const slugValue = urlSlug || identifier;
+          endpoint = `/leaders/profile/${slugValue}`;
+        } else {
+          endpoint = `/leaders/${identifier}`;
+        }
 
-        if (leaderRes.data?.success) {
-          setLeader(leaderRes.data.data);
+        
+        const responseData = await api.get(endpoint);
+
+        if (responseData?.success) {
+          const leaderData = responseData.data;
+
+          setLeader(leaderData);
+          setActualLeaderId(leaderData.leader_id);
+          
         } else {
           setError("Leader not found");
         }
@@ -220,7 +237,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
     };
 
     loadLeaderData();
-  }, [activeLeaderId]);
+  }, [propLeaderId, urlId, urlSlug]);
 
   const handleBack = () => (onBack ? onBack() : navigate(-1));
 
@@ -245,13 +262,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
     return (
       <ErrorContainer>
         <div>
-          <h2
-            style={{
-              color: theme.colors.primary,
-              marginBottom: 16,
-              fontSize: 28,
-            }}
-          >
+          <h2 style={{ color: theme.colors.primary, marginBottom: 16, fontSize: 28 }}>
             Oops!
           </h2>
           <p style={{ color: theme.colors.gray, marginBottom: 24 }}>{error}</p>
@@ -274,8 +285,36 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
     );
   }
 
+  // Build SEO metadata
+  const seoTitle = leader
+    ? `${leader.name} (${leader.party || 'Independent'}) - ${leader.position_running_for || leader.position || 'Candidate'} ${leader.ward || leader.constituency || leader.county || 'Kenya'} 2027 | Siasahub`
+    : 'Aspirant Profile | Siasahub';
+  const seoDescription = leader
+    ? `Read the official 2027 election manifesto for ${leader.name}, ${leader.party || 'Independent'} candidate for ${leader.position_running_for || leader.position || 'Office'} ${leader.ward || leader.constituency || leader.county || 'Kenya'}. View key pledges on education, security, and infrastructure.`
+    : 'View aspirant profiles, manifestos, and endorsement data on Siasahub.';
+  const seoImage = leader?.image_url || 'https://siasahub.co.ke/og-default.png';
+  const seoUrl = leader?.slug
+    ? `https://siasahub.co.ke/aspirants/${leader.slug}`
+    : `https://siasahub.co.ke/leaders/${actualLeaderId || ''}`;
+
   return (
     <PageContainer>
+      <Helmet>
+        <title>{seoTitle}</title>
+        <meta name="description" content={seoDescription} />
+        <link rel="canonical" href={seoUrl} />
+        <meta property="og:title" content={seoTitle} />
+        <meta property="og:description" content={seoDescription} />
+        <meta property="og:image" content={seoImage} />
+        <meta property="og:url" content={seoUrl} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:site_name" content="Siasahub" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seoTitle} />
+        <meta name="twitter:description" content={seoDescription} />
+        <meta name="twitter:image" content={seoImage} />
+      </Helmet>
+
       <LoadingWrapper>
         <AppLoadingBar
           ref={loadingBarRef}
@@ -314,7 +353,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
           {activeTab === "manifestos" && (
             <ManifestoPage
               leaderName={leader?.name || "Loading..."}
-              leaderId={activeLeaderId}
+              leaderId={actualLeaderId}
               onBack={() => setActiveTab("overview")}
             />
           )}
@@ -338,9 +377,8 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
         </Suspense>
       </ContentContainer>
 
-      <Suspense fallback={null}>
-        {leader && <LeaderFooter leader={leader} />}
-      </Suspense>
+  
+      {leader && <LeaderFooter leader={leader} />}
     </PageContainer>
   );
 };

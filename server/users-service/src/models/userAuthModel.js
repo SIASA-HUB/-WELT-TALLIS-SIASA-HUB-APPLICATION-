@@ -1,21 +1,19 @@
-// models/userAuthModel.js - Fixed (removed is_active)
+// models/userAuthModel.js - Complete Fixed Version
 
 const { safeQuery, safeQueryOne } = require("../configurations/db");
 const bcrypt = require("bcrypt");
 const { getKenyaTimeISO } = require("../utils/timestamps/timeStamps");
+const Logger = require("../utils/logger/logger");
 
 class UserAuthModel {
   /**
    * Find user for authentication (by username OR email)
-   * This method is called by loginUser in authController
-   * Now supports login with either anonymous_username OR personal_email
    */
   static async findUserForAuth(identifier) {
     if (!identifier) return null;
 
     console.log(`🔍 Looking for user with identifier: ${identifier}`);
 
-    // Search by both anonymous_username AND personal_email
     return await safeQueryOne(
       `SELECT 
         user_id, 
@@ -40,6 +38,76 @@ class UserAuthModel {
       WHERE anonymous_username = ? OR personal_email = ?
       LIMIT 1`,
       [identifier, identifier],
+    );
+  }
+
+  /**
+   * Find user by email
+   */
+  static async findUserByEmail(email) {
+    if (!email) return null;
+
+    console.log(`🔍 Looking for user by email: ${email}`);
+
+    return await safeQueryOne(
+      `SELECT 
+        user_id, 
+        anonymous_username, 
+        real_name,
+        password_hash,
+        personal_email as email,
+        gender,
+        age_bracket,
+        generation,
+        county,
+        ward,
+        voter_card,
+        will_vote,
+        political_party,
+        employment_status,
+        role,
+        is_verified,
+        created_at,
+        updated_at
+      FROM users 
+      WHERE personal_email = ?
+      LIMIT 1`,
+      [email],
+    );
+  }
+
+  /**
+   * Find user by username
+   */
+  static async findUserByUsername(username) {
+    if (!username) return null;
+
+    console.log(`🔍 Looking for user by username: ${username}`);
+
+    return await safeQueryOne(
+      `SELECT 
+        user_id, 
+        anonymous_username, 
+        real_name,
+        password_hash,
+        personal_email as email,
+        gender,
+        age_bracket,
+        generation,
+        county,
+        ward,
+        voter_card,
+        will_vote,
+        political_party,
+        employment_status,
+        role,
+        is_verified,
+        created_at,
+        updated_at
+      FROM users 
+      WHERE anonymous_username = ?
+      LIMIT 1`,
+      [username],
     );
   }
 
@@ -70,42 +138,9 @@ class UserAuthModel {
         created_at,
         updated_at
       FROM users 
-      WHERE user_id = ? 
+      WHERE user_id = ?
       LIMIT 1`,
       [userId],
-    );
-  }
-
-  /**
-   * Find user by email
-   */
-  static async findUserByEmail(email) {
-    if (!email) return null;
-
-    return await safeQueryOne(
-      `SELECT 
-        user_id, 
-        anonymous_username, 
-        real_name,
-        password_hash,
-        personal_email as email,
-        gender,
-        age_bracket,
-        generation,
-        county,
-        ward,
-        voter_card,
-        will_vote,
-        political_party,
-        employment_status,
-        role,
-        is_verified,
-        created_at,
-        updated_at
-      FROM users 
-      WHERE personal_email = ? 
-      LIMIT 1`,
-      [email],
     );
   }
 
@@ -186,73 +221,101 @@ class UserAuthModel {
   }
 
   // ============================================
-  // SESSION MANAGEMENT METHODS (placeholders)
+  // SESSION MANAGEMENT METHODS
   // ============================================
 
-  static async storeRefreshToken({
-    userId,
-    refreshToken,
-    userAgent,
-    ipAddress,
-    expiresAt,
-  }) {
+  static async storeRefreshToken({ userId, refreshToken, userAgent, ipAddress, expiresAt }) {
     try {
-      console.log(`📝 Storing refresh token for user ${userId}`);
+      // Create refresh_tokens table if not exists
+      await safeQuery(`
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          user_id VARCHAR(50) NOT NULL,
+          token VARCHAR(500) NOT NULL,
+          user_agent TEXT,
+          ip_address VARCHAR(50),
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_user_id (user_id),
+          INDEX idx_token (token)
+        )
+      `);
+
+      await safeQuery(
+        `INSERT INTO refresh_tokens (user_id, token, user_agent, ip_address, expires_at) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, refreshToken, userAgent, ipAddress, expiresAt],
+      );
+      console.log(`✅ Stored refresh token for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error storing refresh token:", error);
+      Logger.error("Error storing refresh token:", error);
       return false;
     }
   }
 
   static async isValidRefreshToken(userId, token) {
     try {
-      console.log(`🔍 Validating refresh token for user ${userId}`);
-      return true;
+      const rows = await safeQuery(
+        `SELECT * FROM refresh_tokens WHERE user_id = ? AND token = ? AND expires_at > NOW()`,
+        [userId, token],
+      );
+      return rows.length > 0;
     } catch (error) {
-      console.error("Error validating refresh token:", error);
+      Logger.error("Error validating refresh token:", error);
       return false;
     }
   }
 
   static async invalidateRefreshToken(userId, token) {
     try {
-      console.log(`🚫 Invalidating refresh token for user ${userId}`);
+      await safeQuery(
+        `DELETE FROM refresh_tokens WHERE user_id = ? AND token = ?`,
+        [userId, token],
+      );
+      console.log(`✅ Invalidated refresh token for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error invalidating refresh token:", error);
+      Logger.error("Error invalidating refresh token:", error);
       return false;
     }
   }
 
   static async invalidateExpiredTokens(userId) {
     try {
-      console.log(`🧹 Invalidating expired tokens for user ${userId}`);
+      await safeQuery(
+        `DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at < NOW()`,
+        [userId],
+      );
+      console.log(`✅ Invalidated expired tokens for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error invalidating expired tokens:", error);
+      Logger.error("Error invalidating expired tokens:", error);
       return false;
     }
   }
 
   static async invalidateAllSessionsExcept(userId, currentToken) {
     try {
-      console.log(
-        `🔒 Invalidating all sessions except current for user ${userId}`,
+      await safeQuery(
+        `DELETE FROM refresh_tokens WHERE user_id = ? AND token != ?`,
+        [userId, currentToken],
       );
+      console.log(`✅ Invalidated all sessions except current for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error invalidating sessions:", error);
+      Logger.error("Error invalidating sessions:", error);
       return false;
     }
   }
 
   static async invalidateAllUserSessions(userId) {
     try {
-      console.log(`🚫 Invalidating all sessions for user ${userId}`);
+      await safeQuery(`DELETE FROM refresh_tokens WHERE user_id = ?`, [userId]);
+      console.log(`✅ Invalidated all sessions for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error invalidating all sessions:", error);
+      Logger.error("Error invalidating all sessions:", error);
       return false;
     }
   }
@@ -270,20 +333,28 @@ class UserAuthModel {
 
   static async getUserSessions(userId) {
     try {
-      console.log(`📱 Getting sessions for user ${userId}`);
-      return [];
+      const rows = await safeQuery(
+        `SELECT token, user_agent, ip_address, created_at, expires_at 
+         FROM refresh_tokens WHERE user_id = ? ORDER BY created_at DESC`,
+        [userId],
+      );
+      return rows;
     } catch (error) {
-      console.error("Error getting user sessions:", error);
+      Logger.error("Error getting user sessions:", error);
       return [];
     }
   }
 
   static async terminateSession(userId, sessionId) {
     try {
-      console.log(`🔚 Terminating session ${sessionId} for user ${userId}`);
+      await safeQuery(
+        `DELETE FROM refresh_tokens WHERE user_id = ? AND token = ?`,
+        [userId, sessionId],
+      );
+      console.log(`✅ Terminated session ${sessionId} for user ${userId}`);
       return true;
     } catch (error) {
-      console.error("Error terminating session:", error);
+      Logger.error("Error terminating session:", error);
       return false;
     }
   }

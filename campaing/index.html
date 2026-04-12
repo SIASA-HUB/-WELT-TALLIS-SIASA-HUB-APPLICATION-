@@ -12,7 +12,7 @@
       name="description"
       content="Track political leaders, campaigns, and voter engagement in Kenya"
     />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
@@ -42,6 +42,11 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <link rel="manifest" href="/manifest.json" />
     
+    <!-- Use prefetch - loads after page is interactive, non-blocking -->
+    <link rel="prefetch" as="image" href="/images/halfcoat.jpeg">
+    <link rel="prefetch" as="image" href="/images/flag.jpg">
+    <link rel="prefetch" as="image" href="/images/tshirts.jpg">
+  
     <!-- Local Bootstrap -->
     <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/bootstrap/css/bootstrap-theme.min.css" />
@@ -87,32 +92,23 @@
         justify-content: center;
         background: #000;
         z-index: 10000;
-        transition:
-          opacity 0.4s ease-out,
-          visibility 0.4s ease-out;
+        transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
         backdrop-filter: blur(0px);
       }
 
-      .loader-logo {
-        font-size: 32px;
-        font-weight: 900;
-        letter-spacing: 3px;
-        background: linear-gradient(135deg, #fff 0%, #bb0000 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+      /* SiasaHub Logo Image */
+      .loader-logo-img {
+        width: 120px;
+        height: auto;
+        object-fit: contain;
         animation: fadeInUp 0.6s ease-out;
-      }
-
-      .loader-logo span {
-        -webkit-text-fill-color: #bb0000;
-        background: none;
+        filter: drop-shadow(0 0 20px rgba(187, 0, 0, 0.3));
       }
 
       .loader-sub {
         font-size: 10px;
         color: #666;
-        margin-top: 12px;
+        margin-top: 20px;
         letter-spacing: 2px;
         font-weight: 600;
         text-transform: uppercase;
@@ -317,7 +313,7 @@
   <body>
     <div id="top-loader-line"></div>
     <div id="initial-loader">
-      <div class="loader-logo"><span>S</span>IASA HUB</div>
+      <img src="/image/siasa.png" alt="SiasaHub" class="loader-logo-img" />
       <div class="loader-sub">CAMPAIGN COMMAND CENTER</div>
       <div class="loader-dots">
         <span></span>
@@ -469,7 +465,6 @@
         if (banner) banner.style.display = "none";
       }
     </script>
-
 
     <script type="module" src="/src/main.jsx"></script>
   </body>

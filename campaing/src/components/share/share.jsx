@@ -288,7 +288,7 @@ const ShareWithInstall = ({
           }, 1500);
         }
       } catch (error) {
-        console.log("Share cancelled:", error);
+        
         await copyToClipboard();
       }
     } else {

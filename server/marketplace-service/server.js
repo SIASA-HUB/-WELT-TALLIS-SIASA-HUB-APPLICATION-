@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 const multer = require("multer");
 const fs = require("fs");
 const knex = require("knex");
-const cors = require("cors");
+
 
 // Load environment variables
 dotenv.config();
@@ -21,10 +21,11 @@ const environment = process.env.NODE_ENV || "development";
 const db = knex(knexConfig[environment]);
 
 // Import routes with error handling
-let productRoutes, cartRoutes;
+let productRoutes, cartRoutes, orderRoutes;
 try {
   productRoutes = require("./src/routes/productRoutes");
   cartRoutes = require("./src/routes/cartRoutes");
+  orderRoutes = require("./src/routes/orderRoutes");
   console.log("✅ Routes loaded successfully");
 } catch (error) {
   console.error("❌ Failed to load routes:", error.message);
@@ -35,6 +36,7 @@ try {
   });
   productRoutes = router;
   cartRoutes = router;
+  orderRoutes = router;
 }
 
 const app = express();
@@ -113,7 +115,7 @@ app.post("/api/v1/upload", upload.single("image"), (req, res) => {
     }
 
     const folder = req.body.folder || "products";
-    const imageUrl = `/api/v1/uploads/${folder}/${req.file.filename}`;
+    const imageUrl = `/uploads/${folder}/${req.file.filename}`;
 
     res.json({
       success: true,
@@ -121,7 +123,7 @@ app.post("/api/v1/upload", upload.single("image"), (req, res) => {
       message: "Image uploaded successfully",
     });
   } catch (error) {
-    console.error("Upload error:", error);
+    Logger.error("Upload error:", { error: error.message });
     res.status(500).json({
       success: false,
       error: "Failed to upload image",
@@ -129,33 +131,13 @@ app.post("/api/v1/upload", upload.single("image"), (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-// Product and Cart routes
-app.use("/api/products", productRoutes);
-app.use("/api/cart", cartRoutes);
-
-=======
 // API Routes
 app.use("/api/v1/products", productRoutes);
-app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/user/cart", cartRoutes);
+app.use("/api/v1/user/order", orderRoutes);
 
-// API Reference
-app.use(
-  "/reference",
-  apiReference({
-    spec: {
-      content: {
-        openapi: "3.1.0",
-        info: { title: "Marketplace Service API", version: "1.0.0" },
-        paths: {
-          "/api/v1/products": { get: { summary: "Products APIs", responses: { "200": { description: "Success" } } } }
-        }
-      }
-    }
-  })
-);
 
->>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
+
 // Health check endpoint
 app.get("/health", async (req, res) => {
   try {
@@ -205,7 +187,7 @@ app.use((req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   Logger.error("Server error:", err);
-  console.error("Error:", err.message);
+  Logger.error("Error:", { error: err.message });
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal server error",
@@ -234,23 +216,15 @@ const startServer = async () => {
     // Start server
     app.listen(PORT, "0.0.0.0", () => {
       Logger.info(`🚀 Marketplace service running on port ${PORT}`);
-<<<<<<< HEAD
       console.log(`
   ═══════════════════════════════════════════════════════
   📡 Local:            http://localhost:${PORT}
-  📦 Products API:     http://localhost:${PORT}/api/products
-  🛒 Cart API:         http://localhost:${PORT}/api/cart
-  📸 Upload API:       http://localhost:${PORT}/api/upload
+  📦 Products API:     http://localhost:${PORT}/api/v1/products
+  🛒 Cart API:         http://localhost:${PORT}/api/v1/user/cart
+  📸 Upload API:       http://localhost:${PORT}/api/v1/upload
   💚 Health Check:     http://localhost:${PORT}/health
   🔧 Debug Tables:     http://localhost:${PORT}/debug/tables
   ═══════════════════════════════════════════════════════
-=======
-      console.log(`                                                       
-  📡 Local: http://localhost:${PORT}                                                                                          
-  📦 Products API: /api/v1/products                             
-  🛒 Cart API: /api/v1/cart                                     
-   📸 Upload API: /api/v1/upload 
->>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
       `);
     });
   } catch (error) {

@@ -13,6 +13,7 @@ const authTokens = require("./auth/tokens");
 const authCookies = require("./auth/cookies");
 const authCsrf = require("./auth/csrf");
 const authMiddleware = require("./middlewares/AuthMiddleware");
+const { sanitizeMiddleware, sanitizeString, sanitizeObject, isValidUUID, isValidKenyanPhone, isPositiveAmount, safeInt } = require("./middlewares/sanitize");
 const db = require("./config/db");
 const redis = require("./config/redis");
 const rateLimiter = require("./rateLimit/index");
@@ -22,6 +23,15 @@ const {
   getKenyaTimeISO,
   getKenyaTimeFormatted,
 } = require("./utils/timeStamps");
+
+// === STARTUP GUARD: enforce strong JWT secrets ===
+const WEAK_SECRETS = new Set(['ballot-super-secret-key-change-in-production', 'ballot-refresh-secret-key', 'default', 'secret', 'changeme']);
+if (WEAK_SECRETS.has(process.env.JWT_SECRET)) {
+  logger.warn('⚠️  JWT_SECRET is using a default/weak value. Set a strong secret in your .env file.');
+}
+if (WEAK_SECRETS.has(process.env.JWT_REFRESH_SECRET)) {
+  logger.warn('⚠️  JWT_REFRESH_SECRET is using a default/weak value.');
+}
 
 // core    exports
 module.exports = {
@@ -125,4 +135,13 @@ module.exports = {
     getKenyaTimeISO,
     getKenyaTimeFormatted,
   },
+
+  // --- Input Sanitization ---
+  sanitizeMiddleware,
+  sanitizeString,
+  sanitizeObject,
+  isValidUUID,
+  isValidKenyanPhone,
+  isPositiveAmount,
+  safeInt,
 };

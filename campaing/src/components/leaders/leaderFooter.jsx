@@ -1,4 +1,4 @@
-// LeaderFooter.js - Clean version with social icons
+// LeaderFooter.jsx - professional footer for leader profile
 import React from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -9,33 +9,32 @@ import {
   Youtube,
   Linkedin,
   MessageCircle,
+  ShieldCheck,
+  CheckCircle,
 } from "lucide-react";
 
-// Animations
 const glow = keyframes`
   0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
   70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
   100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 `;
 
-// Authentic Brand Colors
 const BRANDS = {
-  twitter: "#000000",
-  facebook: "#1877F2",
-  instagram:
-    "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-  tiktok: "#000000",
-  whatsapp: "#25D366",
-  website: "#10b981",
-  youtube: "#FF0000",
-  linkedin: "#0077B5",
+  twitter:  { color: "#000000", icon: Twitter },
+  x:        { color: "#000000", icon: Twitter },
+  facebook: { color: "#1877F2", icon: Facebook },
+  instagram: { color: "#E1306C", icon: Instagram },
+  youtube:  { color: "#FF0000", icon: Youtube },
+  linkedin: { color: "#0077B5", icon: Linkedin },
+  whatsapp: { color: "#25D366", icon: MessageCircle },
+  website:  { color: "#10b981", icon: Globe },
 };
 
 const COLORS = {
-  primary: "#10b981",
-  primaryDark: "#059669",
-  dark: "#050505",
-  darkCard: "#0d0d0d",
+  primary: "#ff5c01",
+  success: "#10b981",
+  dark: "#0a0a0b",
+  darkCard: "#141416",
   border: "rgba(255, 255, 255, 0.08)",
   textSecondary: "#94a3b8",
 };
@@ -45,177 +44,192 @@ const FooterWrapper = styled.footer`
   border-top: 1px solid ${COLORS.border};
   color: white;
   margin-top: 40px;
-  padding: 40px 0;
+  padding: 60px 0 40px;
+  width: 100%;
 `;
 
 const Container = styled.div`
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 24px;
 `;
 
-const SocialSection = styled.div`
-  display: flex;
-  justify-content: center;
+const TopGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 24px;
+  gap: 40px;
+  margin-bottom: 40px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 30px;
+  }
+`;
+
+const Branding = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  
+  p {
+    font-size: 0.85rem;
+    color: ${COLORS.textSecondary};
+    margin: 0;
+  }
 `;
 
 const SocialLinks = styled.div`
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
   justify-content: center;
+  flex-wrap: wrap;
 `;
 
 const SocialCircle = styled.a`
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  transition: all 0.3s ease;
-  background: ${(props) => props.$bg || COLORS.darkCard};
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: ${COLORS.darkCard};
   text-decoration: none;
   border: 1px solid ${COLORS.border};
-  cursor: pointer;
 
   &:hover {
-    transform: translateY(-4px) scale(1.05);
-    filter: brightness(1.1);
-    animation: ${glow} 0.5s ease;
-    border-color: ${COLORS.primary};
+    transform: translateY(-5px);
+    background: ${(props) => props.$hoverBg || COLORS.primary};
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
   }
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
 `;
 
-const Copyright = styled.div`
-  text-align: center;
-  margin-top: 32px;
-  padding-top: 24px;
+const VerificationBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: ${COLORS.success};
+
+  @media (max-width: 768px) {
+    justify-content: center;
+  }
+`;
+
+const BottomLine = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 32px;
   border-top: 1px solid ${COLORS.border};
-  font-size: 12px;
+  font-size: 0.75rem;
   color: ${COLORS.textSecondary};
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+`;
+
+const NavLinks = styled.div`
+  display: flex;
+  gap: 20px;
+  
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+    &:hover { color: white; }
+  }
 `;
 
 const LeaderFooter = ({ leader }) => {
   if (!leader) return null;
 
-  // Default social links if not provided (for demo purposes)
-  const socials = leader.socials || {};
+  // Process social links
+  let socialLinks = [];
+  if (Array.isArray(leader.social_links)) {
+    socialLinks = leader.social_links.filter(s => s.url && s.url.length > 5);
+  } else if (leader.social_links && typeof leader.social_links === "object") {
+    socialLinks = Object.entries(leader.social_links)
+      .filter(([, url]) => url && url.length > 5)
+      .map(([type, url]) => ({ type, url }));
+  }
+
+  // Define default links if empty, or just show branding
+  const hasLinks = socialLinks.length > 0;
 
   return (
     <FooterWrapper>
       <Container>
-        <SocialSection>
+        <TopGrid>
+          <Branding>
+            <h3>{leader.name}</h3>
+            <p>{leader.position_running_for || leader.position || "2027 Candidate"}</p>
+          </Branding>
+
           <SocialLinks>
-            {/* Website */}
-            <SocialCircle
-              href={socials.website || "#"}
-              $bg={BRANDS.website}
-              title="Website"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Globe size={24} />
-            </SocialCircle>
+            {socialLinks.map(({ type, url }) => {
+              const typeKey = type?.toLowerCase();
+              const brand = BRANDS[typeKey];
+              if (!brand) return null;
+              const Icon = brand.icon;
 
-            {/* X (Twitter) */}
-            <SocialCircle
-              href={socials.twitter || "#"}
-              $bg={BRANDS.twitter}
-              title="X (Twitter)"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Twitter size={24} />
-            </SocialCircle>
-
-            {/* Facebook */}
-            <SocialCircle
-              href={socials.facebook || "#"}
-              $bg={BRANDS.facebook}
-              title="Facebook"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Facebook size={24} />
-            </SocialCircle>
-
-            {/* Instagram */}
-            <SocialCircle
-              href={socials.instagram || "#"}
-              $bg={BRANDS.instagram}
-              title="Instagram"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Instagram size={24} />
-            </SocialCircle>
-
-            {/* YouTube */}
-            <SocialCircle
-              href={socials.youtube || "#"}
-              $bg={BRANDS.youtube}
-              title="YouTube"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Youtube size={24} />
-            </SocialCircle>
-
-            {/* LinkedIn */}
-            <SocialCircle
-              href={socials.linkedin || "#"}
-              $bg={BRANDS.linkedin}
-              title="LinkedIn"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Linkedin size={24} />
-            </SocialCircle>
-
-            {/* TikTok */}
-            <SocialCircle
-              href={socials.tiktok || "#"}
-              $bg={BRANDS.tiktok}
-              title="TikTok"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="24"
-                height="24"
-              >
-                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 2.89 3.5 2.53 1.13-.2 2.15-.99 2.67-2.01.23-.4.35-.85.38-1.3.11-3.37.03-6.75.04-10.12z" />
-              </svg>
-            </SocialCircle>
-
-            {/* WhatsApp */}
-            <SocialCircle
-              href={socials.whatsapp || "#"}
-              $bg={BRANDS.whatsapp}
-              title="WhatsApp"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <MessageCircle size={24} />
-            </SocialCircle>
+              return (
+                <SocialCircle
+                  key={type}
+                  href={url}
+                  $hoverBg={brand.color}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={type}
+                >
+                  <Icon />
+                </SocialCircle>
+              );
+            })}
+            {!hasLinks && (
+              <p style={{ fontSize: '0.8rem', color: COLORS.textSecondary, opacity: 0.6 }}>
+                Social links coming soon
+              </p>
+            )}
           </SocialLinks>
-        </SocialSection>
 
-        <Copyright>
-          © {new Date().getFullYear()} {leader.name}. Follow on social media
-        </Copyright>
+          <VerificationBadge>
+            <ShieldCheck size={16} />
+            <span>Official Campaign Profile</span>
+          </VerificationBadge>
+        </TopGrid>
+
+        <BottomLine>
+          <div>
+            © {new Date().getFullYear()} Siasa Hub · All Rights Reserved
+          </div>
+          <NavLinks>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/contact">Support</a>
+          </NavLinks>
+        </BottomLine>
       </Container>
     </FooterWrapper>
   );

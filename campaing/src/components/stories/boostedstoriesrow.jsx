@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 
-import API_BASE_URL from "./apiConfig";
+import API from "../../api/config";
+import api from "../../api/api";
+
 
 // ============================================
-// HELPER: Build image URL correctly
+// HELPER: Build image URL correctly via Gateway
 // ============================================
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
@@ -27,15 +29,14 @@ const buildImageUrl = (imageUrl) => {
     return imageUrl;
   }
 
-  // Get base URL (API_BASE_URL already has /api/v1, so don't add it again)
-  let baseUrl = API_BASE_URL;
-  baseUrl = baseUrl.replace(/\/$/, "");
+  const baseUrl = API.UPLOAD_BASE;
+  if (imageUrl.startsWith("/")) {
+    return `${baseUrl}${imageUrl}`;
+  }
 
-  // Remove leading slash from image path
-  let cleanPath = imageUrl.startsWith("/") ? imageUrl.substring(1) : imageUrl;
-
-  return `${baseUrl}/${cleanPath}`;
+  return `${baseUrl}/${imageUrl}`;
 };
+
 
 // ============================================
 // STYLED COMPONENTS - INSTAGRAM STYLE
@@ -451,42 +452,37 @@ const BoostedStoriesRow = ({
     setError(null);
 
     try {
-      let url;
+      let path;
 
       switch (type) {
         case "boosted":
-          // FIXED: API_BASE_URL already includes /api/v1, so don't add it again
-          url = `${API_BASE_URL}/endorsements/leader/${leaderId}/boosted?limit=15`;
+          path = `/endorsements/leader/${leaderId}/boosted?limit=15`;
           break;
         case "trending":
-          url = `${API_BASE_URL}/endorsements/leader/${leaderId}/trending?limit=15&days=7`;
+          path = `/endorsements/leader/${leaderId}/trending?limit=15&days=7`;
           break;
         case "recent":
-          url = `${API_BASE_URL}/endorsements/leader/${leaderId}/recent?limit=15`;
+          path = `/endorsements/leader/${leaderId}/recent?limit=15`;
           break;
         default:
-          url = `${API_BASE_URL}/endorsements/leader/${leaderId}/boosted?limit=15`;
+          path = `/endorsements/leader/${leaderId}/boosted?limit=15`;
       }
 
-      console.log(`📡 Fetching ${type} stories from:`, url);
-      const response = await axios.get(url, {
-        withCredentials: true,
-        timeout: 10000,
-      });
+      
+      const responseData = await api.get(path);
 
       let fetchedStories = [];
 
-      if (response.data?.success && response.data?.data) {
-        fetchedStories = Array.isArray(response.data.data)
-          ? response.data.data
+      if (responseData?.success && responseData?.data) {
+        fetchedStories = Array.isArray(responseData.data)
+          ? responseData.data
           : [];
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        fetchedStories = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        fetchedStories = response.data;
+      } else if (Array.isArray(responseData)) {
+        fetchedStories = responseData;
       }
 
-      console.log(`✅ Fetched ${fetchedStories.length} stories`);
+
+      
 
       // Transform stories to ensure consistent format
       const transformedStories = fetchedStories.map((story) => ({

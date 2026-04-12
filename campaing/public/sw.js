@@ -1,120 +1,99 @@
 /* eslint-disable no-restricted-globals */
 
-import { clientsClaim } from "workbox-core";
-import { ExpirationPlugin } from "workbox-expiration";
-import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching";
-import { registerRoute } from "workbox-routing";
-import {
-  CacheFirst,
-  NetworkFirst,
-  StaleWhileRevalidate,
-} from "workbox-strategies";
+// Import Workbox from CDN
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
 
-// Take control immediately
-clientsClaim();
+if (workbox) {
+  console.log('🚀 [SW]: Workbox loaded');
+  
+  const { clientsClaim } = workbox.core;
+  const { ExpirationPlugin } = workbox.expiration;
+  const { precacheAndRoute, createHandlerBoundToURL } = workbox.precaching;
+  const { registerRoute, NavigationRoute } = workbox.routing;
+  const { CacheFirst, NetworkFirst, StaleWhileRevalidate } = workbox.strategies;
 
-// Precache all assets
-precacheAndRoute(self.__WB_MANIFEST);
+  // Control immediately
+  clientsClaim();
+  workbox.core.skipWaiting();
 
-// ========== APP SHELL - INSTANT NAVIGATION ==========
-const fileExtensionRegexp = new RegExp("/[^/?]+\\.[^/]+$");
-registerRoute(
-  ({ request, url }) => {
-    if (request.mode !== "navigate") return false;
-    if (url.pathname.startsWith("/_")) return false;
-    if (url.pathname.match(fileExtensionRegexp)) return false;
-    return true;
-  },
-  createHandlerBoundToURL(process.env.PUBLIC_URL + "/index.html"),
-);
+  // ========== APP SHELL - INSTANT NAVIGATION ==========
+  // We don't have a manifest in public/sw.js usually, so we'll skip precacheAndRoute(self.__WB_MANIFEST)
+  // unless we're using a build step. For now, we'll manually cache critical routes.
 
-// ========== MOBILE OPTIMIZATION: SMALLER CACHE ==========
-// Static assets - smaller cache for mobile
-registerRoute(
-  ({ request }) =>
-    request.destination === "script" ||
-    request.destination === "style" ||
-    request.destination === "font",
-  new CacheFirst({
-    cacheName: "static-mobile-v2",
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 50, // Smaller for mobile
-        maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
-      }),
-    ],
-  }),
-);
-
-// ========== IMAGES - AGGRESSIVE CACHING ==========
-registerRoute(
-  ({ request }) => request.destination === "image",
-  new CacheFirst({
-    cacheName: "images-mobile-v2",
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 30, // Limit images for mobile
-        maxAgeSeconds: 14 * 24 * 60 * 60, // 14 days
-      }),
-    ],
-  }),
-);
-
-// ========== API - NETWORK FIRST WITH QUICK TIMEOUT ==========
-registerRoute(
-  ({ url }) => url.pathname.includes("/api/"),
-  new NetworkFirst({
-    cacheName: "api-mobile-v2",
-    networkTimeoutSeconds: 1.5, // Faster timeout for mobile
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 30,
-        maxAgeSeconds: 3 * 60, // 3 minutes
-      }),
-    ],
-  }),
-);
-
-// ========== CRITICAL: INSTALL IMMEDIATELY ==========
-self.addEventListener("install", (event) => {
-  console.log("📱 Mobile PWA installing...");
-  event.waitUntil(
-    Promise.all([
-      // Cache critical routes immediately
-      caches.open("html-cache-v2").then((cache) => {
-        return cache.addAll([
-          "/", 
-          "/index.html", 
-          "/offline.html",
-          "/bootstrap/css/bootstrap.min.css",
-          "/bootstrap/css/bootstrap-theme.min.css",
-          "/bootstrap/js/bootstrap.min.js"
-        ]);
-      }),
-      self.skipWaiting(),
-    ]),
+  // ========== STATIC ASSETS - AGGRESSIVE CACHING ==========
+  registerRoute(
+    ({ request }) =>
+      request.destination === 'script' ||
+      request.destination === 'style' ||
+      request.destination === 'font',
+    new StaleWhileRevalidate({
+      cacheName: 'static-assets',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 60,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        }),
+      ],
+    })
   );
-});
 
-// ========== ACTIVATE IMMEDIATELY ==========
-self.addEventListener("activate", (event) => {
-  console.log("📱 Mobile PWA activated");
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => {
-        return Promise.all(
-          keys
-            .filter((key) => !key.includes("mobile") && !key.includes("html"))
-            .map((key) => caches.delete(key)),
-        );
+  // ========== IMAGES - CACHE FIRST ==========
+  registerRoute(
+    ({ request }) => request.destination === 'image',
+    new CacheFirst({
+      cacheName: 'images-cache',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 100,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        }),
+      ],
+    })
+  );
+
+  // ========== API ROUTES - STALE WHILE REVALIDATE FOR INSTANT LOAD ==========
+  // This makes the UI feel instant by returning cached data while updating in the background
+  registerRoute(
+    ({ url }) => url.pathname.includes('/api/v1/marketplace') || 
+                 url.pathname.includes('/api/v1/leaders/manifestos'),
+    new StaleWhileRevalidate({
+      cacheName: 'api-data-instant',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 50,
+          maxAgeSeconds: 5 * 60, // 5 minutes fresh
+        }),
+      ],
+    })
+  );
+
+  // ========== CRITICAL NAVIGATION CACHING ==========
+  self.addEventListener('install', (event) => {
+    const criticalAssets = [
+      '/',
+      '/login',
+      '/register',
+      '/profile',
+      '/marketplace',
+      '/index.html',
+    ];
+    
+    event.waitUntil(
+      caches.open('critical-pages').then((cache) => {
+        return cache.addAll(criticalAssets);
       })
-      .then(() => self.clients.claim()),
-  );
-});
+    );
+  });
 
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
+  // Handle navigation requests with a Network-First strategy but fallback to cache
+  registerRoute(
+    ({ request }) => request.mode === 'navigate',
+    new NetworkFirst({
+        cacheName: 'navigation-cache',
+        networkTimeoutSeconds: 3,
+    })
+  );
+
+} else {
+  console.log('❌ [SW]: Workbox failed to load');
+}

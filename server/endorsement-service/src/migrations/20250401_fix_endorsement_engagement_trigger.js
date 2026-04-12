@@ -1,62 +1,53 @@
-// migrations/20250401_update_trigger_with_session_variable.js
+// migrations/20250401_create_endorsement_boosts_table.js
 
 exports.up = async function (knex) {
-  // Drop existing trigger
-  await knex.raw(`
-    DROP TRIGGER IF EXISTS update_endorsement_engagement_score
-  `);
+  // Check if table exists
+  const hasTable = await knex.schema.hasTable("endorsement_boosts");
 
-  // Create updated trigger that respects the session variable
-  await knex.raw(`
-    CREATE TRIGGER update_endorsement_engagement_score
-    AFTER UPDATE ON endorsements
-    FOR EACH ROW
-    BEGIN
-        -- Skip if trigger is disabled via session variable
-        IF @disable_engagement_trigger IS NULL THEN
-            -- Check if engagement-related columns changed
-            IF (NEW.likes != OLD.likes 
-                OR NEW.views != OLD.views 
-                OR NEW.shares != OLD.shares 
-                OR NEW.comments != OLD.comments) THEN
-                
-                -- Update engagement score directly without function call
-                UPDATE endorsements 
-                SET engagement_score = GREATEST(0, LEAST(10000, 
-                    (NEW.likes * 2 + NEW.views * 0.5 + NEW.shares * 3 + NEW.comments * 2 + 
-                     CASE WHEN NEW.amount > 0 THEN NEW.amount * 5 ELSE 0 END) / 
-                    GREATEST(1, DATEDIFF(NOW(), NEW.created_at) + 1)
-                ))
-                WHERE id = NEW.id;
-            END IF;
-        END IF;
-    END
-  `);
+  if (!hasTable) {
+    await knex.schema.createTable("endorsement_boosts", (table) => {
+      table.increments("id").primary();
+      table.integer("endorsement_id").unsigned().notNullable();
+      table.string("user_id", 255).notNullable();
+      table.integer("amount").notNullable().defaultTo(10);
+      table.timestamp("created_at").defaultTo(knex.fn.now());
+
+      table.index("endorsement_id");
+      table.index("user_id");
+      table.index("created_at");
+
+      table
+        .foreign("endorsement_id")
+        .references("id")
+        .inTable("endorsements")
+        .onDelete("CASCADE");
+    });
+  }
+
+  // Add boost columns to endorsements table if they don't exist
+  const hasBoostCount = await knex.schema.hasColumn(
+    "endorsements",
+    "boost_count",
+  );
+  if (!hasBoostCount) {
+    await knex.schema.table("endorsements", (table) => {
+      table.integer("boost_count").defaultTo(0);
+      table.decimal("total_boost_amount", 10, 2).defaultTo(0);
+    });
+  }
 };
 
 exports.down = async function (knex) {
-  await knex.raw(`
-    DROP TRIGGER IF EXISTS update_endorsement_engagement_score
-  `);
+  await knex.schema.dropTableIfExists("endorsement_boosts");
 
-  // Restore original trigger
-  await knex.raw(`
-    CREATE TRIGGER update_endorsement_engagement_score
-    AFTER UPDATE ON endorsements
-    FOR EACH ROW
-    BEGIN
-        IF NEW.likes != OLD.likes 
-           OR NEW.views != OLD.views 
-           OR NEW.shares != OLD.shares 
-           OR NEW.comments != OLD.comments 
-        THEN
-            UPDATE endorsements 
-            SET engagement_score = calculate_engagement_score(
-                NEW.likes, NEW.views, NEW.shares, NEW.comments, 
-                NEW.amount, NEW.created_at
-            )
-            WHERE id = NEW.id;
-        END IF;
-    END
-  `);
+  const hasBoostCount = await knex.schema.hasColumn(
+    "endorsements",
+    "boost_count",
+  );
+  if (hasBoostCount) {
+    await knex.schema.table("endorsements", (table) => {
+      table.dropColumn("boost_count");
+      table.dropColumn("total_boost_amount");
+    });
+  }
 };

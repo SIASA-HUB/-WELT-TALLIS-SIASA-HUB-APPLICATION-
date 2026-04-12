@@ -1,8 +1,10 @@
+// src/components/wallet/ApiConfig.jsx - Redirected
 import axios from "axios";
-const WALLET_API_BASE_URL = "http://localhost:8005/api/v1/wallet";
+import API from "../../api/config";
 
+// Wallet service specifically uses Port 8008 via gateway /api/v1/wallet
 const walletApi = axios.create({
-  baseURL: WALLET_API_BASE_URL,
+  baseURL: API.WALLET,
   headers: {
     "Content-Type": "application/json",
   },

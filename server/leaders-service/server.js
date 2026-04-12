@@ -284,19 +284,13 @@ runMigrations();
 
 const PORT = process.env.PORT || 8006;
 const HOST = process.env.HOST || "0.0.0.0";
-
 (async () => {
   try {
-    console.log({
-      port: PORT,
-      host: HOST,
-      nodeEnv: process.env.NODE_ENV,
-      uploadsPath: uploadsDir,
-    });
-
-    Logger.info("Starting database", { action: "start_database" });
+    console.log("📡 Initializing database...");
     await initDB();
+    console.log("✅ Database initialized");
 
+    console.log("🎯 Starting server...");
     server.listen(PORT, HOST, () => {
       Logger.info("Server running with Socket.IO", {
         host: HOST,
@@ -309,6 +303,11 @@ const HOST = process.env.HOST || "0.0.0.0";
       console.log(`🔗 Image URL example: http://${HOST}:${PORT}/uploads/leaders/LDR_xxx/image.webp`);
       console.log(`🏥 Health check: http://${HOST}:${PORT}/health`);
       console.log(`\n📡 Ready to accept connections\n`);
+    });
+
+    server.on('error', (error) => {
+      console.error("❌ Server error:", error);
+      Logger.error("Server error:", error);
     });
 
     // Shutdown handler
@@ -326,12 +325,17 @@ const HOST = process.env.HOST || "0.0.0.0";
     process.on("SIGTERM", shutdown);
     process.on("SIGINT", shutdown);
   } catch (error) {
+    console.error("❌ Failed to start application:", error);
+    console.error("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
     Logger.error("Failed to start application", {
       message: error.message,
       stack: error.stack,
       action: "startup_failed",
     });
-    console.error("❌ Failed to start:", error);
     process.exit(1);
   }
 })();

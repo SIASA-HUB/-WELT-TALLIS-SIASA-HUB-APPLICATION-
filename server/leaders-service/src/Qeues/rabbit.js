@@ -9,6 +9,11 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
 const EXCHANGE_NAME = "siasa_hub_exchange";
 
 const QUEUES = {
+  // Worker queues used by LeaderController
+  LEADER_IMAGE_UPLOAD: "leader_image_upload_queue",
+  LEADER_CACHE_CLEAR: "leader_cache_clear_queue",
+  LEADER_BOOST_STATS: "leader_boost_stats_queue",
+  // General queues
   LEADER_BOOST: "leader_boost_queue",
   WALLET_DEDUCTION: "wallet_deduction_queue",
   NOTIFICATION: "notification_queue",
@@ -16,10 +21,10 @@ const QUEUES = {
   ADMIN_EVENTS: "admin_events_queue",
 };
 
-// Connect to RabbitMQ
+// Connect to RabbitMQ — fully graceful, never crashes the service
 const connectRabbitMQ = async () => {
   if (process.env.RABBITMQ_ENABLED === "false") {
-    Logger.warn("⚠️ RabbitMQ is disabled via RABBITMQ_ENABLED=false. Skipping connection.");
+    Logger.warn("⚠️ RabbitMQ disabled via RABBITMQ_ENABLED=false. Skipping.");
     return null;
   }
 
@@ -27,10 +32,8 @@ const connectRabbitMQ = async () => {
     connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
 
-    // Create exchange
     await channel.assertExchange(EXCHANGE_NAME, "topic", { durable: true });
 
-    // Create queues
     for (const [key, queueName] of Object.entries(QUEUES)) {
       await channel.assertQueue(queueName, { durable: true });
       await channel.bindQueue(queueName, EXCHANGE_NAME, `${key}.*`);
@@ -39,20 +42,17 @@ const connectRabbitMQ = async () => {
     Logger.info("✅ RabbitMQ connected successfully");
 
     connection.on("close", () => {
-      Logger.error("RabbitMQ connection closed, reconnecting...");
-      setTimeout(connectRabbitMQ, 5000);
+      Logger.error("RabbitMQ connection closed, reconnecting in 30s...");
+      setTimeout(connectRabbitMQ, 30000);
+    });
+
+    connection.on("error", (err) => {
+      Logger.error("RabbitMQ connection error:", err.message);
     });
 
     return channel;
   } catch (error) {
-    Logger.error("❌ RabbitMQ connection error:", error.message);
-    // Don't retry if connection refused and disabled
-    if (error.code === 'ECONNREFUSED') {
-       Logger.warn("RabbitMQ server refused connection. Retrying in 30s...");
-       setTimeout(connectRabbitMQ, 30000);
-    } else {
-       setTimeout(connectRabbitMQ, 5000);
-    }
+    Logger.warn(`⚠️ RabbitMQ unavailable (${error.message}). Service will run without queue support.`);
     return null;
   }
 };

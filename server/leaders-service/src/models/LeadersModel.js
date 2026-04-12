@@ -60,7 +60,7 @@ class LeaderModel {
       const safeData = { ...data };
       delete safeData.password_hash;
       leadersList.unshift(safeData);
-      await redis.set(cacheKey, JSON.stringify(leadersList), { EX: 3600 });
+      await redis.set(cacheKey, JSON.stringify(leadersList), 'EX', 3600);
     } catch (err) {
       Logger.error("Error updating Redis cache after creating leader:", err);
     }
@@ -231,7 +231,7 @@ class LeaderModel {
       );
 
       // Cache results for 1 hour
-      await redis.set(cacheKey, JSON.stringify(leaders), { EX: 3600 });
+      await redis.set(cacheKey, JSON.stringify(leaders), 'EX', 3600);
 
       return transformedLeaders;
     } catch (error) {
@@ -399,7 +399,7 @@ class LeaderModel {
       );
 
       // Cache for 30 minutes
-      await redis.set(cacheKey, JSON.stringify(leaders), { EX: 1800 });
+      await redis.set(cacheKey, JSON.stringify(leaders), 'EX', 1800);
 
       return transformedLeaders;
     } catch (error) {
@@ -567,7 +567,7 @@ class LeaderModel {
       );
 
       // Cache for 30 minutes
-      await redis.set(cacheKey, JSON.stringify(leaders), { EX: 1800 });
+      await redis.set(cacheKey, JSON.stringify(leaders), 'EX', 1800);
 
       return transformedLeaders;
     } catch (error) {
@@ -646,7 +646,7 @@ class LeaderModel {
       );
 
       // Cache for 15 minutes
-      await redis.set(cacheKey, JSON.stringify(leaders), { EX: 900 });
+      await redis.set(cacheKey, JSON.stringify(leaders), 'EX', 900);
 
       return transformedLeaders;
     } catch (error) {

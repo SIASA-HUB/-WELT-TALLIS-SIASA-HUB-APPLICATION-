@@ -84,34 +84,7 @@ if (!actualUploadsPath) {
   console.log(`📁 Created uploads directory: ${actualUploadsPath}`);
 }
 
-console.log("=".repeat(60));
-console.log("📁 STATIC FILE SERVING CONFIGURATION:");
-console.log("Server directory:", __dirname);
-console.log("Serving static files from:", actualUploadsPath);
-console.log("Directory exists:", fs.existsSync(actualUploadsPath));
-
-// Check directory contents
-if (fs.existsSync(actualUploadsPath)) {
-  const listDir = (dir, level = 0) => {
-    if (level > 3) return;
-    try {
-      const items = fs.readdirSync(dir);
-      console.log(`${"  ".repeat(level)}📁 ${path.basename(dir)}: ${items.length} items`);
-      if (level < 2 && items.length > 0 && items.length < 10) {
-        items.forEach(item => {
-          const itemPath = path.join(dir, item);
-          if (fs.statSync(itemPath).isDirectory()) {
-            listDir(itemPath, level + 1);
-          } else {
-            console.log(`${"  ".repeat(level + 1)}📄 ${item}`);
-          }
-        });
-      }
-    } catch (e) {}
-  };
-  listDir(actualUploadsPath);
-}
-console.log("=".repeat(60));
+Logger.info(`📁 Serving static files from: ${actualUploadsPath}`);
 
 // ============================================
 // SERVE STATIC FILES FROM MULTIPLE LOCATIONS
@@ -210,16 +183,6 @@ app.get("/api/v1/debug/images", (req, res) => {
   }
 });
 
-// Request logging
-app.use((req, res, next) => {
-  Logger.info("Incoming Request", {
-    method: req.method,
-    path: req.originalUrl,
-    ip: req.ip,
-    origin: req.headers.origin,
-  });
-  next();
-});
 
 // Routes
 app.use("/api/v1/endorsements", endorsementRoutes);
@@ -286,13 +249,13 @@ const HOST = process.env.HOST || "0.0.0.0";
         action: "server_started",
         environment,
       });
-<<<<<<< HEAD
+
       Logger.info(`📁 Static files served from: ${actualUploadsPath}`);
       Logger.info(`📸 Test image URL: http://${HOST}:${PORT}/uploads/endorsements/`);
       Logger.info(`🔍 Debug images: http://${HOST}:${PORT}/api/v1/debug/images`);
       Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/cors-test`);
-=======
-      Logger.info(`📁 Static files served from: ${uploadsPath}`);
+
+      Logger.info(`📁 Static files served from: ${actualUploadsPath}`);
       Logger.info(
         `📸 Images accessible at: http://${HOST}:${PORT}/api/v1/uploads/endorsements/`,
       );
@@ -301,7 +264,7 @@ const HOST = process.env.HOST || "0.0.0.0";
       );
       Logger.info(`🌐 CORS enabled for all origins`);
       Logger.info(`🧪 Test CORS: http://${HOST}:${PORT}/api/v1/cors-test`);
->>>>>>> ae28c39a72bc8445066d186b544692a7e1c11e53
+
     });
 
     const shutdown = async () => {

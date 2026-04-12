@@ -19,9 +19,28 @@ import {
   Activity,
 } from "lucide-react";
 import axios from "axios";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend,
+} from "recharts";
+import CompetitorsSection from "./CompetitorsSection";
 
-const LEADER_API_URL = "http://localhost:8006/api/v1/leaders";
+const COLORS = ["#1e3c72", "#10b981", "#ea580c", "#dc2626", "#6366f1"];
+
+const LEADER_API_URL = "http://localhost:8006/api/v1";
 const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
+// Note: If you see double /api/v1 in logs, ensure axios baseURL isn't also adding it.
 
 // Animations
 const fadeInUp = keyframes`
@@ -384,6 +403,8 @@ const DashboardOverview = ({ leader }) => {
     total_likes: 0,
     total_comments: 0,
     total_boosts: 0,
+    total_shares: 0,
+    manifestos_count: 0,
     free_endorsements: 0,
     paid_endorsements: 0,
   });
@@ -392,45 +413,54 @@ const DashboardOverview = ({ leader }) => {
   const [profileViews, setProfileViews] = useState(0);
   const [trendingScore, setTrendingScore] = useState(0);
   const [verificationStatus, setVerificationStatus] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState([]);
+  const [trialActive, setTrialActive] = useState(false);
+  const [demographics, setDemographics] = useState({ gender: {}, generations: {} });
+  const [wardReach, setWardReach] = useState([]);
+  const [growthRate, setGrowthRate] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     if (!leader?.leader_id) return;
 
     setLoading(true);
     try {
-      // Fetch endorsement stats
-      const [statsRes, endorsementsRes, leaderStatsRes] = await Promise.all([
-        axios.get(
-          `${ENDORSEMENT_API_URL}/api/v1/endorsements/leader/${leader.leader_id}/stats`,
-        ),
-        axios.get(
-          `${ENDORSEMENT_API_URL}/api/v1/endorsements/leader/${leader.leader_id}/recent?limit=10`,
-        ),
-        axios.get(`${LEADER_API_URL}/api/v1/leaders/${leader.leader_id}/stats`),
-      ]);
+      // 1. Fetch from the NEW unified analytics endpoint
+      const dashboardRes = await axios.get(`${LEADER_API_URL}/leaders/analytics/dashboard`, {
+        params: { leader_id: leader.leader_id }
+      });
 
-      if (statsRes.data.success) {
-        setStats(statsRes.data.data);
+      if (dashboardRes.data.success) {
+        const d = dashboardRes.data.data;
+        setProfileViews(d.overview.reach || 0);
+        setStats(prev => ({
+          ...prev,
+          endorsement_count: d.overview.endorsements || 0,
+          unique_supporters: d.overview.followers || 0,
+          total_shares: d.overview.shares || 0,
+        }));
+        setAnalyticsData(d.daily_reach || []);
+        setTrialActive(d.overview.trial_active);
+        setVerificationStatus(d.overview.is_verified);
+        setDemographics(d.demographics || { gender: {}, generations: {} });
+        setWardReach(d.ward_reach || []);
+        setGrowthRate(d.overview.growth_rate || 0);
       }
+
+      // 2. Fetch recent endorsements (KEEPING EXISTING)
+      const endorsementsRes = await axios.get(
+        `${ENDORSEMENT_API_URL}/endorsements/leader/${leader.leader_id}/recent?limit=10`,
+      );
 
       if (endorsementsRes.data.success) {
         setRecentEndorsements(endorsementsRes.data.data || []);
       }
 
-      if (leaderStatsRes.data.success) {
-        setProfileViews(leaderStatsRes.data.data?.views || 0);
-        setTrendingScore(leaderStatsRes.data.data?.trending_score || 0);
-      }
-
-      setVerificationStatus(
-        leader?.verification === 1 || leader?.verification === "verified",
-      );
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      console.error("❌ Dashboard data error:", error);
     } finally {
       setLoading(false);
     }
-  }, [leader?.leader_id, leader?.verification]);
+  }, [leader?.leader_id]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -464,7 +494,7 @@ const DashboardOverview = ({ leader }) => {
   };
 
   const totalEngagement =
-    stats.total_likes + stats.total_comments + stats.total_boosts;
+    stats.total_likes + stats.total_comments + stats.total_boosts + stats.total_shares;
   const engagementRate =
     stats.unique_supporters > 0
       ? ((totalEngagement / stats.unique_supporters) * 100).toFixed(1)
@@ -555,6 +585,154 @@ const DashboardOverview = ({ leader }) => {
       </StatGrid>
 
       <MainContentGrid>
+        {/* Campaign Analytics Chart */}
+        <ActivityCard style={{ gridColumn: "1 / -1" }}>
+          <CardHeader>
+            <h3>
+              <TrendingUp size={18} />
+              Daily Reach (Views & Shares)
+            </h3>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {growthRate !== 0 && (
+                <div className="badge" style={{ background: growthRate > 0 ? '#dcfce7' : '#fee2e2', color: growthRate > 0 ? '#166534' : '#991b1b' }}>
+                  {growthRate > 0 ? '+' : ''}{growthRate}% Growth
+                </div>
+              )}
+              {trialActive && <div className="badge">Trial Active</div>}
+            </div>
+          </CardHeader>
+          <div style={{ padding: "24px", height: "300px" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={analyticsData}>
+                <defs>
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1e3c72" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#1e3c72" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  tickFormatter={(str) => {
+                    const d = new Date(str);
+                    return d.toLocaleDateString("en-US", { weekday: "short" });
+                  }}
+                />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="views" 
+                  stroke="#1e3c72" 
+                  fillOpacity={1} 
+                  fill="url(#colorViews)" 
+                  strokeWidth={3}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="shares" 
+                  stroke="#10b981" 
+                  fillOpacity={0.1} 
+                  fill="#10b981" 
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </ActivityCard>
+
+        {/* Demographics & Reach Section */}
+        <ActivityCard>
+          <CardHeader>
+            <h3><Users size={18} /> Audience Demographics</h3>
+          </CardHeader>
+          <div style={{ padding: "24px", display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ height: '200px' }}>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Gender Distribution</p>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={Object.entries(demographics.gender).map(([name, value]) => ({ name, value }))}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {Object.entries(demographics.gender).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div style={{ height: '200px' }}>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Generational Reach</p>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={Object.entries(demographics.generations).map(([name, value]) => ({ name, value }))}>
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                  <Tooltip cursor={{ fill: 'transparent' }} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {Object.entries(demographics.generations).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </ActivityCard>
+
+        <ActivityCard>
+          <CardHeader>
+            <h3><Target size={18} /> Top Performing Wards</h3>
+          </CardHeader>
+          <div style={{ padding: "0 24px 24px 24px" }}>
+            {wardReach.length === 0 ? (
+              <EmptyState style={{ padding: '40px 0' }}>
+                <Activity size={24} />
+                <p>No location data yet</p>
+              </EmptyState>
+            ) : (
+              wardReach.map((ward, i) => (
+                <div key={i} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  padding: '16px 0',
+                  borderBottom: i === wardReach.length - 1 ? 'none' : '1px solid #f1f5f9'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      borderRadius: '8px', 
+                      background: '#f8fafc', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: '#1e3c72'
+                    }}>#{i + 1}</div>
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{ward.ward}</span>
+                  </div>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>{ward.count} views</span>
+                </div>
+              ))
+            )}
+          </div>
+        </ActivityCard>
+
         {/* Recent Activity */}
         <ActivityCard>
           <CardHeader>
@@ -571,12 +749,12 @@ const DashboardOverview = ({ leader }) => {
               <div className="label">Free Support</div>
             </div>
             <div className="summary-item">
-              <div className="value">{stats.paid_endorsements || 0}</div>
-              <div className="label">Paid Support</div>
+              <div className="value">{stats.total_shares || 0}</div>
+              <div className="label">Shares</div>
             </div>
             <div className="summary-item">
-              <div className="value">{stats.total_boosts || 0}</div>
-              <div className="label">Boosts</div>
+              <div className="value">{stats.manifestos_count || 0}</div>
+              <div className="label">Manifestos</div>
             </div>
           </StatsSummary>
 
@@ -767,6 +945,10 @@ const DashboardOverview = ({ leader }) => {
             )}
           </div>
         </ActivityCard>
+
+        <div style={{ gridColumn: "1 / -1", marginTop: "24px" }}>
+          <CompetitorsSection leader={leader} />
+        </div>
       </MainContentGrid>
     </Container>
   );

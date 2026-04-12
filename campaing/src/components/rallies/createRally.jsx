@@ -17,7 +17,7 @@ import {
   Tag,
 } from "lucide-react";
 
-import { API_BASE_URL } from "./apiConfig";
+import api from "../../api/api";
 
 const THEME = {
   primary: "#BB0000",
@@ -454,13 +454,13 @@ const CreateRally = () => {
       submitData.append("image", imageFile);
 
       // Send to backend
-      const response = await axios.post(`${API_BASE_URL}/rallies`, submitData, {
+      const response = await api.post("/rallies", submitData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      if (response.data.success) {
+      if (response.success) {
         setSuccess("Rally created successfully! 🎉");
 
         // Clear form

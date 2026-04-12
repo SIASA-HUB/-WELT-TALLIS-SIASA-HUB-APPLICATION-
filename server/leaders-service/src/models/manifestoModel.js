@@ -15,26 +15,30 @@ class ManifestoModel {
     const manifesto_id = this.generateUUID();
     const now = getKenyaTimeISO();
 
-    // Add unique IDs to each agenda item
-    const agendaItemsWithIds = agenda_items.map((item, index) => ({
-      id: this.generateAgendaItemId(),
-      index: index,
-      title: item.title,
-      description: item.description,
-    }));
-
+    // 1. Insert the main manifesto record
     await safeQuery(
-      `INSERT INTO manifestos (manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        manifesto_id,
-        leader_id,
-        main_agenda,
-        JSON.stringify(agendaItemsWithIds), // Store as JSON string
-        now,
-        now,
-      ],
+      `INSERT INTO manifestos (manifesto_id, leader_id, main_agenda, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [manifesto_id, leader_id, main_agenda, now, now]
     );
+
+    // 2. Insert each agenda item into manifesto_agendas table
+    const agendaItemsWithIds = [];
+    for (const [index, item] of agenda_items.entries()) {
+      const agenda_id = this.generateAgendaItemId();
+      await safeQuery(
+        `INSERT INTO manifesto_agendas (id, manifesto_id, title, description, votes_count, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [agenda_id, manifesto_id, item.title, item.description, 0, now, now]
+      );
+      agendaItemsWithIds.push({
+        id: agenda_id,
+        index: index,
+        title: item.title,
+        description: item.description,
+        votes_count: 0
+      });
+    }
 
     return {
       manifesto_id,
@@ -48,106 +52,80 @@ class ManifestoModel {
   static async update(manifesto_id, main_agenda, agenda_items) {
     const now = getKenyaTimeISO();
 
-    const agendaItemsWithIds = agenda_items.map((item, index) => ({
-      id: item.id || this.generateAgendaItemId(),
-      index: index,
-      title: item.title,
-      description: item.description,
-    }));
-
+    // 1. Update main manifesto
     await safeQuery(
       `UPDATE manifestos
-       SET main_agenda = ?, agenda_items = ?, updated_at = ?
+       SET main_agenda = ?, updated_at = ?
        WHERE manifesto_id = ?`,
-      [main_agenda, JSON.stringify(agendaItemsWithIds), now, manifesto_id],
+      [main_agenda, now, manifesto_id]
     );
-    return { manifesto_id, main_agenda, agenda_items: agendaItemsWithIds };
+
+    // 2. Refresh agendas: For simplicity, we delete existing and re-insert, or update if we have IDs
+    // But normalized approach usually involves sync. Let's do a sync update.
+    for (const item of agenda_items) {
+      if (item.id) {
+        await safeQuery(
+          `UPDATE manifesto_agendas
+           SET title = ?, description = ?, updated_at = ?
+           WHERE id = ? AND manifesto_id = ?`,
+          [item.title, item.description, now, item.id, manifesto_id]
+        );
+      } else {
+        const agenda_id = this.generateAgendaItemId();
+        await safeQuery(
+          `INSERT INTO manifesto_agendas (id, manifesto_id, title, description, votes_count, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [agenda_id, manifesto_id, item.title, item.description, 0, now, now]
+        );
+      }
+    }
+
+    return { manifesto_id, main_agenda };
   }
 
   static async findByLeaderId(leader_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at
+      `SELECT manifesto_id, leader_id, main_agenda, created_at, updated_at
        FROM manifestos
        WHERE leader_id = ?
        ORDER BY created_at DESC`,
-      [leader_id],
+      [leader_id]
     );
 
     if (!rows || rows.length === 0) return [];
 
-    return rows.map((item) => {
-      let agendaItems = item.agenda_items;
+    const finalManifestos = [];
+    for (const m of rows) {
+      const agendas = await safeQuery(
+        `SELECT id, title, description, votes_count FROM manifesto_agendas WHERE manifesto_id = ? ORDER BY created_at ASC`,
+        [m.manifesto_id]
+      );
+      finalManifestos.push({
+        ...m,
+        agenda_items: agendas
+      });
+    }
 
-      // Parse if it's a string
-      if (typeof agendaItems === "string") {
-        try {
-          agendaItems = JSON.parse(agendaItems);
-        } catch (e) {
-          console.error("Error parsing agenda_items:", e);
-          agendaItems = [];
-        }
-      }
-
-      // Handle case where agenda_items might be an array of strings
-      if (Array.isArray(agendaItems) && agendaItems.length > 0) {
-        agendaItems = agendaItems.map((agendaItem) => {
-          // If agenda item is a string, parse it
-          if (typeof agendaItem === "string") {
-            try {
-              return JSON.parse(agendaItem);
-            } catch (e) {
-              return agendaItem;
-            }
-          }
-          return agendaItem;
-        });
-      }
-
-      return {
-        ...item,
-        agenda_items: agendaItems,
-      };
-    });
+    return finalManifestos;
   }
 
   static async findById(manifesto_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, agenda_items, created_at, updated_at
+      `SELECT manifesto_id, leader_id, main_agenda, created_at, updated_at
        FROM manifestos
        WHERE manifesto_id = ?`,
-      [manifesto_id],
+      [manifesto_id]
     );
     if (rows.length === 0) return null;
 
-    let agendaItems = rows[0].agenda_items;
-
-    // Parse if it's a string
-    if (typeof agendaItems === "string") {
-      try {
-        agendaItems = JSON.parse(agendaItems);
-      } catch (e) {
-        console.error("Error parsing agenda_items:", e);
-        agendaItems = [];
-      }
-    }
-
-    // Handle case where agenda_items might be an array of strings
-    if (Array.isArray(agendaItems) && agendaItems.length > 0) {
-      agendaItems = agendaItems.map((agendaItem) => {
-        if (typeof agendaItem === "string") {
-          try {
-            return JSON.parse(agendaItem);
-          } catch (e) {
-            return agendaItem;
-          }
-        }
-        return agendaItem;
-      });
-    }
+    const agendas = await safeQuery(
+      `SELECT id, title, description, votes_count FROM manifesto_agendas WHERE manifesto_id = ? ORDER BY created_at ASC`,
+      [manifesto_id]
+    );
 
     return {
       ...rows[0],
-      agenda_items: agendaItems,
+      agenda_items: agendas,
     };
   }
 
@@ -167,67 +145,100 @@ class ManifestoModel {
   }
 
 
-  // In your ManifestoModel.js
-static async getTrending(limit = 20) {
-  const query = `
-    SELECT 
-      m.*,
-      l.name as leader_name,
-      l.party as leader_party,
-      l.position as leader_position,
-      l.county as leader_county,
-      l.constituency as leader_constituency,
-      l.ward as leader_ward,
-      l.image_url as leader_image,
-      COALESCE(m.likes, 0) as likes,
-      COALESCE(m.views, 0) as views,
-      COALESCE(m.comments, 0) as comments,
-      (COALESCE(m.likes, 0) * 2 + COALESCE(m.views, 0) + COALESCE(m.comments, 0) * 3) as trending_score
-    FROM manifestos m
-    JOIN leaders l ON m.leader_id = l.leader_id
-    WHERE m.status = 'active' AND l.status = 'active'
-    ORDER BY trending_score DESC, m.created_at DESC
-    LIMIT ?
-  `;
-  
-  return await safeQuery(query, [limit]);
-}
+  // Get trending manifestos with real vote counts and leader images
+  static async getTrending(limit = 20) {
+    const rows = await safeQuery(
+      `SELECT 
+        m.manifesto_id, m.leader_id, m.main_agenda, m.created_at,
+        l.name as leader_name, l.party as leader_party,
+        l.position as leader_position, l.position_running_for,
+        l.county as leader_county, l.constituency as leader_constituency,
+        l.ward as leader_ward, l.slug as leader_slug,
+        COALESCE(l.image_url, li.image_url) as leader_image,
+        COALESCE((
+          SELECT SUM(votes_count) FROM manifesto_agendas ma WHERE ma.manifesto_id = m.manifesto_id
+        ), 0) as total_votes,
+        COALESCE((
+          SELECT COUNT(*) FROM manifesto_agendas ma WHERE ma.manifesto_id = m.manifesto_id
+        ), 0) as agenda_count
+      FROM manifestos m
+      JOIN leaders l ON m.leader_id = l.leader_id
+      LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
+      WHERE l.status = 'active'
+      ORDER BY total_votes DESC, m.created_at DESC
+      LIMIT ?`,
+      [limit]
+    );
 
-// Add method to get manifestos by location
-static async getByLocation(county, ward = null, limit = 20) {
-  let query = `
-    SELECT 
-      m.*,
-      l.name as leader_name,
-      l.party as leader_party,
-      l.position as leader_position,
-      l.county,
-      l.constituency,
-      l.ward,
-      l.image_url as leader_image,
-      COALESCE(m.likes, 0) as likes,
-      COALESCE(m.views, 0) as views,
-      COALESCE(m.comments, 0) as comments
-    FROM manifestos m
-    JOIN leaders l ON m.leader_id = l.leader_id
-    WHERE m.status = 'active' 
-      AND l.status = 'active'
-      AND l.county = ?
-  `;
-  
-  const params = [county];
-  
-  if (ward) {
-    query += ` AND l.ward = ?`;
-    params.push(ward);
+    // Attach top agenda for each manifesto
+    const result = [];
+    for (const m of rows) {
+      const topAgenda = await safeQuery(
+        `SELECT id, title, votes_count FROM manifesto_agendas WHERE manifesto_id = ? ORDER BY votes_count DESC LIMIT 3`,
+        [m.manifesto_id]
+      );
+      result.push({ ...m, top_agendas: topAgenda });
+    }
+    return result;
   }
-  
-  query += ` ORDER BY m.created_at DESC LIMIT ?`;
-  params.push(limit);
-  
-  return await safeQuery(query, params);
-}
 
+  // Get manifestos personalized by location + party
+  static async getPersonalized(county, ward, constituency, political_party, limit = 20) {
+    let conditions = [`l.status = 'active'`];
+    const params = [];
+
+    if (county) { conditions.push(`l.county = ?`); params.push(county); }
+    if (ward) { conditions.push(`l.ward = ?`); params.push(ward); }
+    if (constituency) { conditions.push(`l.constituency = ?`); params.push(constituency); }
+    if (political_party && political_party !== 'Undecided' && political_party !== 'Prefer not to say') {
+      conditions.push(`l.party = ?`); params.push(political_party);
+    }
+
+    params.push(limit);
+
+    const rows = await safeQuery(
+      `SELECT 
+        m.manifesto_id, m.leader_id, m.main_agenda, m.created_at,
+        l.name as leader_name, l.party as leader_party,
+        l.position as leader_position, l.position_running_for,
+        l.county as leader_county, l.constituency as leader_constituency, l.ward as leader_ward,
+        l.slug as leader_slug,
+        COALESCE(l.image_url, li.image_url) as leader_image,
+        COALESCE((SELECT SUM(votes_count) FROM manifesto_agendas ma WHERE ma.manifesto_id = m.manifesto_id), 0) as total_votes
+       FROM manifestos m
+       JOIN leaders l ON m.leader_id = l.leader_id
+       LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY total_votes DESC, m.created_at DESC
+       LIMIT ?`,
+      params
+    );
+
+    // Attach agendas
+    for (const m of rows) {
+      m.agenda_items = await safeQuery(
+        `SELECT id, title, votes_count FROM manifesto_agendas WHERE manifesto_id = ? ORDER BY votes_count DESC`,
+        [m.manifesto_id]
+      );
+    }
+    return rows;
+  }
+
+  // Delete a single agenda item (votes cascade)
+  static async deleteAgenda(agendaId) {
+    await safeQuery(`DELETE FROM manifesto_agendas WHERE id = ?`, [agendaId]);
+    return true;
+  }
+
+  // Track View (Read Time)
+  static async trackView(manifesto_id, user_id, read_time) {
+    await safeQuery(
+      `INSERT INTO manifesto_views (manifesto_id, user_id, read_time, created_at)
+       VALUES (?, ?, ?, NOW())`,
+      [manifesto_id, user_id || null, read_time]
+    );
+    return true;
+  }
 }
 
 module.exports = ManifestoModel;

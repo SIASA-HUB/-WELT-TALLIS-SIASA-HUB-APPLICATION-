@@ -2,10 +2,20 @@ const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const {
   asyncHandler,
-  db: { safeQuery, safeQueryOne },
+  db: { safeQuery, safeQueryOne, getConnection },
   mpesa: mpesaConfig,
+  isPositiveAmount,
+  isValidKenyanPhone,
 } = require("../../../global/index");
 const Logger = require("../utils/logger/logger");
+
+// Safaricom valid callback IPs (production + sandbox)
+const SAFARICOM_IPS = new Set([
+  "196.201.214.200","196.201.214.201","196.201.214.202","196.201.214.203",
+  "196.201.214.204","196.201.214.207","196.201.214.208","196.201.214.209",
+  "196.201.214.214","196.201.214.215","196.201.214.216",
+  "127.0.0.1", "::1", "::ffff:127.0.0.1", // Allow local for development
+]);
 
 // Simple in-memory cache
 const memoryCache = new Map();
@@ -129,90 +139,61 @@ const calculateBonus = (amount) => {
 // GET WALLET BALANCE
 // ============================================
 const getWalletBalance = asyncHandler(async (req, res) => {
-  const { user_id } = req.params;
+  // SECURITY: Use JWT user_id — never trust params without ownership check
+  const requestedUserId = req.params.user_id;
+  const jwtUserId = req.user?.userId;
+  const isAdmin = req.user?.role === 'admin';
 
-  console.log("🔍 Getting balance for user:", user_id);
+  // Ownership check: user can only see their own wallet unless admin
+  if (!isAdmin && jwtUserId && jwtUserId !== requestedUserId) {
+    return res.status(403).json({ success: false, message: "Access forbidden: you can only view your own wallet" });
+  }
 
+  const user_id = requestedUserId;
   if (!user_id) {
-    return res.status(400).json({
-      success: false,
-      message: "User ID is required",
-    });
+    return res.status(400).json({ success: false, message: "User ID is required" });
   }
 
   try {
-    // Check cache first
     const cacheKey = `wallet_${user_id}`;
     if (memoryCache.has(cacheKey)) {
-      console.log("📦 Returning cached balance for:", user_id);
-      return res.json({
-        success: true,
-        data: memoryCache.get(cacheKey),
-      });
+      return res.json({ success: true, data: memoryCache.get(cacheKey) });
     }
 
-    // Get wallet from database
-    const wallet = await safeQueryOne(
-      `SELECT user_id, balance, total_deposited, total_bonus, updated_at 
-       FROM user_wallets 
-       WHERE user_id = ?`,
-      [user_id],
+    let wallet = await safeQueryOne(
+      `SELECT user_id, balance, total_deposited, total_bonus, updated_at FROM user_wallets WHERE user_id = ?`,
+      [user_id]
     );
 
-    console.log("💰 Wallet found:", wallet);
-
     if (!wallet) {
-      // Create wallet for new user with default 100 points
-      console.log("🆕 Creating new wallet with 100 points for user:", user_id);
-      
-      const initialPoints = 100;
-      await safeQuery(
-        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
-         VALUES (?, ?, 0, ?, NOW(), NOW())`,
-        [user_id, initialPoints, initialPoints],
-      );
-
-      // Create a bonus transaction record
-      const transactionId = `WELCOME-${Date.now()}-${uuidv4().substring(0, 8)}`;
-      await safeQuery(
-        `INSERT INTO wallet_transactions 
-         (transaction_id, user_id, amount, type, description, status, completed_at)
-         VALUES (?, ?, ?, 'bonus', 'Welcome bonus points', 'completed', NOW())`,
-        [transactionId, user_id, initialPoints],
-      );
-
-      const newWallet = {
-        user_id,
-        balance: initialPoints,
-        total_deposited: 0,
-        total_bonus: initialPoints,
-        updated_at: new Date().toISOString(),
-      };
-
-      memoryCache.set(cacheKey, newWallet);
-      setTimeout(() => memoryCache.delete(cacheKey), 30000);
-
-      return res.json({
-        success: true,
-        data: newWallet,
-        message: "Welcome! 100 points have been added to your wallet.",
-      });
+      // Auto-create wallet with 100 welcome points
+      const conn = await getConnection();
+      try {
+        await conn.beginTransaction();
+        const initialPoints = 100;
+        await conn.execute(
+          `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) VALUES (?, ?, 0, ?, NOW(), NOW())`,
+          [user_id, initialPoints, initialPoints]
+        );
+        const txId = `WELCOME-${Date.now()}-${uuidv4().substring(0, 8)}`;
+        await conn.execute(
+          `INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, completed_at) VALUES (?, ?, ?, 'bonus', 'Welcome bonus points', 'completed', NOW())`,
+          [txId, user_id, initialPoints]
+        );
+        await conn.commit();
+        conn.release();
+        wallet = { user_id, balance: initialPoints, total_deposited: 0, total_bonus: initialPoints, updated_at: new Date().toISOString() };
+      } catch (e) {
+        await conn.rollback(); conn.release(); throw e;
+      }
     }
 
-    // Cache the result
     memoryCache.set(cacheKey, wallet);
     setTimeout(() => memoryCache.delete(cacheKey), 30000);
-
-    res.json({
-      success: true,
-      data: wallet,
-    });
+    return res.json({ success: true, data: wallet });
   } catch (error) {
-    console.error("❌ Error fetching wallet balance:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch wallet balance",
-    });
+    Logger.error("Error fetching wallet balance:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch wallet balance" });
   }
 });
 
@@ -278,7 +259,7 @@ const getTransactionHistory = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching transactions:", error);
+    Logger.error("Error fetching transactions:", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Failed to fetch transaction history",
@@ -317,7 +298,7 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
       data: transaction,
     });
   } catch (error) {
-    console.error("Error checking payment status:", error);
+    Logger.error("Error checking payment status:", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Failed to check payment status",
@@ -329,120 +310,85 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
 // USE WALLET FOR ENDORSEMENT
 // ============================================
 const useWalletForEndorsement = asyncHandler(async (req, res) => {
-  const { user_id, amount, endorsement_id } = req.body;
+  // SECURITY: Always use JWT user_id, never trust body user_id
+  const user_id = req.user?.userId;
+  const { amount, endorsement_id } = req.body;
 
-  if (!user_id || !amount || !endorsement_id) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing required fields",
-    });
+  if (!user_id) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
+  }
+  if (!amount || !endorsement_id) {
+    return res.status(400).json({ success: false, message: "amount and endorsement_id are required" });
+  }
+  if (!isPositiveAmount(amount)) {
+    return res.status(400).json({ success: false, message: "Invalid amount" });
   }
 
+  const conn = await getConnection();
   try {
-    await safeQuery("START TRANSACTION");
+    await conn.beginTransaction();
 
-    // Check wallet balance
-    const wallet = await safeQueryOne(
+    // Lock wallet row for update
+    const [rows] = await conn.execute(
       `SELECT balance FROM user_wallets WHERE user_id = ? FOR UPDATE`,
-      [user_id],
+      [user_id]
     );
+    const wallet = rows[0];
 
     if (!wallet || wallet.balance < amount) {
-      await safeQuery("ROLLBACK");
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient balance",
-      });
+      await conn.rollback(); conn.release();
+      return res.status(400).json({ success: false, message: "Insufficient balance" });
     }
 
-    // Deduct points
-    await safeQuery(
-      `UPDATE user_wallets SET balance = balance - ? WHERE user_id = ?`,
-      [amount, user_id],
+    await conn.execute(
+      `UPDATE user_wallets SET balance = balance - ?, updated_at = NOW() WHERE user_id = ?`,
+      [amount, user_id]
     );
 
-    // Create transaction record
     const transactionId = `END-${Date.now()}-${uuidv4().substring(0, 8)}`;
-    await safeQuery(
-      `INSERT INTO wallet_transactions 
-       (transaction_id, user_id, amount, type, reference_id, description, status, completed_at)
-       VALUES (?, ?, ?, 'withdrawal', ?, ?, 'completed', NOW())`,
-      [
-        transactionId,
-        user_id,
-        amount,
-        endorsement_id,
-        `Endorsement payment of ${amount} points`,
-      ],
+    await conn.execute(
+      `INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, reference_id, description, status, completed_at) VALUES (?, ?, ?, 'withdrawal', ?, ?, 'completed', NOW())`,
+      [transactionId, user_id, amount, endorsement_id, `Endorsement payment of ${amount} points`]
     );
 
-    await safeQuery("COMMIT");
+    await conn.commit(); conn.release();
     memoryCache.delete(`wallet_${user_id}`);
 
     res.json({
       success: true,
       message: "Payment successful",
-      data: {
-        transactionId,
-        newBalance: wallet.balance - amount,
-      },
+      data: { transactionId, newBalance: wallet.balance - amount }
     });
   } catch (error) {
-    await safeQuery("ROLLBACK");
-    console.error("Error using wallet for endorsement:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to process payment",
-    });
+    try { await conn.rollback(); conn.release(); } catch {}
+    Logger.error("Wallet endorsement error:", error);
+    res.status(500).json({ success: false, message: "Failed to process payment" });
   }
 });
 
 // ============================================
 // ADD POINTS (Admin)
 // ============================================
+// ADMIN function — adds points via proper connection transaction
 const addPoints = async (user_id, amount, description = "Admin bonus") => {
-  if (!user_id || !amount || amount <= 0) {
-    throw new Error("Invalid amount or user ID");
-  }
+  if (!user_id || !amount || amount <= 0) throw new Error("Invalid amount or user ID");
 
+  const conn = await getConnection();
   try {
-    await safeQuery("START TRANSACTION");
-
-    // Update or create wallet
-    const wallet = await safeQueryOne(
-      `SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE`,
-      [user_id],
-    );
-
-    if (!wallet) {
-      await safeQuery(
-        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus) 
-         VALUES (?, ?, 0, ?)`,
-        [user_id, amount, amount],
-      );
+    await conn.beginTransaction();
+    const [rows] = await conn.execute(`SELECT id FROM user_wallets WHERE user_id = ? FOR UPDATE`, [user_id]);
+    if (rows.length === 0) {
+      await conn.execute(`INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus) VALUES (?, ?, 0, ?)`, [user_id, amount, amount]);
     } else {
-      await safeQuery(
-        `UPDATE user_wallets 
-         SET balance = balance + ?, total_bonus = total_bonus + ? 
-         WHERE user_id = ?`,
-        [amount, amount, user_id],
-      );
+      await conn.execute(`UPDATE user_wallets SET balance = balance + ?, total_bonus = total_bonus + ?, updated_at = NOW() WHERE user_id = ?`, [amount, amount, user_id]);
     }
-
-    const transactionId = `ADMIN-${Date.now()}-${uuidv4().substring(0, 8)}`;
-    await safeQuery(
-      `INSERT INTO wallet_transactions 
-       (transaction_id, user_id, amount, type, description, status, completed_at)
-       VALUES (?, ?, ?, 'deposit', ?, 'completed', NOW())`,
-      [transactionId, user_id, amount, description],
-    );
-
-    await safeQuery("COMMIT");
+    const txId = `ADMIN-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    await conn.execute(`INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, completed_at) VALUES (?, ?, ?, 'deposit', ?, 'completed', NOW())`, [txId, user_id, amount, description]);
+    await conn.commit(); conn.release();
     memoryCache.delete(`wallet_${user_id}`);
-
-    return { success: true, data: { transactionId, amount } };
+    return { success: true, data: { transactionId: txId, amount } };
   } catch (error) {
-    await safeQuery("ROLLBACK");
+    try { await conn.rollback(); conn.release(); } catch {}
     throw error;
   }
 };
@@ -450,50 +396,26 @@ const addPoints = async (user_id, amount, description = "Admin bonus") => {
 // ============================================
 // DEDUCT POINTS (Admin)
 // ============================================
-const deductPoints = async (
-  user_id,
-  amount,
-  description = "Admin deduction",
-) => {
-  if (!user_id || !amount || amount <= 0) {
-    throw new Error("Invalid amount or user ID");
-  }
+const deductPoints = async (user_id, amount, description = "Admin deduction") => {
+  if (!user_id || !amount || amount <= 0) throw new Error("Invalid amount or user ID");
 
+  const conn = await getConnection();
   try {
-    await safeQuery("START TRANSACTION");
-
-    const wallet = await safeQueryOne(
-      `SELECT balance FROM user_wallets WHERE user_id = ? FOR UPDATE`,
-      [user_id],
-    );
-
+    await conn.beginTransaction();
+    const [rows] = await conn.execute(`SELECT balance FROM user_wallets WHERE user_id = ? FOR UPDATE`, [user_id]);
+    const wallet = rows[0];
     if (!wallet || wallet.balance < amount) {
-      await safeQuery("ROLLBACK");
+      await conn.rollback(); conn.release();
       throw new Error("Insufficient balance");
     }
-
-    await safeQuery(
-      `UPDATE user_wallets SET balance = balance - ? WHERE user_id = ?`,
-      [amount, user_id],
-    );
-
-    const transactionId = `DEDUCT-${Date.now()}-${uuidv4().substring(0, 8)}`;
-    await safeQuery(
-      `INSERT INTO wallet_transactions 
-       (transaction_id, user_id, amount, type, description, status, completed_at)
-       VALUES (?, ?, ?, 'withdrawal', ?, 'completed', NOW())`,
-      [transactionId, user_id, amount, description],
-    );
-
-    await safeQuery("COMMIT");
+    await conn.execute(`UPDATE user_wallets SET balance = balance - ?, updated_at = NOW() WHERE user_id = ?`, [amount, user_id]);
+    const txId = `DEDUCT-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    await conn.execute(`INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, completed_at) VALUES (?, ?, ?, 'withdrawal', ?, 'completed', NOW())`, [txId, user_id, amount, description]);
+    await conn.commit(); conn.release();
     memoryCache.delete(`wallet_${user_id}`);
-
-    return {
-      success: true,
-      data: { transactionId, amount, newBalance: wallet.balance - amount },
-    };
+    return { success: true, data: { transactionId: txId, amount, newBalance: wallet.balance - amount } };
   } catch (error) {
-    await safeQuery("ROLLBACK");
+    try { await conn.rollback(); conn.release(); } catch {}
     throw error;
   }
 };
@@ -518,87 +440,46 @@ const getBalance = async (user_id) => {
 // DIRECT DEPOSIT (Reliable Fallback)
 // ============================================
 const directDeposit = asyncHandler(async (req, res) => {
-  const { user_id, amount } = req.body;
+  // ADMIN ONLY — user_id from JWT for safety if admin crediting themselves, else from body for admin operations
+  const user_id = req.body.user_id;
+  const amount = parseFloat(req.body.amount);
 
   if (!user_id || !amount || amount < 5) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid amount or missing fields. Minimum is 5 KES",
-    });
+    return res.status(400).json({ success: false, message: "Invalid amount or missing fields. Minimum is 5 KES" });
+  }
+  if (!isPositiveAmount(amount)) {
+    return res.status(400).json({ success: false, message: "Invalid amount" });
   }
 
+  const conn = await getConnection();
   try {
-    await safeQuery("START TRANSACTION");
-
+    await conn.beginTransaction();
     const bonus = calculateBonus(amount);
     const totalPoints = amount + bonus;
 
-    const wallet = await safeQueryOne(
-      `SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE`,
-      [user_id],
-    );
-
-    if (!wallet) {
-      await safeQuery(
-        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus) 
-         VALUES (?, ?, ?, ?)`,
-        [user_id, totalPoints, amount, bonus],
-      );
+    const [walletRows] = await conn.execute(`SELECT id FROM user_wallets WHERE user_id = ? FOR UPDATE`, [user_id]);
+    if (walletRows.length === 0) {
+      await conn.execute(`INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus) VALUES (?, ?, ?, ?)`, [user_id, totalPoints, amount, bonus]);
     } else {
-      await safeQuery(
-        `UPDATE user_wallets 
-         SET balance = balance + ?, 
-             total_deposited = total_deposited + ?, 
-             total_bonus = total_bonus + ?, 
-             updated_at = NOW() 
-         WHERE user_id = ?`,
-        [totalPoints, amount, bonus, user_id],
-      );
+      await conn.execute(`UPDATE user_wallets SET balance = balance + ?, total_deposited = total_deposited + ?, total_bonus = total_bonus + ?, updated_at = NOW() WHERE user_id = ?`, [totalPoints, amount, bonus, user_id]);
     }
 
-    const transactionId = `DEP-${Date.now()}-${uuidv4().substring(0, 8)}`;
-
-    await safeQuery(
-      `INSERT INTO wallet_transactions 
-       (transaction_id, user_id, amount, type, description, status, completed_at)
-       VALUES (?, ?, ?, 'deposit', ?, 'completed', NOW())`,
-      [transactionId, user_id, amount, `Direct deposit of ${amount} KES`],
-    );
+    const txId = `DEP-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    await conn.execute(`INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, completed_at) VALUES (?, ?, ?, 'deposit', ?, 'completed', NOW())`, [txId, user_id, amount, `Direct deposit of ${amount} KES`]);
 
     if (bonus > 0) {
       const bonusId = `BONUS-${Date.now()}-${uuidv4().substring(0, 8)}`;
-      await safeQuery(
-        `INSERT INTO wallet_transactions 
-         (transaction_id, user_id, amount, type, reference_id, description, status, completed_at)
-         VALUES (?, ?, ?, 'bonus', ?, ?, 'completed', NOW())`,
-        [
-          bonusId,
-          user_id,
-          bonus,
-          transactionId,
-          `Bonus from ${amount} KES deposit`,
-        ],
-      );
+      await conn.execute(`INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, reference_id, description, status, completed_at) VALUES (?, ?, ?, 'bonus', ?, ?, 'completed', NOW())`, [bonusId, user_id, bonus, txId, `Bonus from ${amount} KES deposit`]);
     }
 
-    await safeQuery("COMMIT");
+    await conn.commit(); conn.release();
     memoryCache.delete(`wallet_${user_id}`);
 
-    Logger.info(
-      `✅ Direct deposit successful: ${totalPoints} points to user ${user_id}`,
-    );
-
-    res.json({
-      success: true,
-      message: `Deposit successful! ${totalPoints} points added (${amount} + ${bonus} bonus)`,
-      data: { amount, bonus, totalPoints, transactionId },
-    });
+    res.json({ success: true, message: `Deposit successful! ${totalPoints} points added (${amount} + ${bonus} bonus)`, data: { amount, bonus, totalPoints, transactionId: txId } });
   } catch (error) {
-    await safeQuery("ROLLBACK");
+    try { await conn.rollback(); conn.release(); } catch {}
     Logger.error("Direct deposit failed:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Deposit failed. Please try again." });
+    res.status(500).json({ success: false, message: "Deposit failed. Please try again." });
   }
 });
 
@@ -731,7 +612,7 @@ const initiateDeposit = asyncHandler(async (req, res) => {
 const handlePesapalCallback = asyncHandler(async (req, res) => {
   const { OrderTrackingId } = req.query;
 
-  console.log("📞 Pesapal callback received:", OrderTrackingId);
+  Logger.info(`📞 Pesapal callback received: ${OrderTrackingId}`);
 
   if (!OrderTrackingId) {
     return res.redirect(`${FRONTEND_URL}/wallet?status=failed`);
@@ -774,7 +655,7 @@ const handlePesapalCallback = asyncHandler(async (req, res) => {
 
     res.redirect(`${FRONTEND_URL}/wallet?status=success`);
   } catch (error) {
-    console.error("Callback error:", error);
+    Logger.error("Callback error:", { error: error.message });
     res.redirect(`${FRONTEND_URL}/wallet?status=failed`);
   }
 });
@@ -785,7 +666,7 @@ const handlePesapalCallback = asyncHandler(async (req, res) => {
 const handlePesapalIPN = asyncHandler(async (req, res) => {
   const { OrderTrackingId } = req.body;
 
-  console.log("🔔 Pesapal IPN received:", OrderTrackingId);
+  Logger.info(`🔔 Pesapal IPN received: ${OrderTrackingId}`);
 
   try {
     const transaction = await safeQueryOne(
@@ -824,7 +705,7 @@ const handlePesapalIPN = asyncHandler(async (req, res) => {
 
     res.status(200).json({ status: "OK" });
   } catch (error) {
-    console.error("IPN error:", error);
+    Logger.error("IPN error:", { error: error.message });
     res.status(200).json({ status: "OK" });
   }
 });
@@ -864,7 +745,7 @@ const getUserStats = asyncHandler(async (req, res) => {
 // Default values for new users
     if (!wallet) {
       const initialPoints = 100;
-      console.log("🆕 Initializing default wallet with 100 points for user:", user_id);
+      Logger.info(`🆕 Initializing default wallet with 100 points for user: ${user_id}`);
       
       await safeQuery(
         `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
@@ -911,50 +792,42 @@ const getUserStats = asyncHandler(async (req, res) => {
 // M-PESA STK PUSH
 // ============================================
 const initiateStkPush = asyncHandler(async (req, res) => {
-  const { phoneNumber, amount, user_id, userId } = req.body;
-  const targetUserId = userId || user_id || req.user?.id;
+  // SECURITY: Use JWT user_id, not body user_id
+  const user_id = req.user?.userId;
+  const { phoneNumber, amount } = req.body;
 
-  Logger.info(`📲 [M-Pesa] Initiating STK Push for ${phoneNumber}, Amount: ${amount}`);
-
-  if (!phoneNumber || !amount || !targetUserId) {
-    return res.status(400).json({ success: false, message: "Missing phone, amount, or user ID" });
+  if (!user_id) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
   }
+  if (!phoneNumber || !amount) {
+    return res.status(400).json({ success: false, message: "Missing phone or amount" });
+  }
+  if (!isPositiveAmount(amount) || amount < 5) {
+    return res.status(400).json({ success: false, message: "Minimum amount is KES 5" });
+  }
+
+  Logger.info(`📲 [M-Pesa] STK Push for ${phoneNumber}, Amount: ${amount}, User: ${user_id}`);
 
   try {
     const reference = `STK-${Date.now()}`;
-    const desc = "Wallet Top-up";
-    const callbackUrl = process.env.MPESA_CALLBACK_URL || `${FRONTEND_URL}/api/v1/wallet/mpesa/callback`;
+    const callbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BASE_URL || 'http://localhost:8008'}/api/v1/wallet/mpesa/callback`;
 
-    const result = await mpesaConfig.stkPush(
-      phoneNumber,
-      amount,
-      reference,
-      desc,
-      callbackUrl
-    );
+    const result = await mpesaConfig.stkPush(phoneNumber, amount, reference, "Wallet Top-up", callbackUrl);
 
     if (result.ResponseCode === "0") {
-      // Save pending transaction
       await safeQuery(
-        `INSERT INTO wallet_transactions 
-         (transaction_id, user_id, amount, type, description, status, reference_id, created_at)
-         VALUES (?, ?, ?, 'deposit', ?, 'pending', ?, NOW())`,
-        [result.CheckoutRequestID, targetUserId, amount, `M-Pesa STK Push to ${phoneNumber}`, reference]
+        `INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, reference_id, created_at) VALUES (?, ?, ?, 'deposit', ?, 'pending', ?, NOW())`,
+        [result.CheckoutRequestID, user_id, amount, `M-Pesa STK Push to ${phoneNumber}`, reference]
       );
-
       return res.json({
         success: true,
-        message: "STK Push initiated successfully. Please check your phone.",
-        data: {
-          checkoutRequestId: result.CheckoutRequestID,
-          customerMessage: result.CustomerMessage
-        }
+        message: "STK Push initiated. Please check your phone.",
+        data: { checkoutRequestId: result.CheckoutRequestID, customerMessage: result.CustomerMessage }
       });
     }
-
     throw new Error(result.CustomerMessage || "Failed to initiate push");
   } catch (error) {
-    Logger.error("M-Pesa STK Push fail controller:", error.message);
+    Logger.error("M-Pesa STK Push error:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -963,71 +836,67 @@ const initiateStkPush = asyncHandler(async (req, res) => {
 // M-PESA CALLBACK
 // ============================================
 const handleMpesaCallback = asyncHandler(async (req, res) => {
-  const { Body } = req.body;
-  
-  if (!Body || !Body.stkCallback) {
-    return res.status(400).json({ success: false, message: "Invalid callback data" });
+  // SECURITY: Validate that request comes from Safaricom's IPs
+  const clientIp = req.ip || req.connection?.remoteAddress || '';
+  const cleanIp = clientIp.replace('::ffff:', '');
+  if (process.env.NODE_ENV === 'production' && !SAFARICOM_IPS.has(cleanIp)) {
+    Logger.warn(`⛔ Rejected M-Pesa callback from unauthorized IP: ${cleanIp}`);
+    return res.status(403).json({ success: false, message: 'Forbidden' });
   }
 
-  const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
+  const { Body } = req.body;
+  if (!Body?.stkCallback) {
+    return res.status(400).json({ success: false, message: 'Invalid callback data' });
+  }
 
-  Logger.info(`🔔 [M-Pesa] Callback: ${CheckoutRequestID}, Result: ${ResultCode} (${ResultDesc})`);
+  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
+  Logger.info(`🔔 [M-Pesa] Callback: ${CheckoutRequestID}, Result: ${ResultCode}`);
 
   try {
     const transaction = await safeQueryOne(
-      `SELECT * FROM wallet_transactions WHERE transaction_id = ?`,
+      `SELECT * FROM wallet_transactions WHERE transaction_id = ? AND status = 'pending'`,
       [CheckoutRequestID]
     );
-
     if (!transaction) {
-      Logger.warn(`⚠️ Transaction not found for M-Pesa callback: ${CheckoutRequestID}`);
-      return res.status(200).json({ success: true }); // Acknowledge anyway
+      Logger.warn(`Transaction not found or already processed: ${CheckoutRequestID}`);
+      return res.status(200).json({ success: true }); // Always ack Safaricom
     }
 
     if (ResultCode === 0 && CallbackMetadata) {
-      // Success! Update wallet
+      // Extract M-Pesa receipt from metadata
+      const items = CallbackMetadata?.Item || [];
+      const receiptItem = items.find(i => i.Name === 'MpesaReceiptNumber');
+      const mpesaReceipt = receiptItem?.Value || '';
+
       const bonus = calculateBonus(transaction.amount);
       const totalPoints = transaction.amount + bonus;
 
-      await safeQuery("START TRANSACTION");
-
-      // Update wallet balance
-      await safeQuery(
-        `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, updated_at) 
-         VALUES (?, ?, ?, ?, NOW()) 
-         ON DUPLICATE KEY UPDATE 
-         balance = balance + ?, 
-         total_deposited = total_deposited + ?, 
-         total_bonus = total_bonus + ?, 
-         updated_at = NOW()`,
-        [transaction.user_id, totalPoints, transaction.amount, bonus, totalPoints, transaction.amount, bonus]
-      );
-
-      // Update transaction status
-      await safeQuery(
-        `UPDATE wallet_transactions 
-         SET status = 'completed', completed_at = NOW(), description = ? 
-         WHERE transaction_id = ?`,
-        [`${transaction.description} | Completed`, CheckoutRequestID]
-      );
-
-      await safeQuery("COMMIT");
-      memoryCache.delete(`wallet_${transaction.user_id}`);
-      Logger.info(`✅ Wallet updated for user ${transaction.user_id} via M-Pesa STK`);
+      const conn = await getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.execute(
+          `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, updated_at) VALUES (?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE balance = balance + ?, total_deposited = total_deposited + ?, total_bonus = total_bonus + ?, updated_at = NOW()`,
+          [transaction.user_id, totalPoints, transaction.amount, bonus, totalPoints, transaction.amount, bonus]
+        );
+        await conn.execute(
+          `UPDATE wallet_transactions SET status = 'completed', completed_at = NOW(), description = CONCAT(description, ' | Receipt: ', ?) WHERE transaction_id = ?`,
+          [mpesaReceipt, CheckoutRequestID]
+        );
+        await conn.commit(); conn.release();
+        memoryCache.delete(`wallet_${transaction.user_id}`);
+        Logger.info(`✅ Wallet credited: ${totalPoints} pts to user ${transaction.user_id}`);
+      } catch(e) {
+        try { await conn.rollback(); conn.release(); } catch {}
+        throw e;
+      }
     } else {
-      // Failed or cancelled
-      await safeQuery(
-        `UPDATE wallet_transactions 
-         SET status = 'failed', description = ? 
-         WHERE transaction_id = ?`,
-        [`${transaction.description} | ${ResultDesc}`, CheckoutRequestID]
-      );
-      Logger.warn(`❌ M-Pesa STK Failed for ${CheckoutRequestID}: ${ResultDesc}`);
+      await safeQuery(`UPDATE wallet_transactions SET status = 'failed', description = CONCAT(description, ' | ', ?) WHERE transaction_id = ?`, [ResultDesc, CheckoutRequestID]);
+      Logger.warn(`❌ M-Pesa STK Failed: ${ResultDesc}`);
     }
 
     res.status(200).json({ success: true });
   } catch (error) {
-    Logger.error("Error processing M-Pesa callback:", error);
+    Logger.error('M-Pesa callback error:', error);
     res.status(500).json({ success: false });
   }
 });

@@ -1,31 +1,49 @@
-// routes/leaderRoutes.js - Clean Version
-
+// routes/Leader.js - Complete routes with all endpoints
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 
 const { processAndSaveImages } = require("../utils/images/imageProcessing");
+const { verifyAspirantToken, verifyOwnsManifesto } = require("../middleware/aspirantAuth");
+const {
+  authenticate,
+  authorize,
+  optionalAuth,
+  sanitizeMiddleware,
+  walletLimiter,
+  authLimiter,
+  endorsementLimiter,
+} = require("../../../global/index");
 
 const {
-  createLeader, getLeaderById,registerAspirant,loginAspirant,getMyProfile,
-  updateMyProfile,updateLeader, getLeaderStats,
-  boostLeader,getPersonalizedFeed,getPopularLeaders,
-  getLeaderAnalyticsByCounty,getLeaderAnalyticsByConstituency,
-  getLeaderAnalyticsByWard,getLeaderAnalyticsByPosition,getLeaderDashboardAnalytics,
-  requestVerification,
+  createLeader, getLeaderById, getLeaderBySlug, backfillSlugs,
+  registerAspirant, loginAspirant, getMyProfile,
+  updateMyProfile, updateLeader, getLeaderStats,
+  boostLeader, getPersonalizedFeed, getPopularLeaders,
+  getLeaderAnalyticsByCounty, getLeaderAnalyticsByConstituency,
+  getLeaderAnalyticsByWard, getLeaderAnalyticsByPosition, getLeaderDashboardAnalytics,
+  requestVerification, getCompetitors,
 } = require("../controllers/LeaderController");
 
 const {
   createManifesto,
   getTrendingManifestos,
+  getPersonalizedManifestos,
   updateManifesto: editManifesto,
   getManifestoByLeaderId,
   getManifestoStats,
+  voteManifestoAgenda,
   voteOnManifesto,
   deleteManifesto,
+  deleteAgendaItem,
+  getManifestoUserVotes,
+  trackReadTime,
 } = require("../controllers/ManifestoController");
 
 const { handleInteraction } = require("../controllers/InteractionController");
+
+// Apply sanitization to all routes
+router.use(sanitizeMiddleware);
 
 // Multer config
 const storage = multer.memoryStorage();
@@ -33,10 +51,9 @@ const fileFilter = (req, file, cb) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   allowedMimes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type'), false);
 };
-
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter });
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter }); // reduced to 5MB
 const uploadSingle = upload.single('image');
-const uploadMultiple = upload.array('images', 10);
+const uploadMultiple = upload.array('images', 5); // max 5 images
 
 const handleSingleUpload = (req, res, next) => {
   uploadSingle(req, res, (err) => err ? res.status(400).json({ success: false, message: err.message }) : next());
@@ -45,52 +62,84 @@ const handleMultipleUpload = (req, res, next) => {
   uploadMultiple(req, res, (err) => err ? res.status(400).json({ success: false, message: err.message }) : next());
 };
 
-// Analytics routes
+// ============================================================
+// ANALYTICS ROUTES
+// ============================================================
 router.get("/analytics/dashboard", getLeaderDashboardAnalytics);
 router.get("/analytics/county", getLeaderAnalyticsByCounty);
 router.get("/analytics/constituency", getLeaderAnalyticsByConstituency);
 router.get("/analytics/ward", getLeaderAnalyticsByWard);
 router.get("/analytics/position", getLeaderAnalyticsByPosition);
 
-// Auth routes
+// ============================================================
+// AUTH ROUTES
+// ============================================================
 router.post("/register", handleSingleUpload, processAndSaveImages, registerAspirant);
 router.post("/login", loginAspirant);
 
-// Manifesto routes
-router.post("/manifestos/create", createManifesto);
-router.put("/manifestos/:manifestoId", editManifesto);
-router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
-router.post("/manifestos/:manifestoId/vote", voteOnManifesto);
-router.get("/manifestos/:manifestoId/stats", getManifestoStats);
-router.delete("/manifestos/:manifestoId", deleteManifesto);
-router.get("/manifestos/trending", getTrendingManifestos);
+// ============================================================
+// MANIFESTO ROUTES (all specific paths BEFORE /:manifestoId)
+// ============================================================
 
-// Public routes
+// IMPORTANT: Specific routes first to avoid /:manifestoId capturing them
+router.get("/manifestos/trending", getTrendingManifestos);
+router.get("/manifestos/personalized", optionalAuth, getPersonalizedManifestos);
+router.post("/manifestos/create", verifyAspirantToken, createManifesto); // aspirants only
+
+// Vote — authenticated users (rate limited at gateway)
+router.post("/manifestos/vote", authenticate, voteManifestoAgenda);
+
+// Delete agenda item — aspirant (owner) only
+router.delete("/manifestos/agenda/:agendaId", verifyAspirantToken, deleteAgendaItem);
+
+// CRUD with :manifestoId
+router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
+router.get("/manifestos/:manifestoId/stats", getManifestoStats);
+router.get("/manifestos/:manifestoId/user-votes", optionalAuth, getManifestoUserVotes);
+router.post("/manifestos/:manifestoId/vote", authenticate, voteOnManifesto);
+router.post("/manifestos/:manifestoId/read-time", optionalAuth, trackReadTime);
+router.put("/manifestos/:manifestoId", verifyAspirantToken, editManifesto); // aspirants only
+router.delete("/manifestos/:manifestoId", verifyAspirantToken, deleteManifesto); // aspirants only
+
+// ============================================================
+// PUBLIC LEADER ROUTES
+// ============================================================
 router.get("/popular", getPopularLeaders);
+router.get("/profile/:slug", getLeaderBySlug);  // MUST be before /:leaderId
+router.post("/backfill-slugs", backfillSlugs);
 router.get("/", getPersonalizedFeed);
 
-// Protected routes
+// ============================================================
+// LEADER-SPECIFIC ROUTES
+// ============================================================
 router.post("/:leaderId/boost", boostLeader);
+router.get("/:leaderId/competitors", getCompetitors);
 router.get("/:leaderId", getLeaderById);
-router.get("/profile/me", getMyProfile);
-router.put("/profile/me", updateMyProfile);
-router.post("/verification/request", requestVerification);
 
-// Admin routes
-router.post("/create", handleMultipleUpload, processAndSaveImages, createLeader);
-router.put("/:leaderId", handleMultipleUpload, processAndSaveImages, updateLeader);
-router.patch("/verify/:leaderId", async (req, res) => {
+// ============================================================
+// PROTECTED / ME ROUTES — aspirant only
+// ============================================================
+router.get("/profile/me", verifyAspirantToken, getMyProfile);
+router.put("/profile/me", verifyAspirantToken, updateMyProfile);
+router.post("/verification/request", verifyAspirantToken, requestVerification);
+
+// ============================================================
+// ADMIN ROUTES — admin role required
+// ============================================================
+router.post("/create", authenticate, authorize("admin"), handleMultipleUpload, processAndSaveImages, createLeader);
+router.put("/:leaderId/admin", authenticate, authorize("admin"), handleMultipleUpload, processAndSaveImages, updateLeader);
+router.patch("/verify/:leaderId", authenticate, authorize("admin"), async (req, res) => {
   const { verifyLeader } = require("../controllers/LeaderController");
   return verifyLeader(req, res);
 });
-router.patch("/reject/:leaderId", async (req, res) => {
+router.patch("/reject/:leaderId", authenticate, authorize("admin"), async (req, res) => {
   const { rejectLeader } = require("../controllers/LeaderController");
   return rejectLeader(req, res);
 });
-router.delete("/:leaderId", async (req, res) => {
+router.delete("/:leaderId", authenticate, authorize("admin"), async (req, res) => {
   const { deleteLeader } = require("../controllers/LeaderController");
   return deleteLeader(req, res);
 });
-router.post("/interact", handleInteraction);
+router.post("/interact", authenticate, handleInteraction);
 
 module.exports = router;

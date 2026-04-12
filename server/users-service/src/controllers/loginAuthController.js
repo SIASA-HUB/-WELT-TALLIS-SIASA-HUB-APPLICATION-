@@ -1,4 +1,4 @@
-// controllers/loginAuthController.js - Complete Version (No Account Lock)
+// controllers/loginAuthController.js - Complete with Email/Username Login Support
 
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcryptjs");
@@ -26,12 +26,12 @@ const generateSecureToken = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-// Validate login input
-const validateLoginInput = (anonymous_username, password) => {
+// Validate login input (supports email or username)
+const validateLoginInput = (identifier, password) => {
   const errors = [];
 
-  if (!anonymous_username || anonymous_username.trim() === "") {
-    errors.push("Username is required");
+  if (!identifier || identifier.trim() === "") {
+    errors.push("Email or Username is required");
   }
 
   if (!password) {
@@ -42,11 +42,18 @@ const validateLoginInput = (anonymous_username, password) => {
     errors.push("Password must be at least 6 characters");
   }
 
-  if (anonymous_username && anonymous_username.length > 50) {
+  // Check if identifier is email format
+  const isEmail = identifier && identifier.includes('@') && identifier.includes('.');
+  
+  if (isEmail && identifier.length > 255) {
+    errors.push("Email is too long");
+  }
+  
+  if (!isEmail && identifier && identifier.length > 50) {
     errors.push("Username is too long");
   }
 
-  return errors;
+  return { errors, isEmail };
 };
 
 // Store refresh token in database
@@ -87,28 +94,36 @@ const invalidateOldRefreshTokens = async (userId, currentToken = null) => {
 };
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { anonymous_username, password, remember_me = false } = req.body;
+  const { identifier, password, remember_me = false } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
   const userAgent = req.headers["user-agent"];
 
   // Validate input
-  const validationErrors = validateLoginInput(anonymous_username, password);
-  if (validationErrors.length > 0) {
+  const { errors, isEmail } = validateLoginInput(identifier, password);
+  if (errors.length > 0) {
     return res.status(400).json({
       success: false,
       message: "Validation failed",
-      errors: validationErrors,
+      errors: errors,
     });
   }
 
   try {
-    // Find user (by username OR email)
-    const user = await AuthModel.findUserForAuth(anonymous_username);
+    // Find user by email OR username
+    let user;
+    
+    if (isEmail) {
+      // Search by email
+      user = await AuthModel.findUserByEmail(identifier);
+    } else {
+      // Search by username
+      user = await AuthModel.findUserByUsername(identifier);
+    }
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password",
+        message: "Invalid email/username or password",
       });
     }
 
@@ -121,11 +136,11 @@ const loginUser = asyncHandler(async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password",
+        message: "Invalid email/username or password",
       });
     }
 
-    // Create user payload for tokens
+    // Create user payload for tokens (INCLUDES ROLE)
     const userPayload = {
       userId: user.user_id,
       username: user.anonymous_username,
@@ -176,7 +191,7 @@ const loginUser = asyncHandler(async (req, res) => {
     });
     setCsrfSecretCookie(res, csrfSecret, cookieOptions);
 
-    // User info for client (non-sensitive)
+    // User info for client (non-sensitive) - INCLUDES ROLE
     const userInfo = {
       user_id: user.user_id,
       session_id: sessionId,
@@ -198,14 +213,18 @@ const loginUser = asyncHandler(async (req, res) => {
 
     // Log successful login
     Logger.info(
-      `User ${user.anonymous_username} (ID: ${user.user_id}) logged in successfully from ${ipAddress}`,
+      `User ${user.anonymous_username} (ID: ${user.user_id}) logged in successfully from ${ipAddress} - Role: ${user.role || 'user'} - Login via: ${isEmail ? 'email' : 'username'}`,
     );
 
-    // Return success response
+    // Return success response with ROLE and Token included
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      user: userInfo,
+      user: {
+        ...userInfo,
+        role: user.role || "user",
+      },
+      accessToken, // Restored for frontend localStorage support
       csrfToken,
       sessionId,
       expiresIn: remember_me ? 604800 : 900, // seconds
@@ -215,7 +234,7 @@ const loginUser = asyncHandler(async (req, res) => {
     Logger.error("Login error", {
       error: error.message,
       stack: error.stack,
-      username: anonymous_username,
+      identifier: identifier,
       ip: ipAddress,
     });
 
@@ -714,8 +733,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message:
-        "Password changed successfully. You have been logged out from all other devices.",
+      message: "Password changed successfully. You have been logged out from all other devices.",
     });
   } catch (error) {
     Logger.error("Change password error", { error: error.message });

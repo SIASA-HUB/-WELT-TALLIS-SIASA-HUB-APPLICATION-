@@ -222,6 +222,8 @@ const categories = [
   "bags",
 ];
 
+import { adminCreateProduct, adminUpdateProduct } from "../components/api";
+
 const ProductModal = ({ isOpen, onClose, onSave, product }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -309,12 +311,12 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
     reader.readAsDataURL(file);
 
     // Upload to server
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("folder", "products");
+    const data = new FormData();
+    data.append("image", file);
+    data.append("folder", "products");
 
     try {
-      const response = await axios.post(`${API_URL}/api/upload`, formData, {
+      const response = await axios.post(`/api/v1/upload`, data, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -365,8 +367,6 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
         category: formData.category,
         stock: parseInt(formData.stock),
         image: formData.image,
-        url: formData.image,
-        detailUrl: formData.image,
         seller: formData.seller,
         featured: formData.featured,
         status: "active",
@@ -374,13 +374,10 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
 
       let response;
       if (product) {
-        response = await axios.put(
-          `${API_URL}/api/products/${product.id}`,
-          productData,
-        );
+        response = await adminUpdateProduct(product.id, productData);
         setSuccess("Product updated successfully!");
       } else {
-        response = await axios.post(`${API_URL}/api/products`, productData);
+        response = await adminCreateProduct(productData);
         setSuccess("Product created successfully!");
       }
 

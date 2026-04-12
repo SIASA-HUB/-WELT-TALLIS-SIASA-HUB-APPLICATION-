@@ -53,18 +53,26 @@ const handleInteraction = asyncHandler(async (req, res) => {
       );
 
       resultMessage = "Viewed";
-    } else if (interactionType === "info_view") {
-      // Record info view - allow multiple
-      await safeQuery(
-        `INSERT INTO leader_views (leader_id, user_id, ip_address, session_id, viewed_at) 
-         VALUES (?, ?, ?, ?, NOW())`,
-        [leaderId, user_id, ip, `info_${metadata?.sessionId || ""}`],
-      );
       resultMessage = "Info viewed";
+    } else if (interactionType === "share") {
+      // Record share
+      await safeQuery(
+        `INSERT INTO leader_shares (leader_id, user_id, ip_address, platform) 
+         VALUES (?, ?, ?, ?)`,
+        [leaderId, user_id, ip, metadata?.platform || 'Direct'],
+      );
+      
+      // Update aggregate shares count in leaders table
+      await safeQuery(
+        `UPDATE leaders SET shares = shares + 1 WHERE leader_id = ?`,
+        [leaderId]
+      );
+      
+      resultMessage = "Shared";
     }
 
     // Get updated counts
-    const [likes, views] = await Promise.all([
+    const [likes, views, shares] = await Promise.all([
       safeQueryOne(
         `SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`,
         [leaderId],
@@ -73,11 +81,16 @@ const handleInteraction = asyncHandler(async (req, res) => {
         `SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`,
         [leaderId],
       ),
+      safeQueryOne(
+        `SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`,
+        [leaderId],
+      ),
     ]);
-
+    
     updatedStats = {
       likes: parseInt(likes?.count) || 0,
       views: parseInt(views?.count) || 0,
+      shares: parseInt(shares?.count) || 0,
     };
 
     // Clear cache for this leader
@@ -163,6 +176,10 @@ const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
         `SELECT COUNT(*) as count FROM leader_comments WHERE leader_id = ?`,
         [leaderId],
       ),
+      safeQueryOne(
+        `SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`,
+        [leaderId],
+      ),
     ]);
 
     res.status(200).json({
@@ -171,6 +188,7 @@ const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
         likes: parseInt(likes?.count) || 0,
         views: parseInt(views?.count) || 0,
         comments: parseInt(comments?.count) || 0,
+        shares: parseInt(shares?.count) || 0,
       },
     });
   } catch (error) {

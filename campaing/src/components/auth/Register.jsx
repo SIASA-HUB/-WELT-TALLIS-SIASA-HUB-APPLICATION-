@@ -21,16 +21,17 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import API_BASE_URL from "./apiConfig";
+import api from "../../api/api";
 
 // Color scheme
 const colors = {
-  primaryDark: "#2c3e50",
-  primaryLight: "#2c3e50",
-  secondary: "#2c3e50",
-  text: "#2c3e50",
-  textLight: "#7f8c8d",
-  border: "#ecf0f1",
+  primaryDark: "#000000",
+  primaryLight: "#000000",
+  secondary: "#1a1a1a",
+  text: "#0f172a",
+  textLight: "#64748b",
+  border: "#e2e8f0",
+  bg: "#f8fafc",
 };
 
 // Styled Components
@@ -39,52 +40,41 @@ const PageWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    135deg,
-    ${colors.primaryLight}20 0%,
-    ${colors.secondary}10 100%
-  );
+  font-family: "Inter", sans-serif;
+  background-color: ${colors.bg};
+  padding: 40px 20px;
 `;
 
 const FormCard = styled.div`
   background: white;
   width: 100%;
-  max-width: 1200px;
-  border-radius: 10px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 1000px;
+  border-radius: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  position: relative;
-  z-index: 1;
-  margin: 20px;
+  border: 1px solid ${colors.border};
 `;
 
 const Header = styled.div`
-  background: linear-gradient(
-    135deg,
-    ${colors.primaryDark} 0%,
-    ${colors.primaryLight} 100%
-  );
-  padding: 32px;
-  color: white;
+  background: white;
+  padding: 40px 32px 20px;
+  color: ${colors.text};
   text-align: center;
+  border-bottom: 1px solid ${colors.border};
 
   h2 {
     margin: 0;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 800;
+    letter-spacing: -1px;
+    color: #1e3c72;
   }
 
   p {
     margin: 12px 0 0;
-    opacity: 0.9;
-    font-size: 14px;
+    color: ${colors.textLight};
+    font-size: 15px;
+    font-weight: 500;
   }
 `;
 
@@ -124,31 +114,41 @@ const InputWrapper = styled.div`
 
 const Input = styled.input`
   width: 100%;
-  padding: ${(props) => (props.hasIcon ? "12px 16px 12px 42px" : "12px 16px")};
-  border: 2px solid ${(props) => (props.error ? "#ef4444" : colors.border)};
+  padding: ${(props) => (props.hasIcon ? "14px 16px 14px 44px" : "14px 16px")};
+  border: 1.5px solid ${(props) => (props.error ? "#ef4444" : colors.border)};
   border-radius: 12px;
-  font-size: 14px;
-  transition: all 0.2s;
+  font-size: 15px;
+  background: white;
+  color: #1e293b; /* Explicitly set dark text color */
+  transition: all 0.2s ease;
+  
+  &::placeholder {
+    color: #94a3b8;
+  }
 
   &:focus {
-    border-color: ${(props) => (props.error ? "#ef4444" : colors.primaryDark)};
+    border-color: #1e3c72;
     outline: none;
-    box-shadow: 0 0 0 3px ${colors.primaryDark}20;
+    box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.05);
+    background: white;
   }
 `;
 
 const Select = styled.select`
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid ${colors.border};
+  padding: 14px 16px;
+  border: 1.5px solid ${colors.border};
   border-radius: 12px;
   background: white;
-  font-size: 14px;
+  font-size: 15px;
+  color: #1e293b; /* Explicitly set dark text color */
   cursor: pointer;
+  transition: all 0.2s ease;
 
   &:focus {
-    border-color: ${colors.primaryDark};
+    border-color: #1e3c72;
     outline: none;
+    box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.05);
   }
 `;
 
@@ -173,27 +173,11 @@ const PasswordToggle = styled.button`
 
 const SubmitBtn = styled.button`
   width: 100%;
-  padding: 14px;
-  background: linear-gradient(
-    135deg,
-    ${colors.primaryDark} 0%,
-    ${colors.primaryLight} 100%
-  );
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-
+  padding: 16px;
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 25px -5px ${colors.primaryDark}80;
+    background: #2a4a8a;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(30, 60, 114, 0.3);
   }
 
   &:disabled {
@@ -219,7 +203,7 @@ const SensitiveBadge = styled.span`
   padding: 2px 6px;
   border-radius: 12px;
   margin-left: 8px;
-  color: ${colors.primaryDark};
+  color: #1e3c72;
 `;
 
 // Data Lists
@@ -403,9 +387,9 @@ const RegistrationPage = () => {
     };
 
     try {
-      const response = await API_BASE_URL.post("/register", submitData);
+      const response = await api.post("/users/register", submitData);
 
-      if (response.data.success) {
+      if (response.success) {
         toast.success(
           `Welcome ${formData.real_name.split(" ")[0]}! 150 points added to your wallet! 🎉`,
         );

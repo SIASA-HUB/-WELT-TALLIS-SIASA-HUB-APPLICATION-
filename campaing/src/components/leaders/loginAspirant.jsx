@@ -14,19 +14,14 @@ import {
   Loader2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import api from "../../api/api";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import   API_BASE_URL  from './apiConfig'
+import API from "../../api/config";
 
-// Create axios instance
-const API = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 30000,
-});
+
+
 
 // --- Styled Components ---
 
@@ -36,7 +31,7 @@ const PageWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: "Inter", sans-serif;
+  font-family: "Poppins", sans-serif;
 `;
 
 const LoginCard = styled.div`
@@ -110,6 +105,7 @@ const Input = styled.input`
   font-size: 15px;
   transition: border 0.2s;
   background: #f9fafb;
+  color: #1e293b; /* Ensure text is visible */
   &:focus {
     border-color: #1e3c72;
     outline: none;
@@ -234,19 +230,17 @@ const LoginAspirant = () => {
 
       if (token && leaderData) {
         try {
-          // Verify token is still valid
-          const response = await API.get("/profile/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          // Verify token is still valid - FIXED use api instance not config
+          const response = await api.get("/leaders/profile/me");
           
-          if (response.data.success) {
+          if (response.success) {
             // User is already logged in, redirect to dashboard
             navigate("/aspirant-dashboard");
             return;
           }
         } catch (err) {
           // Token is invalid, clear localStorage
-          console.log("Token invalid, clearing storage");
+          
           localStorage.removeItem("leaderToken");
           localStorage.removeItem("leaderData");
           localStorage.removeItem("currentLeaderId");
@@ -285,18 +279,19 @@ const LoginAspirant = () => {
     try {
       console.log("📤 Sending login request:", { name: formData.name });
       
-      const response = await API.post("/leaders/login", {
+      const response = await api.post("/leaders/login", {
         name: formData.name.trim(),
         password: formData.password,
       });
 
-      console.log("📥 Login response:", response.data);
+      console.log("📥 Login response:", response);
 
-      if (response.data.success) {
-        const { token, leader } = response.data.data;
+      if (response.success) {
+        const { token, leader } = response.data;
 
-        // Store in localStorage
+        // Store in localStorage - Standardize keys used by api.js
         localStorage.setItem("leaderToken", token);
+        localStorage.setItem("token", token); // Backup for interceptor
         localStorage.setItem("leaderData", JSON.stringify(leader));
         
         const leaderId = leader.leader_id || leader.id || leader._id;

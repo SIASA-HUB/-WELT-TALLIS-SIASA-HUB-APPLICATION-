@@ -65,15 +65,6 @@ const createBattle = asyncHandler(async (req, res) => {
     host_name,
   } = req.body;
 
-  console.log("📝 [CREATE BATTLE] Request:", {
-    challenger1_id,
-    challenger2_id,
-    created_by,
-    duration,
-    title,
-    host_id,
-    host_name,
-  });
 
   if (!challenger1_id || !challenger2_id) {
     return res.status(400).json({
@@ -105,8 +96,6 @@ const createBattle = asyncHandler(async (req, res) => {
       [challenger2_id],
     );
 
-    console.log("📝 [CREATE BATTLE] Challenger1:", challenger1?.name);
-    console.log("📝 [CREATE BATTLE] Challenger2:", challenger2?.name);
 
     if (!challenger1 || !challenger2) {
       return res.status(404).json({
@@ -121,7 +110,6 @@ const createBattle = asyncHandler(async (req, res) => {
     const expiresDate = new Date(Date.now() + durationMs);
     const expiresAt = formatMySQLDateTime(expiresDate);
 
-    console.log("📝 [CREATE BATTLE] Expires at:", expiresAt);
 
     // FIXED: Handle undefined values - convert to null explicitly
     const finalTitle = title && title.trim() !== "" ? title : null;
@@ -136,12 +124,6 @@ const createBattle = asyncHandler(async (req, res) => {
     const finalCreatedBy =
       created_by && created_by !== "undefined" ? created_by : "system";
 
-    console.log("📝 [CREATE BATTLE] Final values:", {
-      finalTitle,
-      finalHostId,
-      finalHostName,
-      finalCreatedBy,
-    });
 
     // Create battle in database
     await safeQuery(
@@ -212,16 +194,14 @@ const createBattle = asyncHandler(async (req, res) => {
     Logger.info(
       `Battle created: ${battleId} - ${challenger1.name} vs ${challenger2.name}`,
     );
-    console.log("✅ [CREATE BATTLE] Success:", battle.id);
 
     res.status(201).json({
       success: true,
       message: "Battle created successfully",
       data: battle,
     });
-  } catch (error) {
-    Logger.error("Create battle error:", error);
-    console.error("❌ [CREATE BATTLE] Error:", error);
+    } catch (error) {
+    Logger.error("Create battle error:", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Error creating battle",
@@ -254,7 +234,6 @@ const getActiveBattles = asyncHandler(async (req, res) => {
       [],
     );
 
-    console.log("📝 [GET ACTIVE BATTLES] Found:", battles.length);
 
     const formattedBattles = battles.map((battle) => ({
       id: battle.battle_id,
@@ -429,7 +408,6 @@ const getBattleById = asyncHandler(async (req, res) => {
 const voteBattle = asyncHandler(async (req, res) => {
   const { battle_id, candidate_id, device_id } = req.body;
 
-  console.log("📝 [VOTE] Request:", { battle_id, candidate_id, device_id });
 
   if (!battle_id || !candidate_id) {
     return res.status(400).json({
@@ -513,7 +491,6 @@ const voteBattle = asyncHandler(async (req, res) => {
     Logger.info(
       `Vote recorded: ${battle_id} - ${candidate_id} from ${device_id}`,
     );
-    console.log("✅ [VOTE] Success:", { newVotesLeft, newVotesRight });
 
     res.status(200).json({
       success: true,
@@ -524,8 +501,7 @@ const voteBattle = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    Logger.error("Vote battle error:", error);
-    console.error("❌ [VOTE] Error:", error);
+    Logger.error("Vote battle error:", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Error recording vote",
@@ -537,12 +513,6 @@ const voteBattle = asyncHandler(async (req, res) => {
 const sendGift = asyncHandler(async (req, res) => {
   const { battle_id, gift_value, device_id, user_name } = req.body;
 
-  console.log("🎁 [GIFT] Request:", {
-    battle_id,
-    gift_value,
-    device_id,
-    user_name,
-  });
 
   if (!battle_id || !gift_value) {
     return res.status(400).json({
@@ -602,10 +572,7 @@ const sendGift = asyncHandler(async (req, res) => {
       });
     }
 
-    Logger.info(
-      `Gift sent: ${battle_id} - ${gift_value} coins from ${device_id}`,
-    );
-    console.log("✅ [GIFT] Success:", { newGiftTotal });
+    Logger.info(`Gift sent: ${battle_id} - ${gift_value} coins from ${device_id}`);
 
     res.status(200).json({
       success: true,
@@ -617,8 +584,7 @@ const sendGift = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    Logger.error("Send gift error:", error);
-    console.error("❌ [GIFT] Error:", error);
+    Logger.error("Send gift error:", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Error sending gift",

@@ -10,10 +10,8 @@ import {
   Play,
   Send,
 } from "lucide-react";
-import axios from "axios";
-import BoostModal from "../Wallet/boostModal";
-
-const API_BASE_URL = "http://localhost:8003";
+import api from "../../api/api";
+import API from "../../api/config";
 
 const slideUp = keyframes`
   from { transform: translateY(100%); opacity: 0; }
@@ -37,8 +35,8 @@ const buildImageUrl = (imageUrl) => {
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
-  let cleanPath = imageUrl.startsWith("/") ? imageUrl.substring(1) : imageUrl;
-  return `${API_BASE_URL}/${cleanPath}`;
+  const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  return `${API.IMAGES}${cleanPath}`;
 };
 
 // Check if message is auto-generated
@@ -579,9 +577,7 @@ const EndorsementDetailModal = ({
     if (!storyId) return;
     setCommentsLoading((prev) => ({ ...prev, [storyId]: true }));
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/endorsements/${storyId}/comments`,
-      );
+      const response = await api.get(`/endorsements/${storyId}/comments`);
       let comments = [];
       if (response.data.data?.comments) {
         comments = response.data.data.comments;
@@ -795,9 +791,8 @@ const EndorsementDetailModal = ({
     if (!current) return;
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/v1/endorsements/${current.id}/comments/${commentId}/like`,
-        { user_id: currentUser?.id || "anonymous" },
+      const response = await api.post(`/endorsements/${current.id}/comments/${commentId}/like`, 
+        { user_id: currentUser?.id || "anonymous" }
       );
 
       if (response.data.success) {

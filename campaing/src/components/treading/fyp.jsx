@@ -1,8 +1,8 @@
-// TopFypHeader.js - Updated with SiasaHub badge
+// TopFypHeader.js - Fixed with larger logo and clear SiasaHub messaging
 import React, { memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { Flame, Fingerprint, MapPin, ShoppingBag, Users } from "lucide-react";
+import { Flame, Fingerprint, MapPin, Users, TrendingUp, MessageCircle, BookOpen, UsersRound, Megaphone } from "lucide-react";
 
 const pulse = keyframes`
   0%, 100% { opacity: 1; }
@@ -22,6 +22,7 @@ const MainHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+  position: relative;
 `;
 
 const FYPLogo = styled.div`
@@ -38,31 +39,35 @@ const FYPLogo = styled.div`
   }
 `;
 
-const StatRow = styled.div`
+const CenteredLogo = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  
+  .logo-img {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+  }
 `;
 
 const SiasaHubBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 59, 59, 0.15);
+  background: rgba(255, 59, 59, 0.1);
   padding: 4px 10px;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: rgba(255, 59, 59, 0.25);
+    background: rgba(255, 59, 59, 0.2);
     transform: scale(0.98);
-  }
-
-  .fingerprint {
-    width: 12px;
-    height: 12px;
-    color: #ff3b3b;
   }
 
   .text {
@@ -107,7 +112,7 @@ const CTABadge = styled.div`
   }
 `;
 
-const ShopButton = styled.div`
+const ManifestoButton = styled.div`
   background: linear-gradient(135deg, #1e3c72, #2a4a8a);
   color: #fff;
   padding: 5px 12px;
@@ -124,53 +129,80 @@ const ShopButton = styled.div`
   &:hover {
     transform: scale(0.98);
     opacity: 0.9;
-    background: linear-gradient(135deg, #152c54, #1e3c72);
   }
 `;
 
-const RallyTag = styled.div`
+const WhatsAppButton = styled.a`
+  background: rgba(37, 211, 102, 0.15);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  color: #25d366;
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+
+  &:hover {
+    background: rgba(37, 211, 102, 0.25);
+    transform: scale(0.98);
+  }
+`;
+
+const AspirantsTag = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 10px;
   font-weight: 600;
-  color: #eee;
+  color: #22c55e;
   white-space: nowrap;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 10px;
-  background: rgba(255, 59, 59, 0.1);
+  background: rgba(34, 197, 94, 0.1);
 
-  &::after {
-    content: "●";
-    color: #ff3b3b;
-    font-size: 8px;
-    margin-left: 4px;
-    animation: ${pulse} 1s infinite;
+  svg {
+    color: #22c55e;
   }
 `;
 
-const CountyTag = styled.div`
+const TrendingTag = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 10px;
-  font-weight: 500;
-  color: #aaa;
+  font-weight: 600;
+  color: #fbbf24;
   white-space: nowrap;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(251, 191, 36, 0.1);
+`;
 
-  .badge {
-    color: #22c55e;
-    font-weight: 600;
-  }
+const AboutTag = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #a855f7;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.1);
 `;
 
 const TopFypHeader = memo(() => {
   const navigate = useNavigate();
+  const whatsappGroupLink = "https://chat.whatsapp.com/DPLfiPjZSc7JX55U01wcHz";
 
   return (
     <StickyWrapper>
@@ -180,12 +212,20 @@ const TopFypHeader = memo(() => {
           <span className="text">FYP</span>
         </FYPLogo>
 
-        <StatRow>
-          <SiasaHubBadge onClick={() => navigate("/")}>
-            <Fingerprint size={12} className="fingerprint" />
-            <span className="text">SiasaHub</span>
-          </SiasaHubBadge>
-        </StatRow>
+        <CenteredLogo>
+          <img 
+            src="/image/siasa.png" 
+            alt="SiasaHub" 
+            className="logo-img"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
+          />
+        </CenteredLogo>
+
+        <SiasaHubBadge onClick={() => navigate("/")}>
+          <span className="text">SiasaHub</span>
+        </SiasaHubBadge>
       </MainHeader>
 
       <InteractiveBar>
@@ -194,17 +234,34 @@ const TopFypHeader = memo(() => {
           <span>Je uko Kadi?</span>
         </CTABadge>
 
-        <ShopButton onClick={() => navigate("/marketplace")}>
-          <ShoppingBag size={10} />
-          <span>Shop Merchandise</span>
-        </ShopButton>
+        <AspirantsTag onClick={() => navigate("/leaders")}>
+          <UsersRound size={10} />
+          <span>Aspirants</span>
+        </AspirantsTag>
 
-        <RallyTag onClick={() => navigate("/rallies")}>Youth Rally</RallyTag>
+        <ManifestoButton onClick={() => navigate("/manifestos")}>
+          <BookOpen size={10} />
+          <span>Manifestos</span>
+        </ManifestoButton>
 
-        <CountyTag onClick={() => navigate("/counties")}>
-          <MapPin size={10} />
-          Nairobi <span className="badge">#1</span>
-        </CountyTag>
+        <TrendingTag onClick={() => navigate("/trending")}>
+          <TrendingUp size={10} />
+          <span>Trending</span>
+        </TrendingTag>
+
+        <WhatsAppButton 
+          href={whatsappGroupLink}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <MessageCircle size={10} />
+          <span>Join WhatsApp</span>
+        </WhatsAppButton>
+
+        <AboutTag onClick={() => navigate("/about")}>
+          <Megaphone size={10} />
+          <span>About</span>
+        </AboutTag>
       </InteractiveBar>
     </StickyWrapper>
   );

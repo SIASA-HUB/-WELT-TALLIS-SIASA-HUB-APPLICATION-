@@ -9,7 +9,10 @@ import theme from "../../utils/theme";
 const COLORS = theme?.COLORS || { success: "#10b981", primary: "#ff4500" };
 const TRANSITIONS = theme?.TRANSITIONS || { default: "0.3s ease" };
 
-import API_BASE_URL from "./apiConfig";
+// API Configuration
+import API from "../../api/config";
+import api from "../../api/api";
+
 
 const glow = keyframes`
   0% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
@@ -166,7 +169,7 @@ const Party = styled.div`
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 `;
 
-// Helper function to build correct image URL
+// Helper function to build correct image URL via Gateway
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
 
@@ -175,18 +178,13 @@ const buildImageUrl = (imageUrl) => {
     return imageUrl;
   }
 
-  // If it starts with /uploads, prepend API base URL
-  if (imageUrl.startsWith("/uploads")) {
-    return `${API_BASE_URL}${imageUrl}`;
+  // Gateway Port 8009 handles /uploads
+  const baseUrl = API.IMAGES;
+  if (imageUrl.startsWith("/")) {
+    return `${baseUrl}${imageUrl}`;
   }
 
-  // If it starts with uploads (no slash)
-  if (imageUrl.startsWith("uploads")) {
-    return `${API_BASE_URL}/${imageUrl}`;
-  }
-
-  // Default: prepend with / and base URL
-  return `${API_BASE_URL}/${imageUrl}`;
+  return `${baseUrl}/${imageUrl}`;
 };
 
 const TrendingLeaders = () => {
@@ -199,8 +197,10 @@ const TrendingLeaders = () => {
     const fetchPopularLeaders = async () => {
       loadingBarRef.current?.continuousStart();
       try {
-        const { data } = await axios.get(`${API_BASE_URL}/leaders/popular`);
-        if (data.success) setLeaders(data.data || []);
+        const responseData = await api.get("/leaders/popular");
+        if (responseData.success) {
+          setLeaders(responseData.data || []);
+        }
       } catch (error) {
         console.error("Error fetching leaders:", error);
       } finally {
@@ -210,6 +210,7 @@ const TrendingLeaders = () => {
     };
     fetchPopularLeaders();
   }, []);
+
 
   if (loading && !leaders.length) return <AppLoadingBar ref={loadingBarRef} />;
   if (!leaders.length) return null;
@@ -242,7 +243,13 @@ const TrendingLeaders = () => {
           return (
             <LeaderCard
               key={leader.leader_id}
-              onClick={() => navigate(`/leader/${leader.leader_id}`)}
+              onClick={() => {
+                if (leader.slug) {
+                  navigate(`/aspirants/${leader.slug}`);
+                } else {
+                  navigate(`/leaders/${leader.leader_id}`);
+                }
+              }}
             >
               <RankBadge $rank={index + 1}>
                 {index === 0 ? <Trophy size={12} /> : index + 1}
@@ -256,7 +263,7 @@ const TrendingLeaders = () => {
                   }
                   alt={leader.name}
                   onError={(e) => {
-                    console.log(`Failed to load image: ${imageSrc}`);
+                    
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=10b981&color=fff&bold=true&size=150`;
                   }}
                 />

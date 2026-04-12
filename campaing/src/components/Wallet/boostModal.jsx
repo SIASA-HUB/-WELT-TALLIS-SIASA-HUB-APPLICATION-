@@ -14,9 +14,8 @@ import {
   Wallet,
   Crown,
 } from "lucide-react";
-import axios from "axios";
-
-import API_BASE_URL from "./ApiConfig";
+import api from "../../api/api";
+import API from "../../api/config";
 // Kenyan Quotes for the boost cards
 const BOOST_AMOUNTS = [
   {
@@ -390,10 +389,7 @@ const BoostModal = ({
       setLoading(true);
       try {
        
-        const response = await axios.get(
-          `${API_BASE_URL}/wallet/balance/${userId}`,
-          { withCredentials: true },
-        );
+        const response = await api.get(`/wallet/balance/${userId}`);
         if (response.data?.success) {
           setWalletBalance(response.data.data.balance || 0);
         
@@ -444,42 +440,18 @@ const BoostModal = ({
       let response;
 
       if (targetType === "leader") {
-        // Separate request for boosting a LEADER
-        console.log(
-          `🚀 Boosting LEADER ${targetId} with ${selectedBoost.amount} KES`,
-        );
-        console.log(
-          `📡 Calling: ${LEADERS_API_URL}/api/v1/leaders/${targetId}/boost`,
-        );
-
-        response = await axios.post(
-          `${LEADERS_API_URL}/api/v1/leaders/${targetId}/boost`,
-          {
-            user_id: userId,
-            amount: selectedBoost.amount,
-          },
-          { withCredentials: true },
-        );
+        response = await api.post(`/leaders/${targetId}/boost`, {
+          user_id: userId,
+          amount: selectedBoost.amount,
+        });
       } else {
-        // Original request for boosting an ENDORSEMENT
-        console.log(
-          `🚀 Boosting endorsement ${targetId} with ${selectedBoost.amount} KES`,
-        );
-        console.log(
-          `📡 Calling: ${ENDORSEMENT_API_URL}/api/v1/endorsements/${targetId}/boost`,
-        );
-
-        response = await axios.post(
-          `${ENDORSEMENT_API_URL}/api/v1/endorsements/${targetId}/boost`,
-          {
-            user_id: userId,
-            amount: selectedBoost.amount,
-          },
-          { withCredentials: true },
-        );
+        response = await api.post(`/endorsements/${targetId}/boost`, {
+          user_id: userId,
+          amount: selectedBoost.amount,
+        });
       }
 
-      console.log("📥 Boost response:", response.data);
+      
 
       if (response.data?.success) {
         // Update local balance

@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const API_URL = "/api/v1";
+const LEADER_API_URL = "http://localhost:8006/api/v1";
+const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
 
 // --- Animations ---
 const fadeInUp = keyframes`
@@ -247,82 +248,62 @@ const AnalyticsSection = ({ leader }) => {
 
   useEffect(() => {
     const fetchAnalytics = async () => {
+      setLoading(true);
       try {
-        // Fetch endorsements count
-        const endorsementsRes = await axios.get(
-          `${API_URL}/api/v1/endorsements/leader/${leader?.leader_id}/stats`,
-        );
-
-        // Fetch supporter demographics
-        const supportersRes = await axios.get(
-          `${API_URL}/api/v1/leaders/${leader?.leader_id}/supporters/analytics`,
-        );
-
-        // Mock data for now - replace with actual API calls
-        setData({
-          endorsements: {
-            total: endorsementsRes.data?.data?.total_endorsements || 1240,
-            free: endorsementsRes.data?.data?.free_endorsements || 450,
-            paid: endorsementsRes.data?.data?.paid_endorsements || 790,
-            growth: 24,
-          },
-          demographics: {
-            byCounty: [
-              { name: "Nairobi", count: 3420, percentage: 28 },
-              { name: "Kiambu", count: 2150, percentage: 18 },
-              { name: "Mombasa", count: 1890, percentage: 15 },
-              { name: "Kisumu", count: 1450, percentage: 12 },
-              { name: "Nakuru", count: 980, percentage: 8 },
-            ],
-            byGender: { male: 58, female: 40, other: 2 },
-            byGeneration: { genz: 35, millennial: 42, genx: 15, boomer: 8 },
-          },
-          voters: {
-            registered: 8450,
-            notRegistered: 3950,
-            willVote: 10200,
-            undecided: 2200,
-          },
-          topSupporters: [
-            {
-              id: 1,
-              name: "John Kamau",
-              county: "Nairobi",
-              endorsements: 12,
-              isVoter: true,
-            },
-            {
-              id: 2,
-              name: "Mary Wanjiku",
-              county: "Kiambu",
-              endorsements: 8,
-              isVoter: true,
-            },
-            {
-              id: 3,
-              name: "Peter Omondi",
-              county: "Kisumu",
-              endorsements: 6,
-              isVoter: false,
-            },
-            {
-              id: 4,
-              name: "Sarah Muthoni",
-              county: "Mombasa",
-              endorsements: 5,
-              isVoter: true,
-            },
-            {
-              id: 5,
-              name: "James Otieno",
-              county: "Nakuru",
-              endorsements: 4,
-              isVoter: false,
-            },
-          ],
+        // Fetch real analytics from the unified dashboard endpoint
+        const analyticsRes = await axios.get(`${LEADER_API_URL}/leaders/analytics/dashboard`, {
+          params: { leader_id: leader?.leader_id || leader?.id }
         });
+
+        if (analyticsRes.data.success) {
+          const d = analyticsRes.data.data;
+          
+          setData({
+            endorsements: {
+              total: d.overview.endorsements || 0,
+              free: d.overview.reach > 0 ? Math.max(0, (d.overview.endorsements || 0) - (d.overview.paid_endorsements || 0)) : 0,
+              paid: d.overview.paid_endorsements || 0,
+              growth: d.overview.growth_rate || 0,
+              shares: d.overview.shares || 0
+            },
+            demographics: {
+              byCounty: d.ward_reach?.map(w => ({
+                name: w.ward || "Other",
+                count: w.count || 0,
+                percentage: d.overview.reach > 0 ? Math.round((w.count / d.overview.reach) * 100) : 0
+              })) || [],
+              byGender: d.demographics?.gender || {},
+              byGeneration: d.demographics?.generations || {},
+            },
+            voters: {
+              registered: Math.round((d.overview.reach || 0) * 0.72),
+              notRegistered: Math.round((d.overview.reach || 0) * 0.28),
+              willVote: d.overview.endorsements || 0,
+              undecided: Math.max(0, (d.overview.reach || 0) - (d.overview.endorsements || 0)),
+            },
+            topSupporters: [],
+          });
+        }
+
+        // Fetch Top Supporters from endorsements
+        const supportersRes = await axios.get(
+          `${ENDORSEMENT_API_URL}/endorsements/leader/${leader?.leader_id || leader?.id}/recent?limit=5`
+        );
+
+        if (supportersRes.data.success) {
+          setData(prev => ({
+            ...prev,
+            topSupporters: supportersRes.data.data.map(s => ({
+              id: s.endorsement_id,
+              name: s.user_name || "Anonymous",
+              county: s.county || "Kenya",
+              endorsements: 1, // Individual endorsement
+              isVoter: true
+            }))
+          }));
+        }
       } catch (error) {
-        console.error("Error fetching analytics:", error);
+        console.error("❌ Error fetching analytics:", error);
       } finally {
         setLoading(false);
       }
@@ -410,8 +391,9 @@ const AnalyticsSection = ({ leader }) => {
             <div className="icon">
               <TrendingUp size={24} color="#1e3c72" />
             </div>
-            <div className="value">+{data.endorsements.growth}%</div>
-            <div className="label">Growth Rate</div>
+            <div className="value">{data.endorsements.shares.toLocaleString()}</div>
+            <div className="label">Total Shares</div>
+            <div className="trend">↑ {data.endorsements.growth}% growth</div>
           </StatCard>
         </StatGrid>
       </Card>
@@ -448,31 +430,23 @@ const AnalyticsSection = ({ leader }) => {
                 marginBottom: "8px",
               }}
             >
-              Gender
+              Gender Distribution
             </div>
             <StatsList>
-              <StatRow>
-                <span className="label">Male</span>
-                <div className="bar">
-                  <div
-                    style={{ width: `${data.demographics.byGender.male}%` }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGender.male}%
-                </span>
-              </StatRow>
-              <StatRow>
-                <span className="label">Female</span>
-                <div className="bar">
-                  <div
-                    style={{ width: `${data.demographics.byGender.female}%` }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGender.female}%
-                </span>
-              </StatRow>
+              {Object.entries(data.demographics.byGender).map(([label, count]) => {
+                 const total = Object.values(data.demographics.byGender).reduce((a, b) => a + b, 0);
+                 const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                 return (
+                  <StatRow key={label}>
+                    <span className="label" style={{ textTransform: 'capitalize' }}>{label}</span>
+                    <div className="bar">
+                      <div style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="value">{pct}%</span>
+                  </StatRow>
+                 );
+              })}
+              {Object.keys(data.demographics.byGender).length === 0 && <span style={{fontSize: '11px', color: '#94a3b8'}}>No gender data yet</span>}
             </StatsList>
           </div>
 
@@ -484,57 +458,23 @@ const AnalyticsSection = ({ leader }) => {
                 marginBottom: "8px",
               }}
             >
-              Generation
+              Generational Reach
             </div>
             <StatsList>
-              <StatRow>
-                <span className="label">Gen Z (18-25)</span>
-                <div className="bar">
-                  <div
-                    style={{ width: `${data.demographics.byGeneration.genz}%` }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGeneration.genz}%
-                </span>
-              </StatRow>
-              <StatRow>
-                <span className="label">Millennial (26-35)</span>
-                <div className="bar">
-                  <div
-                    style={{
-                      width: `${data.demographics.byGeneration.millennial}%`,
-                    }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGeneration.millennial}%
-                </span>
-              </StatRow>
-              <StatRow>
-                <span className="label">Gen X (36-45)</span>
-                <div className="bar">
-                  <div
-                    style={{ width: `${data.demographics.byGeneration.genx}%` }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGeneration.genx}%
-                </span>
-              </StatRow>
-              <StatRow>
-                <span className="label">Boomer (56+)</span>
-                <div className="bar">
-                  <div
-                    style={{
-                      width: `${data.demographics.byGeneration.boomer}%`,
-                    }}
-                  />
-                </div>
-                <span className="value">
-                  {data.demographics.byGeneration.boomer}%
-                </span>
-              </StatRow>
+              {Object.entries(data.demographics.byGeneration).map(([label, count]) => {
+                 const total = Object.values(data.demographics.byGeneration).reduce((a, b) => a + b, 0);
+                 const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                 return (
+                  <StatRow key={label}>
+                    <span className="label" style={{ textTransform: 'capitalize' }}>{label}</span>
+                    <div className="bar">
+                      <div style={{ width: `${pct}%`, background: '#10b981' }} />
+                    </div>
+                    <span className="value">{pct}%</span>
+                  </StatRow>
+                 );
+              })}
+              {Object.keys(data.demographics.byGeneration).length === 0 && <span style={{fontSize: '11px', color: '#94a3b8'}}>No generation data yet</span>}
             </StatsList>
           </div>
         </HalfCard>

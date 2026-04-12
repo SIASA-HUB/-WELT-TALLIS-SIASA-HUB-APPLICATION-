@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import API_BASE_URL from "./apiConfig";
+import api from "../../api/api";
 
 const Aspirants = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -33,9 +32,7 @@ const Aspirants = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/leaders/analytics/dashboard`,
-      );
+      const response = await api.get("/leaders/analytics/dashboard");
       if (response.data.success) {
         setDashboardStats(response.data.data.overview);
         setPositionBreakdown(response.data.data.position_breakdown || []);
@@ -50,9 +47,7 @@ const Aspirants = () => {
 
   const fetchCountyAnalytics = async () => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/leaders/analytics/county`,
-      );
+      const response = await api.get("/leaders/analytics/county");
       if (response.data.success) {
         setCountyAnalytics(response.data.data.counties || []);
       }
@@ -67,7 +62,7 @@ const Aspirants = () => {
   const fetchLeaders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/leaders`);
+      const response = await api.get("/leaders");
       if (response.data.success) {
         // Extract leaders from grouped response
         const allLeaders = [];
@@ -92,8 +87,8 @@ const Aspirants = () => {
 
   const fetchConstituencyAnalytics = async (county) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/leaders/analytics/constituency?county=${encodeURIComponent(county)}`,
+      const response = await api.get(
+        `/leaders/analytics/constituency?county=${encodeURIComponent(county)}`,
       );
       if (response.data.success) {
         setConstituencyStats(response.data.data.constituencies || []);
@@ -108,8 +103,8 @@ const Aspirants = () => {
 
   const fetchWardAnalytics = async (constituency) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/leaders/analytics/ward?constituency=${encodeURIComponent(constituency)}`,
+      const response = await api.get(
+        `/leaders/analytics/ward?constituency=${encodeURIComponent(constituency)}`,
       );
       if (response.data.success) {
         setWardStats(response.data.data.wards || []);

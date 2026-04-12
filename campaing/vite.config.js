@@ -56,12 +56,14 @@ export default defineConfig({
     cors: true,
     proxy: {
       "/api": {
-        target: "http://localhost:8009",
+        target: "http://localhost:8004",
         changeOrigin: true,
         secure: false,
-        // No rewrite needed if the gateway expects /api/v1
-        // But the gateway uses app.use("/api/v1/...", ...)
-        // So we keep /api/v1 in the request
+      },
+      "/uploads": {
+        target: "http://localhost:8004",
+        changeOrigin: true,
+        secure: false,
       },
     },
     headers: {

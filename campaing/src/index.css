@@ -1,68 +1,113 @@
-/* 1. Global Reset - FIXED TO ALLOW SCROLL DETECTION */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap");
+
+/* Global Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pageReveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+:root {
+  /* Political Theme Palette */
+  --bg-main: #000000;       /* Deep Black */
+  --text-main: #ffffff;     /* Pure White */
+  --accent-red: #e63946;    /* Vibrant Kenyan Red */
+  --text-muted: #a0a0a0;    /* Gray for less important info */
+}
+
 html {
   margin: 0;
   padding: 0;
   width: 100%;
-  background-color: var(--bg-main);
-  font-family: var(--font-primary);
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-  /* Ensure the html doesn't trap the height */
   height: auto;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  background-color: var(--bg-main);
+  /* Default font smoothing for better legibility */
+  font-family:
+    "Poppins",
+    "Inter",
+    -apple-system,
+    sans-serif;
+  color: var(--text-main);
 }
 
 body {
   margin: 0;
   padding: 0;
   width: 100%;
-  /* CRITICAL: Use min-height so the window can scroll */
   min-height: 100vh;
   background-color: var(--bg-main);
   overflow-x: hidden;
   position: relative;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
 }
 
-/* --- HIDE SCROLLBARS COMPLETELY --- */
-
-/* Chrome, Safari, and Opera */
-body::-webkit-scrollbar,
-html::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+body.loaded {
+  opacity: 1;
 }
 
-/* IE, Edge, and Firefox */
-html,
-body {
-  -ms-overflow-style: none !important; /* IE and Edge */
-  scrollbar-width: none !important; /* Firefox */
+#root {
+  animation: pageReveal 0.6s ease-out;
 }
 
-/* Native app feel */
+/* Headings: Make them bold and "authoritative" */
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-main);
+}
+
+/* Hide Scrollbars while keeping functionality */
+html, body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Interaction fixes */
 * {
+  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+button, a {
+  text-decoration: none;
+  cursor: pointer;
 }
 
-/* Remove default browser styles */
-button,
-a {
-  -webkit-touch-callout: none;
+/* Accent for links or active states */
+a:hover {
+  color: var(--accent-red);
 }
 
-/* Add native-like transitions */
-.page-transition {
-  transition: opacity 0.2s ease;
-}
-
-/* iOS-style haptic feedback (where supported) */
 button:active {
-  transform: scale(0.97);
-  transition: transform 0.05s;
+  transform: scale(0.96);
+}
+
+/* Skeleton Loading Shimmer */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: #1a1a1a;
+  background-image: linear-gradient(to right, #1a1a1a 0%, #333333 20%, #1a1a1a 40%, #1a1a1a 100%);
+  background-repeat: no-repeat;
+  display: inline-block;
+  animation: shimmer 1.5s linear infinite;
 }

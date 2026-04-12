@@ -56,9 +56,7 @@ const SiasaApp = () => {
   return (
     <HomePageWrapper>
       <MainContent>
-        {/* Only Rendering Trending Section now. 
-          Search cards and query headers have been completely removed.
-        */}
+    
         <Suspense fallback={<EmptyFallback />}>
           <TrendingSection />
         </Suspense>

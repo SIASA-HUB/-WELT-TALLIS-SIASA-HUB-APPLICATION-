@@ -8,9 +8,10 @@ import React, {
   Suspense,
   lazy,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
+import { Helmet } from "react-helmet-async";
 import axios from "axios";
 import {
   Search,
@@ -24,6 +25,7 @@ import {
   User,
   Shield,
   Briefcase,
+
   Users,
   Award,
 } from "lucide-react";
@@ -32,72 +34,34 @@ import TrendingManifestos from "./manifestos/TredingManifestos";
 const LeaderCard = lazy(() => import("./leadersCard"));
 
 // API Configuration
-import API_BASE_URL from "./apiConfig";
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-  timeout: 15000,
-});
-
-// Add request interceptor for debugging
-api.interceptors.request.use(
-  (config) => {
-    console.log(` API Request: ${config.method.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.error(" Request Error:", error);
-    return Promise.reject(error);
-  },
-);
-
-// Add request interceptor for debugging
-api.interceptors.request.use(
-  (config) => {
-    console.log(`📤 API Request: ${config.method.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.error("❌ Request Error:", error);
-    return Promise.reject(error);
-  },
-);
-
-// Add response interceptor for debugging
-api.interceptors.response.use(
-  (response) => {
-    console.log(`📥 API Response: ${response.status} - ${response.config.url}`);
-    return response;
-  },
-  (error) => {
-    console.error(
-      "❌ Response Error:",
-      error.response?.status,
-      error.response?.data,
-    );
-    return Promise.reject(error);
-  },
-);
-
-// Animations
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
+import API from "../../api/config";
+import api from "../../api/api";
 
 const pulse = keyframes`
   0% { opacity: 0.6; }
   50% { opacity: 1; }
   100% { opacity: 0.6; }
 `;
+// Animations
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
-// Styled Components
+const pulseAnimation = keyframes`
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+`;
+
+// PageWrapper
 const PageWrapper = styled.div`
   min-height: 100vh;
   padding-bottom: 60px;
   background: #ffffff;
 `;
+
+
 
 const LoadingWrapper = styled.div`
   position: fixed;
@@ -145,7 +109,7 @@ const SearchIcon = styled.div`
 const SearchInput = styled.input`
   width: 100%;
   padding: 8px 35px 8px 32px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   border: 1.5px solid ${(props) => (props.$focused ? "#000" : "#e5e7eb")};
   border-radius: 20px;
@@ -194,7 +158,7 @@ const RegisterButton = styled.button`
   border: none;
   border-radius: 10px;
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -272,7 +236,7 @@ const SectionHeader = styled.div`
   margin-top: 16px;
 
   h2 {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -315,7 +279,7 @@ const SectionBadge = styled.span`
           : "#666"};
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
 `;
 
@@ -370,6 +334,7 @@ const EmptyState = styled.div`
 
 const LeadersPage = () => {
   const navigate = useNavigate();
+  const { county: urlCounty, constituency: urlConstituency, ward: urlWard } = useParams();
   const [feedGroups, setFeedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -388,7 +353,7 @@ const LeadersPage = () => {
         const storedUser = localStorage.getItem("user_data");
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
-          console.log("👤 User data loaded:", parsedUser);
+          
           setUserData(parsedUser);
           setIsUserLoggedIn(true);
           return;
@@ -408,7 +373,7 @@ const LeadersPage = () => {
               );
             }
           } catch (err) {
-            console.log("User not logged in");
+            
             setIsUserLoggedIn(false);
           }
         };
@@ -423,34 +388,33 @@ const LeadersPage = () => {
     getUserData();
   }, []);
 
+  // SEO: Push location to URL if user is logged in and URL is generic /leaders
   useEffect(() => {
-    const handleScroll = () => {
-      setHasScrolled(window.scrollY > 10);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    if (isUserLoggedIn && userData && !urlCounty) {
+      const county = userData.county || userData.user_county;
+      const constituency = userData.constituency || userData.user_constituency;
+      const ward = userData.ward || userData.user_ward;
+      
+      if (county) {
+        // Use lowercase for SEO best practices
+        let path = `/${county.toLowerCase()}`;
+        if (constituency) path += `/${constituency.toLowerCase()}`;
+        if (ward) path += `/${ward.toLowerCase()}`;
+        
+        
+        navigate(path, { replace: true });
+      }
+    }
+  }, [isUserLoggedIn, userData, urlCounty, navigate]);
 
-  // Fetch personalized feed based on user's data
+  // Fetch personalized feed
   useEffect(() => {
     const fetchPersonalizedFeed = async () => {
-      // Try to load from cache first for instant feel
-      const cacheKey = `feed_cache_${userData?.user_id || "guest"}`;
-      const cachedData = localStorage.getItem(cacheKey);
-      if (cachedData && !dataFetchedRef.current) {
-        try {
-          const parsed = JSON.parse(cachedData);
-          if (Date.now() - parsed.timestamp < 300000) {
-            // 5 min cache
-            console.log("🚀 Using cached feed data");
-            setFeedGroups(parsed.data);
-            setLoading(false);
-          }
-        } catch (e) {}
-      }
-
       if (dataFetchedRef.current) return;
-
+      
+      setLoading(true);
+      setError(null);
+      
       if (loadingBarRef.current) {
         loadingBarRef.current.continuousStart(30);
       }
@@ -458,53 +422,52 @@ const LeadersPage = () => {
       try {
         const params = { limit: 300 };
 
+        // 1. Base User Context (if logged in)
         if (userData) {
-          if (userData.county) {
-            params.county = userData.county;
-            params.user_county = userData.county;
-          }
-          if (userData.ward) {
-            params.ward = userData.ward;
-            params.user_ward = userData.ward;
-          }
-          if (userData.political_party) {
-            params.party = userData.political_party;
-            params.user_party = userData.political_party;
-          }
+          params.user_id = userData.user_id;
+          params.user_party = userData.party || userData.political_party;
+          
+          // Use profile location as fallback
+          params.user_county = userData.county || userData.user_county;
+          params.user_constituency = userData.constituency || userData.user_constituency;
+          params.user_ward = userData.ward || userData.user_ward;
         }
 
-        console.log("Fetching personalized feed with params:", params);
+        // 2. SEO / URL Overrides (Priority)
+        if (urlCounty) params.user_county = urlCounty;
+        if (urlConstituency) params.user_constituency = urlConstituency;
+        if (urlWard) params.user_ward = urlWard;
 
-        const response = await api.get("/leaders", {
-          params: params,
-          withCredentials: true,
-        });
+        // Sync local params for some services
+        params.county = params.user_county;
+        params.ward = params.user_ward;
 
-        if (response.data?.success) {
-          const groups = Array.isArray(response.data.data)
-            ? response.data.data
-            : [];
+        
+
+        const response = await api.get("/leaders", { params });
+
+        // api.js returns response.data directly
+        if (response && response.success) {
+          const groups = Array.isArray(response.data) ? response.data : [];
           setFeedGroups(groups);
 
-          // Update cache
+          const cacheKey = `feed_cache_${userData?.user_id || "guest"}`;
           localStorage.setItem(
             cacheKey,
             JSON.stringify({
               timestamp: Date.now(),
               data: groups,
-            }),
+            })
           );
-
-          setError(null);
         } else {
           setFeedGroups([]);
-          setError(response.data?.message || "No data available");
+          setError(response?.message || "No leaders found for this criteria");
         }
 
         dataFetchedRef.current = true;
       } catch (err) {
-        console.error("Error fetching personalized feed:", err);
-        setError(err.message || "Failed to load leaders");
+        console.error("❌ Leader Feed Error:", err);
+        setError("Unable to load the leaders feed. Please try again later.");
       } finally {
         setLoading(false);
         if (loadingBarRef.current) {
@@ -513,12 +476,10 @@ const LeadersPage = () => {
       }
     };
 
-    const timer = setTimeout(() => {
-      fetchPersonalizedFeed();
-    }, 100); // Shorter delay
+    fetchPersonalizedFeed();
+  }, [userData, urlCounty, urlConstituency, urlWard]);
 
-    return () => clearTimeout(timer);
-  }, [userData]);
+
 
   // Filter leaders based on search term
   const filteredGroups = useMemo(() => {
@@ -607,8 +568,38 @@ const LeadersPage = () => {
     );
   }
 
+  // SEO meta for location pages
+  const locationTitle = urlCounty
+    ? `${urlWard ? urlWard + ' Ward' : ''} ${urlConstituency ? urlConstituency + ' Constituency' : ''} ${urlCounty} County Aspirants 2027 | Siasahub`.replace(/\s+/g, ' ').trim()
+    : 'All Aspirants & Candidates 2027 | Siasahub';
+  const locationDescription = urlCounty
+    ? `Browse 2027 election aspirants in ${urlCounty} County${urlConstituency ? ', ' + urlConstituency + ' Constituency' : ''}${urlWard ? ', ' + urlWard + ' Ward' : ''}. View their manifestos, endorsements, and campaign profiles.`
+    : 'Discover all 2027 Kenyan election aspirants. View their manifestos, endorsements, and campaign profiles on Siasahub.';
+
+  // Navigation helper for location dropdowns
+  const navigateToLocation = (county, constituency, ward) => {
+    let path = '';
+    if (county) path += `/${encodeURIComponent(county)}`;
+    if (constituency) path += `/${encodeURIComponent(constituency)}`;
+    if (ward) path += `/${encodeURIComponent(ward)}`;
+    if (path) {
+      navigate(path);
+    } else {
+      navigate('/leaders');
+    }
+  };
+
   return (
     <PageWrapper>
+      {/* Dynamic SEO Meta */}
+      <Helmet>
+        <title>{locationTitle}</title>
+        <meta name="description" content={locationDescription} />
+        <meta property="og:title" content={locationTitle} />
+        <meta property="og:description" content={locationDescription} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Siasahub" />
+      </Helmet>
       <LoadingWrapper>
         <LoadingBar ref={loadingBarRef} color="#000" height={2} />
       </LoadingWrapper>
@@ -642,6 +633,33 @@ const LeadersPage = () => {
 
         <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
+
+      {isUserLoggedIn && (
+        <UserInfoBar>
+          <div className="user-details">
+            <div className="greeting">
+              <User size={14} />
+              Hello, {userData?.name || "Patriot"}
+            </div>
+            {(userData?.county || userData?.ward) && (
+              <div className="info-badge">
+                <MapPin size={12} />
+                {userData?.county} {userData?.ward ? ` • ${userData?.ward}` : ""}
+              </div>
+            )}
+            {userData?.political_party && (
+              <div className="info-badge">
+                <Briefcase size={12} />
+                {userData?.political_party}
+              </div>
+            )}
+          </div>
+          <div className="personalized-note">
+            <Shield size={12} />
+            Showing personalized results for your region
+          </div>
+        </UserInfoBar>
+      )}
 
       {searchTerm && (
         <div

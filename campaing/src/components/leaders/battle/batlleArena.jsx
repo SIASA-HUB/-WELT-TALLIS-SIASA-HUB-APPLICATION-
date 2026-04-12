@@ -534,7 +534,7 @@ const BattleArena = ({ currentUser = null }) => {
       reconnection: true,
     });
 
-    socketRef.current.on("connect", () => console.log("✅ Socket connected"));
+    socketRef.current.on("connect", () => );
     socketRef.current.on("vote-update", (data) => {
       setBattles((prev) =>
         prev.map((b) =>

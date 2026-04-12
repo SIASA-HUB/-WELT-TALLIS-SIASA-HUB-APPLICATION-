@@ -11,16 +11,9 @@ import axios from "axios";
 // ============================================
 // API CONFIGURATION
 // ============================================
-const API_BASE_URL = "/api/v1/users";
+import api from "../../api/api";
+import API from "../../api/config";
 
-// Create axios instance with credentials
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 // ============================================
 // AUTH CONTEXT
@@ -57,17 +50,21 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [csrfToken, setCsrfToken] = useState(null);
 
-  // Get CSRF token - FIXED endpoint
+  // Get CSRF token - FIXED endpoint with caching
   const fetchCsrfToken = useCallback(async () => {
     try {
-      // First check if user is authenticated
       const token = localStorage.getItem("access_token");
       if (!token) return null;
 
-      const response = await api.get("/csrf-token"); // Changed from /auth/csrf-token
-      if (response.data.success) {
-        setCsrfToken(response.data.csrfToken);
-        return response.data.csrfToken;
+      const response = await api.getWithCache("/users/csrf-token", (data) => {
+        if (data && data.success) {
+          setCsrfToken(data.csrfToken);
+        }
+      });
+      
+      if (response && response.success) {
+        setCsrfToken(response.csrfToken);
+        return response.csrfToken;
       }
     } catch (error) {
       console.error("Error fetching CSRF token:", error);
@@ -75,14 +72,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Get user info from /me endpoint
+  // Get user info from /me endpoint with SWR
   const fetchUser = useCallback(async () => {
     try {
-      const response = await api.get("/me");
-      if (response.data.success) {
-        setUser(response.data.data);
+      const response = await api.getWithCache("/users/me", (data) => {
+        if (data && data.success) {
+          setUser(data.data);
+          setIsAuthenticated(true);
+        }
+      });
+      if (response && response.success) {
+        setUser(response.data);
         setIsAuthenticated(true);
-        return response.data.data;
+        return response.data;
       }
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -90,13 +92,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Check authentication status - FIXED endpoint
+  // Check authentication status - FIXED endpoint with SWR
   const checkAuthStatus = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await api.get("/status"); // Changed from /auth/check
-      if (response.data.success && response.data.isAuthenticated) {
-        setUser(response.data.user);
+      const response = await api.getWithCache("/users/status", (data) => {
+        if (data && data.success && data.isAuthenticated) {
+          setUser(data.user);
+          setIsAuthenticated(true);
+        }
+      });
+
+      if (response && response.success && response.isAuthenticated) {
+        setUser(response.user);
         setIsAuthenticated(true);
         await fetchCsrfToken();
       } else {
@@ -115,23 +123,27 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = async (username, password) => {
     try {
-      const response = await api.post("/login", {
-        anonymous_username: username,
+      const response = await api.post("/users/login", {
+        identifier: username, // Matched to backend identifier (email or username)
         password,
       });
 
-      if (response.data.success) {
-        // Store token in localStorage for CSRF requests
-        if (response.data.csrfToken) {
-          localStorage.setItem("access_token", response.data.csrfToken);
+      if (response && response.success) {
+        // Store Token for API interceptor
+        if (response.accessToken) {
+          localStorage.setItem("token", response.accessToken);
+        }
+        if (response.csrfToken) {
+          localStorage.setItem("access_token", response.csrfToken);
+          setCsrfToken(response.csrfToken);
         }
 
-        setUser(response.data.user);
+        const userData = response.user || response.data;
+        setUser(userData);
         setIsAuthenticated(true);
-        await fetchCsrfToken();
-        return { success: true, user: response.data.user };
+        return { success: true, user: userData };
       }
-      return { success: false, message: response.data.message };
+      return { success: false, message: response?.message || "Login failed" };
     } catch (error) {
       console.error("Login error:", error);
       return {
@@ -144,8 +156,9 @@ export const AuthProvider = ({ children }) => {
   // Logout function - FIXED endpoint
   const logout = async () => {
     try {
-      await api.post("/logout"); // Changed from /auth/logout
+      await api.post("/users/logout");
       localStorage.removeItem("access_token");
+      localStorage.removeItem("token");
       setUser(null);
       setIsAuthenticated(false);
       setCsrfToken(null);
@@ -156,10 +169,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+
   // Refresh token - FIXED endpoint
   const refreshToken = async () => {
     try {
-      const response = await api.post("/refresh"); // Changed from /auth/refresh
+      const response = await api.post("/users/refresh"); // Changed from /auth/refresh
       if (response.data.success) {
         setCsrfToken(response.data.csrfToken);
         await checkAuthStatus();
