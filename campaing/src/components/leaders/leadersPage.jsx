@@ -1,4 +1,4 @@
-// pages/LeadersPage.jsx - Fixed version with proper error handling
+// pages/LeadersPage.jsx - Fixed version with proper error handling and image URLs
 
 import React, {
   useState,
@@ -25,7 +25,6 @@ import {
   User,
   Shield,
   Briefcase,
-
   Users,
   Award,
 } from "lucide-react";
@@ -37,21 +36,60 @@ const LeaderCard = lazy(() => import("./leadersCard"));
 import API from "../../api/config";
 import api from "../../api/api";
 
+// ============================================
+// IMAGE URL BUILDER - Fix for production
+// ============================================
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
+  
+  // If it's already an absolute URL (http/https), return as is
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
+  }
+  
+  // Get base URL from API config (no hardcoded localhost for production)
+  let baseUrl = API.IMAGES || API.BASE;
+  
+  // If no base URL configured, return null
+  if (!baseUrl) return null;
+  
+  // Remove /api/v1 if present in the base URL
+  if (baseUrl.includes("/api/v1")) {
+    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
+  }
+  
+  // Remove trailing slash
+  baseUrl = baseUrl.replace(/\/$/, "");
+  
+  // Ensure image path has leading slash
+  let imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  
+  return `${baseUrl}${imagePath}`;
+};
+
+// Helper to get avatar with fallback
+const getLeaderAvatar = (leader) => {
+  const imageUrl = leader.image || leader.profile_image || leader.avatar;
+  const builtUrl = buildImageUrl(imageUrl);
+  
+  if (builtUrl) return builtUrl;
+  
+  // Fallback to UI Avatars API
+  const name = leader.name || leader.full_name || "Leader";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.charAt(0))}&background=000&color=fff&size=80&bold=true&length=1`;
+};
+
+// ============================================
+
 const pulse = keyframes`
   0% { opacity: 0.6; }
   50% { opacity: 1; }
   100% { opacity: 0.6; }
 `;
-// Animations
+
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-`;
-
-const pulseAnimation = keyframes`
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
 `;
 
 // PageWrapper
@@ -60,8 +98,6 @@ const PageWrapper = styled.div`
   padding-bottom: 60px;
   background: #ffffff;
 `;
-
-
 
 const LoadingWrapper = styled.div`
   position: fixed;
@@ -396,11 +432,9 @@ const LeadersPage = () => {
       const ward = userData.ward || userData.user_ward;
       
       if (county) {
-        // Use lowercase for SEO best practices
         let path = `/${county.toLowerCase()}`;
         if (constituency) path += `/${constituency.toLowerCase()}`;
         if (ward) path += `/${ward.toLowerCase()}`;
-        
         
         navigate(path, { replace: true });
       }
@@ -422,41 +456,43 @@ const LeadersPage = () => {
       try {
         const params = { limit: 300 };
 
-        // 1. Base User Context (if logged in)
         if (userData) {
           params.user_id = userData.user_id;
           params.user_party = userData.party || userData.political_party;
-          
-          // Use profile location as fallback
           params.user_county = userData.county || userData.user_county;
           params.user_constituency = userData.constituency || userData.user_constituency;
           params.user_ward = userData.ward || userData.user_ward;
         }
 
-        // 2. SEO / URL Overrides (Priority)
         if (urlCounty) params.user_county = urlCounty;
         if (urlConstituency) params.user_constituency = urlConstituency;
         if (urlWard) params.user_ward = urlWard;
 
-        // Sync local params for some services
         params.county = params.user_county;
         params.ward = params.user_ward;
 
-        
-
         const response = await api.get("/leaders", { params });
 
-        // api.js returns response.data directly
         if (response && response.success) {
           const groups = Array.isArray(response.data) ? response.data : [];
-          setFeedGroups(groups);
+          
+          // Process leaders to add image URLs
+          const processedGroups = groups.map(group => ({
+            ...group,
+            leaders: (group.leaders || []).map(leader => ({
+              ...leader,
+              imageUrl: getLeaderAvatar(leader)
+            }))
+          }));
+          
+          setFeedGroups(processedGroups);
 
           const cacheKey = `feed_cache_${userData?.user_id || "guest"}`;
           localStorage.setItem(
             cacheKey,
             JSON.stringify({
               timestamp: Date.now(),
-              data: groups,
+              data: processedGroups,
             })
           );
         } else {
@@ -479,11 +515,7 @@ const LeadersPage = () => {
     fetchPersonalizedFeed();
   }, [userData, urlCounty, urlConstituency, urlWard]);
 
-
-
-  // Filter leaders based on search term
   const filteredGroups = useMemo(() => {
-    // FIX: Ensure feedGroups is an array before using .length
     if (!Array.isArray(feedGroups) || feedGroups.length === 0) return [];
     if (!searchTerm.trim()) return feedGroups;
 
@@ -491,7 +523,6 @@ const LeadersPage = () => {
 
     return feedGroups
       .map((group) => {
-        // Ensure group.leaders is an array
         const leaders = Array.isArray(group.leaders) ? group.leaders : [];
         return {
           ...group,
@@ -568,7 +599,6 @@ const LeadersPage = () => {
     );
   }
 
-  // SEO meta for location pages
   const locationTitle = urlCounty
     ? `${urlWard ? urlWard + ' Ward' : ''} ${urlConstituency ? urlConstituency + ' Constituency' : ''} ${urlCounty} County Aspirants 2027 | Siasahub`.replace(/\s+/g, ' ').trim()
     : 'All Aspirants & Candidates 2027 | Siasahub';
@@ -576,22 +606,8 @@ const LeadersPage = () => {
     ? `Browse 2027 election aspirants in ${urlCounty} County${urlConstituency ? ', ' + urlConstituency + ' Constituency' : ''}${urlWard ? ', ' + urlWard + ' Ward' : ''}. View their manifestos, endorsements, and campaign profiles.`
     : 'Discover all 2027 Kenyan election aspirants. View their manifestos, endorsements, and campaign profiles on Siasahub.';
 
-  // Navigation helper for location dropdowns
-  const navigateToLocation = (county, constituency, ward) => {
-    let path = '';
-    if (county) path += `/${encodeURIComponent(county)}`;
-    if (constituency) path += `/${encodeURIComponent(constituency)}`;
-    if (ward) path += `/${encodeURIComponent(ward)}`;
-    if (path) {
-      navigate(path);
-    } else {
-      navigate('/leaders');
-    }
-  };
-
   return (
     <PageWrapper>
-      {/* Dynamic SEO Meta */}
       <Helmet>
         <title>{locationTitle}</title>
         <meta name="description" content={locationDescription} />
@@ -633,33 +649,6 @@ const LeadersPage = () => {
 
         <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
-
-      {isUserLoggedIn && (
-        <UserInfoBar>
-          <div className="user-details">
-            <div className="greeting">
-              <User size={14} />
-              Hello, {userData?.name || "Patriot"}
-            </div>
-            {(userData?.county || userData?.ward) && (
-              <div className="info-badge">
-                <MapPin size={12} />
-                {userData?.county} {userData?.ward ? ` • ${userData?.ward}` : ""}
-              </div>
-            )}
-            {userData?.political_party && (
-              <div className="info-badge">
-                <Briefcase size={12} />
-                {userData?.political_party}
-              </div>
-            )}
-          </div>
-          <div className="personalized-note">
-            <Shield size={12} />
-            Showing personalized results for your region
-          </div>
-        </UserInfoBar>
-      )}
 
       {searchTerm && (
         <div
