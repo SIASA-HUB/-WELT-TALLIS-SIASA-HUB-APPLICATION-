@@ -23,6 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 import api from "../../api/api";
+import API from "../../api/config";
 
 import EndorsementStories from "../stories/endorsementStories";
 import BoostedStoriesRow from "../stories/boostedstoriesrow";
@@ -596,21 +597,34 @@ const getLoggedInUserId = () => {
   return null;
 };
 
+
 const buildImageUrl = (url) => {
   if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-
-  let baseUrl =  "http://localhost:8009/api/v1"; // Standardized Gateway URL
+  
+  // If it's already an absolute URL (http/https), return as is
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // Get base URL from API config - NO localhost fallback
+  let baseUrl = API.IMAGES || API.BASE;
+  
+  // If no base URL configured, return null (don't fallback to localhost)
+  if (!baseUrl) return null;
+  
+  // Remove /api/v1 if present in the base URL
   if (baseUrl.includes("/api/v1")) {
     baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
+  
+  // Remove trailing slash
   baseUrl = baseUrl.replace(/\/$/, "");
 
+  // Ensure image path has leading slash
   let imagePath = url.startsWith("/") ? url : `/${url}`;
+  
   return `${baseUrl}${imagePath}`;
 };
-
-// ==================== Main Component ====================
 
 const LeaderHeader = ({ leader, onBack }) => {
   const [showBoostModal, setShowBoostModal] = useState(false);
