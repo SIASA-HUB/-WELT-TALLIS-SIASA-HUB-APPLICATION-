@@ -216,19 +216,7 @@ const TrendingSection = () => {
 
         {hasManifestos && <Divider />}
 
-        {/* ── 4. UPCOMING RALLIES ── */}
-        {hasRallies && (
-          <SectionWrapper>
-            <RalliesSection
-              limit={4}
-              compact={true}
-              onEmpty={handleRalliesEmpty}
-            />
-          </SectionWrapper>
-        )}
-
-        {hasRallies && <Divider />}
-
+     
         {/* ── 5. BOTTOM MERCH ADS CAROUSEL ── */}
         {merchHasData && (
           <BottomCarouselWrapper>
@@ -240,7 +228,7 @@ const TrendingSection = () => {
 
       </ContentWrapper>
 
-      {/* ── 6. SLOGAN SECTION AT BOTTOM ── */}
+
       <SloganSection />
     </TrendingContainer>
   );
