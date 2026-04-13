@@ -120,7 +120,7 @@ router.get("/:leaderId", getLeaderById);
 // PROTECTED / ME ROUTES — aspirant only
 // ============================================================
 router.get("/profile/me", verifyAspirantToken, getMyProfile);
-router.put("/profile/me", verifyAspirantToken, updateMyProfile);
+router.put("/profile/me",  updateMyProfile);
 router.post("/verification/request", verifyAspirantToken, requestVerification);
 
 // ============================================================

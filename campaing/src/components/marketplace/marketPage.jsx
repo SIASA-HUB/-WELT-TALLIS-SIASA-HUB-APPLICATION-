@@ -4,7 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import ShopListing from "./pages/ShopListing";
-import Favourite from "./pages/Favourite";
+
 import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductDetails";
 import Checkout from "./checkout/checkout";

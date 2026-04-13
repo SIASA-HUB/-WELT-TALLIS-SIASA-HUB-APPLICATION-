@@ -353,16 +353,28 @@ const Home = () => {
   const getProducts = async () => {
     setLoading(true);
     try {
-      const res = await getAllProducts();
-      setProducts(res.data.data || []);
+      const products = await getAllProducts();
+      // getAllProducts now returns a normalized array directly
+      setProducts(Array.isArray(products) ? products : []);
     } catch (error) {
-      console.error(error);
+      console.error("Failed to load products:", error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Clear any stale cache entries that may have stored 404 responses
+    // (this runs once on mount and removes bad cached data)
+    try {
+      const CACHE_PREFIX = 'siasahub_cache_';
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(CACHE_PREFIX + '/products')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (_) {}
     getProducts();
   }, []);
 

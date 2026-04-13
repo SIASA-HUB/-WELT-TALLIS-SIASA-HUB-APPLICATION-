@@ -124,21 +124,29 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await api.post("/users/login", {
-        identifier: username, // Matched to backend identifier (email or username)
+        identifier: username, // backend accepts email OR username
         password,
       });
 
       if (response && response.success) {
-        // Store Token for API interceptor
+        // Store the REAL JWT access token — used by axios Bearer interceptor
         if (response.accessToken) {
           localStorage.setItem("token", response.accessToken);
+          localStorage.setItem("access_token", response.accessToken); // keep both for compatibility
         }
+
+        // Store CSRF token separately — do NOT mix with JWT
         if (response.csrfToken) {
-          localStorage.setItem("access_token", response.csrfToken);
+          localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
         }
 
+        // Store full user object for components that need it (e.g. MyOrders)
         const userData = response.user || response.data;
+        if (userData) {
+          localStorage.setItem("user_data", JSON.stringify(userData));
+        }
+
         setUser(userData);
         setIsAuthenticated(true);
         return { success: true, user: userData };
@@ -148,34 +156,37 @@ export const AuthProvider = ({ children }) => {
       console.error("Login error:", error);
       return {
         success: false,
-        message: error.response?.data?.message || "Login failed",
+        message: error.response?.data?.message || error?.message || "Login failed",
       };
     }
   };
 
-  // Logout function - FIXED endpoint
+  // Logout function
   const logout = async () => {
     try {
       await api.post("/users/logout");
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("token");
-      setUser(null);
-      setIsAuthenticated(false);
-      setCsrfToken(null);
-      return { success: true };
-    } catch (error) {
-      console.error("Logout error:", error);
-      return { success: false, message: "Logout failed" };
-    }
+    } catch (_) { /* ignore logout API errors */ }
+    // Always clear local storage
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("csrf_token");
+    localStorage.removeItem("user_data");
+    setUser(null);
+    setIsAuthenticated(false);
+    setCsrfToken(null);
+    return { success: true };
   };
 
 
-  // Refresh token - FIXED endpoint
+  // Refresh token — axios interceptor already unwraps .data, so use response directly
   const refreshToken = async () => {
     try {
-      const response = await api.post("/users/refresh"); // Changed from /auth/refresh
-      if (response.data.success) {
-        setCsrfToken(response.data.csrfToken);
+      const response = await api.post("/users/refresh");
+      if (response && response.success) {
+        if (response.csrfToken) {
+          localStorage.setItem("csrf_token", response.csrfToken);
+          setCsrfToken(response.csrfToken);
+        }
         await checkAuthStatus();
         return { success: true };
       }

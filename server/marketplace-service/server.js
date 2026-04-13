@@ -133,8 +133,8 @@ app.post("/api/v1/upload", upload.single("image"), (req, res) => {
 
 // API Routes
 app.use("/api/v1/products", productRoutes);
-app.use("/api/v1/user/cart", cartRoutes);
-app.use("/api/v1/user/order", orderRoutes);
+app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/orders", orderRoutes);
 
 
 

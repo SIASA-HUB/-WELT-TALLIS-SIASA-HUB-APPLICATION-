@@ -2,28 +2,36 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  placeOrder,getAllOrders,getOrderById,getOrderByNumber,getOrdersByUser,getGuestOrders,getOrderStats,updateOrderStatus,cancelOrder } = require("../controller/order-controller");
-// Place a new order
-router.post("/", placeOrder);
+  placeOrder, getAllOrders, getOrderById, getOrderByNumber,
+  getOrdersByUser, getGuestOrders, getOrderStats, updateOrderStatus, cancelOrder,
+  directOrder
+} = require("../controller/order-controller");
 
-// Get order by ID
-router.get("/:id", getOrderById);
-router.get("/track/:orderNumber", getOrderByNumber);
-router.get("/user/:userId", getOrdersByUser);
-router.post("/:id/cancel", cancelOrder);
+// ─── Place Order ─────────────────────────────────────────────────────────────
+router.post("/", placeOrder);         // POST /orders
+router.post("/place", placeOrder);    // POST /orders/place  ← frontend calls this
 
-// Get guest orders by email or phone
-router.get("/guest/lookup", getGuestOrders);
-
-// Get all orders (admin)
+// ─── Stats (must be before /:id) ─────────────────────────────────────────────
+router.get("/stats", getOrderStats);
 router.get("/admin/all", getAllOrders);
 router.get("/admin/stats", getOrderStats);
 
-// Update order status (admin)
-router.patch("/admin/:id/status", updateOrderStatus);
+// ─── Guest & Tracking ─────────────────────────────────────────────────────────
+router.get("/guest/lookup", getGuestOrders);
+router.get("/track/:orderNumber", getOrderByNumber);
 
-router.get("/", getAllOrders);
-router.get("/stats", getOrderStats);
+// ─── User Orders ──────────────────────────────────────────────────────────────
+router.get("/user/:userId", getOrdersByUser);
+
+// ─── Admin Status Update ─────────────────────────────────────────────────────
+router.patch("/admin/:id/status", updateOrderStatus);
 router.patch("/:id/status", updateOrderStatus);
+
+// ─── All Orders (admin list fallback) ─────────────────────────────────────────
+router.get("/", getAllOrders);
+
+// ─── Single Order ─────────────────────────────────────────────────────────────
+router.get("/:id", getOrderById);
+router.post("/:id/cancel", cancelOrder);
 
 module.exports = router;

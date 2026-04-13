@@ -97,12 +97,21 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Simplified chunking for better stability
-        manualChunks: undefined,
+        // Intelligent chunking to avoid 33MB giant bundles
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts")) return "vendor-charts";
+            if (id.includes("framer-motion")) return "vendor-motion";
+            if (id.includes("lucide-react")) return "vendor-icons";
+            if (id.includes("axios")) return "vendor-axios";
+            return "vendor"; // All other libraries
+          }
+        },
         // Optimize chunk names
         chunkFileNames: "assets/[name].[hash].js",
         entryFileNames: "assets/[name].[hash].js",
         assetFileNames: "assets/[name].[hash].[ext]",
+
       },
     },
     // Enable CSS code splitting

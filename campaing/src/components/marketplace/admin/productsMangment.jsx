@@ -23,6 +23,8 @@ const Header = styled.div`
 const Title = styled.h3`
   font-size: 18px;
   margin: 0;
+  color: #1a1a1a;
+  font-weight: 600;
 `;
 
 const AddButton = styled.button`
@@ -36,6 +38,7 @@ const AddButton = styled.button`
   gap: 8px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   transition: background 0.2s;
 
   &:hover {
@@ -55,9 +58,14 @@ const Table = styled.table`
   }
 
   th {
-    color: #666;
-    font-weight: 500;
+    color: #333;
+    font-weight: 600;
     font-size: 13px;
+    background-color: #fafafa;
+  }
+  
+  td {
+    color: #1a1a1a;
   }
 `;
 
@@ -79,6 +87,7 @@ const IconButton = styled.button`
   cursor: pointer;
   padding: 4px;
   color: ${(props) => props.$color || "#666"};
+  transition: color 0.2s;
 
   &:hover {
     color: ${(props) => props.$hoverColor || "#000"};
@@ -86,12 +95,12 @@ const IconButton = styled.button`
 `;
 
 const StatusBadge = styled.span`
-  padding: 4px 8px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   background: ${(props) => (props.$inStock ? "#e8f5e9" : "#ffebee")};
-  color: ${(props) => (props.$inStock ? "#2e7d32" : "#c62828")};
+  color: ${(props) => (props.$inStock ? "#1b5e20" : "#c62828")};
 `;
 
 const LoadingContainer = styled.div`
@@ -99,6 +108,44 @@ const LoadingContainer = styled.div`
   justify-content: center;
   align-items: center;
   padding: 40px;
+`;
+
+const ProductName = styled.div`
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+`;
+
+const ProductSubtitle = styled.div`
+  font-size: 12px;
+  color: #555;
+  font-weight: 500;
+`;
+
+const ProductId = styled.td`
+  color: #555;
+  font-weight: 500;
+`;
+
+const ProductPrice = styled.td`
+  color: #1a1a1a;
+  font-weight: 600;
+`;
+
+const CategoryText = styled.span`
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  letter-spacing: 0.5px;
+`;
+
+const NoProductsCell = styled.td`
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
 `;
 
 import { adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from "../components/api";
@@ -150,7 +197,7 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
         <LoadingContainer>
           <Icons.Loader2
             size={32}
-            style={{ animation: "spin 1s linear infinite" }}
+            style={{ animation: "spin 1s linear infinite", color: "#bb0000" }}
           />
         </LoadingContainer>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -185,12 +232,9 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td
-                  colSpan="8"
-                  style={{ textAlign: "center", padding: "40px" }}
-                >
+                <NoProductsCell colSpan="8">
                   No products found
-                </td>
+                </NoProductsCell>
               </tr>
             ) : (
               products.map((product) => (
@@ -201,27 +245,25 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
                       alt={product.name}
                     />
                   </td>
-                  <td>#{product.id}</td>
+                  <ProductId>#{product.id}</ProductId>
                   <td>
-                    <strong>{product.name}</strong>
-                    <div style={{ fontSize: 12, color: "#666" }}>
+                    <ProductName>{product.name}</ProductName>
+                    <ProductSubtitle>
                       {product.title?.substring(0, 40)}
-                    </div>
+                    </ProductSubtitle>
                   </td>
-                  <td>KSH {Number(product.price).toLocaleString()}</td>
+                  <ProductPrice>KSH {Number(product.price).toLocaleString()}</ProductPrice>
                   <td>
-                    <span style={{ textTransform: "uppercase", fontSize: 12 }}>
-                      {product.category}
-                    </span>
+                    <CategoryText>{product.category}</CategoryText>
                   </td>
                   <td>
                     <StatusBadge $inStock={product.stock > 0}>
-                      {product.stock} in stock
+                      {product.stock} {product.stock === 1 ? 'unit' : 'units'} in stock
                     </StatusBadge>
                   </td>
                   <td>
                     <StatusBadge $inStock={product.status === "active"}>
-                      {product.status || "active"}
+                      {product.status === "active" ? "Active" : "Inactive"}
                     </StatusBadge>
                   </td>
                   <td>

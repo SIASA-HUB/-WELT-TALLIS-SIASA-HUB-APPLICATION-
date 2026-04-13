@@ -13,9 +13,6 @@ const userRoutes = require("./src/routes/users");
 const corsMiddleware = require("../global/middlewares/corsMiddleware");
 const knexConfig = require("./knexfile");
 
-
-
-
 const app = express();
 
 

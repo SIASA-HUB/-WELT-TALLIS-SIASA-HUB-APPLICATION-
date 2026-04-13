@@ -38,14 +38,17 @@ const StatHeader = styled.div`
 `;
 
 const StatTitle = styled.p`
-  color: #666;
+  color: #555;
   font-size: 14px;
+  font-weight: 600;
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
 const StatValue = styled.h3`
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
   margin: 8px 0 0;
   color: ${(props) => props.$color || "#1a1a2e"};
 `;
@@ -53,12 +56,12 @@ const StatValue = styled.h3`
 const IconWrapper = styled.div`
   width: 48px;
   height: 48px;
-  background: #fff0f0;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #bb0000;
+  background: ${(props) => props.$bg || "#fff0f0"};
+  color: ${(props) => props.$iconColor || "#bb0000"};
 `;
 
 const RecentOrdersSection = styled.div`
@@ -68,9 +71,24 @@ const RecentOrdersSection = styled.div`
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
+const SectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+`;
+
 const SectionTitle = styled.h3`
   font-size: 18px;
-  margin: 0 0 16px 0;
+  margin: 0;
+  color: #1a1a1a;
+  font-weight: 700;
+`;
+
+const SectionSubtitle = styled.div`
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
 `;
 
 const OrdersTable = styled.table`
@@ -85,17 +103,22 @@ const OrdersTable = styled.table`
   }
 
   th {
-    color: #666;
-    font-weight: 500;
+    color: #333;
+    font-weight: 700;
     font-size: 13px;
+    background-color: #fafafa;
+  }
+  
+  td {
+    color: #1a1a1a;
   }
 `;
 
 const StatusBadge = styled.span`
-  padding: 4px 8px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   background: ${(props) => {
     switch (props.$status) {
       case "pending":
@@ -104,6 +127,10 @@ const StatusBadge = styled.span`
         return "#e8f5e9";
       case "shipped":
         return "#e3f2fd";
+      case "cancelled":
+        return "#ffebee";
+      case "processed":
+        return "#e8eaf6";
       default:
         return "#f5f5f5";
     }
@@ -111,45 +138,87 @@ const StatusBadge = styled.span`
   color: ${(props) => {
     switch (props.$status) {
       case "pending":
-        return "#ed6c02";
+        return "#e65100";
       case "completed":
-        return "#2e7d32";
+        return "#1b5e20";
       case "shipped":
-        return "#0288d1";
+        return "#01579b";
+      case "cancelled":
+        return "#c62828";
+      case "processed":
+        return "#1a237e";
       default:
-        return "#666";
+        return "#555";
     }
   }};
 `;
 
+const CustomerName = styled.div`
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+`;
+
+const CustomerEmail = styled.div`
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+`;
+
+const OrderNumber = styled.td`
+  font-weight: 600;
+  color: #1a1a1a;
+`;
+
+const TotalAmount = styled.td`
+  font-weight: 700;
+  color: #1a1a1a;
+`;
+
+const DateText = styled.td`
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+`;
+
+const NoOrdersCell = styled.td`
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+`;
+
 const DashboardStats = ({ stats, orders }) => {
+  const pendingOrdersCount = orders.filter(order => order.status === "pending").length;
+  
   const statItems = [
     {
       title: "Total Revenue",
       value: `KSH ${Number(stats.totalRevenue).toLocaleString()}`,
       icon: "Coins",
-      color: "#22c55e",
+      color: "#16a34a",
       bg: "#f0fdf4"
     },
     {
       title: "Pending Orders",
-      value: stats.pendingOrders || 0,
+      value: stats.pendingOrders || pendingOrdersCount || 0,
       icon: "Clock",
-      color: "#f59e0b",
+      color: "#ea580c",
       bg: "#fffbeb"
     },
     {
       title: "Total Orders",
       value: stats.totalOrders,
       icon: "ShoppingCart",
-      color: "#bb0000",
+      color: "#dc2626",
       bg: "#fff1f2"
     },
     {
       title: "Low Stock Items",
       value: stats.lowStock,
       icon: "AlertTriangle",
-      color: "#ef4444",
+      color: "#dc2626",
       bg: "#fef2f2"
     },
   ];
@@ -161,7 +230,7 @@ const DashboardStats = ({ stats, orders }) => {
           <StatCard key={idx}>
             <StatHeader>
               <StatTitle>{item.title}</StatTitle>
-              <IconWrapper style={{ background: item.bg, color: item.color }}>
+              <IconWrapper $bg={item.bg} $iconColor={item.color}>
                 {React.createElement(Icons[item.icon], { size: 24 })}
               </IconWrapper>
             </StatHeader>
@@ -171,10 +240,10 @@ const DashboardStats = ({ stats, orders }) => {
       </StatsGrid>
 
       <RecentOrdersSection>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <SectionTitle style={{ margin: 0 }}>Recent Campaign Orders</SectionTitle>
-          <div style={{ fontSize: '12px', color: '#64748b' }}>Latest 5 entries</div>
-        </div>
+        <SectionHeader>
+          <SectionTitle>Recent Campaign Orders</SectionTitle>
+          <SectionSubtitle>Latest 5 entries</SectionSubtitle>
+        </SectionHeader>
         <OrdersTable>
           <thead>
             <tr>
@@ -188,25 +257,25 @@ const DashboardStats = ({ stats, orders }) => {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                <NoOrdersCell colSpan="5">
                   No recent orders available
-                </td>
+                </NoOrdersCell>
               </tr>
             ) : (
               orders.slice(0, 5).map((order) => (
                 <tr key={order.id}>
-                  <td>{order.order_number}</td>
+                  <OrderNumber>{order.order_number}</OrderNumber>
                   <td>
-                    <div>{order.customer_name}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>{order.customer_email}</div>
+                    <CustomerName>{order.customer_name}</CustomerName>
+                    <CustomerEmail>{order.customer_email}</CustomerEmail>
                   </td>
-                  <td>KSH {Number(order.total_amount).toLocaleString()}</td>
+                  <TotalAmount>KSH {Number(order.total_amount).toLocaleString()}</TotalAmount>
                   <td>
                     <StatusBadge $status={order.status}>
-                      {order.status}
+                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                     </StatusBadge>
                   </td>
-                  <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                  <DateText>{new Date(order.created_at).toLocaleDateString()}</DateText>
                 </tr>
               ))
             )}

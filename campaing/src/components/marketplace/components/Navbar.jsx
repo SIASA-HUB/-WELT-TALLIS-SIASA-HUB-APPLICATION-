@@ -3,7 +3,8 @@ import styled from "styled-components";
 import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import Button from "./Button";
-import { Menu, Heart, ShoppingCart, User as UserIcon } from "lucide-react";
+import { Menu, ShoppingCart, User as UserIcon } from "lucide-react";
+
 import { useAuth } from "@/components/hooks/useAuth";
 
 const Nav = styled.div`

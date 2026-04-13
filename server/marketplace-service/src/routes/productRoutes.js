@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   getProducts,
   getProductById,
+  getProductBySlug,
   getProductsByCategory,
   getFeaturedProducts,
   createProduct,
@@ -19,9 +20,10 @@ router.get("/", getProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/categories", getCategories);
 router.get("/latest", getLatestProducts);
-router.get("/hot", getHotProducts);   // Trending store carousel
+router.get("/hot", getHotProducts);             // Trending store carousel
 router.get("/category/:category", getProductsByCategory);
-router.get("/:id", getProductById);
+router.get("/slug/:slug", getProductBySlug);    // SEO slug route — MUST be before /:id
+router.get("/:id", getProductById);             // Numeric ID or fallback slug lookup
 
 // Admin routes (add auth middleware later)
 router.post("/", createProduct);

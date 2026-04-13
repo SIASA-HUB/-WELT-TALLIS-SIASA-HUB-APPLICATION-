@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, memo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { Home, UserCheck, ShoppingBag, User } from "lucide-react";
+import { Home, UserCheck, ShoppingBag, History, User } from "lucide-react";
+
 import AppLoadingBar from "./LoadingBar";
 
 const clickScale = keyframes`
@@ -97,9 +98,11 @@ const NavMenu = () => {
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/leaders", label: "Aspirants", icon: UserCheck },
-    { path: "/marketplace", label: "Market", icon: ShoppingBag },
+    { path: "/marketplace", label: "Store", icon: ShoppingBag },
+
     { path: "/profile", label: "Profile", icon: User },
   ];
+
 
   const handleNavClick = (path) => {
     // Only trigger loading if we are moving to a NEW page

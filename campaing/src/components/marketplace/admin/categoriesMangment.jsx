@@ -11,6 +11,8 @@ const Container = styled.div`
 const Title = styled.h3`
   font-size: 18px;
   margin: 0 0 20px 0;
+  color: #1a1a1a;
+  font-weight: 600;
 `;
 
 const Grid = styled.div`
@@ -22,14 +24,16 @@ const Grid = styled.div`
 const CategoryCard = styled.div`
   background: #f8f9fa;
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px 16px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
+  border: 1px solid #eaeaea;
 
   &:hover {
     background: #f0f0f0;
     transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 `;
 
@@ -37,15 +41,27 @@ const CategoryName = styled.h4`
   text-transform: uppercase;
   font-size: 16px;
   margin: 0 0 8px 0;
+  color: #1a1a1a;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 `;
 
 const ProductCount = styled.p`
-  color: #666;
-  font-size: 12px;
+  color: #555;
+  font-size: 13px;
   margin: 0;
+  font-weight: 500;
 `;
 
-const CategoriesManagement = ({ products }) => {
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+`;
+
+const CategoriesManagement = ({ products = [] }) => {
   const categories = [
     "caps",
     "tshirts",
@@ -62,17 +78,30 @@ const CategoriesManagement = ({ products }) => {
     return products.filter((p) => p.category === category).length;
   };
 
+  const totalProducts = products.length;
+
   return (
     <Container>
-      <Title>Categories</Title>
-      <Grid>
-        {categories.map((cat) => (
-          <CategoryCard key={cat}>
-            <CategoryName>{cat}</CategoryName>
-            <ProductCount>{getProductCount(cat)} products</ProductCount>
-          </CategoryCard>
-        ))}
-      </Grid>
+      <Title>Categories Management</Title>
+      {totalProducts === 0 ? (
+        <EmptyState>
+          No products available to display categories
+        </EmptyState>
+      ) : (
+        <Grid>
+          {categories.map((cat) => {
+            const count = getProductCount(cat);
+            return (
+              <CategoryCard key={cat}>
+                <CategoryName>{cat}</CategoryName>
+                <ProductCount>
+                  {count} {count === 1 ? 'product' : 'products'}
+                </ProductCount>
+              </CategoryCard>
+            );
+          })}
+        </Grid>
+      )}
     </Container>
   );
 };

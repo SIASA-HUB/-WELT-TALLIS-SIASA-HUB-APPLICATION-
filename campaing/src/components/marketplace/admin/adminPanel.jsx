@@ -29,7 +29,7 @@ const AdminContainer = styled.div`
 const Sidebar = styled.aside`
   width: 260px;
   background: #1a1a2e;
-  color: #fff;
+  color: #ffffff;
   position: fixed;
   height: 100vh;
   overflow-y: auto;
@@ -38,6 +38,20 @@ const Sidebar = styled.aside`
     transform: translateX(${(props) => (props.$isOpen ? "0" : "-100%")});
     transition: transform 0.3s ease;
     z-index: 1000;
+  }
+  
+  /* Custom scrollbar for sidebar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
   }
 `;
 
@@ -52,6 +66,8 @@ const SidebarTitle = styled.h2`
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #ffffff;
+  font-weight: 700;
 
   span {
     font-size: 24px;
@@ -70,14 +86,16 @@ const NavItem = styled.button`
   padding: 12px 20px;
   background: ${(props) => (props.$active ? "#bb0000" : "transparent")};
   border: none;
-  color: #fff;
+  color: ${(props) => (props.$active ? "#ffffff" : "#e0e0e0")};
   cursor: pointer;
   transition: all 0.2s;
   font-size: 14px;
+  font-weight: ${(props) => (props.$active ? "600" : "500")};
 
   &:hover {
     background: ${(props) =>
       props.$active ? "#bb0000" : "rgba(255,255,255,0.1)"};
+    color: #ffffff;
   }
 
   svg {
@@ -97,7 +115,7 @@ const MainContent = styled.main`
 `;
 
 const TopBar = styled.div`
-  background: #fff;
+  background: #ffffff;
   padding: 16px 24px;
   border-radius: 12px;
   display: flex;
@@ -111,6 +129,7 @@ const PageTitle = styled.h1`
   font-size: 24px;
   margin: 0;
   color: #1a1a2e;
+  font-weight: 700;
 `;
 
 const MenuButton = styled.button`
@@ -119,9 +138,14 @@ const MenuButton = styled.button`
   border: none;
   cursor: pointer;
   padding: 8px;
+  color: #1a1a2e;
 
   @media (max-width: 768px) {
     display: block;
+  }
+  
+  &:hover {
+    color: #bb0000;
   }
 `;
 
@@ -135,10 +159,13 @@ const ViewStoreButton = styled(Link)`
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  transition: background 0.2s;
+  font-weight: 600;
+  transition: all 0.2s;
 
   &:hover {
     background: #990000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(187, 0, 0, 0.3);
   }
 `;
 
@@ -182,13 +209,24 @@ const AdminPanel = () => {
     fetchOrdersAndStats();
   }, []);
 
+  // Update stats when products change
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      totalProducts: products.length,
+      lowStock: products.filter((p) => (p.stock ?? p.quantity ?? 0) < 10).length,
+    }));
+  }, [products]);
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
       const response = await getAllProducts();
-      setProducts(response.data.data || []);
+      const list = Array.isArray(response) ? response : (response?.data ?? []);
+      setProducts(list);
     } catch (error) {
       console.error("Error fetching products:", error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -197,17 +235,17 @@ const AdminPanel = () => {
   const fetchOrdersAndStats = async () => {
     try {
       const ordersRes = await getAdminOrders();
-      setOrders(ordersRes.data.data || []);
+      const orderList = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data ?? []);
+      setOrders(orderList);
 
       const statsRes = await getAdminStats();
-      const statsData = statsRes.data.data;
-      
-      setStats({
-        totalProducts: products.length,
-        totalOrders: statsData.totalOrders || 0,
+      const statsData = (statsRes?.data ?? statsRes) || {};
+
+      setStats(prev => ({
+        ...prev,
+        totalOrders: statsData.totalOrders || orderList.length || 0,
         totalRevenue: statsData.totalRevenue || 0,
-        lowStock: products.filter((p) => p.stock < 10).length,
-      });
+      }));
     } catch (error) {
       console.error("Error fetching orders and stats:", error);
     }
@@ -224,7 +262,7 @@ const AdminPanel = () => {
           />
         );
       case "orders":
-        return <OrdersManagement orders={orders} />;
+        return <OrdersManagement orders={orders} onRefresh={fetchOrdersAndStats} />;
       case "categories":
         return <CategoriesManagement products={products} />;
       default:

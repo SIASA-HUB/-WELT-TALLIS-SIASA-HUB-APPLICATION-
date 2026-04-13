@@ -156,7 +156,7 @@ const startLeaderWorkers = async () => {
       }
     });
 
-    Logger.info("✅ Leader RabbitMQ workers started");
+    Logger.info(" Leader RabbitMQ workers started");
   } catch (err) {
     Logger.error("Failed to start leader workers:", err);
   }
@@ -289,7 +289,7 @@ const registerAspirant = asyncHandler(async (req, res) => {
     if (!position) return res.status(400).json({ success: false, message: "Position is required" });
     if (!county) return res.status(400).json({ success: false, message: "County is required" });
     if (!image) {
-      Logger.warn("⚠️ Registration failed: Missing profile image");
+      Logger.warn("Registration failed: Missing profile image");
       return res.status(400).json({ success: false, message: "Profile image is required" });
     }
 
@@ -470,17 +470,19 @@ const loginAspirant = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate JWT token with 25 minutes expiration
+    // Generate JWT token — MUST use same secret as global/auth/tokens.js verifyAccessToken
+    const JWT_SECRET = process.env.JWT_SECRET || "ballot-super-secret-key-development";
     const token = jwt.sign(
       { 
         leaderId: leader.leader_id,
+        userId: leader.leader_id,
         name: leader.name,
         role: "aspirant",
         position: leader.position_running_for || leader.position,
         party: leader.party
       },
-      process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "25m" }
+      JWT_SECRET,
+      { expiresIn: "7d" } 
     );
 
     // Remove sensitive data before sending response
@@ -648,9 +650,7 @@ const updateLeader = asyncHandler(async (req, res) => {
   }
 });
 
-// ============================================
-// GET POPULAR LEADERS
-// ============================================
+
 // ============================================
 // GET POPULAR LEADERS - WITH CACHING & FULL URLs
 // ============================================
@@ -665,7 +665,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       cachedLeaders = await redis.get(cacheKey);
       if (cachedLeaders) {
         const parsed = typeof cachedLeaders === 'string' ? JSON.parse(cachedLeaders) : cachedLeaders;
-        Logger.info("📊 Returning cached popular leaders");
+        Logger.info("Returning cached popular leaders");
         return res.status(200).json({ 
           success: true, 
           data: parsed,
@@ -827,15 +827,6 @@ const boostLeader = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-
-// ============================================
-// GET PERSONALIZED FEED - DEBUG & FIXED
-// ============================================
-
-
-
 // ============================================
 // GET PERSONALIZED FEED - DEBUG & FIXED
 // ============================================
@@ -854,7 +845,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     const uConstituency = user_constituency || constituency || null;
     const uParty = user_party || party || null;
 
-    console.log("📊 Building feed with:", { uCounty, uWard, uConstituency, uParty });
+    console.log("Building feed with:", { uCounty, uWard, uConstituency, uParty });
 
     // Base query helper
     const getLeadersBase = `
@@ -883,39 +874,39 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     };
 
     // 1. PRESIDENTIAL
-    await addGroup('presidential', '👑 Presidential Candidates', 'Candidates running for President', 'presidential', 
+    await addGroup('presidential', 'Presidential Candidates', 'Candidates running for President', 'presidential', 
       "AND (LOWER(l.position_running_for) LIKE '%president%' OR LOWER(l.position) LIKE '%president%') ORDER BY trending_score DESC", []);
 
     // 2. YOUR COUNTY
     if (uCounty) {
-      await addGroup('your_county', `🏛️ ${uCounty} County`, `Top aspirants in ${uCounty}`, 'county', 
+      await addGroup('your_county', `${uCounty} County`, `Top aspirants in ${uCounty}`, 'county', 
         'AND l.county = ? ORDER BY trending_score DESC', [uCounty]);
     }
 
     // 3. YOUR CONSTITUENCY
     if (uConstituency) {
-      await addGroup('your_constituency', `📍 ${uConstituency} Constituency`, `Representation in ${uConstituency}`, 'constituency', 
+      await addGroup('your_constituency', `${uConstituency} Constituency`, `Representation in ${uConstituency}`, 'constituency', 
         'AND l.constituency = ? ORDER BY trending_score DESC', [uConstituency]);
     }
 
     // 4. YOUR WARD
     if (uWard) {
-      await addGroup('your_ward', `🏘️ ${uWard} Ward`, `Local aspirants in ${uWard}`, 'ward', 
+      await addGroup('your_ward', `${uWard} Ward`, `Local aspirants in ${uWard}`, 'ward', 
         'AND l.ward = ? ORDER BY trending_score DESC', [uWard]);
     }
 
     // 5. YOUR PARTY
     if (uParty) {
-      await addGroup('your_party', `🎯 ${uParty} Party`, `Aspirants from ${uParty}`, 'party', 
+      await addGroup('your_party', `${uParty} Party`, `Aspirants from ${uParty}`, 'party', 
         'AND l.party = ? ORDER BY trending_score DESC', [uParty]);
     }
 
     // 6. HOT & NEW
-    await addGroup('new', '✨ New Candidates', 'Aspirants who recently joined', 'new', 
+    await addGroup('new', 'New Candidates', 'Aspirants who recently joined', 'new', 
       'ORDER BY l.created_at DESC', []);
 
     // 7. TRENDING / DISCOVER
-    await addGroup('trending', '🔥 Trending Now', 'Aspirants making waves', 'trending', 
+    await addGroup('trending', 'Trending Now', 'Aspirants making waves', 'trending', 
       'ORDER BY trending_score DESC', []);
 
     const responseData = {
@@ -991,6 +982,8 @@ const getLeaderAnalyticsByPosition = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: stats });
 });
 
+
+
 const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
   const leaderId = req.user?.leader_id || req.query.leader_id;
   if (!leaderId) {
@@ -999,8 +992,9 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
 
   try {
     // 1. Get Core Leader Data
-    const leader = await safeQueryOne(`SELECT created_at, verification, status FROM leaders WHERE leader_id = ?`, [leaderId]);
+    const leader = await safeQueryOne(`SELECT created_at, verification, status, ward, county, position_running_for, position FROM leaders WHERE leader_id = ?`, [leaderId]);
     if (!leader) return res.status(404).json({ success: false, message: "Leader not found" });
+
 
     // 2. Aggregate Daily Reach (Last 7 Days)
     const dailyReach = await safeQuery(`
@@ -1019,38 +1013,84 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       ORDER BY date ASC
     `, [leaderId]);
 
-    // 3. Overall Stats
+    // 3. Overall Stats (Extended for Engagement Score)
     const stats = await safeQueryOne(`
       SELECT 
         (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as total_views,
         (SELECT COUNT(*) FROM leader_shares WHERE leader_id = l.leader_id) as total_shares,
         (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') as endorsements,
-        (SELECT COUNT(*) FROM leader_followers WHERE leader_id = l.leader_id) as followers
+        (SELECT COUNT(*) FROM leader_followers WHERE leader_id = l.leader_id) as followers,
+        (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) as likes,
+        (SELECT COUNT(*) FROM leader_comments WHERE leader_id = l.leader_id) as comments
       FROM leaders l WHERE l.leader_id = ?
     `, [leaderId]);
 
-    // 4. DEMOGRAPHICS (Gender & Generation)
-    // joining across services might be tricky if DBs are separate, but here we assume shared DB or safeQuery handles it
+    // 4. Calculate Engagement Score (Formula: endorsements*3 + likes*2 + comments*2 + shares*4)
+    const engagementScore = 
+      (stats?.endorsements || 0) * 3 +
+      (stats?.likes || 0) * 2 +
+      (stats?.comments || 0) * 2 +
+      (stats?.total_shares || 0) * 4;
+
+    // 5. Calculate Global Trending Rank
+    // We rank active leaders by the same engagement formula
+    const globalRankings = await safeQuery(`
+      SELECT leader_id, 
+        ( (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') * 3 +
+          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) * 2 +
+          (SELECT COUNT(*) FROM leader_comments WHERE leader_id = l.leader_id) * 2 +
+          (SELECT COUNT(*) FROM leader_shares WHERE leader_id = l.leader_id) * 4
+        ) as score
+      FROM leaders l
+      WHERE l.status = 'active'
+      ORDER BY score DESC
+    `);
+    
+    const trendingRank = globalRankings.findIndex(r => r.leader_id === leaderId) + 1 || globalRankings.length;
+
+    // 5.5 Regional Rank (Rank within same Position & context)
+    const regionalRankings = await safeQuery(`
+      SELECT l.leader_id,
+        (
+          (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') * 3 +
+          (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) * 2 +
+          (SELECT COUNT(*) FROM leader_comments WHERE leader_id = l.leader_id) * 2 +
+          (SELECT COUNT(*) FROM leader_shares WHERE leader_id = l.leader_id) * 4
+        ) as score
+      FROM leaders l
+      WHERE l.status = 'active'
+      AND (
+        (l.ward = ? AND l.ward IS NOT NULL) OR 
+        (l.county = ? AND l.county IS NOT NULL)
+      )
+      AND (l.position_running_for = ? OR l.position = ?)
+      ORDER BY score DESC
+    `, [leader.ward, leader.county, leader.position_running_for || leader.position, leader.position_running_for || leader.position]);
+    
+    const regionalRank = regionalRankings.findIndex(r => r.leader_id === leaderId) + 1 || regionalRankings.length;
+
+
+    // 6. DEMOGRAPHICS (Gender & Generation)
     const demographics = await safeQuery(`
-      SELECT u.gender, u.generation, COUNT(*) as count
+      SELECT u.gender, u.generation, u.county, COUNT(*) as count
       FROM leader_views v
       JOIN users u ON v.user_id = u.user_id
       WHERE v.leader_id = ?
-      GROUP BY u.gender, u.generation
+      GROUP BY u.gender, u.generation, u.county
     `, [leaderId]);
 
-    // 5. GEOGRAPHIC REACH (Ward Level)
-    const wardReach = await safeQuery(`
-      SELECT u.ward, COUNT(*) as count
+    // 7. GEOGRAPHIC REACH (County Level for requested "Top regions")
+    const countyReach = await safeQuery(`
+      SELECT u.county, COUNT(*) as count
       FROM leader_views v
       JOIN users u ON v.user_id = u.user_id
-      WHERE v.leader_id = ? AND u.ward IS NOT NULL
-      GROUP BY u.ward
+      WHERE v.leader_id = ? AND u.county IS NOT NULL
+      GROUP BY u.county
       ORDER BY count DESC
       LIMIT 10
     `, [leaderId]);
 
-    // 6. GROWTH RATE (Current week vs Previous week)
+    // 8. GROWTH RATE
     const currentWeekViews = await safeQueryOne(`
       SELECT COUNT(*) as count FROM leader_views 
       WHERE leader_id = ? AND viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
@@ -1062,7 +1102,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       AND viewed_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
     `, [leaderId]);
 
-    const growthRate = prevWeekViews.count > 0 
+    const growthRate = prevWeekViews?.count > 0 
       ? (((currentWeekViews.count - prevWeekViews.count) / prevWeekViews.count) * 100).toFixed(1)
       : 100;
 
@@ -1072,29 +1112,47 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isFreeTrial = createdAt > thirtyDaysAgo;
 
+    // Process Demographic totals
+    const genderStats = demographics.reduce((acc, d) => {
+      if (d.gender) acc[d.gender.toLowerCase()] = (acc[d.gender.toLowerCase()] || 0) + d.count;
+      return acc;
+    }, {});
+
+    const genStats = demographics.reduce((acc, d) => {
+      if (d.generation) acc[d.generation.toLowerCase()] = (acc[d.generation.toLowerCase()] || 0) + d.count;
+      return acc;
+    }, {});
+
+    const totalDemographicCount = Object.values(genderStats).reduce((a, b) => a + b, 0) || 1;
+    const youthCount = (genStats["gen z"] || 0) + (genStats["millennial"] || 0);
+
     res.status(200).json({
       success: true,
       data: {
         leader_id: leaderId,
         overview: {
-          reach: (stats?.total_views || 0) + (stats?.total_shares || 0) * 5,
+          engagement_score: engagementScore,
+          trending_rank: trendingRank,
+          regional_rank: regionalRank,
+          total_supporters: stats?.followers || 0,
           endorsements: stats?.endorsements || 0,
-          followers: stats?.followers || 0,
+
+          reach: (stats?.total_views || 0) + (stats?.total_shares || 0) * 5,
           is_verified: leader.verification === 1,
           trial_active: isFreeTrial,
           growth_rate: growthRate
         },
-        demographics: {
-          gender: demographics.reduce((acc, d) => {
-            if (d.gender) acc[d.gender] = (acc[d.gender] || 0) + d.count;
-            return acc;
-          }, {}),
-          generations: demographics.reduce((acc, d) => {
-            if (d.generation) acc[d.generation] = (acc[d.generation] || 0) + d.count;
-            return acc;
-          }, {})
+        insights: {
+          youth_percentage: Math.round((youthCount / totalDemographicCount) * 100),
+          male_percentage: Math.round(((genderStats["male"] || 0) / totalDemographicCount) * 100),
+          female_percentage: Math.round(((genderStats["female"] || 0) / totalDemographicCount) * 100),
+          top_regions: countyReach.map(c => ({ name: c.county, count: c.count }))
         },
-        ward_reach: wardReach,
+        demographics: {
+          gender: genderStats,
+          generations: genStats
+        },
+        ward_reach: countyReach, // Backward compatibility for chart names
         daily_reach: dailyReach.map(r => ({
           date: r.date,
           views: r.views,

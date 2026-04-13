@@ -1,4 +1,4 @@
-// controllers/userController.js - With Automatic Role Assignment and Default Users
+// controllers/userController.js - Fixed (added missing catch blocks)
 
 const asyncHandler = require("express-async-handler");
 const {
@@ -86,7 +86,6 @@ const generateUsernameFromName = (realName) => {
 
   return `${namePart}${randomNum}`;
 };
-
 
 // Main createUser function
 const createUser = asyncHandler(async (req, res) => {
@@ -231,43 +230,33 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   try {
-    // ============================================
-    // SMART USERNAME GENERATION (Auto-create if not provided)
-    // ============================================
+    // SMART USERNAME GENERATION
     let finalUsername = username;
     let usernameGenerated = false;
 
-    // If no username provided, generate one automatically
     if (!finalUsername || finalUsername.trim() === "") {
-      // Try to generate from real name first
       finalUsername = generateUsernameFromName(real_name);
       usernameGenerated = true;
 
-      // Check if username exists, if so, add more numbers
       let existingUser = await UserModel.findByUsername(finalUsername);
       let attempt = 0;
       const maxAttempts = 5;
 
       while (existingUser && attempt < maxAttempts) {
-        // Add random suffix
         const randomSuffix = Math.floor(Math.random() * 9999) + 1;
         finalUsername = `${generateUsernameFromName(real_name)}${randomSuffix}`;
         existingUser = await UserModel.findByUsername(finalUsername);
         attempt++;
       }
 
-      // If still exists after attempts, use crypto secure username
       if (existingUser) {
         finalUsername = generateSecureUsername();
         existingUser = await UserModel.findByUsername(finalUsername);
-
-        // Last resort: add timestamp
         if (existingUser) {
           finalUsername = `${generateSecureUsername()}_${Date.now()}`;
         }
       }
     } else {
-      // Username provided by user, validate it's not taken
       const existingUser = await UserModel.findByUsername(finalUsername);
       if (existingUser) {
         return res.status(400).json({
@@ -280,11 +269,9 @@ const createUser = asyncHandler(async (req, res) => {
     const generation = UserModel.getGenerationLabel(age_bracket);
     const password_hash = await UserModel.hashPassword(password);
 
-    // Convert form values
     const voterCardInt = voter_card === "Yes" ? 1 : 0;
     const willVoteVal = will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
 
-    // Create user with all fields including role
     const user_id = await UserModel.create({
       real_name: real_name.trim(),
       anonymous_username: finalUsername,
@@ -343,15 +330,15 @@ const createUser = asyncHandler(async (req, res) => {
 
       await db.query("COMMIT");
       welcomeBonusAdded = true;
-
     } catch (walletError) {
       try {
         const { db } = require("../../../global/index");
         await db.query("ROLLBACK");
+      } catch (rollbackError) {
+        // Ignore rollback error
       }
       Logger.error(`[Welcome Bonus Failed] User ${user_id}:`, { error: walletError.message });
     }
-
 
     return res.status(201).json({
       success: true,
@@ -368,6 +355,7 @@ const createUser = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("[createUser] Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to create user. Please try again.",
@@ -409,15 +397,12 @@ const getUserById = asyncHandler(async (req, res) => {
       county: user.county,
       ward: user.ward,
       voter_card: user.voter_card === 1,
-      will_vote:
-        user.will_vote === 1 ? true : user.will_vote === 0 ? false : null,
+      will_vote: user.will_vote === 1 ? true : user.will_vote === 0 ? false : null,
       political_party: user.political_party,
       employment_status: user.employment_status,
       political_leanings: user.political_leanings,
       vote_frequency: user.vote_frequency,
-      personal_email: user.personal_email
-        ? maskEmail(user.personal_email)
-        : null,
+      personal_email: user.personal_email ? maskEmail(user.personal_email) : null,
       is_verified: user.is_verified === 1,
       member_since: user.created_at,
       stats,
@@ -425,6 +410,7 @@ const getUserById = asyncHandler(async (req, res) => {
 
     return res.status(200).json({ success: true, data: userData });
   } catch (error) {
+    console.error("[getUserById] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch user" });
@@ -570,8 +556,7 @@ const updateUser = asyncHandler(async (req, res) => {
     if (employment_status) updateData.employment_status = employment_status;
     if (voter_card) updateData.voter_card = voter_card === "Yes" ? 1 : 0;
     if (will_vote)
-      updateData.will_vote =
-        will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
+      updateData.will_vote = will_vote === "Yes" ? 1 : will_vote === "No" ? 0 : 2;
     if (political_leanings) updateData.political_leanings = political_leanings;
     if (vote_frequency) updateData.vote_frequency = vote_frequency;
     if (personal_email) updateData.personal_email = personal_email;
@@ -594,6 +579,7 @@ const updateUser = asyncHandler(async (req, res) => {
       message: "User updated successfully",
     });
   } catch (error) {
+    console.error("[updateUser] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to update user" });
@@ -620,13 +606,11 @@ const updateUserRole = asyncHandler(async (req, res) => {
       .json({ success: false, message: "Role is required" });
   }
 
-  // Check if authenticated user exists and has permission
   if (!authenticatedUser || !authenticatedUser.user_id) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
   try {
-    // Get the current user's role
     const currentUser = await UserModel.findById(authenticatedUser.user_id);
     if (!currentUser) {
       return res
@@ -634,7 +618,6 @@ const updateUserRole = asyncHandler(async (req, res) => {
         .json({ success: false, message: "Current user not found" });
     }
 
-    // Update the role with permission check
     await UserModel.updateUserRole(
       userId,
       role,
@@ -647,6 +630,7 @@ const updateUserRole = asyncHandler(async (req, res) => {
       message: `User role updated to ${role} successfully`,
     });
   } catch (error) {
+    console.error("[updateUserRole] Error:", error);
     return res.status(403).json({
       success: false,
       message: error.message || "Failed to update user role",
@@ -680,6 +664,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("[getAllUsers] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch users" });
@@ -698,6 +683,7 @@ const getRoleDistribution = asyncHandler(async (req, res) => {
       data: distribution,
     });
   } catch (error) {
+    console.error("[getRoleDistribution] Error:", error);
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch role distribution" });
@@ -749,6 +735,7 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
           : "Username is reserved",
     });
   } catch (error) {
+    console.error("[checkUsernameAvailability] Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to check username availability",
@@ -761,10 +748,7 @@ const checkUsernameAvailability = asyncHandler(async (req, res) => {
 // ============================================
 const getAnalytics = asyncHandler(async (req, res) => {
   try {
-    // Get total users
-    const totalResult = await safeQueryOne(
-      "SELECT COUNT(*) as total FROM users",
-    );
+    const totalResult = await safeQueryOne("SELECT COUNT(*) as total FROM users");
     const totalUsers = totalResult?.total || 0;
 
     if (totalUsers === 0) {
@@ -792,188 +776,94 @@ const getAnalytics = asyncHandler(async (req, res) => {
 
     // Gender distribution
     const genderStats = await safeQuery(
-      `
-      SELECT 
-        gender,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE gender IS NOT NULL
-      GROUP BY gender
-    `,
+      `SELECT gender, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE gender IS NOT NULL GROUP BY gender`,
       [totalUsers],
     );
 
     // Age bracket distribution
     const ageStats = await safeQuery(
-      `
-      SELECT 
-        age_bracket,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE age_bracket IS NOT NULL
-      GROUP BY age_bracket
-      ORDER BY FIELD(age_bracket, '18-25', '26-35', '36-45', '46-55', '56+')
-    `,
+      `SELECT age_bracket, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE age_bracket IS NOT NULL GROUP BY age_bracket
+       ORDER BY FIELD(age_bracket, '18-25', '26-35', '36-45', '46-55', '56+')`,
       [totalUsers],
     );
 
     // Generation distribution
     const generationStats = await safeQuery(
-      `
-      SELECT 
-        generation,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE generation IS NOT NULL
-      GROUP BY generation
-    `,
+      `SELECT generation, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE generation IS NOT NULL GROUP BY generation`,
       [totalUsers],
     );
 
     // Voter card status
     const voterCardStats = await safeQuery(
-      `
-      SELECT 
-        CASE 
-          WHEN voter_card = 1 THEN 'Yes'
-          WHEN voter_card = 0 THEN 'No'
-          ELSE 'Not specified'
-        END as status,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      GROUP BY voter_card
-    `,
+      `SELECT CASE WHEN voter_card = 1 THEN 'Yes' WHEN voter_card = 0 THEN 'No' ELSE 'Not specified' END as status,
+              COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users GROUP BY voter_card`,
       [totalUsers],
     );
 
-    // Voting intention (will_vote: 1=Yes, 0=No, 2=Not Sure)
+    // Voting intention
     const votingIntentionStats = await safeQuery(
-      `
-      SELECT 
-        CASE 
-          WHEN will_vote = 1 THEN 'Will Vote'
-          WHEN will_vote = 0 THEN 'Will Not Vote'
-          WHEN will_vote = 2 THEN 'Not Sure'
-          ELSE 'Not specified'
-        END as intention,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      GROUP BY will_vote
-    `,
+      `SELECT CASE WHEN will_vote = 1 THEN 'Will Vote' WHEN will_vote = 0 THEN 'Will Not Vote'
+              WHEN will_vote = 2 THEN 'Not Sure' ELSE 'Not specified' END as intention,
+              COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users GROUP BY will_vote`,
       [totalUsers],
     );
 
-    // Employment status distribution
+    // Employment status
     const employmentStats = await safeQuery(
-      `
-      SELECT 
-        employment_status,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE employment_status IS NOT NULL
-      GROUP BY employment_status
-      ORDER BY count DESC
-    `,
+      `SELECT employment_status, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE employment_status IS NOT NULL GROUP BY employment_status ORDER BY count DESC`,
       [totalUsers],
     );
 
     // Political leanings
     const politicalLeaningsStats = await safeQuery(
-      `
-      SELECT 
-        political_leanings,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE political_leanings IS NOT NULL
-      GROUP BY political_leanings
-    `,
+      `SELECT political_leanings, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE political_leanings IS NOT NULL GROUP BY political_leanings`,
       [totalUsers],
     );
 
     // Vote frequency
     const voteFrequencyStats = await safeQuery(
-      `
-      SELECT 
-        vote_frequency,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE vote_frequency IS NOT NULL
-      GROUP BY vote_frequency
-    `,
+      `SELECT vote_frequency, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE vote_frequency IS NOT NULL GROUP BY vote_frequency`,
       [totalUsers],
     );
 
-    // Political party distribution
+    // Political party
     const partyStats = await safeQuery(
-      `
-      SELECT 
-        political_party,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE political_party IS NOT NULL
-      GROUP BY political_party
-      ORDER BY count DESC
-      LIMIT 10
-    `,
+      `SELECT political_party, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE political_party IS NOT NULL GROUP BY political_party ORDER BY count DESC LIMIT 10`,
       [totalUsers],
     );
 
     // Role distribution
     const roleStats = await safeQuery(
-      `
-      SELECT 
-        role,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      GROUP BY role
-    `,
+      `SELECT role, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users GROUP BY role`,
       [totalUsers],
     );
 
-    // Monthly registration trend (last 12 months)
+    // Monthly trend
     const monthlyTrend = await safeQuery(`
-      SELECT 
-        DATE_FORMAT(created_at, '%Y-%m') as month,
-        COUNT(*) as new_users
-      FROM users 
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-      ORDER BY month DESC
+      SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as new_users
+      FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m') ORDER BY month DESC
     `);
 
     // Verification stats
     const verificationStats = await safeQuery(
-      `
-      SELECT 
-        CASE 
-          WHEN is_verified = 1 THEN 'Verified'
-          ELSE 'Not Verified'
-        END as status,
-        COUNT(*) as count,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      GROUP BY is_verified
-    `,
+      `SELECT CASE WHEN is_verified = 1 THEN 'Verified' ELSE 'Not Verified' END as status,
+              COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users GROUP BY is_verified`,
       [totalUsers],
     );
 
-    // Format gender data for frontend
-    const gender = {
-      male: 0,
-      female: 0,
-      other: 0,
-    };
-
+    const gender = { male: 0, female: 0, other: 0 };
     if (genderStats && genderStats.length) {
       genderStats.forEach((g) => {
         if (g.gender === "Male") gender.male = parseInt(g.count);
@@ -982,7 +872,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format age brackets
     const ageBrackets = {};
     if (ageStats && ageStats.length) {
       ageStats.forEach((a) => {
@@ -990,11 +879,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format voter card
-    const voterCard = {
-      yes: 0,
-      no: 0,
-    };
+    const voterCard = { yes: 0, no: 0 };
     if (voterCardStats && voterCardStats.length) {
       voterCardStats.forEach((v) => {
         if (v.status === "Yes") voterCard.yes = parseInt(v.count);
@@ -1002,12 +887,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format voting intentions
-    const willVote = {
-      yes: 0,
-      no: 0,
-      notSure: 0,
-    };
+    const willVote = { yes: 0, no: 0, notSure: 0 };
     if (votingIntentionStats && votingIntentionStats.length) {
       votingIntentionStats.forEach((v) => {
         if (v.intention === "Will Vote") willVote.yes = parseInt(v.count);
@@ -1016,7 +896,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format employment
     const employment = {};
     if (employmentStats && employmentStats.length) {
       employmentStats.forEach((e) => {
@@ -1024,7 +903,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format political leanings
     const politicalLeanings = {};
     if (politicalLeaningsStats && politicalLeaningsStats.length) {
       politicalLeaningsStats.forEach((p) => {
@@ -1032,7 +910,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Format vote frequency
     const voteFrequency = {};
     if (voteFrequencyStats && voteFrequencyStats.length) {
       voteFrequencyStats.forEach((v) => {
@@ -1040,7 +917,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
       });
     }
 
-    // Calculate new users this month
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const newThisMonthResult = await safeQueryOne(
@@ -1049,7 +925,6 @@ const getAnalytics = asyncHandler(async (req, res) => {
     );
     const newUsersThisMonth = newThisMonthResult?.count || 0;
 
-    // Calculate active users (based on recent activity or verified)
     const activeUsersResult = await safeQueryOne(
       "SELECT COUNT(*) as count FROM users WHERE is_verified = 1",
     );
@@ -1087,11 +962,10 @@ const getAnalytics = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET COUNTY STATS
+// GET COUNTY STATS - FIXED with proper try-catch
 // ============================================
 const getCountyStats = asyncHandler(async (req, res) => {
   try {
-    // Get total users count
     const totalResult = await safeQueryOne(
       "SELECT COUNT(*) as total FROM users WHERE status = 'active' OR status IS NULL"
     );
@@ -1110,42 +984,22 @@ const getCountyStats = asyncHandler(async (req, res) => {
       });
     }
 
-    // Get county distribution
     const countyStats = await safeQuery(
-      `
-      SELECT 
-        county,
-        COUNT(*) as total_users,
-        ROUND((COUNT(*) / ?) * 100, 2) as percentage
-      FROM users 
-      WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
-      GROUP BY county
-      ORDER BY total_users DESC
-    `,
+      `SELECT county, COUNT(*) as total_users, ROUND((COUNT(*) / ?) * 100, 2) as percentage
+       FROM users WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
+       GROUP BY county ORDER BY total_users DESC`,
       [totalUsers],
     );
 
-    // Get top 10 counties
-    const topCounties = countyStats && countyStats.length > 0 
-      ? countyStats.slice(0, 10) 
-      : [];
+    const topCounties = countyStats && countyStats.length > 0 ? countyStats.slice(0, 10) : [];
 
-    // Get counties with most voters (voter_card = 1 means they have a voter card)
     const countiesWithVoters = await safeQuery(`
-      SELECT 
-        county,
-        SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) as voters_with_card,
-        COUNT(*) as total,
-        ROUND((SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as voter_percentage
-      FROM users 
-      WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
-      GROUP BY county
-      HAVING voters_with_card > 0
-      ORDER BY voters_with_card DESC
-      LIMIT 10
+      SELECT county, SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) as voters_with_card,
+             COUNT(*) as total, ROUND((SUM(CASE WHEN voter_card = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as voter_percentage
+      FROM users WHERE county IS NOT NULL AND county != '' AND (status = 'active' OR status IS NULL)
+      GROUP BY county HAVING voters_with_card > 0 ORDER BY voters_with_card DESC LIMIT 10
     `);
 
-    // Format the response
     const formattedCountyStats = countyStats && countyStats.length > 0
       ? countyStats.map((c) => ({
           county: c.county,
@@ -1181,11 +1035,9 @@ const getCountyStats = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error("[getCountyStats] Error:", error);
-    console.error("[getCountyStats] Stack:", error.stack);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch county statistics",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -1197,7 +1049,6 @@ const trackAppInstall = asyncHandler(async (req, res) => {
   try {
     const { user_id } = req.body;
 
-    // Ensure app_stats table row exists
     const existing = await safeQueryOne(
       `SELECT id FROM app_stats WHERE stat_key = 'install_count' LIMIT 1`
     );
@@ -1212,7 +1063,6 @@ const trackAppInstall = asyncHandler(async (req, res) => {
       );
     }
 
-    // Log user install if user_id provided
     if (user_id) {
       try {
         await safeQuery(
@@ -1220,7 +1070,7 @@ const trackAppInstall = asyncHandler(async (req, res) => {
           [user_id]
         );
       } catch (e) {
-        // table may not exist yet, that's fine
+        // table may not exist yet
       }
     }
 
@@ -1273,5 +1123,4 @@ module.exports = {
   getCountyStats,
   trackAppInstall,
   getInstallCount,
- 
 };

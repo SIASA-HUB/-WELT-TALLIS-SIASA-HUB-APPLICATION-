@@ -770,49 +770,52 @@ const LeaderHeader = ({ leader, onBack }) => {
   };
 
   const handleCompetitorClick = (competitor) => {
-    if (competitor.slug) {
-      window.location.href = `/aspirants/${competitor.slug}`;
-    } else {
-      window.location.href = `/leaders/${competitor.leader_id}`;
-    }
+    // Always prefer slug for SEO-clean URLs
+    const target = competitor.slug
+      ? `/leader/${competitor.slug}`
+      : `/leaders/${competitor.leader_id}`;
+    window.location.href = target;
   };
 
   const handleAddStory = () => {
     setShowAddStoryModal(true);
   };
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-  const shareText = `Check out ${leader?.name || "this leader"}'s campaign on SiasaHub!`;
+  // Build canonical share URL using slug for SEO (not the current browser URL which may be /leaders/:id)
+  const canonicalUrl = leader?.slug
+    ? `${window.location.origin}/leader/${leader.slug}`
+    : (typeof window !== "undefined" ? window.location.href : "");
+
+  const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
+  const shareImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image) || "https://siasahub.co.ke/og-default.png";
 
   const shareToTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, "_blank");
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}`, "_blank");
+    // WhatsApp shows link preview from og:image — no need to embed image in text
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + "\n" + canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank");
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareText)}`, "_blank");
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}&title=${encodeURIComponent(shareText)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(canonicalUrl);
       setCopied(true);
       setToastMessage("Link copied to clipboard!");
-      setTimeout(() => {
-        setCopied(false);
-        setToastMessage(null);
-      }, 2000);
+      setTimeout(() => { setCopied(false); setToastMessage(null); }, 2000);
       setShowShareDropdown(false);
     } catch (err) {
       console.error("Failed to copy:", err);

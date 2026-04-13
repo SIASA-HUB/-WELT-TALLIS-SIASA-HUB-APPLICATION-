@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
+
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import {
   ShoppingCart,
-  Heart,
 } from "lucide-react";
 import { Spinner } from "react-bootstrap";
 import {
   addToCart,
-  addToFavourite,
-  deleteFromFavourite,
-  getFavourite,
 } from "../api/index";
 import { useAuth } from "@/components/hooks/useAuth";
 
@@ -193,38 +190,8 @@ const StarRating = ({ value }) => {
 const ProductCard = ({ product }) => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [favorite, setFavorite] = useState(false);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const getAuthToken = () => localStorage.getItem("access_token");
-
-  const addFavorite = async (e) => {
-    e.stopPropagation();
-    if (!isAuthenticated) return navigate("/login");
-    setFavoriteLoading(true);
-    try {
-      await addToFavourite(getAuthToken(), { productID: product?._id });
-      setFavorite(true);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFavoriteLoading(false);
-    }
-  };
-
-  const removeFavorite = async (e) => {
-    e.stopPropagation();
-    if (!isAuthenticated) return navigate("/login");
-    setFavoriteLoading(true);
-    try {
-      await deleteFromFavourite(getAuthToken(), { productID: product?._id });
-      setFavorite(false);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFavoriteLoading(false);
-    }
-  };
 
   const addCart = async (e) => {
     e.stopPropagation();
@@ -269,10 +236,29 @@ const ProductCard = ({ product }) => {
     checkFavourite();
   }, [isAuthenticated, product]);
 
+  // Build the correct navigation URL using slug (SEO) or fall back to ID
+  const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${product._id || product.id}`;
+  
+  // Build the full image URL (handle relative paths from server)
+  const imgUrl = (() => {
+    const raw = product?.img || product?.image || product?.image_url;
+    if (!raw) return `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || 'P')}&background=e11d48&color=fff&size=400`;
+    if (raw.startsWith('http')) return raw;
+    return `http://localhost:8009${raw.startsWith('/') ? '' : '/'}${raw}`;
+  })();
+
   return (
-    <Card onClick={() => navigate(`/marketplace/shop/${product._id}`)}>
+    <Card onClick={() => navigate(productUrl)}>
       <ImageContainer>
-        <Image src={product?.img} />
+        <Image 
+          src={imgUrl} 
+          alt={product?.title || product?.name}
+          loading="lazy"
+          width="280"
+          height="350"
+          onError={e => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || 'P')}&background=e11d48&color=fff`; }}
+        />
+
         <Overlay />
         <ActionButtons>
           <IconButton onClick={addCart}>
@@ -289,8 +275,8 @@ const ProductCard = ({ product }) => {
         <Category>{product?.category || "Essential"}</Category>
         <ProductName>{product?.title || product?.name}</ProductName>
         <PriceTag>
-          <CurrentPrice>KSH {Number(product?.price?.org).toLocaleString()}</CurrentPrice>
-          {product?.price?.mrp && product.price.mrp > product.price.org && (
+          <CurrentPrice>KSH {Number(product?.price?.org || product?.price || 0).toLocaleString()}</CurrentPrice>
+          {product?.price?.mrp && product.price.mrp > (product.price.org || 0) && (
             <>
               <OldPrice>KSH {Number(product?.price?.mrp).toLocaleString()}</OldPrice>
               <Discount>{product?.price?.off}% Off</Discount>
@@ -302,4 +288,5 @@ const ProductCard = ({ product }) => {
   );
 };
 
-export default ProductCard;
+export default memo(ProductCard);
+

@@ -308,6 +308,29 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// Direct single-product order (skip cart)
+const directOrder = async (req, res) => {
+  try {
+    const { userId, productId, quantity = 1, address, guestName, guestEmail, guestPhone, totalAmount } = req.body;
+    const orderNumber = generateOrderNumber();
+    const items = JSON.stringify([{ productId, quantity, price: totalAmount }]);
+
+    const result = await safeQuery(
+      `INSERT INTO orders (order_number, user_id, customer_name, customer_email, customer_phone, address, total_amount, items, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+      [orderNumber, userId || null, guestName || 'Guest', guestEmail || '', guestPhone || '', address || '', totalAmount || 0, items]
+    );
+
+    const newOrder = await safeQueryOne(`SELECT * FROM orders WHERE id = ?`, [result.insertId]);
+    if (newOrder?.items) newOrder.items = typeof newOrder.items === 'string' ? JSON.parse(newOrder.items) : newOrder.items;
+
+    res.json({ success: true, message: 'Order placed successfully', data: newOrder });
+  } catch (error) {
+    Logger.error('Direct order error:', error);
+    res.status(500).json({ success: false, message: 'Failed to place order: ' + error.message });
+  }
+};
+
 module.exports = {
   placeOrder,
   getAllOrders,
@@ -317,5 +340,6 @@ module.exports = {
   getGuestOrders,
   getOrderStats,
   updateOrderStatus,
-  cancelOrder
+  cancelOrder,
+  directOrder,
 };

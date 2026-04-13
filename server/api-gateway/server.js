@@ -31,8 +31,9 @@ const SERVICES = {
 // Simple in-memory rate limiter (no Redis needed)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 2000, // Increased limit for smoother experience
   message: { success: false, message: "Too many requests, please try again later." },
+
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -71,16 +72,35 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+// Body parsers — only for non-proxied routes (health, sitemap, etc.)
+
+app.use((req, res, next) => {
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/');
+  if (isProxied) return next(); // skip body parser — let proxy forward raw body
+  express.json({ limit: "1mb" })(req, res, next);
+});
+app.use((req, res, next) => {
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/');
+  if (isProxied) return next();
+  express.urlencoded({ extended: true, limit: "1mb" })(req, res, next);
+});
+
 
 // Apply rate limiters
 app.use("/api/v1/", apiLimiter);
 
 // Route-specific strict limits (applied BEFORE general limiter)
-const AUTH_LIMITER = rateLimit({ windowMs: 15*60*1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' } });
-const WALLET_LIMITER = rateLimit({ windowMs: 10*60*1000, max: 15, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many wallet requests. Please wait.' } });
-const VOTE_LIMITER = rateLimit({ windowMs: 60*1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Voting rate limit exceeded.' } });
+const AUTH_LIMITER = rateLimit({ 
+  windowMs: 15*60*1000, 
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // 50 in dev, 10 in prod
+  standardHeaders: true, 
+  legacyHeaders: false, 
+  message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' } 
+});
+
+
+const WALLET_LIMITER = rateLimit({ windowMs: 10*60*1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many wallet requests. Please wait.' } });
+const VOTE_LIMITER = rateLimit({ windowMs: 60*1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Voting rate limit exceeded.' } });
 
 app.use((req, res, next) => {
   if (req.originalUrl.match(/\/users\/(login|register|refresh)/)) return AUTH_LIMITER(req, res, next);
@@ -89,32 +109,62 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy generator 
+// Proxy generator
 const createProxy = (targetUrl) => {
   return createProxyMiddleware({
     target: targetUrl,
     changeOrigin: true,
-    proxyTimeout: 120000, // 2 minutes
-    timeout: 120000,      // 2 minutes
-    pathRewrite: (path, req) => {
-      
-      return req.originalUrl;
-    },
+    selfHandleResponse: false,
+    proxyTimeout: 30000,
+    timeout: 30000,
     on: {
-      proxyReq: (proxyReq, req, res) => {
+      proxyReq: (proxyReq, req) => {
+        // ─── CRITICAL PATH FIX ───────────────────────────────────────────────
+        // When app.use('/api/v1/users', proxy) is called, Express strips the
+        // mount prefix from req.url. So req.url becomes '/login' instead of
+        // '/api/v1/users/login'. The microservices need the FULL original path.
+        // We restore it here by setting proxyReq.path = req.originalUrl.
+        // ─────────────────────────────────────────────────────────────────────
+        const parsed = new URL(req.originalUrl, 'http://localhost');
+        proxyReq.path = parsed.pathname + parsed.search;
+
+        // Forward Authorization header
         if (req.headers.authorization) {
           proxyReq.setHeader("Authorization", req.headers.authorization);
         }
+        // Forward cookies (for httpOnly session tokens)
+        if (req.headers.cookie) {
+          proxyReq.setHeader("Cookie", req.headers.cookie);
+        }
+        // Forward Content-Type for POST/PUT/PATCH
+        if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.headers['content-type']) {
+          proxyReq.setHeader('Content-Type', req.headers['content-type']);
+        }
+        Logger.info(`[PROXY] ${req.method} ${req.originalUrl} → ${targetUrl}${proxyReq.path}`);
+      },
+      proxyRes: (proxyRes, req) => {
+        // Strip Secure cookie flag in dev (http, not https)
+        if (process.env.NODE_ENV !== 'production') {
+          const cookies = proxyRes.headers['set-cookie'];
+          if (cookies) {
+            proxyRes.headers['set-cookie'] = cookies.map(c =>
+              c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=None/gi, '; SameSite=Lax')
+            );
+          }
+        }
       },
       error: (err, req, res) => {
-        Logger.error(`Proxy error for ${req.url}: ${err.message}`);
+        Logger.error(`[PROXY ERROR] ${req.method} ${req.originalUrl} → ${targetUrl}: ${err.message}`);
         if (!res.headersSent) {
-          res.status(503).json({ success: false, message: "Service temporarily delayed or unavailable" });
+          res.status(503).json({
+            success: false,
+            message: "Service temporarily unavailable — please try again",
+            path: req.originalUrl
+          });
         }
       }
     }
   });
-
 };
 
 // ============================================
@@ -144,9 +194,106 @@ app.use("/api/v1/endorsements", createProxy(SERVICES.endorsement));
 app.use("/api/v1/products", createProxy(SERVICES.marketplace));
 app.use("/api/v1/orders", createProxy(SERVICES.marketplace));
 app.use("/api/v1/cart", createProxy(SERVICES.marketplace));
+app.use("/api/v1/upload", createProxy(SERVICES.marketplace)); // ← image upload
 app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
 app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
 
+
+
+// ============================================
+// SITEMAP.XML — Dynamic sitemap for Google crawling
+// ============================================
+const SITE_URL = process.env.SITE_URL || "https://siasahub.co.ke";
+
+// Lightweight internal HTTP fetch helper (no axios needed)
+const fetchInternal = (url) => new Promise((resolve) => {
+  const http = require("http");
+  http.get(url, (res) => {
+    let data = "";
+    res.on("data", chunk => { data += chunk; });
+    res.on("end", () => {
+      try { resolve(JSON.parse(data)); }
+      catch { resolve(null); }
+    });
+  }).on("error", () => resolve(null));
+});
+
+app.get("/sitemap.xml", async (req, res) => {
+  try {
+    let leaderUrls = [];
+    let productUrls = [];
+
+    // Fetch leaders with slugs from leaders-service directly
+    try {
+      const leadersData = await fetchInternal(`${SERVICES.leaders}/api/v1/leaders?limit=500`);
+      const leaders = leadersData?.data || leadersData?.leaders || [];
+      leaderUrls = leaders
+        .filter(l => l.slug)
+        .map(l => `
+  <url>
+    <loc>${SITE_URL}/leader/${l.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`);
+    } catch (_) { /* non-fatal */ }
+
+    // Fetch products with slugs from marketplace-service directly
+    try {
+      const productsData = await fetchInternal(`${SERVICES.marketplace}/api/v1/products?limit=500`);
+      const products = productsData?.data || [];
+      productUrls = products
+        .filter(p => p.slug)
+        .map(p => `
+  <url>
+    <loc>${SITE_URL}/product/${p.slug}</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>`);
+    } catch (_) { /* non-fatal */ }
+
+    // Static pages
+    const staticUrls = [
+      { url: "/", priority: "1.0", freq: "daily" },
+      { url: "/leaders", priority: "0.9", freq: "daily" },
+      { url: "/marketplace", priority: "0.9", freq: "daily" },
+      { url: "/register", priority: "0.6", freq: "monthly" },
+      { url: "/login", priority: "0.5", freq: "monthly" },
+    ].map(({ url, priority, freq }) => `
+  <url>
+    <loc>${SITE_URL}${url}</loc>
+    <changefreq>${freq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`);
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrls.join("")}
+${leaderUrls.join("")}
+${productUrls.join("")}
+</urlset>`;
+
+    res.header("Content-Type", "application/xml");
+    res.header("Cache-Control", "public, max-age=3600");
+    res.send(xml);
+  } catch (error) {
+    Logger.error(`Sitemap error: ${error.message}`);
+    res.status(500).send("<!-- Sitemap generation failed -->");
+  }
+});
+
+// robots.txt
+app.get("/robots.txt", (req, res) => {
+  res.header("Content-Type", "text/plain");
+  res.send(`User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /account/
+Disallow: /aspirant-dashboard
+Disallow: /marketplace-admin
+
+Sitemap: ${SITE_URL}/sitemap.xml
+`);
+});
 
 
 // API Reference
@@ -169,6 +316,7 @@ app.use(
 app.get("/api/v1/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
 });
+
 
 // 404 handler
 app.use((req, res) => {
@@ -197,6 +345,6 @@ process.on("SIGINT", () => {
 });
 
 process.on("SIGTERM", () => {
-  log("Shutting down...");
+  Logger.info("Shutting down API Gateway (SIGTERM)...");
   server.close(() => process.exit(0));
 });

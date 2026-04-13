@@ -289,9 +289,12 @@ const LoginAspirant = () => {
       if (response.success) {
         const { token, leader } = response.data;
 
-        // Store in localStorage - Standardize keys used by api.js
+        // Store in localStorage — use BOTH keys for cross-compatibility
+        // App.jsx ProtectedRoute reads 'aspirant_token'
+        // api.js interceptor reads 'leaderToken' / 'token'
         localStorage.setItem("leaderToken", token);
-        localStorage.setItem("token", token); // Backup for interceptor
+        localStorage.setItem("aspirant_token", token); // ← required for ProtectedRoute
+        localStorage.setItem("token", token); // Backup for api.js interceptor
         localStorage.setItem("leaderData", JSON.stringify(leader));
         
         const leaderId = leader.leader_id || leader.id || leader._id;

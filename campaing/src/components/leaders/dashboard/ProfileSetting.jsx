@@ -1,5 +1,15 @@
-import api from "@/api/api";
-import styled, { keyframes } from "styled-components";
+import React, { useState, useEffect } from "react";
+import styled from "styled-components";
+import {
+  User,
+  Camera,
+  Edit2,
+  Save,
+  CheckCircle,
+  AlertCircle,
+  ShieldCheck,
+} from "lucide-react";
+import api from "../../../api/api";
 
 const Card = styled.div`
   background: white;
@@ -210,6 +220,12 @@ const Message = styled.div`
     color: #c62828;
     border: 1px solid #ffcdd2;
   }
+
+  &.warning {
+    background: #fff3e0;
+    color: #ed6c02;
+    border: 1px solid #ffe0b2;
+  }
 `;
 
 const StatusBadge = styled.span`
@@ -221,7 +237,7 @@ const StatusBadge = styled.span`
   font-size: 11px;
   font-weight: 600;
   background: ${(props) =>
-    props.status === "active"
+    props.status === "active" || props.status === "verified"
       ? "#e8f5e9"
       : props.status === "pending"
         ? "#fff3e0"
@@ -270,7 +286,6 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
     ward: "",
     email: "",
     phone: "",
-    bio: "",
     slogan: "",
   });
 
@@ -290,7 +305,6 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
         ward: leader.ward || "",
         email: leader.email || "",
         phone: leader.phone || "",
-        bio: leader.bio || "",
         slogan: leader.slogan || "",
       });
       setAvatar(leader.image_url || leader.primary_image || null);
@@ -325,25 +339,68 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
     setLoading(true);
     setMessage(null);
 
-    try {
-      // Update profile via global api
-      const response = await api.put("/leaders/profile/update", formData);
+    // Prepare update data - only include fields that are allowed to be updated
+    const updateData = {
+      name: formData.name,
+      party: formData.party,
+      slogan: formData.slogan,
+      phone: formData.phone,
+      email: formData.email,
+    };
 
-      if (response.success) {
+    try {
+      console.log("Updating profile with data:", updateData);
+      
+      // Try multiple possible endpoints
+      let response;
+      try {
+        response = await api.put("/leaders/profile/me", updateData);
+      } catch (firstError) {
+        console.log("First endpoint failed, trying alternative...");
+        try {
+          response = await api.put("/profile/me", updateData);
+        } catch (secondError) {
+          console.log("Second endpoint failed, trying admin endpoint...");
+          response = await api.put(`/leaders/${leader.leader_id}/admin`, updateData);
+        }
+      }
+      
+      if (response?.success) {
         setMessage({ type: "success", text: "Profile updated successfully!" });
         setIsEditing(false);
-        if (onUpdate) onUpdate(formData);
-
-        // Clear message after 3 seconds
+        
+        // Update local leader data
+        const updatedLeader = { ...leader, ...updateData };
+        localStorage.setItem("leaderData", JSON.stringify(updatedLeader));
+        
+        if (onUpdate) onUpdate(updateData);
         setTimeout(() => setMessage(null), 3000);
       } else {
-        throw new Error(response.message || "Update failed");
+        throw new Error(response?.message || "Update failed");
       }
     } catch (error) {
       console.error("Update error:", error);
+      
+      let errorMessage = "Failed to update profile. ";
+      if (error.response?.status === 503) {
+        errorMessage = "Service temporarily unavailable. Please try again in a few minutes.";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Server error. Our team has been notified. Please try again later.";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Session expired. Please login again.";
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          localStorage.removeItem("leaderToken");
+          localStorage.removeItem("leaderData");
+          window.location.href = "/login-aspirant";
+        }, 2000);
+      } else {
+        errorMessage += error.response?.data?.message || error.message;
+      }
+      
       setMessage({
         type: "error",
-        text: error.message || "Failed to update profile",
+        text: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -354,26 +411,43 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
     setLoading(true);
     try {
       const response = await api.post("/leaders/verification/request");
-      if (response.success) {
-        setMessage({ type: "success", text: "Verification request sent successfully!" });
-        // You might want to trigger a data refresh here
+      
+      if (response?.success) {
+        setMessage({ type: "success", text: response.message || "Verification request sent successfully!" });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        throw new Error(response?.message || "Request failed");
       }
     } catch (error) {
-      setMessage({ type: "error", text: error.message || "Failed to send request" });
+      let errorMessage = "Failed to send verification request. ";
+      if (error.response?.status === 503) {
+        errorMessage = "Service temporarily unavailable. Please try again later.";
+      } else if (error.response?.status === 402) {
+        errorMessage = error.response?.data?.message || "Payment required for verification.";
+      } else {
+        errorMessage += error.message;
+      }
+      setMessage({ 
+        type: "error", 
+        text: errorMessage
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusLabel = () => {
-    if (leader?.status === "active" || leader?.status === "verified")
+    const status = leader?.status || leader?.verification_status;
+    if (status === "active" || status === "verified")
       return { text: "Verified", icon: <CheckCircle size={12} /> };
-    if (leader?.status === "pending")
+    if (status === "pending")
       return { text: "Verification Pending", icon: <AlertCircle size={12} /> };
     return { text: "Unverified", icon: <AlertCircle size={12} /> };
   };
 
   const status = getStatusLabel();
+  const isVerified = leader?.status === "active" || leader?.status === "verified" || leader?.verification_status === "verified";
+  const isPending = leader?.status === "pending" || leader?.verification_status === "pending";
 
   return (
     <Card>
@@ -391,9 +465,9 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
               <Avatar
                 src={
                   avatar ||
-                  `https://ui-avatars.com/api/?name=${formData.name}&background=1e3c72&color=fff&size=120&bold=true`
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || "Leader")}&background=1e3c72&color=fff&size=120&bold=true`
                 }
-                alt={formData.name}
+                alt={formData.name || "Profile"}
               />
               {isEditing && (
                 <ChangePhotoButton>
@@ -409,13 +483,13 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
             </AvatarWrapper>
 
             <div style={{ marginTop: "12px", display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <StatusBadge status={leader?.status}>
+              <StatusBadge status={leader?.status || leader?.verification_status}>
                 {status.icon} {status.text}
               </StatusBadge>
-              {!isEditing && leader?.status !== "verified" && leader?.status !== "pending" && (
+              {!isEditing && !isVerified && !isPending && (
                 <VerifyButton type="button" onClick={handleRequestVerification} disabled={loading}>
                   <ShieldCheck size={12} />
-                  {loading ? "Requesting..." : "Verify Account"}
+                  {loading ? "Requesting..." : "Request Verification"}
                 </VerifyButton>
               )}
             </div>
@@ -433,12 +507,11 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
           )}
 
           {!isEditing ? (
-            // View Mode
             <>
               <Grid>
                 <div>
                   <Label>Full Name</Label>
-                  <Input value={formData.name} disabled />
+                  <Input value={formData.name || "Not set"} disabled />
                 </div>
                 <div>
                   <Label>Political Party</Label>
@@ -446,18 +519,15 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                 </div>
                 <div>
                   <Label>Position</Label>
-                  <Input value={formData.position} disabled />
+                  <Input value={formData.position || "Not set"} disabled />
                 </div>
                 <div>
                   <Label>County</Label>
-                  <Input value={formData.county} disabled />
+                  <Input value={formData.county || "Not set"} disabled />
                 </div>
                 <div>
                   <Label>Constituency</Label>
-                  <Input
-                    value={formData.constituency || "Not specified"}
-                    disabled
-                  />
+                  <Input value={formData.constituency || "Not specified"} disabled />
                 </div>
                 <div>
                   <Label>Ward</Label>
@@ -475,7 +545,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
 
               <div>
                 <Label>Campaign Slogan</Label>
-                <TextArea value={formData.slogan || "No slogan set"} disabled />
+                <TextArea value={formData.slogan || "No slogan set"} disabled rows={2} />
               </div>
 
               <ButtonGroup>
@@ -486,7 +556,6 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
               </ButtonGroup>
             </>
           ) : (
-            // Edit Mode
             <>
               <Grid>
                 <FormGroup>
@@ -512,19 +581,24 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                   <Input
                     name="position"
                     value={formData.position}
-                    onChange={handleChange}
-                    required
-                    placeholder="e.g., Governor, Senator, MP, MCA"
+                    disabled
+                    title="Position cannot be changed. Contact admin for changes."
                   />
+                  <small style={{ color: '#6c757d', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                    Position cannot be changed. Contact admin for assistance.
+                  </small>
                 </FormGroup>
                 <FormGroup>
                   <Label>County *</Label>
                   <Input
                     name="county"
                     value={formData.county}
-                    onChange={handleChange}
-                    required
+                    disabled
+                    title="County cannot be changed. Contact admin for changes."
                   />
+                  <small style={{ color: '#6c757d', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                    County cannot be changed. Contact admin for assistance.
+                  </small>
                 </FormGroup>
                 <FormGroup>
                   <Label>Constituency</Label>
@@ -532,6 +606,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                     name="constituency"
                     value={formData.constituency}
                     onChange={handleChange}
+                    placeholder="Optional"
                   />
                 </FormGroup>
                 <FormGroup>
@@ -540,6 +615,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                     name="ward"
                     value={formData.ward}
                     onChange={handleChange}
+                    placeholder="Optional"
                   />
                 </FormGroup>
                 <FormGroup>
@@ -549,6 +625,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
+                    placeholder="Optional"
                   />
                 </FormGroup>
                 <FormGroup>
@@ -557,6 +634,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
+                    placeholder="Optional"
                   />
                 </FormGroup>
               </Grid>
@@ -568,6 +646,7 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
                   value={formData.slogan}
                   onChange={handleChange}
                   placeholder="Your campaign slogan..."
+                  rows={3}
                 />
               </FormGroup>
 

@@ -5,42 +5,68 @@ import Button from "../components/Button";
 import { addToCart, deleteFromCart, getCart, placeOrder } from "../components/api";
 import { useNavigate } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
-import { Trash2, ShoppingCart } from "lucide-react";
+import { Trash2, ShoppingCart, ArrowLeft, Minus, Plus, Truck, CreditCard, MapPin, Phone, Mail } from "lucide-react";
 import { useAuth } from "@/components/hooks/useAuth";
 
 const Container = styled.div`
   padding: 40px 30px;
   min-height: 100vh;
-  background: ${({ theme }) => theme.bg};
+  background: #f8fafc;
   @media (max-width: 768px) {
     padding: 20px 12px;
   }
 `;
+
 const Section = styled.div`
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 30px;
 `;
+
 const Title = styled.div`
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
-  color: ${({ theme }) => theme.text_primary};
+  color: #1a1a2e;
   display: flex;
   align-items: center;
   gap: 12px;
 `;
 
+const BackButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: fit-content;
+  
+  &:hover { 
+    background: #f8fafc;
+    color: #e11d48;
+    transform: translateX(-2px);
+  }
+`;
+
 const Wrapper = styled.div`
   display: flex;
-  gap: 40px;
+  gap: 30px;
   width: 100%;
   @media (max-width: 1000px) {
     flex-direction: column;
   }
 `;
+
 const Left = styled.div`
   flex: 1.5;
   display: flex;
@@ -50,19 +76,22 @@ const Left = styled.div`
 
 const Card = styled.div`
   background: white;
-  border-radius: 24px;
+  border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #eef2f6;
 `;
 
 const ItemHeader = styled.div`
   display: grid;
   grid-template-columns: 2.5fr 1fr 1fr 1fr 0.2fr;
-  padding: 0 10px 20px 10px;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: 14px;
+  padding: 0 10px 16px 10px;
+  border-bottom: 1px solid #eef2f6;
+  font-size: 13px;
   font-weight: 700;
-  color: #64748b;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   @media (max-width: 600px) {
     display: none;
   }
@@ -70,7 +99,6 @@ const ItemHeader = styled.div`
 
 const CartItemRow = styled.div`
   display: grid;
- 
   grid-template-columns: 2.5fr 1fr 1fr 1fr 0.2fr;
   align-items: center;
   padding: 20px 10px;
@@ -79,63 +107,70 @@ const CartItemRow = styled.div`
     border-bottom: none;
   }
   @media (max-width: 600px) {
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 `;
 
 const ProductInfo = styled.div`
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: center;
 `;
 
 const ProductImage = styled.img`
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
 `;
 
 const ProductDetails = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 `;
 
 const ProductTitle = styled.div`
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: ${({ theme }) => theme.text_primary};
+  color: #1a1a2e;
 `;
 
 const ProductSub = styled.div`
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
   color: #64748b;
 `;
 
 const Price = styled.div`
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: ${({ theme }) => theme.text_primary};
+  color: #1a1a2e;
 `;
 
 const Counter = styled.div`
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   background: #f8fafc;
-  padding: 6px 14px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
   width: fit-content;
-  font-weight: 600;
+  font-weight: 700;
+  color: #1a1a2e;
 `;
 
 const CounterBtn = styled.div`
   cursor: pointer;
   color: #64748b;
-  font-size: 20px;
+  font-size: 18px;
+  font-weight: 600;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  
   &:hover {
     color: #e11d48;
   }
@@ -145,29 +180,114 @@ const Right = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 `;
 
 const SummaryCard = styled(Card)`
-  background: #1e293b;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: white;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  border: none;
+  position: sticky;
+  top: 20px;
+`;
+
+const SummaryTitle = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+  color: white;
 `;
 
 const SummaryRow = styled.div`
   display: flex;
   justify-content: space-between;
-  font-size: ${({ total }) => (total ? "24px" : "16px")};
+  font-size: ${({ total }) => (total ? "22px" : "14px")};
   font-weight: ${({ total }) => (total ? "800" : "500")};
-  color: ${({ total }) => (total ? "white" : "#94a3b8")};
+  color: ${({ total }) => (total ? "white" : "#cbd5e1")};
 `;
 
 const Divider = styled.div`
   height: 1px;
-  background: rgba(255,255,255,0.1);
-  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
+`;
+
+const EmptyCart = styled(Card)`
+  text-align: center;
+  padding: 80px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+`;
+
+const EmptyTitle = styled.div`
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-top: 20px;
+`;
+
+const EmptyText = styled.div`
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+`;
+
+const SectionTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #eef2f6;
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const FormRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const DeleteIcon = styled(Trash2)`
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 18px;
+  height: 18px;
+  
+  &:hover {
+    color: #e11d48;
+    transform: scale(1.1);
+  }
+`;
+
+const InputWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const InputLabel = styled.label`
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
 const Cart = () => {
@@ -178,7 +298,6 @@ const Cart = () => {
   const [products, setProducts] = useState([]);
   const [buttonLoad, setButtonLoad] = useState(false);
 
-  // Parse cookie helper
   const getCookie = (name) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -186,7 +305,6 @@ const Cart = () => {
     return null;
   }
 
-  // Check for existing session via cookie if not authenticated via regular state
   const isSessionValid = isAuthenticated || !!getCookie("user_info");
 
   const [deliveryDetails, setDeliveryDetails] = useState({
@@ -223,16 +341,16 @@ const Cart = () => {
 
   const addCart = async (product) => {
     if (!isAuthenticated) {
-        const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-        const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
-        if (existingItemIndex > -1) {
-            guestCart[existingItemIndex].quantity += 1;
-        } else {
-            guestCart.push({ product, quantity: 1 });
-        }
-        localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-        setReload(!reload);
-        return;
+      const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
+      const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
+      if (existingItemIndex > -1) {
+        guestCart[existingItemIndex].quantity += 1;
+      } else {
+        guestCart.push({ product, quantity: 1 });
+      }
+      localStorage.setItem("guest_cart", JSON.stringify(guestCart));
+      setReload(!reload);
+      return;
     }
 
     const token = localStorage.getItem("access_token");
@@ -246,19 +364,19 @@ const Cart = () => {
 
   const removeCart = async (product, quantity, type) => {
     if (!isAuthenticated) {
-        let guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-        const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
-        
-        if (existingItemIndex > -1) {
-            if (type === "full" || quantity <= 0) {
-                guestCart = guestCart.filter(item => item.product._id !== product._id);
-            } else {
-                guestCart[existingItemIndex].quantity = quantity;
-            }
+      let guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
+      const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
+      
+      if (existingItemIndex > -1) {
+        if (type === "full" || quantity <= 0) {
+          guestCart = guestCart.filter(item => item.product._id !== product._id);
+        } else {
+          guestCart[existingItemIndex].quantity = quantity;
         }
-        localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-        setReload(!reload);
-        return;
+      }
+      localStorage.setItem("guest_cart", JSON.stringify(guestCart));
+      setReload(!reload);
+      return;
     }
 
     const token = localStorage.getItem("access_token");
@@ -275,7 +393,6 @@ const Cart = () => {
     }
   };
 
-  // Safe price extractor — handles { org, mrp } objects AND plain numbers/strings
   const getPrice = (product) => {
     if (!product) return 0;
     if (product.price && typeof product.price === 'object') {
@@ -295,10 +412,6 @@ const Cart = () => {
   useEffect(() => {
     getProducts();
   }, [reload, isAuthenticated]);
-
-  const convertAddressToString = (addressObj) => {
-    return `${addressObj.firstName} ${addressObj.lastName}, ${addressObj.completeAddress}, ${addressObj.phoneNumber}, ${addressObj.emailAddress}`;
-  };
 
   const PlaceOrder = async () => {
     setButtonLoad(true);
@@ -348,25 +461,58 @@ const Cart = () => {
     }
   };
 
+  const clearCart = () => {
+    if (window.confirm("Are you sure you want to clear your entire cart?")) {
+      if (!isAuthenticated) {
+        localStorage.removeItem("guest_cart");
+        setReload(!reload);
+      } else {
+        products.forEach(item => {
+          removeCart(item.product, 0, "full");
+        });
+      }
+    }
+  };
+
   return (
     <Container>
       {loading ? (
-        <Spinner animation="border" style={{ color: "#e11d48", margin: "100px auto", display: "block" }} />
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+          <Spinner animation="border" style={{ color: "#e11d48", width: "40px", height: "40px" }} />
+        </div>
       ) : (
         <Section>
-          <Title>
-            <ShoppingCart size={32} /> Your Shopping Bag
-          </Title>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+            <Title>
+              <ShoppingCart size={28} /> Shopping Cart
+            </Title>
+            <BackButton onClick={() => navigate("/marketplace")}>
+              <ArrowLeft size={14} />
+              Continue Shopping
+            </BackButton>
+          </div>
           
           {products.length === 0 ? (
-            <Card style={{ textAlign: "center", padding: "80px" }}>
-              <div style={{ fontSize: "20px", color: "#64748b", marginBottom: "20px" }}>Your bag is empty. Start shopping for amazing deals!</div>
-              <Button text="Browse Products" onClick={() => navigate("/marketplace/shop")} />
-            </Card>
+            <EmptyCart>
+              <ShoppingCart size={64} color="#cbd5e1" />
+              <EmptyTitle>Your cart is empty</EmptyTitle>
+              <EmptyText>Looks like you haven't added any items to your cart yet.</EmptyText>
+              <Button text="Browse Products" onClick={() => navigate("/marketplace")} style={{ background: "#e11d48", border: "none", padding: "10px 24px" }} />
+            </EmptyCart>
           ) : (
             <Wrapper>
               <Left>
                 <Card>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <SectionTitle>
+                      <ShoppingCart size={16} />
+                      Cart Items ({products.reduce((acc, i) => acc + i.quantity, 0)})
+                    </SectionTitle>
+                    <button onClick={clearCart} style={{ background: "none", border: "none", color: "#e11d48", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}>
+                      Clear Cart
+                    </button>
+                  </div>
+                  
                   <ItemHeader>
                     <div>Product</div>
                     <div>Price</div>
@@ -378,105 +524,131 @@ const Cart = () => {
                   {products?.map((item) => (
                     <CartItemRow key={item?.product?._id}>
                       <ProductInfo>
-                        <ProductImage src={item?.product?.img} />
+                        <ProductImage src={item?.product?.img || item?.product?.image || "https://via.placeholder.com/80"} />
                         <ProductDetails>
-                          <ProductTitle>{item?.product?.title}</ProductTitle>
-                          <ProductSub>{item?.product?.category || "Premium"}</ProductSub>
+                          <ProductTitle>{item?.product?.title || item?.product?.name}</ProductTitle>
+                          <ProductSub>{item?.product?.category || "Premium Collection"}</ProductSub>
                         </ProductDetails>
                       </ProductInfo>
                       
-                      <Price>KES {getPrice(item?.product).toLocaleString('en-KE')}</Price>
+                      <Price>KES {getPrice(item?.product).toLocaleString()}</Price>
                       
                       <Counter>
-                        <CounterBtn onClick={() => removeCart(item?.product, item?.quantity - 1)}>-</CounterBtn>
-                        {item?.quantity}
-                        <CounterBtn onClick={() => addCart(item?.product)}>+</CounterBtn>
+                        <CounterBtn onClick={() => removeCart(item?.product, item?.quantity - 1)}>
+                          <Minus size={14} />
+                        </CounterBtn>
+                        <span style={{ minWidth: "24px", textAlign: "center" }}>{item?.quantity}</span>
+                        <CounterBtn onClick={() => addCart(item?.product)}>
+                          <Plus size={14} />
+                        </CounterBtn>
                       </Counter>
                       
-                      <Price>KES {(item.quantity * getPrice(item?.product)).toLocaleString('en-KE')}</Price>
+                      <Price>KES {(item.quantity * getPrice(item?.product)).toLocaleString()}</Price>
                       
-                      <Trash2
-                        size={20}
-                        style={{ color: "#94a3b8", cursor: "pointer", transition: "color 0.2s" }}
-                        className="trash-hover"
-                        onClick={() => removeCart(item?.product, 0, "full")}
-                      />
+                      <DeleteIcon onClick={() => removeCart(item?.product, 0, "full")} />
                     </CartItemRow>
                   ))}
                 </Card>
                 
+                {/* Delivery Information - Single Clean Card */}
                 <Card>
-                  <div style={{ fontSize: "18px", fontWeight: 700, marginBottom: "20px" }}>Delivery Information</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                    <TextInput
-                      placeholder="First Name"
-                      value={deliveryDetails.firstName}
-                      handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, firstName: e.target.value })}
-                    />
-                    <TextInput
-                      placeholder="Last Name"
-                      value={deliveryDetails.lastName}
-                      handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, lastName: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ marginTop: "16px" }}>
-                    <TextInput
-                      value={deliveryDetails.emailAddress}
-                      handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, emailAddress: e.target.value })}
-                      placeholder="Email Address"
-                    />
-                  </div>
-                  <div style={{ marginTop: "16px" }}>
-                    <TextInput
-                      value={deliveryDetails.phoneNumber}
-                      handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, phoneNumber: e.target.value })}
-                      placeholder="Phone Number"
-                    />
-                  </div>
-                  <div style={{ marginTop: "16px" }}>
-                    <TextInput
-                      textArea
-                      rows="3"
-                      handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, completeAddress: e.target.value })}
-                      value={deliveryDetails.completeAddress}
-                      placeholder="Shipping Address"
-                    />
-                  </div>
+                  <SectionTitle>
+                    <MapPin size={16} />
+                    Delivery Information
+                  </SectionTitle>
+                  
+                  <FormGroup>
+                    <FormRow>
+                      <InputWrapper>
+                        <InputLabel>First Name</InputLabel>
+                        <TextInput
+                          placeholder="Enter first name"
+                          value={deliveryDetails.firstName}
+                          handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, firstName: e.target.value })}
+                        />
+                      </InputWrapper>
+                      <InputWrapper>
+                        <InputLabel>Last Name</InputLabel>
+                        <TextInput
+                          placeholder="Enter last name"
+                          value={deliveryDetails.lastName}
+                          handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, lastName: e.target.value })}
+                        />
+                      </InputWrapper>
+                    </FormRow>
+                    
+                    <InputWrapper>
+                      <InputLabel>Email Address</InputLabel>
+                      <TextInput
+                        value={deliveryDetails.emailAddress}
+                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, emailAddress: e.target.value })}
+                        placeholder="Enter email address"
+                      />
+                    </InputWrapper>
+                    
+                    <InputWrapper>
+                      <InputLabel>Phone Number</InputLabel>
+                      <TextInput
+                        value={deliveryDetails.phoneNumber}
+                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, phoneNumber: e.target.value })}
+                        placeholder="Enter phone number"
+                      />
+                    </InputWrapper>
+                    
+                    <InputWrapper>
+                      <InputLabel>Complete Shipping Address</InputLabel>
+                      <TextInput
+                        textArea
+                        rows="3"
+                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, completeAddress: e.target.value })}
+                        value={deliveryDetails.completeAddress}
+                        placeholder="Enter your full shipping address"
+                      />
+                    </InputWrapper>
+                  </FormGroup>
                 </Card>
               </Left>
 
               <Right>
                 <SummaryCard>
-                  <div style={{ fontSize: "20px", fontWeight: 800 }}>Order Summary</div>
+                  <SummaryTitle>Order Summary</SummaryTitle>
                   
                   <SummaryRow>
-                    <span>Items ({products.reduce((acc, i) => acc + i.quantity, 0)})</span>
-                    <span>KSH {calculateSubtotal().toFixed(2)}</span>
+                    <span>Subtotal ({products.reduce((acc, i) => acc + i.quantity, 0)} items)</span>
+                    <span>KES {calculateSubtotal().toLocaleString()}</span>
                   </SummaryRow>
                   
                   <SummaryRow>
                     <span>Shipping</span>
-                    <span style={{ color: "#22c55e" }}>Free</span>
+                    <span style={{ color: "#22c55e", fontWeight: "600" }}>Free</span>
+                  </SummaryRow>
+                  
+                  <SummaryRow>
+                    <span>Tax</span>
+                    <span>Included</span>
                   </SummaryRow>
                   
                   <Divider />
                   
                   <SummaryRow total>
-                    <span>Total Amount</span>
-                    <span>KSH {calculateSubtotal().toFixed(2)}</span>
+                    <span>Total</span>
+                    <span>KES {calculateSubtotal().toLocaleString()}</span>
                   </SummaryRow>
                   
                   <Button
-                    text="Complete Checkout"
+                    text={buttonLoad ? "Processing..." : "Place Order"}
                     isLoading={buttonLoad}
                     isDisabled={buttonLoad}
                     onClick={PlaceOrder}
                     full
-                    style={{ background: "#e11d48", border: "none" }}
+                    style={{ background: "#e11d48", border: "none", fontWeight: "600", padding: "12px" }}
                   />
                   
-                  <div style={{ fontSize: "12px", color: "#94a3b8", textAlign: "center" }}>
-                    Taxes and shipping calculated at checkout
+                  <div style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                    <Truck size={12} />
+                    Free shipping on all orders
+                    <CreditCard size={12} />
+                    Secure payment
                   </div>
                 </SummaryCard>
               </Right>

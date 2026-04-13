@@ -78,25 +78,47 @@ api.setCachedData = (url, data) => {
 };
 
 
+// TTL management
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 api.getWithCache = async (url, onCacheHit, config = {}) => {
-  // 1. Check Cache
+  // 1. Check cache — but only use if within TTL
   const cached = api.getCachedData(url);
-  if (cached && onCacheHit) {
+  const isCacheValid = cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL;
+
+  if (isCacheValid && onCacheHit) {
     onCacheHit(cached);
   }
 
-  // 2. Fetch Fresh
+  // 2. Always fetch fresh (Stale-While-Revalidate pattern)
   try {
     const response = await api.get(url, config);
-    // 3. Update Cache
-    api.setCachedData(url, response);
+
+    // Only cache successful, non-empty responses
+    const isValidResponse = response && (
+      Array.isArray(response) ? response.length > 0 :
+      (response.success !== false && response !== null)
+    );
+
+    if (isValidResponse) {
+      // Tag with timestamp for TTL checks
+      const toCache = Array.isArray(response) ? response : { ...response, _cachedAt: Date.now() };
+      if (!Array.isArray(toCache)) toCache._cachedAt = Date.now();
+      api.setCachedData(url, toCache);
+    }
+
     return response;
   } catch (error) {
-    // If we have cached data, don't throw if network fails 
-    if (cached) return cached;
+    // Return stale cache on network failure (but not on 404/401 errors)
+    const status = error.response?.status;
+    if (isCacheValid && status !== 404 && status !== 401 && status !== 403) {
+      console.warn(`[Cache] Serving stale data for ${url} (status: ${status})`);
+      return cached;
+    }
     throw error;
   }
 };
+
 
 /**
  * Clean Cache 

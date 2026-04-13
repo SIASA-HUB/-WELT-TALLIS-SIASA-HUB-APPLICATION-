@@ -68,6 +68,8 @@ const Input = styled.input`
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
+  color: #1a1a2e; /* Explicit dark text so it's visible on white bg */
+  background: #fff;
 
   &:focus {
     outline: none;
@@ -81,12 +83,15 @@ const Select = styled.select`
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
+  color: #1a1a2e;
+  background: #fff;
 
   &:focus {
     outline: none;
     border-color: #bb0000;
   }
 `;
+
 
 const FormRow = styled.div`
   display: grid;
@@ -382,7 +387,8 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
       }
 
       if (onSave) {
-        onSave(response.data.data || productData);
+        // api interceptor already unwraps response.data, so access directly
+        onSave(response?.data || productData);
       }
 
       setTimeout(() => {

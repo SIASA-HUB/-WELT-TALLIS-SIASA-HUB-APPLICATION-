@@ -8,7 +8,6 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-     "preview": "vite preview",
     "analyze": "vite build --mode analyze"
   },
   "dependencies": {
@@ -23,7 +22,7 @@
     "react-router-dom": "^7.1.5",
     "react-toastify": "^11.0.3",
     "react-top-loading-bar": "^3.0.2",
-    "recharts": "^3.7.0",
+    "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "styled-components": "^6.1.8",
     "vite-plugin-compression": "^0.5.1",

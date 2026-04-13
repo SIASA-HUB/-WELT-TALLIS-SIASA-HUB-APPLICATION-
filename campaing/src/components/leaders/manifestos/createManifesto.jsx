@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import {
@@ -10,6 +11,8 @@ import {
   Edit3,
   XCircle,
 } from "lucide-react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import api from "../../../api/api";
 
 // --- Styled Components ---
@@ -156,10 +159,39 @@ const ModeSwitch = styled.div`
     cursor: pointer;
     font-weight: 600;
     transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     &.active {
       background: #1e3c72;
       color: white;
       border-color: #1e3c72;
+    }
+  }
+`;
+
+const LoadingContainer = styled.div`
+  padding: 100px;
+  text-align: center;
+  
+  .spinner {
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+  }
+  
+  p {
+    margin-top: 15px;
+    color: #64748b;
+    font-weight: 600;
+  }
+  
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
     }
   }
 `;
@@ -187,9 +219,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
       }
 
       try {
-        const res = await api.get(
-          `/leaders/manifestos/leader/${activeLeaderId}`,
-        );
+        const res = await api.get(`/leaders/manifestos/leader/${activeLeaderId}`);
         const existing = Array.isArray(res.data)
           ? res.data[0]
           : res.data.data?.[0];
@@ -199,13 +229,14 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
           setFormData({
             leader_id: activeLeaderId,
             main_agenda: existing.main_agenda || "",
-            agenda_items: existing.agenda_items || [
-              { title: "", description: "" },
-            ],
+            agenda_items: existing.agenda_items?.length > 0
+              ? existing.agenda_items
+              : [{ title: "", description: "" }],
           });
         }
       } catch (err) {
-        
+        // No existing manifesto found - that's fine
+        console.log("No existing manifesto found");
       } finally {
         setInitialLoading(false);
       }
@@ -234,19 +265,24 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.leader_id || !formData.main_agenda) {
-      toast.error("Please ensure your vision statement is filled out.");
+    if (!formData.leader_id) {
+      toast.error("Leader ID is missing. Please refresh and try again.");
+      return;
+    }
+
+    if (!formData.main_agenda) {
+      toast.error("Please fill out your vision statement.");
       return;
     }
 
     setLoading(true);
     const toastId = toast.loading(
-      manifestoId ? "Updating your manifesto..." : "Publishing manifesto...",
+      manifestoId ? "Updating your manifesto..." : "Publishing manifesto..."
     );
 
     try {
       const cleanedItems = formData.agenda_items.filter(
-        (item) => item.title.trim() !== "",
+        (item) => item.title.trim() !== ""
       );
 
       const payload = {
@@ -260,10 +296,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
       let response;
       if (manifestoId) {
-        response = await api.put(
-          `/leaders/manifestos/${manifestoId}`,
-          payload,
-        );
+        response = await api.put(`/leaders/manifestos/${manifestoId}`, payload);
         toast.update(toastId, {
           render: response.data.message || "Manifesto updated successfully!",
           type: "success",
@@ -271,10 +304,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
           autoClose: 3000,
         });
       } else {
-        response = await api.post(
-          `/leaders/manifestos/create`,
-          payload,
-        );
+        response = await api.post(`/leaders/manifestos/create`, payload);
         if (response.data.success && response.data.data?.manifesto_id) {
           setManifestoId(response.data.data.manifesto_id);
         }
@@ -310,7 +340,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
     if (
       !window.confirm(
-        "Are you sure you want to delete your manifesto? This action cannot be undone.",
+        "Are you sure you want to delete your manifesto? This action cannot be undone."
       )
     ) {
       return;
@@ -353,24 +383,29 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
     }
   };
 
-  if (initialLoading)
+  if (initialLoading) {
     return (
-      <div style={{ padding: "100px", textAlign: "center" }}>
-        <Loader2
-          className="animate-spin"
-          size={40}
-          color="#1e3c72"
-          style={{ margin: "0 auto" }}
-        />
-        <p style={{ marginTop: "15px", color: "#64748b", fontWeight: "600" }}>
-          Syncing your data...
-        </p>
-      </div>
+      <LoadingContainer>
+        <Loader2 className="spinner" size={40} color="#1e3c72" />
+        <p>Syncing your data...</p>
+      </LoadingContainer>
     );
+  }
 
   return (
     <div style={{ background: "transparent", padding: "10px" }}>
-      <ToastContainer position="top-right" theme="colored" />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
 
       {manifestoId && (
         <ModeSwitch>
@@ -378,7 +413,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
             className={mode === "edit" ? "active" : ""}
             onClick={() => setMode("edit")}
           >
-            <Edit3 size={16} style={{ marginRight: "8px" }} />
+            <Edit3 size={16} />
             Edit Manifesto
           </button>
           <button
@@ -386,11 +421,11 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
             onClick={() => setMode("delete")}
             style={
               mode === "delete"
-                ? { background: "#ef4444", borderColor: "#ef4444" }
+                ? { background: "#ef4444", borderColor: "#ef4444", color: "white" }
                 : {}
             }
           >
-            <Trash2 size={16} style={{ marginRight: "8px" }} />
+            <Trash2 size={16} />
             Delete Manifesto
           </button>
         </ModeSwitch>
@@ -399,22 +434,18 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
       {mode === "delete" && manifestoId ? (
         <GlassCard>
           <div style={{ padding: "60px 40px", textAlign: "center" }}>
-            <XCircle
-              size={80}
-              color="#ef4444"
-              style={{ marginBottom: "20px" }}
-            />
-            <h2 style={{ color: "#ef4444", marginBottom: "15px" }}>
+            <XCircle size={80} color="#ef4444" style={{ marginBottom: "20px" }} />
+            <h2 style={{ color: "#ef4444", marginBottom: "15px", fontWeight: "700" }}>
               Delete Manifesto
             </h2>
-            <p style={{ color: "#64748b", marginBottom: "30px" }}>
+            <p style={{ color: "#64748b", marginBottom: "30px", lineHeight: "1.6" }}>
               Are you sure you want to delete your manifesto? This will
               permanently remove all your agenda items and any votes associated
               with it.
             </p>
             <DeleteButton onClick={handleDelete} disabled={loading}>
               {loading ? (
-                <Loader2 className="animate-spin" size={18} />
+                <Loader2 className="spinner" size={18} />
               ) : (
                 <Trash2 size={18} />
               )}
@@ -435,9 +466,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
             >
               <FileText size={28} color="#1e3c72" />
               <h2 style={{ margin: 0, fontWeight: 900, color: "#1e293b" }}>
-                {manifestoId
-                  ? "Edit Campaign Agenda"
-                  : "Create Campaign Agenda"}
+                {manifestoId ? "Edit Campaign Agenda" : "Create Campaign Agenda"}
               </h2>
             </div>
 
@@ -508,21 +537,27 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
                   fontWeight: "bold",
                   cursor: "pointer",
                   marginBottom: "30px",
+                  transition: "all 0.3s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#f8fafc";
+                  e.currentTarget.style.borderColor = "#1e3c72";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.borderColor = "#cbd5e1";
                 }}
               >
-                <Plus size={18} style={{ marginRight: "8px" }} /> Add Another
-                Pillar
+                <Plus size={18} style={{ marginRight: "8px" }} /> Add Another Pillar
               </button>
 
               <ActionButton disabled={loading}>
                 {loading ? (
-                  <Loader2 className="animate-spin" size={18} />
+                  <Loader2 className="spinner" size={18} />
                 ) : (
                   <>
-                    <Send size={18} />{" "}
-                    {manifestoId
-                      ? "Update My Manifesto"
-                      : "Publish My Manifesto"}
+                    <Send size={18} />
+                    {manifestoId ? "Update My Manifesto" : "Publish My Manifesto"}
                   </>
                 )}
               </ActionButton>
@@ -542,21 +577,9 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
               LIVE PREVIEW
             </div>
 
-            <div
-              style={{ borderLeft: "4px solid #3b82f6", paddingLeft: "20px" }}
-            >
-              <Sparkles
-                size={20}
-                color="#3b82f6"
-                style={{ marginBottom: "10px" }}
-              />
-              <h3
-                style={{
-                  fontSize: "22px",
-                  fontWeight: "800",
-                  marginBottom: "10px",
-                }}
-              >
+            <div style={{ borderLeft: "4px solid #3b82f6", paddingLeft: "20px" }}>
+              <Sparkles size={20} color="#3b82f6" style={{ marginBottom: "10px" }} />
+              <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "10px" }}>
                 The Vision
               </h3>
               <p
@@ -567,10 +590,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
                   fontSize: "15px",
                 }}
               >
-                "
-                {formData.main_agenda ||
-                  "Your vision statement will appear here..."}
-                "
+                "{formData.main_agenda || "Your vision statement will appear here..."}"
               </p>
             </div>
 
@@ -619,6 +639,11 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
                       </div>
                     </div>
                   ),
+              )}
+              {formData.agenda_items.filter(i => i.title).length === 0 && (
+                <div style={{ color: "#64748b", fontSize: "13px", textAlign: "center", padding: "20px" }}>
+                  Add pillars to see preview...
+                </div>
               )}
             </div>
           </PreviewSide>

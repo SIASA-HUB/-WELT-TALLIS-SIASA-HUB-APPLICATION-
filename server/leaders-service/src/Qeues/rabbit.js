@@ -24,7 +24,7 @@ const QUEUES = {
 // Connect to RabbitMQ — fully graceful, never crashes the service
 const connectRabbitMQ = async () => {
   if (process.env.RABBITMQ_ENABLED === "false") {
-    Logger.warn("⚠️ RabbitMQ disabled via RABBITMQ_ENABLED=false. Skipping.");
+    Logger.warn("RabbitMQ disabled via RABBITMQ_ENABLED=false. Skipping.");
     return null;
   }
 
@@ -39,7 +39,7 @@ const connectRabbitMQ = async () => {
       await channel.bindQueue(queueName, EXCHANGE_NAME, `${key}.*`);
     }
 
-    Logger.info("✅ RabbitMQ connected successfully");
+    Logger.info("✅RabbitMQ connected successfully");
 
     connection.on("close", () => {
       Logger.error("RabbitMQ connection closed, reconnecting in 30s...");

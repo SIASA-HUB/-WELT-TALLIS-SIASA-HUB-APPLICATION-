@@ -4,6 +4,7 @@
 const { verifyAccessToken } = require("../../../global/auth/tokens");
 const { getTokenFromRequest: getTokenHelper } = require("../../../global/auth/cookies");
 
+
 /**
  * verifyAspirantToken — only allows users with role 'leader' or 'aspirant'
  */
@@ -46,7 +47,7 @@ const verifyOwnsManifesto = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Manifesto ID and auth required" });
     }
 
-    const { safeQueryOne } = require("../../../../global/index").db;
+    const { safeQueryOne } = require("../../../global/index").db;
     const manifesto = await safeQueryOne(
       `SELECT id, leader_id FROM manifestos WHERE id = ?`,
       [manifestoId]

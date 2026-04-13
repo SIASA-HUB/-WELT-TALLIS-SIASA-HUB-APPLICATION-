@@ -26,30 +26,34 @@ html {
   height: auto;
   scroll-behavior: smooth;
   overflow-x: hidden;
-  background-color: var(--bg-main);
-  /* Default font smoothing for better legibility */
-  font-family:
-    "Poppins",
-    "Inter",
-    -apple-system,
-    sans-serif;
-  color: var(--text-main);
+  background-color: #fff; /* Default to white for light mode */
+  font-family: "Poppins", "Inter", sans-serif;
+  color: #000; /* Default to black text */
 }
 
+/* Force Dark Mode defaults if needed, but allow Light Mode visibility */
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  background-color: var(--bg-main);
-  overflow-x: hidden;
-  position: relative;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-color: #fff; /* Start with white */
+  color: #000;
   line-height: 1.6;
-  opacity: 0;
-  transition: opacity 0.4s ease-in-out;
 }
+
+/* Global Input Fixes for Visibility */
+input, select, textarea {
+  color: #000 !important;
+  background-color: #fff !important;
+  border: 1px solid #ccc !important;
+}
+
+input::placeholder {
+  color: #666 !important;
+  opacity: 1;
+}
+
 
 body.loaded {
   opacity: 1;

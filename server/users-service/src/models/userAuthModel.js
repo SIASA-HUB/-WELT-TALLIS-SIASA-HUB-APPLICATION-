@@ -1,4 +1,4 @@
-// models/userAuthModel.js - Complete Fixed Version
+// models/userAuthModel.js - Complete Fixed Version (No syntax errors)
 
 const { safeQuery, safeQueryOne } = require("../configurations/db");
 const bcrypt = require("bcrypt");
@@ -226,7 +226,6 @@ class UserAuthModel {
 
   static async storeRefreshToken({ userId, refreshToken, userAgent, ipAddress, expiresAt }) {
     try {
-      // Create refresh_tokens table if not exists
       await safeQuery(`
         CREATE TABLE IF NOT EXISTS refresh_tokens (
           id INT PRIMARY KEY AUTO_INCREMENT,

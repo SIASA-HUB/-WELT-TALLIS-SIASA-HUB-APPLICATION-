@@ -131,14 +131,20 @@ const ResultCount = styled.div`
 
 const CardWrapper = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(4, 1fr); /* Desktop: 4 columns */
   gap: 30px;
   justify-items: center;
-  @media (max-width: 600px) {
-    grid-template-columns: repeat(2, 1fr);
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(3, 1fr); /* Tablet: 3 columns */
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr); /* Mobile: 2 columns */
     gap: 16px;
   }
 `;
+
 
 const PriceDisplay = styled.div`
   font-size: 14px;

@@ -18,7 +18,7 @@ import {
   X,
   Loader,
 } from "lucide-react";
-import api from "@/api/api";
+import api from "../../../api/api"; // Fixed import path to centralized API
 
 // --- Animations ---
 const fadeInUp = keyframes`
@@ -477,30 +477,44 @@ const AccountBillingSection = ({ leader = null }) => {
   const pricing = PRICING[positionKey] || PRICING.mca;
 
   useEffect(() => {
-    const userData = localStorage.getItem("user_data");
+    // Try to get user data from localStorage (multiple possible keys)
+    const userData = localStorage.getItem("user_data") || 
+                     localStorage.getItem("leaderData") ||
+                     localStorage.getItem("aspirant_data");
+    
     if (userData) {
       try {
         const user = JSON.parse(userData);
         setCurrentUser(user);
         // Set default phone number from user data if available
-        if (user.phone) {
-          setPhoneNumber(user.phone);
+        if (user.phone || user.phoneNumber) {
+          setPhoneNumber(user.phone || user.phoneNumber);
         }
-        fetchTransactions(user.user_id);
+        const userId = user.user_id || user.id || user._id || user.leader_id;
+        if (userId) {
+          fetchTransactions(userId);
+        }
       } catch (e) {
-        console.error("Error:", e);
+        console.error("Error parsing user data:", e);
       }
     }
   }, []);
 
   const fetchTransactions = async (userId) => {
     try {
+      // Using centralized API - the interceptor handles response.data extraction
       const response = await api.get(`/wallet/transactions/${userId}?limit=10`);
-      if (response.success) {
+      // api interceptor already returns response.data, so response is the data object
+      if (response?.success) {
         setTransactions(response.data || []);
+      } else if (Array.isArray(response)) {
+        setTransactions(response);
+      } else {
+        setTransactions([]);
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
+      setTransactions([]);
     }
   };
 
@@ -536,71 +550,73 @@ const AccountBillingSection = ({ leader = null }) => {
         formattedPhone = "254" + formattedPhone;
       }
 
-      // Call STK Push endpoint via global api
+      const userId = currentUser.user_id || currentUser.id || currentUser._id || currentUser.leader_id;
+      const leaderId = leader?.leader_id || leader?.id || userId;
+
+      // Call STK Push endpoint via centralized api
       const response = await api.post("/wallet/mpesa/stkpush", {
         phoneNumber: formattedPhone,
         amount: selectedService.amount,
         accountReference: selectedService.name.substring(0, 12),
-        userId: currentUser.user_id,
-        leader_id: leader?.leader_id,
+        userId: userId,
+        leader_id: leaderId,
       });
 
-      if (response.success) {
+      if (response?.success) {
         setPaymentStatus({
           type: "success",
-          message:
-            response.message ||
-            "Payment initiated! Check your phone for M-Pesa prompt.",
+          message: response.message || "Payment initiated! Check your phone for M-Pesa prompt.",
         });
 
         // Poll for transaction status
-        const checkoutRequestId = response.data.checkoutRequestId;
-        const checkInterval = setInterval(async () => {
-          try {
-            const statusRes = await api.get(`/wallet/status/${checkoutRequestId}`);
-            if (statusRes.success && statusRes.data?.status === "completed") {
-              clearInterval(checkInterval);
-              setPaymentStatus({
-                type: "success",
-                message: "Payment successful! Service activated.",
-              });
-              // Refresh transactions
-              await fetchTransactions(currentUser.user_id);
-              setTimeout(() => {
-                setShowPaymentModal(false);
-                setSelectedService(null);
-                setPhoneNumber("");
-              }, 2000);
-            } else if (statusRes.success && statusRes.data?.status === "failed") {
-              clearInterval(checkInterval);
-              setPaymentStatus({
-                type: "error",
-                message: "Payment failed or cancelled.",
-              });
+        const checkoutRequestId = response.data?.checkoutRequestId;
+        if (checkoutRequestId) {
+          const checkInterval = setInterval(async () => {
+            try {
+              const statusRes = await api.get(`/wallet/status/${checkoutRequestId}`);
+              if (statusRes?.success && statusRes.data?.status === "completed") {
+                clearInterval(checkInterval);
+                setPaymentStatus({
+                  type: "success",
+                  message: "Payment successful! Service activated.",
+                });
+                // Refresh transactions
+                if (userId) {
+                  await fetchTransactions(userId);
+                }
+                setTimeout(() => {
+                  setShowPaymentModal(false);
+                  setSelectedService(null);
+                  setPhoneNumber("");
+                }, 2000);
+              } else if (statusRes?.success && statusRes.data?.status === "failed") {
+                clearInterval(checkInterval);
+                setPaymentStatus({
+                  type: "error",
+                  message: "Payment failed or cancelled.",
+                });
+              }
+            } catch (err) {
+              console.error("Error checking payment status:", err);
             }
-          } catch (err) {
-            console.error("Error checking payment status:", err);
-          }
-        }, 3000);
+          }, 3000);
 
-        // Stop polling after 60 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval);
-        }, 60000);
+          // Stop polling after 60 seconds
+          setTimeout(() => {
+            clearInterval(checkInterval);
+          }, 60000);
+        }
       } else {
         setPaymentStatus({
           type: "error",
-          message:
-            response.message || "Payment failed. Please try again.",
+          message: response?.message || "Payment failed. Please try again.",
         });
       }
     } catch (error) {
       console.error("Payment error:", error);
       setPaymentStatus({
         type: "error",
-        message:
-          error.message ||
-          "Payment failed. Please check your phone number and try again.",
+        message: error.response?.data?.message || error.message || "Payment failed. Please check your phone number and try again.",
       });
     } finally {
       setPaymentLoading(false);
@@ -791,14 +807,14 @@ const AccountBillingSection = ({ leader = null }) => {
               <div>Reference</div>
               <div style={{ textAlign: "right" }}>Amount</div>
             </TransactionRow>
-            {transactions.map((tx) => (
-              <TransactionRow key={tx.id}>
+            {transactions.map((tx, index) => (
+              <TransactionRow key={tx.id || index}>
                 <div className="service">{tx.type || "Payment"}</div>
                 <div className="date">
-                  {new Date(tx.completed_at || tx.date).toLocaleDateString()}
+                  {new Date(tx.completed_at || tx.date || Date.now()).toLocaleDateString()}
                 </div>
-                <div className="ref">{tx.transaction_id || `TXN-${tx.id}`}</div>
-                <div className="amount">KES {tx.amount?.toLocaleString()}</div>
+                <div className="ref">{tx.transaction_id || `TXN-${tx.id || index}`}</div>
+                <div className="amount">KES {tx.amount?.toLocaleString() || 0}</div>
               </TransactionRow>
             ))}
           </>
