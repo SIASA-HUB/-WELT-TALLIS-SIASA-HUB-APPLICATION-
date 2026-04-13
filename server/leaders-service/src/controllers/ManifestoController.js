@@ -1,7 +1,7 @@
 // ManifestoController.js - Full rewrite with voting, agenda delete, personalization, and trending
 const Logger = require("../utils/logger/logger");
-const ManifestoModel = require("../models/ManifestoModel");
-const ManifestoVoteModel = require("../models/ManifestoVoteModel");
+const ManifestoModel = require("../models/manifestoModel");
+const ManifestoVoteModel = require("../models/manifestoVoteModel");
 const {
   asyncHandler,
   db: { safeQuery, safeQueryOne },
