@@ -13,11 +13,11 @@ import {
   Flag,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import walletApi from "./ApiConfig";
+import walletApi from "./apiConfig";
 import userApi from "./userApiConfig";
 
 // Components
-import Header from "./Wallet";
+import Header from "./wallet";
 
 const ProfileWrapper = styled.div`
   background: #000000;

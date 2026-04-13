@@ -12,7 +12,6 @@ import {
   Activity,
   Shield,
   Trash2,
-  AlertCircle,
   BarChart2,
   Smartphone,
   CreditCard,
@@ -20,11 +19,9 @@ import {
   MapPin
 } from "lucide-react";
 
-
 // API Configuration
 import api from "../api/api";
 import API from "../api/config";
-
 
 // Animations
 const fadeIn = keyframes`
@@ -275,6 +272,21 @@ const SearchBar = styled.div`
   }
 `;
 
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: #a3aed0;
+  
+  svg {
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  p {
+    font-size: 14px;
+  }
+`;
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("aspirants");
   const [loading, setLoading] = useState(true);
@@ -318,9 +330,9 @@ const AdminDashboard = () => {
         
         let allLeaders = [];
         if (allRes.data.success && Array.isArray(allRes.data.data)) {
-           allRes.data.data.forEach(group => {
-             if (group.leaders) allLeaders.push(...group.leaders);
-           });
+          allRes.data.data.forEach(group => {
+            if (group.leaders) allLeaders.push(...group.leaders);
+          });
         }
         
         setData(allLeaders);
@@ -340,7 +352,6 @@ const AdminDashboard = () => {
       setRefreshing(false);
     }
   };
-
 
   const handleVerify = async (id) => {
     try {
@@ -423,7 +434,6 @@ const AdminDashboard = () => {
         </StatCard>
       </StatsGrid>
 
-
       <TabContainer>
         <TabButton $active={activeTab === "aspirants"} onClick={() => setActiveTab("aspirants")}>
           <UserCheck size={18} /> Aspirants Control
@@ -435,7 +445,6 @@ const AdminDashboard = () => {
           <MapPin size={18} /> County Monitor
         </TabButton>
       </TabContainer>
-
 
       <ContentCard>
         <div className="d-flex justify-content-between align-items-center mb-4">
@@ -464,6 +473,11 @@ const AdminDashboard = () => {
             <div className="spinner-border text-primary" role="status"></div>
             <p className="mt-3 text-secondary">Securing data pipeline...</p>
           </div>
+        ) : filteredData.length === 0 ? (
+          <EmptyState>
+            <BarChart2 size={48} />
+            <p>No records found in current view</p>
+          </EmptyState>
         ) : (
           <TableWrapper>
             <table>
@@ -502,7 +516,7 @@ const AdminDashboard = () => {
                     <tr key={leader.leader_id}>
                       <td><code style={{ fontSize: 11 }}>#{leader.leader_id?.toString().slice(0, 8)}</code></td>
                       <td>
-                        <div className="d-flex align-items-center gap-3">
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                           <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eee', overflow: 'hidden' }}>
                             <img src={leader.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
@@ -522,12 +536,12 @@ const AdminDashboard = () => {
                         )}
                       </td>
                       <td>
-                         <div style={{ color: leader.boost_score > 100 ? '#05cd99' : '#1b2559' }}>
-                           {leader.boost_score || 0} pts
-                         </div>
+                        <div style={{ color: leader.boost_score > 100 ? '#05cd99' : '#1b2559' }}>
+                          {leader.boost_score || 0} pts
+                        </div>
                       </td>
                       <td>
-                        <div className="d-flex gap-2">
+                        <div style={{ display: "flex", gap: "8px" }}>
                           {leader.verification === 0 ? (
                             <ActionButton onClick={() => handleVerify(leader.leader_id)} title="Verify">
                               <CheckCircle size={16} />
@@ -536,8 +550,7 @@ const AdminDashboard = () => {
                             <ActionButton $bg="#fff5e9" $color="#ffb547" onClick={() => handleReject(leader.leader_id)} title="Unverify">
                               <XCircle size={16} />
                             </ActionButton>
-                          )
-                          }
+                          )}
                           <ActionButton $bg="#fff0f3" $color="#ff5b5b" onClick={() => handleDelete(leader.leader_id)} title="Delete">
                             <Trash2 size={16} />
                           </ActionButton>
@@ -574,7 +587,7 @@ const AdminDashboard = () => {
                       <td style={{ fontSize: '16px', fontWeight: 800 }}>{c.count.toLocaleString()}</td>
                       <td>
                         <div style={{ width: '100%', maxWidth: 100, height: 6, background: '#eee', borderRadius: 10, overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min((c.count / (stats.totalEndorsements || 1)) * 500, 100)}%`, height: '100%', background: '#4318ff' }} />
+                          <div style={{ width: `${Math.min((c.count / (stats.totalEndorsements || 1)) * 100, 100)}%`, height: '100%', background: '#4318ff' }} />
                         </div>
                       </td>
                       <td><StatusBadge $bg="#e6faf5" $color="#05cd99">Active</StatusBadge></td>
@@ -583,16 +596,6 @@ const AdminDashboard = () => {
                 )}
               </tbody>
             </table>
-          </TableWrapper>
-        )}
-      </ContentCard>
-
-            {filteredData.length === 0 && (
-              <div className="text-center py-5 text-secondary">
-                <BarChart2 size={48} className="mb-3 opacity-20" />
-                <p>No records found in current view</p>
-              </div>
-            )}
           </TableWrapper>
         )}
       </ContentCard>
