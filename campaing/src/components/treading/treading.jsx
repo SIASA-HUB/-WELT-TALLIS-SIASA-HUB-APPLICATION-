@@ -18,6 +18,11 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
+
 const TrendingContainer = styled.div`
   background: #ffffff;
   min-height: 100vh;
@@ -87,6 +92,19 @@ const SectionSkeleton = styled.div`
   color: #94a3b8;
 `;
 
+// Empty state message
+const EmptyMessage = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  font-size: 14px;
+  
+  svg {
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+`;
+
 const TrendingSection = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [hasStories, setHasStories] = useState(true);
@@ -94,10 +112,10 @@ const TrendingSection = () => {
   const [hasManifestos, setHasManifestos] = useState(true);
   const [hasRallies, setHasRallies] = useState(true);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
+  const [merchHasData, setMerchHasData] = useState(true);
   const loadingBarRef = useRef(null);
 
   useEffect(() => {
-    // Simulate page load
     const timer = setTimeout(() => {
       setIsPageLoaded(true);
     }, 100);
@@ -119,6 +137,7 @@ const TrendingSection = () => {
   const handleLeadersEmpty = useCallback(() => setHasLeaders(false), []);
   const handleManifestosEmpty = useCallback(() => setHasManifestos(false), []);
   const handleRalliesEmpty = useCallback(() => setHasRallies(false), []);
+  const handleMerchEmpty = useCallback(() => setMerchHasData(false), []);
 
   if (!isPageLoaded) {
     return (
@@ -128,6 +147,26 @@ const TrendingSection = () => {
         <ContentWrapper>
           <SectionSkeleton>Loading...</SectionSkeleton>
         </ContentWrapper>
+      </TrendingContainer>
+    );
+  }
+
+  // Check if any content exists
+  const hasAnyContent = hasStories || hasLeaders || hasManifestos || hasRallies || merchHasData;
+
+  if (!hasAnyContent) {
+    return (
+      <TrendingContainer>
+        <LoadingBar ref={loadingBarRef} color="#ff5c01" height={3} />
+        <TopFypHeader />
+        <ContentWrapper>
+          <EmptyMessage>
+            <span style={{ fontSize: 48 }}>🇰🇪</span>
+            <p>No content available at the moment.</p>
+            <p style={{ fontSize: "12px", marginTop: "8px" }}>Check back later for updates!</p>
+          </EmptyMessage>
+        </ContentWrapper>
+        <SloganSection />
       </TrendingContainer>
     );
   }
@@ -191,11 +230,13 @@ const TrendingSection = () => {
         {hasRallies && <Divider />}
 
         {/* ── 5. BOTTOM MERCH ADS CAROUSEL ── */}
-        <BottomCarouselWrapper>
-          <Suspense fallback={<CarouselSkeleton />}>
-            <MerchAdsCarousel />
-          </Suspense>
-        </BottomCarouselWrapper>
+        {merchHasData && (
+          <BottomCarouselWrapper>
+            <Suspense fallback={<CarouselSkeleton />}>
+              <MerchAdsCarousel onEmpty={handleMerchEmpty} />
+            </Suspense>
+          </BottomCarouselWrapper>
+        )}
 
       </ContentWrapper>
 
