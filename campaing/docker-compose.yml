@@ -16,5 +16,5 @@ services:
       - NODE_ENV=production
 
 networks:
-  default:
-    name: siasa-network
+  siasa-network:
+    external: true
