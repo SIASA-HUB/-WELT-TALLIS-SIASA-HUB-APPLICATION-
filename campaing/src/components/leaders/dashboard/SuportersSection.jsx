@@ -252,7 +252,7 @@ const EmptyState = styled.div`
   }
 `;
 
-import API from "../../api/config";
+import API from "../../../api/config";
 
 const SupportersSection = ({ leader }) => {
   const [supporters, setSupporters] = useState([]);
@@ -313,7 +313,7 @@ const SupportersSection = ({ leader }) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays} days ago`;

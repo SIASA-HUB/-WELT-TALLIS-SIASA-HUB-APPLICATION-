@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Users, ShieldCheck, MapPin, ArrowRight, Zap } from "lucide-react";
 import axios from "axios";
-import API from "../../api/config";
+import API from "../../../api/config";
 
 const Container = styled.div`
   background: white;
@@ -136,22 +136,22 @@ const CompetitorsSection = ({ leader }) => {
         <CompetitorGrid>
           {competitors.map(comp => (
             <CompetitorCard key={comp.leader_id}>
-              <img 
-                className="avatar" 
-                src={comp.image_url ? (comp.image_url.startsWith('http') ? comp.image_url : `${API.IMAGES}${comp.image_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(comp.name)}&background=1e3c72&color=fff`} 
-                alt={comp.name} 
+              <img
+                className="avatar"
+                src={comp.image_url ? (comp.image_url.startsWith('http') ? comp.image_url : `${API.IMAGES}${comp.image_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(comp.name)}&background=1e3c72&color=fff`}
+                alt={comp.name}
               />
               <div className="info">
                 <div className="name">
-                    {comp.name}
-                    {comp.verification === 1 && <ShieldCheck size={14} color="#10b981" />}
+                  {comp.name}
+                  {comp.verification === 1 && <ShieldCheck size={14} color="#10b981" />}
                 </div>
                 <div className="pos">{comp.position_running_for || comp.position}</div>
                 <div className="meta">
-                   <span className="party">{comp.party || "IND"}</span>
-                   <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                      <MapPin size={10} /> {comp.ward || comp.county}
-                   </span>
+                  <span className="party">{comp.party || "IND"}</span>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <MapPin size={10} /> {comp.ward || comp.county}
+                  </span>
                 </div>
               </div>
             </CompetitorCard>

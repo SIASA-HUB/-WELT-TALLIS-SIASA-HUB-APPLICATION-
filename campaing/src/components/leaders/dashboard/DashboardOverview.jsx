@@ -35,7 +35,7 @@ import {
   Legend,
 } from "recharts";
 import CompetitorsSection from "./CompetitorsSection";
-import API from "../../api/config";
+import API from "../../../api/config";
 
 const COLORS = ["#1e3c72", "#10b981", "#ea580c", "#dc2626", "#6366f1"];
 
@@ -608,10 +608,10 @@ const DashboardOverview = ({ leader }) => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
                   tick={{ fontSize: 10, fill: "#64748b" }}
                   tickFormatter={(str) => {
                     const d = new Date(str);
@@ -619,23 +619,23 @@ const DashboardOverview = ({ leader }) => {
                   }}
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="views" 
-                  stroke="#1e3c72" 
-                  fillOpacity={1} 
-                  fill="url(#colorViews)" 
+                <Area
+                  type="monotone"
+                  dataKey="views"
+                  stroke="#1e3c72"
+                  fillOpacity={1}
+                  fill="url(#colorViews)"
                   strokeWidth={3}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="shares" 
-                  stroke="#10b981" 
-                  fillOpacity={0.1} 
-                  fill="#10b981" 
+                <Area
+                  type="monotone"
+                  dataKey="shares"
+                  stroke="#10b981"
+                  fillOpacity={0.1}
+                  fill="#10b981"
                   strokeWidth={2}
                 />
               </AreaChart>
@@ -667,11 +667,11 @@ const DashboardOverview = ({ leader }) => {
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend verticalAlign="bottom" height={36}/>
+                  <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            
+
             <div style={{ height: '200px' }}>
               <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Generational Reach</p>
               <ResponsiveContainer width="100%" height="100%">
@@ -701,21 +701,21 @@ const DashboardOverview = ({ leader }) => {
               </EmptyState>
             ) : (
               wardReach.map((ward, i) => (
-                <div key={i} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
+                <div key={i} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                   padding: '16px 0',
                   borderBottom: i === wardReach.length - 1 ? 'none' : '1px solid #f1f5f9'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ 
-                      width: '32px', 
-                      height: '32px', 
-                      borderRadius: '8px', 
-                      background: '#f8fafc', 
-                      display: 'flex', 
-                      alignItems: 'center', 
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '12px',
                       fontWeight: 'bold',

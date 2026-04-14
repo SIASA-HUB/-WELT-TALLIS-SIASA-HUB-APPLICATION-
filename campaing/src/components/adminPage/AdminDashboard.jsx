@@ -20,8 +20,7 @@ import {
 } from "lucide-react";
 
 // API Configuration
-import api from "../api/api";
-import API from "../api/config";
+import api from "../../api/api";
 
 // Animations
 const fadeIn = keyframes`
@@ -291,12 +290,12 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("aspirants");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState({ 
-    aspirants: 0, 
-    pending: 0, 
-    totalEndorsements: 0, 
+  const [stats, setStats] = useState({
+    aspirants: 0,
+    pending: 0,
+    totalEndorsements: 0,
     totalEarnings: 0,
-    countyStats: [] 
+    countyStats: []
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -310,7 +309,7 @@ const AdminDashboard = () => {
     try {
       const walletStats = await api.get("/wallet/admin/stats");
       const endorsementStats = await api.get("/endorsements/admin/stats");
-      
+
       setStats(prev => ({
         ...prev,
         totalEarnings: walletStats.data?.total_balance_in_circulation || 0,
@@ -327,14 +326,14 @@ const AdminDashboard = () => {
       setLoading(true);
       if (activeTab === "aspirants") {
         const allRes = await api.get("/leaders");
-        
+
         let allLeaders = [];
         if (allRes.data.success && Array.isArray(allRes.data.data)) {
           allRes.data.data.forEach(group => {
             if (group.leaders) allLeaders.push(...group.leaders);
           });
         }
-        
+
         setData(allLeaders);
         setStats(prev => ({
           ...prev,
@@ -342,7 +341,7 @@ const AdminDashboard = () => {
           pending: allLeaders.filter(l => l.verification === 0).length
         }));
       } else {
-        const walletRes = await api.get("/wallet/admin/transactions"); 
+        const walletRes = await api.get("/wallet/admin/transactions");
         setData(walletRes.data.data || walletRes.data || []);
       }
     } catch (err) {
@@ -449,18 +448,18 @@ const AdminDashboard = () => {
       <ContentCard>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>
-            {activeTab === "aspirants" ? "Registered Political Aspirants" : 
-             activeTab === "wallets" ? "Global Wallet Transactions" : 
-             "Endorsement Activity by County"}
+            {activeTab === "aspirants" ? "Registered Political Aspirants" :
+              activeTab === "wallets" ? "Global Wallet Transactions" :
+                "Endorsement Activity by County"}
           </h2>
           <SearchBar>
             <Search size={18} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder={
-                activeTab === "aspirants" ? "Search by name, county..." : 
-                activeTab === "wallets" ? "Search transaction, user..." :
-                "Search county..."
+                activeTab === "aspirants" ? "Search by name, county..." :
+                  activeTab === "wallets" ? "Search transaction, user..." :
+                    "Search county..."
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -570,8 +569,8 @@ const AdminDashboard = () => {
                         <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{tx.type}</span>
                       </td>
                       <td>
-                        <StatusBadge 
-                          $bg={tx.status === 'completed' ? "#e6faf5" : "#fff5e9"} 
+                        <StatusBadge
+                          $bg={tx.status === 'completed' ? "#e6faf5" : "#fff5e9"}
                           $color={tx.status === 'completed' ? "#05cd99" : "#ffb547"}
                         >
                           {tx.status}
