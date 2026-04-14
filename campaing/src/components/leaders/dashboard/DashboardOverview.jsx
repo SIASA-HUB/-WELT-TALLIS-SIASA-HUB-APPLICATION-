@@ -35,12 +35,9 @@ import {
   Legend,
 } from "recharts";
 import CompetitorsSection from "./CompetitorsSection";
+import API from "../../api/config";
 
 const COLORS = ["#1e3c72", "#10b981", "#ea580c", "#dc2626", "#6366f1"];
-
-const LEADER_API_URL = "http://localhost:8006/api/v1";
-const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
-// Note: If you see double /api/v1 in logs, ensure axios baseURL isn't also adding it.
 
 // Animations
 const fadeInUp = keyframes`
@@ -425,7 +422,7 @@ const DashboardOverview = ({ leader }) => {
     setLoading(true);
     try {
       // 1. Fetch from the NEW unified analytics endpoint
-      const dashboardRes = await axios.get(`${LEADER_API_URL}/leaders/analytics/dashboard`, {
+      const dashboardRes = await axios.get(`${API.LEADERS}/analytics/dashboard`, {
         params: { leader_id: leader.leader_id }
       });
 

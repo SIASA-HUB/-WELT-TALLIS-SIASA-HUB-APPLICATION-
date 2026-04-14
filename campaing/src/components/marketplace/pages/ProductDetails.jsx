@@ -412,7 +412,7 @@ const ProductDetails = () => {
   const APP_URL = "https://siasahub.co.ke";
   const productUrl = `${APP_URL}/product/${product?.slug || slug}`;
   const productImage = product?.image
-    ? (product.image.startsWith("http") ? product.image : `http://localhost:8000${product.image}`)
+    ? (product.image.startsWith("http") ? product.image : `${API.IMAGES}${product.image}`)
     : `${APP_URL}/og-default.png`;
   const price = product?.price || 0;
   const mrp = product?.mrp || 0;

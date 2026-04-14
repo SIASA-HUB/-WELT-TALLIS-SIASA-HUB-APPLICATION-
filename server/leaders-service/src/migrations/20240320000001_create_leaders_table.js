@@ -51,6 +51,8 @@ exports.up = async function (knex) {
       table.integer("views").defaultTo(0);
       table.integer("comments_count").defaultTo(0);
       table.integer("followers").defaultTo(0);
+      table.integer("endorsement_count").defaultTo(0);
+      table.integer("shares").defaultTo(0);
 
       // Timestamps
       table.timestamp("created_at").defaultTo(knex.fn.now());
@@ -66,6 +68,8 @@ exports.up = async function (knex) {
       table.index("status");
       table.index("created_at");
       table.index(["county", "constituency", "ward"]);
+      table.string("slug", 255).unique().nullable();
+      table.index("slug");
     });
 
     console.log("✅ Created leaders table with all required columns");
@@ -135,6 +139,26 @@ exports.up = async function (knex) {
         table.text("bio").nullable();
       });
       console.log("✅ Added bio column");
+    }
+
+    // Add slug column if missing
+    const hasSlug = await knex.schema.hasColumn("leaders", "slug");
+    if (!hasSlug) {
+      await knex.schema.table("leaders", (table) => {
+        table.string("slug", 255).unique().nullable();
+        table.index("slug");
+      });
+      console.log("✅ Added slug column");
+    }
+
+    // Add endorsement_count and shares if missing
+    const hasEndorsementCount = await knex.schema.hasColumn("leaders", "endorsement_count");
+    if (!hasEndorsementCount) {
+      await knex.schema.table("leaders", (table) => {
+        table.integer("endorsement_count").defaultTo(0);
+        table.integer("shares").defaultTo(0);
+      });
+      console.log("✅ Added endorsement_count and shares columns");
     }
 
     // Update status enum if needed (add 'pending' if not exists)

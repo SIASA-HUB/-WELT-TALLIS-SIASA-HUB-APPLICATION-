@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Users, ShieldCheck, MapPin, ArrowRight, Zap } from "lucide-react";
 import axios from "axios";
-
-const LEADER_API_URL = "http://localhost:8006/api/v1";
+import API from "../../api/config";
 
 const Container = styled.div`
   background: white;
@@ -106,7 +105,7 @@ const CompetitorsSection = ({ leader }) => {
       if (!leaderId) return;
 
       try {
-        const res = await axios.get(`${LEADER_API_URL}/leaders/${leaderId}/competitors`);
+        const res = await axios.get(`${API.LEADERS}/${leaderId}/competitors`);
         if (res.data.success) {
           setCompetitors(res.data.data);
         }
@@ -139,7 +138,7 @@ const CompetitorsSection = ({ leader }) => {
             <CompetitorCard key={comp.leader_id}>
               <img 
                 className="avatar" 
-                src={comp.image_url ? (comp.image_url.startsWith('http') ? comp.image_url : `http://localhost:8006${comp.image_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(comp.name)}&background=1e3c72&color=fff`} 
+                src={comp.image_url ? (comp.image_url.startsWith('http') ? comp.image_url : `${API.IMAGES}${comp.image_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(comp.name)}&background=1e3c72&color=fff`} 
                 alt={comp.name} 
               />
               <div className="info">

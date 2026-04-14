@@ -252,7 +252,7 @@ const EmptyState = styled.div`
   }
 `;
 
-const ENDORSEMENT_API_URL = "http://localhost:8003/api/v1";
+import API from "../../api/config";
 
 const SupportersSection = ({ leader }) => {
   const [supporters, setSupporters] = useState([]);
@@ -265,7 +265,7 @@ const SupportersSection = ({ leader }) => {
       if (!leaderId) return;
 
       try {
-        const response = await axios.get(`${ENDORSEMENT_API_URL}/endorsements/leader/${leaderId}/recent?limit=50`);
+        const response = await axios.get(`${API.ENDORSEMENTS}/leader/${leaderId}/recent?limit=50`);
         if (response.data?.success) {
           setSupporters(response.data.data.map((s, index) => ({
             id: s.endorsement_id || s.id || `supporter_${index}`,

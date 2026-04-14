@@ -5,7 +5,7 @@ import styled from "styled-components";
 import {
   ShoppingCart,
 } from "lucide-react";
-import { Spinner } from "react-bootstrap";
+
 import {
   addToCart,
 } from "../api/index";

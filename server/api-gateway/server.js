@@ -52,7 +52,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow any localhost origin or any port on localhost for dev ease
     if (!origin || origin.startsWith('http://localhost:')) return callback(null, true);
-    
+
     const allowed = [
       'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000',
       'http://localhost:8080',
@@ -62,12 +62,12 @@ app.use(cors({
     return callback(new Error(`CORS: origin ${origin} not permitted`));
   },
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','x-csrf-token'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-csrf-token'],
 }));
 
-app.use(helmet({ 
-  contentSecurityPolicy: false, 
+app.use(helmet({
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
@@ -90,17 +90,17 @@ app.use((req, res, next) => {
 app.use("/api/v1/", apiLimiter);
 
 // Route-specific strict limits (applied BEFORE general limiter)
-const AUTH_LIMITER = rateLimit({ 
-  windowMs: 15*60*1000, 
+const AUTH_LIMITER = rateLimit({
+  windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 10 : 100, // 50 in dev, 10 in prod
-  standardHeaders: true, 
-  legacyHeaders: false, 
-  message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' } 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' }
 });
 
 
-const WALLET_LIMITER = rateLimit({ windowMs: 10*60*1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many wallet requests. Please wait.' } });
-const VOTE_LIMITER = rateLimit({ windowMs: 60*1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Voting rate limit exceeded.' } });
+const WALLET_LIMITER = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many wallet requests. Please wait.' } });
+const VOTE_LIMITER = rateLimit({ windowMs: 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Voting rate limit exceeded.' } });
 
 app.use((req, res, next) => {
   if (req.originalUrl.match(/\/users\/(login|register|refresh)/)) return AUTH_LIMITER(req, res, next);
@@ -228,7 +228,7 @@ app.get("/sitemap.xml", async (req, res) => {
       const leadersData = await fetchInternal(`${SERVICES.leaders}/api/v1/leaders?limit=500`);
       const leaders = leadersData?.data || leadersData?.leaders || [];
       leaderUrls = leaders
-        .filter(l => l.slug)
+        .filter(l => l.slug && l.slug.trim() !== '')
         .map(l => `
   <url>
     <loc>${SITE_URL}/leader/${l.slug}</loc>
@@ -242,7 +242,7 @@ app.get("/sitemap.xml", async (req, res) => {
       const productsData = await fetchInternal(`${SERVICES.marketplace}/api/v1/products?limit=500`);
       const products = productsData?.data || [];
       productUrls = products
-        .filter(p => p.slug)
+        .filter(p => p.slug && p.slug.trim() !== '')
         .map(p => `
   <url>
     <loc>${SITE_URL}/product/${p.slug}</loc>

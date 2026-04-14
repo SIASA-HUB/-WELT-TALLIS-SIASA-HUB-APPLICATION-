@@ -56,12 +56,12 @@ export default defineConfig({
     cors: true,
     proxy: {
       "/api": {
-        target: "http://localhost:8004",
+        target: "http://localhost:8009",
         changeOrigin: true,
         secure: false,
       },
       "/uploads": {
-        target: "http://localhost:8004",
+        target: "http://localhost:8009",
         changeOrigin: true,
         secure: false,
       },

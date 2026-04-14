@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "axios": "^1.7.9",
+    "bootstrap": "^5.3.8",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.474.0",
     "react": "^19.0.0",
+    "react-bootstrap": "^2.10.10",
     "react-dom": "^19.0.0",
     "react-helmet-async": "^3.0.0",
     "react-intersection-observer": "^10.0.3",

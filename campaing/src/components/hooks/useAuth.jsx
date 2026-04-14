@@ -1,10 +1,12 @@
-// hooks/useAuth.jsx
+// hooks/useAuth.jsx - Fixed for first-time/unauthenticated users
+
 import {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import axios from "axios";
 
@@ -13,7 +15,6 @@ import axios from "axios";
 // ============================================
 import api from "../../api/api";
 import API from "../../api/config";
-
 
 // ============================================
 // AUTH CONTEXT
@@ -49,99 +50,147 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [csrfToken, setCsrfToken] = useState(null);
+  const authCheckDoneRef = useRef(false);
 
-  // Get CSRF token - FIXED endpoint with caching
+  // Get CSRF token - only if authenticated
   const fetchCsrfToken = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return null;
+    // Don't fetch CSRF token if not authenticated
+    const token = localStorage.getItem("access_token");
+    if (!token) return null;
 
-      const response = await api.getWithCache("/users/csrf-token", (data) => {
-        if (data && data.success) {
-          setCsrfToken(data.csrfToken);
-        }
-      });
-      
+    try {
+      const response = await api.get("/users/csrf-token");
+
       if (response && response.success) {
         setCsrfToken(response.csrfToken);
         return response.csrfToken;
       }
     } catch (error) {
-      console.error("Error fetching CSRF token:", error);
+      // Silent fail for CSRF token - not critical
+      console.debug("CSRF token fetch skipped:", error?.message);
       return null;
     }
   }, []);
 
-  // Get user info from /me endpoint with SWR
+  // Get user info from /me endpoint - FIXED: Only called when token exists
   const fetchUser = useCallback(async () => {
+    const token = localStorage.getItem("access_token");
+
+    // CRITICAL FIX: If no token, don't even try to fetch
+    if (!token) {
+      return null;
+    }
+
     try {
-      const response = await api.getWithCache("/users/me", (data) => {
-        if (data && data.success) {
-          setUser(data.data);
-          setIsAuthenticated(true);
-        }
-      });
+      const response = await api.get("/users/me");
       if (response && response.success) {
         setUser(response.data);
         setIsAuthenticated(true);
         return response.data;
+      } else {
+        // Response but not successful - clear tokens
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user_data");
+        setUser(null);
+        setIsAuthenticated(false);
+        return null;
       }
     } catch (error) {
-      console.error("Error fetching user:", error);
+      // Clear invalid token if API returns 401
+      if (error?.response?.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user_data");
+        setUser(null);
+        setIsAuthenticated(false);
+      }
       return null;
     }
   }, []);
 
-  // Check authentication status - FIXED endpoint with SWR
+  // Check authentication status - FIXED for first-time users
   const checkAuthStatus = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await api.getWithCache("/users/status", (data) => {
-        if (data && data.success && data.isAuthenticated) {
-          setUser(data.user);
-          setIsAuthenticated(true);
-        }
-      });
+    // Prevent multiple simultaneous checks
+    if (authCheckDoneRef.current && !isLoading) return;
 
-      if (response && response.success && response.isAuthenticated) {
-        setUser(response.user);
-        setIsAuthenticated(true);
-        await fetchCsrfToken();
-      } else {
+    setIsLoading(true);
+
+    try {
+      // First check if there's a token in localStorage
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+
+      if (!token) {
+        // No token = definitely not authenticated
+        // This is the path for FIRST-TIME USERS
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        authCheckDoneRef.current = true;
+        return;
+      }
+
+      // Token exists, verify with backend
+      try {
+        const response = await api.get("/users/status");
+
+        if (response && response.success && response.isAuthenticated) {
+          setUser(response.user);
+          setIsAuthenticated(true);
+          // Only fetch CSRF if authenticated
+          await fetchCsrfToken();
+        } else {
+          // Token invalid or expired
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user_data");
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (statusError) {
+        // API error during status check - assume not authenticated
+        console.debug("Status check failed:", statusError?.response?.status);
+
+        // If 401, clear tokens
+        if (statusError?.response?.status === 401) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user_data");
+        }
+
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error("Auth check error:", error);
+      console.debug("Auth check outer error:", error?.message);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
+      authCheckDoneRef.current = true;
     }
-  }, [fetchCsrfToken]);
+  }, [fetchCsrfToken, isLoading]);
 
   // Login function
   const login = async (username, password) => {
     try {
       const response = await api.post("/users/login", {
-        identifier: username, // backend accepts email OR username
+        identifier: username,
         password,
       });
 
       if (response && response.success) {
-        // Store the REAL JWT access token — used by axios Bearer interceptor
+        // Store tokens
         if (response.accessToken) {
           localStorage.setItem("token", response.accessToken);
-          localStorage.setItem("access_token", response.accessToken); // keep both for compatibility
+          localStorage.setItem("access_token", response.accessToken);
         }
 
-        // Store CSRF token separately — do NOT mix with JWT
         if (response.csrfToken) {
           localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
         }
 
-        // Store full user object for components that need it (e.g. MyOrders)
         const userData = response.user || response.data;
         if (userData) {
           localStorage.setItem("user_data", JSON.stringify(userData));
@@ -164,22 +213,28 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await api.post("/users/logout");
-    } catch (_) { /* ignore logout API errors */ }
-    // Always clear local storage
+      await api.post("/users/logout").catch(() => { });
+    } catch (_) {
+      // Ignore
+    }
+
     localStorage.removeItem("access_token");
     localStorage.removeItem("token");
     localStorage.removeItem("csrf_token");
     localStorage.removeItem("user_data");
+
     setUser(null);
     setIsAuthenticated(false);
     setCsrfToken(null);
+
     return { success: true };
   };
 
-
-  // Refresh token — axios interceptor already unwraps .data, so use response directly
+  // Refresh token
   const refreshToken = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return { success: false };
+
     try {
       const response = await api.post("/users/refresh");
       if (response && response.success) {
@@ -192,7 +247,7 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false };
     } catch (error) {
-      console.error("Token refresh error:", error);
+      console.debug("Token refresh error:", error?.message);
       return { success: false };
     }
   };
@@ -202,7 +257,6 @@ export const AuthProvider = ({ children }) => {
     return user?.role || "user";
   };
 
-  // Check if user has specific role
   const hasRole = (requiredRole) => {
     const userRole = getUserRole();
     const roleHierarchy = {
@@ -219,28 +273,14 @@ export const AuthProvider = ({ children }) => {
     return userLevel >= requiredLevel;
   };
 
-  // Check if user can access admin panel
-  const isAdmin = () => {
-    return hasRole("admin");
-  };
+  const isAdmin = () => hasRole("admin");
+  const isSuperAdmin = () => hasRole("super_admin");
+  const isCEO = () => hasRole("ceo");
+  const isMarketAdmin = () => hasRole("market_admin");
 
-  // Check if user is super admin
-  const isSuperAdmin = () => {
-    return hasRole("super_admin");
-  };
-
-  // Check if user is CEO
-  const isCEO = () => {
-    return hasRole("ceo");
-  };
-
-  // Check if user is market admin
-  const isMarketAdmin = () => {
-    return hasRole("market_admin");
-  };
-
-  // Initialize auth on mount
+  // Initialize auth on mount - only once
   useEffect(() => {
+    authCheckDoneRef.current = false;
     checkAuthStatus();
   }, [checkAuthStatus]);
 
@@ -265,9 +305,7 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// ============================================
-// CUSTOM HOOK TO USE AUTH ANYWHERE
-// ============================================
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -276,35 +314,27 @@ export const useAuth = () => {
   return context;
 };
 
-// ============================================
-// DECODE TOKEN UTILITY
-// ============================================
-export const decodeToken = (token) => {
-  return decodeJWT(token);
-};
+export const decodeToken = (token) => decodeJWT(token);
 
-// Get token from cookie
-export const getTokenFromCookie = () => {
-  const cookies = document.cookie.split("; ");
-  for (let cookie of cookies) {
-    const [name, value] = cookie.split("=");
-    if (name === "access_token") {
-      return decodeURIComponent(value);
-    }
-  }
-  return null;
+// Get token from localStorage
+export const getToken = () => {
+  return localStorage.getItem("access_token") || localStorage.getItem("token");
 };
 
 // Get decoded user from token
 export const getDecodedUserFromToken = () => {
-  const token = getTokenFromCookie();
+  const token = getToken();
   if (!token) return null;
   return decodeJWT(token);
 };
 
-// ============================================
-// PROTECTED ROUTE COMPONENTS
-// ============================================
+// SYNC check - no API calls, just checks localStorage
+export const isLoggedIn = () => {
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+  return !!token;
+};
+
+
 export const ProtectedRoute = ({ children, requiredRole = null }) => {
   const { isAuthenticated, isLoading, hasRole } = useAuth();
 
@@ -346,7 +376,20 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
         <div>
           <h2>Access Denied</h2>
           <p>You don't have permission to access this page.</p>
-          <button onClick={() => (window.location.href = "/")}>Go Home</button>
+          <button
+            onClick={() => (window.location.href = "/")}
+            style={{
+              marginTop: 20,
+              padding: "10px 24px",
+              background: "#ff3b3b",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            Go Home
+          </button>
         </div>
       </div>
     );
@@ -355,14 +398,14 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   return children;
 };
 
-export const AdminRoute = ({ children }) => {
-  return <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>;
-};
+export const AdminRoute = ({ children }) => (
+  <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>
+);
 
-export const SuperAdminRoute = ({ children }) => {
-  return <ProtectedRoute requiredRole="super_admin">{children}</ProtectedRoute>;
-};
+export const SuperAdminRoute = ({ children }) => (
+  <ProtectedRoute requiredRole="super_admin">{children}</ProtectedRoute>
+);
 
-export const CEORoute = ({ children }) => {
-  return <ProtectedRoute requiredRole="ceo">{children}</ProtectedRoute>;
-};
+export const CEORoute = ({ children }) => (
+  <ProtectedRoute requiredRole="ceo">{children}</ProtectedRoute>
+);

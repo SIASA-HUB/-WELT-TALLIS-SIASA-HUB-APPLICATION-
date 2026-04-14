@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
+import API from "../../api/config";
 import { Helmet } from "react-helmet-async";
 import styled, { keyframes } from "styled-components";
 import { Users, MapPin, Briefcase, ChevronRight, Search, Filter } from "lucide-react";
@@ -442,11 +443,11 @@ const LeaderListingPage = () => {
             {filtered.map((leader) => {
               const leaderSlug = leader.slug || leader.leader_id;
               const profileUrl = `/leader/${leaderSlug}`;
-              const avatarSrc = leader.image_url || leader.image
-                ? (leader.image_url || leader.image).startsWith("http")
-                  ? (leader.image_url || leader.image)
-                  : `http://localhost:8000${leader.image_url || leader.image}`
-                : `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name || "L")}&background=e11d48&color=fff&size=200`;
+              const avatarSrc = leader.image_url?.startsWith('http') 
+                ? leader.image_url 
+                : (leader.image_url || leader.image) 
+                  ? `${API.IMAGES}${leader.image_url || leader.image}` 
+                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name || "L")}&background=e11d48&color=fff&size=200`;
 
               return (
                 <LeaderCard key={leader.leader_id || leader.id} to={profileUrl}>

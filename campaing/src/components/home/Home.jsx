@@ -44,22 +44,22 @@ const MainContent = styled.main`
 
 // --- FALLBACK COMPONENTS ---
 const LoadingFallback = () => (
-  <div style={{ 
-    minHeight: "100vh", 
-    display: "flex", 
-    alignItems: "center", 
+  <div style={{
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
     justifyContent: "center",
     flexDirection: "column",
     gap: "16px"
   }}>
     <TopLoader />
-    <div style={{ 
-      width: 48, 
-      height: 48, 
-      border: "3px solid #f0f0f0", 
-      borderTopColor: theme.colors.primary || "#bb0000", 
-      borderRadius: "50%", 
-      animation: "spin 1s linear infinite" 
+    <div style={{
+      width: 48,
+      height: 48,
+      border: "3px solid #f0f0f0",
+      borderTopColor: theme.colors.primary || "#bb0000",
+      borderRadius: "50%",
+      animation: "spin 1s linear infinite"
     }} />
     <p style={{ color: "#94a3b8", fontSize: "14px" }}>Loading SiasaHub...</p>
     <style>{`
@@ -71,24 +71,24 @@ const LoadingFallback = () => (
 );
 
 const ErrorFallback = ({ error }) => (
-  <div style={{ 
-    minHeight: "100vh", 
-    display: "flex", 
-    alignItems: "center", 
+  <div style={{
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
     justifyContent: "center",
     flexDirection: "column",
     gap: "16px",
     textAlign: "center",
     padding: "20px"
   }}>
-    <div style={{ 
-      width: 64, 
-      height: 64, 
-      background: "#fee2e2", 
-      borderRadius: "50%", 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center" 
+    <div style={{
+      width: 64,
+      height: 64,
+      background: "#fee2e2",
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
     }}>
       <span style={{ fontSize: 32 }}>⚠️</span>
     </div>
@@ -96,8 +96,8 @@ const ErrorFallback = ({ error }) => (
     <p style={{ color: "#64748b", fontSize: "14px", maxWidth: 400 }}>
       {error?.message || "Unable to load content. Please try again later."}
     </p>
-    <button 
-      onClick={() => window.location.reload()} 
+    <button
+      onClick={() => window.location.reload()}
       style={{
         padding: "10px 24px",
         background: theme.colors.primary || "#bb0000",
@@ -114,23 +114,23 @@ const ErrorFallback = ({ error }) => (
 );
 
 const EmptyFallback = () => (
-  <div style={{ 
-    minHeight: "100vh", 
-    display: "flex", 
-    alignItems: "center", 
+  <div style={{
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
     justifyContent: "center",
     flexDirection: "column",
     gap: "12px"
   }}>
     <TopLoader />
-    <div style={{ 
-      width: 80, 
-      height: 80, 
-      background: "#f8fafc", 
-      borderRadius: "50%", 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center" 
+    <div style={{
+      width: 80,
+      height: 80,
+      background: "#f8fafc",
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
     }}>
       <span style={{ fontSize: 40 }}>🇰🇪</span>
     </div>

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../../api/api";
+import API from "../../../api/config";
 
 const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const fadeUp = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); }`;
@@ -367,7 +368,7 @@ const MyOrders = () => {
             <ItemsList>
               {items.map((item, i) => {
                 const imgSrc = item.image || item.img
-                  ? `http://localhost:8000${item.image || item.img}`
+                  ? (item.image || item.img).startsWith('http') ? (item.image || item.img) : `${API.IMAGES}${item.image || item.img}`
                   : `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || "P")}&background=1e3c72&color=fff`;
                 const productSlug = item.slug || null;
                 const productLink = productSlug ? `/product/${productSlug}` : null;

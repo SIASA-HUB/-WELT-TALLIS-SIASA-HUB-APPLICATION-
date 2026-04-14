@@ -1,7 +1,7 @@
 // src/utils/pwaInstall.js
 // PWA Install Prompt + Backend Install Tracking
 
-const USERS_API_BASE = "http://localhost:8002/api/v1/users";
+import API from "../api/config";
 
 let deferredPrompt = null;
 
@@ -69,7 +69,7 @@ async function trackAppInstall() {
       } catch (e) {}
     }
 
-    const response = await fetch(`${USERS_API_BASE}/install/track`, {
+    const response = await fetch(`${API.USERS}/install/track`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId }),

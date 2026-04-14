@@ -60,7 +60,7 @@ const startLeaderWorkers = async () => {
         const path = require("path");
         const sharp = require("sharp");
         const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
-        
+
         if (!fs.existsSync(UPLOAD_DIR)) {
           fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         }
@@ -72,7 +72,7 @@ const startLeaderWorkers = async () => {
 
         const buffer = Buffer.from(imageBuffer, "base64");
         const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-        
+
         const originalFileName = `${baseName}_original.webp`;
         const thumbFileName = `${baseName}_thumb.webp`;
         const mediumFileName = `${baseName}_medium.webp`;
@@ -105,7 +105,7 @@ const startLeaderWorkers = async () => {
 
         const metadata = await sharp(buffer).metadata();
         const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-        
+
         await safeQuery(
           `INSERT INTO leader_images (
             image_id, leader_id, image_url, public_id,
@@ -170,7 +170,7 @@ const createLeader = async (req, res) => {
     const leader = await LeaderService.createLeader(
       req.body, req.files, redis, Logger, getKenyaTimeISO
     );
-    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId: leader.leader_id, county: leader.county }).catch(() => {});
+    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId: leader.leader_id, county: leader.county }).catch(() => { });
     res.status(201).json({ success: true, message: "Leader registered successfully", leader });
   } catch (error) {
     Logger.error("Create leader error:", error);
@@ -276,9 +276,9 @@ const getLeaderById = asyncHandler(async (req, res) => {
 // ============================================
 const registerAspirant = asyncHandler(async (req, res) => {
   try {
-    const { 
+    const {
       name, password, email, party, slogan, position, county, constituency, ward, experience, education,
-      facebook, twitter, linkedin, instagram, website 
+      facebook, twitter, linkedin, instagram, website
     } = req.body;
     const image = req.file;
 
@@ -305,7 +305,7 @@ const registerAspirant = asyncHandler(async (req, res) => {
     try {
       if (experience) parsedExperience = typeof experience === "string" ? JSON.parse(experience) : experience;
       if (education) parsedEducation = typeof education === "string" ? JSON.parse(education) : education;
-    } catch (e) {}
+    } catch (e) { }
 
     const leaderId = `LDR_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     const now = getKenyaTimeISO();
@@ -318,10 +318,10 @@ const registerAspirant = asyncHandler(async (req, res) => {
         education, experience, status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [leaderId, name, email || null, password_hash, party || null, slogan || null,
-       position, position, county, constituency || null, ward || null,
-       parsedEducation.length > 0 ? JSON.stringify(parsedEducation) : null,
-       parsedExperience.length > 0 ? JSON.stringify(parsedExperience) : null,
-       "active", now, now]
+        position, position, county, constituency || null, ward || null,
+        parsedEducation.length > 0 ? JSON.stringify(parsedEducation) : null,
+        parsedExperience.length > 0 ? JSON.stringify(parsedExperience) : null,
+        "active", now, now]
     );
 
     // Generate and save slug
@@ -387,7 +387,7 @@ const registerAspirant = asyncHandler(async (req, res) => {
       await redis.del('leaders:featured:10');
       await redis.del('leaders:popular');
       await redis.del('global:all_leaders');
-    } catch (cacheErr) {}
+    } catch (cacheErr) { }
 
     res.status(201).json({
       success: true,
@@ -407,19 +407,19 @@ const registerAspirant = asyncHandler(async (req, res) => {
 const loginAspirant = asyncHandler(async (req, res) => {
   try {
     const { name, password } = req.body;
-    
-    
+
+
     // Validate input
     if (!name || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Name and password are required" 
+      return res.status(400).json({
+        success: false,
+        message: "Name and password are required"
       });
     }
 
     // Normalize input for case-insensitive search (trim and lowercase)
     const normalizedInput = name.trim().toLowerCase();
-    
+
     // Search by name (case-insensitive) - also check both raw and normalized
     const leader = await safeQueryOne(
       `SELECT leader_id, name, password_hash, party, slogan, 
@@ -434,9 +434,9 @@ const loginAspirant = asyncHandler(async (req, res) => {
     // Check if leader exists
     if (!leader) {
       Logger.warn(`Leader not found for name: ${name}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid credentials. Account not found." 
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials. Account not found."
       });
     }
 
@@ -444,9 +444,9 @@ const loginAspirant = asyncHandler(async (req, res) => {
     // Check if password_hash exists
     if (!leader.password_hash) {
       Logger.error(`No password hash found for leader: ${leader.leader_id}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: "Account has no password set. Please contact support." 
+      return res.status(401).json({
+        success: false,
+        message: "Account has no password set. Please contact support."
       });
     }
 
@@ -456,24 +456,24 @@ const loginAspirant = asyncHandler(async (req, res) => {
       isValidPassword = await bcrypt.compare(password, leader.password_hash);
     } catch (bcryptError) {
       Logger.error("Bcrypt error:", { error: bcryptError.message });
-      return res.status(500).json({ 
-        success: false, 
-        message: "Error validating password" 
+      return res.status(500).json({
+        success: false,
+        message: "Error validating password"
       });
     }
-    
+
     if (!isValidPassword) {
       Logger.warn(`Password mismatch for: ${leader.name}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid credentials. Wrong password." 
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials. Wrong password."
       });
     }
 
     // Generate JWT token — MUST use same secret as global/auth/tokens.js verifyAccessToken
     const JWT_SECRET = process.env.JWT_SECRET || "ballot-super-secret-key-development";
     const token = jwt.sign(
-      { 
+      {
         leaderId: leader.leader_id,
         userId: leader.leader_id,
         name: leader.name,
@@ -482,16 +482,16 @@ const loginAspirant = asyncHandler(async (req, res) => {
         party: leader.party
       },
       JWT_SECRET,
-      { expiresIn: "7d" } 
+      { expiresIn: "7d" }
     );
 
     // Remove sensitive data before sending response
     const { password_hash, ...leaderData } = leader;
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: "Login successful",
-      data: { 
+      data: {
         token,
         leader: leaderData,
         expiresIn: 1500
@@ -500,9 +500,9 @@ const loginAspirant = asyncHandler(async (req, res) => {
 
   } catch (error) {
     Logger.error("Login error:", { error: error.message });
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to login. Please try again." 
+    res.status(500).json({
+      success: false,
+      message: "Failed to login. Please try again."
     });
   }
 });
@@ -622,7 +622,7 @@ const getMyProfile = asyncHandler(async (req, res) => {
 const updateMyProfile = asyncHandler(async (req, res) => {
   try {
     await LeaderModel.updateProfile(req.user.leaderId, req.body);
-    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId: req.user.leaderId }).catch(() => {});
+    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId: req.user.leaderId }).catch(() => { });
     res.status(200).json({ success: true, message: "Profile updated successfully" });
   } catch (error) {
     Logger.error("Update profile error:", error);
@@ -642,7 +642,7 @@ const updateLeader = asyncHandler(async (req, res) => {
     if (!existingLeader) return res.status(404).json({ success: false, message: "Leader not found" });
 
     await LeaderModel.update(leaderId, req.body);
-    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId, county: existingLeader.county }).catch(() => {});
+    publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId, county: existingLeader.county }).catch(() => { });
     res.status(200).json({ success: true, message: "Leader updated successfully" });
   } catch (error) {
     Logger.error("Update leader error:", error);
@@ -657,7 +657,7 @@ const updateLeader = asyncHandler(async (req, res) => {
 const getPopularLeaders = asyncHandler(async (req, res) => {
   const cacheKey = 'popular_leaders_v2';
   const limit = parseInt(req.query.limit) || 20;
-  
+
   try {
     // Try to get from cache first
     let cachedLeaders = null;
@@ -666,8 +666,8 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       if (cachedLeaders) {
         const parsed = typeof cachedLeaders === 'string' ? JSON.parse(cachedLeaders) : cachedLeaders;
         Logger.info("Returning cached popular leaders");
-        return res.status(200).json({ 
-          success: true, 
+        return res.status(200).json({
+          success: true,
           data: parsed,
           count: Array.isArray(parsed) ? parsed.length : 0,
           cached: true
@@ -713,7 +713,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
 
     // Get image base URL
     const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
-    
+
     // Helper to format image URLs
     const formatImageUrl = (url) => {
       if (!url) return null;
@@ -726,7 +726,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
     const formattedLeaders = leaders.map(leader => {
       // Get the best available image
       const bestImage = leader.image_url || leader.leader_image_url;
-      
+
       return {
         leader_id: leader.leader_id,
         name: leader.name,
@@ -759,19 +759,19 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       Logger.warn(`Redis set failed: ${redisErr.message}`);
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: formattedLeaders,
       count: formattedLeaders.length,
       cached: false
     });
-    
+
   } catch (error) {
     Logger.error("Get popular leaders error:", { error: error.message });
-    
+
     // Return empty array with success true to prevent frontend errors
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: [],
       count: 0,
       message: "Unable to fetch popular leaders at this time"
@@ -832,12 +832,12 @@ const boostLeader = asyncHandler(async (req, res) => {
 // ============================================
 const getPersonalizedFeed = asyncHandler(async (req, res) => {
   try {
-    const { 
-      user_county, county, 
-      user_ward, ward, 
-      user_constituency, constituency, 
+    const {
+      user_county, county,
+      user_ward, ward,
+      user_constituency, constituency,
       user_party, party,
-      user_id 
+      user_id
     } = req.query;
 
     const uCounty = user_county || county || null;
@@ -874,39 +874,39 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     };
 
     // 1. PRESIDENTIAL
-    await addGroup('presidential', 'Presidential Candidates', 'Candidates running for President', 'presidential', 
+    await addGroup('presidential', 'Presidential Candidates', 'Candidates running for President', 'presidential',
       "AND (LOWER(l.position_running_for) LIKE '%president%' OR LOWER(l.position) LIKE '%president%') ORDER BY trending_score DESC", []);
 
     // 2. YOUR COUNTY
     if (uCounty) {
-      await addGroup('your_county', `${uCounty} County`, `Top aspirants in ${uCounty}`, 'county', 
+      await addGroup('your_county', `${uCounty} County`, `Top aspirants in ${uCounty}`, 'county',
         'AND l.county = ? ORDER BY trending_score DESC', [uCounty]);
     }
 
     // 3. YOUR CONSTITUENCY
     if (uConstituency) {
-      await addGroup('your_constituency', `${uConstituency} Constituency`, `Representation in ${uConstituency}`, 'constituency', 
+      await addGroup('your_constituency', `${uConstituency} Constituency`, `Representation in ${uConstituency}`, 'constituency',
         'AND l.constituency = ? ORDER BY trending_score DESC', [uConstituency]);
     }
 
     // 4. YOUR WARD
     if (uWard) {
-      await addGroup('your_ward', `${uWard} Ward`, `Local aspirants in ${uWard}`, 'ward', 
+      await addGroup('your_ward', `${uWard} Ward`, `Local aspirants in ${uWard}`, 'ward',
         'AND l.ward = ? ORDER BY trending_score DESC', [uWard]);
     }
 
     // 5. YOUR PARTY
     if (uParty) {
-      await addGroup('your_party', `${uParty} Party`, `Aspirants from ${uParty}`, 'party', 
+      await addGroup('your_party', `${uParty} Party`, `Aspirants from ${uParty}`, 'party',
         'AND l.party = ? ORDER BY trending_score DESC', [uParty]);
     }
 
     // 6. HOT & NEW
-    await addGroup('new', 'New Candidates', 'Aspirants who recently joined', 'new', 
+    await addGroup('new', 'New Candidates', 'Aspirants who recently joined', 'new',
       'ORDER BY l.created_at DESC', []);
 
     // 7. TRENDING / DISCOVER
-    await addGroup('trending', 'Trending Now', 'Aspirants making waves', 'trending', 
+    await addGroup('trending', 'Trending Now', 'Aspirants making waves', 'trending',
       'ORDER BY trending_score DESC', []);
 
     const responseData = {
@@ -921,7 +921,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     try {
       const cacheKey = `feed:u:${uCounty || 'X'}:${uWard || 'X'}:${uConstituency || 'X'}:${uParty || 'X'}`;
       await redis.set(cacheKey, JSON.stringify(responseData), 300);
-    } catch (e) {}
+    } catch (e) { }
 
     res.status(200).json(responseData);
   } catch (error) {
@@ -1026,7 +1026,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
     `, [leaderId]);
 
     // 4. Calculate Engagement Score (Formula: endorsements*3 + likes*2 + comments*2 + shares*4)
-    const engagementScore = 
+    const engagementScore =
       (stats?.endorsements || 0) * 3 +
       (stats?.likes || 0) * 2 +
       (stats?.comments || 0) * 2 +
@@ -1045,7 +1045,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       WHERE l.status = 'active'
       ORDER BY score DESC
     `);
-    
+
     const trendingRank = globalRankings.findIndex(r => r.leader_id === leaderId) + 1 || globalRankings.length;
 
     // 5.5 Regional Rank (Rank within same Position & context)
@@ -1066,7 +1066,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       AND (l.position_running_for = ? OR l.position = ?)
       ORDER BY score DESC
     `, [leader.ward, leader.county, leader.position_running_for || leader.position, leader.position_running_for || leader.position]);
-    
+
     const regionalRank = regionalRankings.findIndex(r => r.leader_id === leaderId) + 1 || regionalRankings.length;
 
 
@@ -1095,14 +1095,14 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       SELECT COUNT(*) as count FROM leader_views 
       WHERE leader_id = ? AND viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
     `, [leaderId]);
-    
+
     const prevWeekViews = await safeQueryOne(`
       SELECT COUNT(*) as count FROM leader_views 
       WHERE leader_id = ? AND viewed_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) 
       AND viewed_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
     `, [leaderId]);
 
-    const growthRate = prevWeekViews?.count > 0 
+    const growthRate = prevWeekViews?.count > 0
       ? (((currentWeekViews.count - prevWeekViews.count) / prevWeekViews.count) * 100).toFixed(1)
       : 100;
 
@@ -1174,7 +1174,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
 // ============================================
 const getCompetitors = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
-  
+
   try {
     const leader = await safeQueryOne(
       `SELECT leader_id, position, position_running_for, county, constituency, ward FROM leaders WHERE leader_id = ?`,
@@ -1246,12 +1246,12 @@ const getLeaderStats = asyncHandler(async (req, res) => {
       `SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`,
       [leaderId]
     );
-    
+
     const endorsements = await safeQueryOne(
       `SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`,
       [leaderId]
     );
-    
+
     const views = await safeQueryOne(
       `SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`,
       [leaderId]
@@ -1321,8 +1321,8 @@ const requestVerification = asyncHandler(async (req, res) => {
       // Check wallet if not in trial (Cost: KES 500)
       const wallet = await safeQueryOne(`SELECT balance FROM user_wallets WHERE user_id = ?`, [leader.user_id]);
       if (!wallet || wallet.balance < 500) {
-        return res.status(402).json({ 
-          success: false, 
+        return res.status(402).json({
+          success: false,
           message: "Insufficient wallet balance (KES 500 required for verification after free trial)",
           needsTopUp: true
         });
@@ -1331,7 +1331,7 @@ const requestVerification = asyncHandler(async (req, res) => {
       // Deduct funds
       await safeQuery(`UPDATE user_wallets SET balance = balance - 500 WHERE user_id = ?`, [leader.user_id]);
       // Record transaction
-      await safeQuery(`INSERT INTO wallet_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)`, 
+      await safeQuery(`INSERT INTO wallet_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)`,
         [leader.user_id, 500, 'verification', 'Paid Verification Fee']);
     }
 
@@ -1340,15 +1340,15 @@ const requestVerification = asyncHandler(async (req, res) => {
     const newVerification = isFreeTrial ? 1 : 0;
 
     await safeQuery(`UPDATE leaders SET verification = ?, updated_at = NOW() WHERE leader_id = ?`, [newVerification, leaderId]);
-    
+
     // Clear cache
     await redis.del(`leader:${leaderId}`);
 
-    res.status(200).json({ 
-      success: true, 
-      message: isFreeTrial 
-        ? "Verification activated! Enjoy your 30-day free trial." 
-        : "Verification request submitted. KES 500 has been deducted from your wallet." 
+    res.status(200).json({
+      success: true,
+      message: isFreeTrial
+        ? "Verification activated! Enjoy your 30-day free trial."
+        : "Verification request submitted. KES 500 has been deducted from your wallet."
     });
 
   } catch (error) {
@@ -1384,15 +1384,15 @@ const boostManifesto = asyncHandler(async (req, res) => {
     if (!isFreeTrial) {
       const wallet = await safeQueryOne(`SELECT balance FROM user_wallets WHERE user_id = ?`, [leader.user_id]);
       if (!wallet || wallet.balance < 200) {
-        return res.status(402).json({ 
-          success: false, 
+        return res.status(402).json({
+          success: false,
           message: "Insufficient wallet balance (KES 200 required for boosting after free trial)",
           needsTopUp: true
         });
       }
 
       await safeQuery(`UPDATE user_wallets SET balance = balance - 200 WHERE user_id = ?`, [leader.user_id]);
-      await safeQuery(`INSERT INTO wallet_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)`, 
+      await safeQuery(`INSERT INTO wallet_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)`,
         [leader.user_id, 200, 'manifesto_boost', `Boosted Manifesto ${manifesto_id}`]);
     }
 
@@ -1401,9 +1401,9 @@ const boostManifesto = asyncHandler(async (req, res) => {
     // Since I can't easily run migrations now, I'll update the 'boost_score' of the leader instead or similar.
     await safeQuery(`UPDATE leaders SET boost_score = boost_score + 100 WHERE leader_id = ?`, [leaderId]);
 
-    res.status(200).json({ 
-      success: true, 
-      message: isFreeTrial ? "Manifesto boosted for free! (Trial Perk)" : "Manifesto boosted successfully. KES 200 deducted." 
+    res.status(200).json({
+      success: true,
+      message: isFreeTrial ? "Manifesto boosted for free! (Trial Perk)" : "Manifesto boosted successfully. KES 200 deducted."
     });
 
   } catch (error) {
