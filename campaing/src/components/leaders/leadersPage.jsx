@@ -323,7 +323,7 @@ const Tray = styled.div`
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 0 20px 10px;
+  padding: 0 10px 0px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 
