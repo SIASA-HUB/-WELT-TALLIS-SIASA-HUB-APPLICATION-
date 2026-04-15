@@ -2,25 +2,16 @@
  * Gateway (port 8009) handles routing to all microservices.
  */
 
-// Determine base URL based on environment
-const getBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return '/api/v1';
-  }
-  
-  // Development
-  return "http://localhost:8009/api/v1";
-};
+// Detect environment
+const isProduction = process.env.NODE_ENV === 'production';
+// For development, use localhost
+const BASE_URL = isProduction 
+  ? '/api/v1'  // Relative path in production
+  : "http://localhost:8009/api/v1";
 
-const getImageBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return '';
-  }
-  return "http://localhost:8009";
-};
-
-const BASE_URL = getBaseUrl();
-const IMAGE_BASE_URL = getImageBaseUrl();
+const IMAGE_BASE_URL = isProduction
+  ? ''  
+  : "http://localhost:8009";
 
 const API = {
   // Base endpoints
