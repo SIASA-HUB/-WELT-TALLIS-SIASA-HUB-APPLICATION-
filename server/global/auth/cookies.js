@@ -1,12 +1,11 @@
 // shared/auth/cookies.js
-// Cookie options for secure HTTP-only cookies
 const getSecureCookieOptions = () => {
   const isProduction = process.env.NODE_ENV === "production";
 
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "lax", 
     path: "/",
     domain: process.env.COOKIE_DOMAIN || undefined,
   };
@@ -19,7 +18,7 @@ const getPublicCookieOptions = () => {
   return {
     httpOnly: false,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "lax",
     path: "/",
     domain: process.env.COOKIE_DOMAIN || undefined,
   };
@@ -29,7 +28,7 @@ const getPublicCookieOptions = () => {
 const setAccessTokenCookie = (res, token) => {
   res.cookie("access_token", token, {
     ...getSecureCookieOptions(),
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    maxAge: 60 * 60 * 2000,  // 2hours
   });
 };
 
