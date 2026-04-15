@@ -13,7 +13,6 @@ const TRANSITIONS = theme?.TRANSITIONS || { default: "0.3s ease" };
 import API from "../../api/config";
 import api from "../../api/api";
 
-
 const glow = keyframes`
   0% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
   50% { filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.7)); }
@@ -169,22 +168,41 @@ const Party = styled.div`
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 `;
 
-// Helper function to build correct image URL via Gateway
+// FIXED: Helper function to build correct image URL without double slashes
 const buildImageUrl = (imageUrl) => {
-  if (!imageUrl) return null;
+  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
 
   // If it's already a full URL
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
 
-  // Gateway Port 8009 handles /uploads
-  const baseUrl = API.IMAGES;
-  if (imageUrl.startsWith("/")) {
-    return `${baseUrl}${imageUrl}`;
+  // Get base URL
+  let baseUrl = API.IMAGES || API.BASE || '';
+  
+  // Remove /api/v1 if present
+  if (baseUrl && baseUrl.includes("/api/v1")) {
+    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
-
-  return `${baseUrl}/${imageUrl}`;
+  
+  // Remove trailing slash from baseUrl
+  if (baseUrl) {
+    baseUrl = baseUrl.replace(/\/$/, "");
+  }
+  
+  // Clean up image path - remove leading slash
+  let cleanPath = imageUrl;
+  if (cleanPath.startsWith("/")) {
+    cleanPath = cleanPath.substring(1);
+  }
+  
+  // If no baseUrl (production with relative paths)
+  if (!baseUrl) {
+    return `/${cleanPath}`;
+  }
+  
+  // Return with single slash
+  return `${baseUrl}/${cleanPath}`;
 };
 
 const TrendingLeaders = () => {
@@ -211,7 +229,6 @@ const TrendingLeaders = () => {
     fetchPopularLeaders();
   }, []);
 
-
   if (loading && !leaders.length) return <AppLoadingBar ref={loadingBarRef} />;
   if (!leaders.length) return null;
 
@@ -237,7 +254,7 @@ const TrendingLeaders = () => {
         {leaders.map((leader, index) => {
           // Build the correct image URL
           const imageSrc = buildImageUrl(
-            leader.image_url || leader.primary_image,
+            leader.image_url || leader.primary_image || leader.image
           );
 
           return (
@@ -263,7 +280,6 @@ const TrendingLeaders = () => {
                   }
                   alt={leader.name}
                   onError={(e) => {
-                    
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=10b981&color=fff&bold=true&size=150`;
                   }}
                 />
