@@ -1,19 +1,21 @@
+/**
+ * Gateway (port 8009) handles routing to all microservices.
+ */
 
+// Determine base URL based on environment
 const getBaseUrl = () => {
- 
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || '/api/v1';
+    return '/api/v1';
   }
-  // Development -localhost
+  
+  // Development
   return "http://localhost:8009/api/v1";
 };
 
 const getImageBaseUrl = () => {
-
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_IMAGE_URL || '';
+    return '';
   }
-  // Development  localhost
   return "http://localhost:8009";
 };
 
@@ -24,9 +26,7 @@ const API = {
   // Base endpoints
   BASE: BASE_URL,
   UPLOAD_BASE: IMAGE_BASE_URL,
-  IMAGES: IMAGE_BASE_URL,
 
-  // API endpoints
   USERS: `${BASE_URL}/users`,
   LEADERS: `${BASE_URL}/leaders`,
   MANIFESTOS: `${BASE_URL}/leaders`,
@@ -39,6 +39,8 @@ const API = {
   CART: `${BASE_URL}/cart`,
   WALLET: `${BASE_URL}/wallet`,
   REACTIONS: `${BASE_URL}/reactions`,
+
+  IMAGES: IMAGE_BASE_URL,
 };
 
 export default API;
