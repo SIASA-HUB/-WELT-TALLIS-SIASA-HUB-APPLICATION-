@@ -973,15 +973,26 @@ const LeaderHeader = ({ leader, onBack }) => {
         </InfoSection>
       </ProfileCard>
 
-      <ContentArea>
-        {boostedStories.length > 0 && (
-          <>
-            <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-            <Divider />
-          </>
-        )}
-        <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-      </ContentArea>
+   // In ContentArea section - replace with this:
+
+<ContentArea>
+  {/* Only render BoostedStoriesRow if there are actual boosted stories */}
+  {boostedStories && boostedStories.length > 0 && (
+    <>
+      <BoostedStoriesRow 
+        leaderId={leader?.leader_id} 
+        currentUser={{ name: "You", id: currentUserId || "unknown" }} 
+        onBoostSuccess={handleBoostSuccess} 
+      />
+      <Divider />
+    </>
+  )}
+  <EndorsementStories 
+    leaderId={leader.leader_id} 
+    currentUser={{ name: "You", id: currentUserId || "unknown" }} 
+    onBoostSuccess={handleBoostSuccess} 
+  />
+</ContentArea>
 
       <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
 
