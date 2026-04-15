@@ -1,10 +1,12 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo, memo, lazy, Suspense } from "react";
 import styled, { keyframes, css } from "styled-components";
-import ProductCategoryCard from "../components/cards/ProductCategoryCard";
-import ProductCard from "../components/cards/ProductCard";
 import { getAllProducts } from "../components/api";
 import { Spinner } from "react-bootstrap";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck } from "lucide-react";
+
+// Lazy load non-critical components
+const ProductCategoryCard = lazy(() => import("../components/cards/ProductCategoryCard"));
+const ProductCard = lazy(() => import("../components/cards/ProductCard"));
 
 // --- ANIMATIONS ---
 const kenBurns = keyframes`
@@ -37,7 +39,7 @@ const Container = styled.div`
   position: relative;
 `;
 
-const Blob = styled.div`
+const Blob = React.memo(styled.div`
   position: absolute;
   width: 500px;
   height: 500px;
@@ -49,7 +51,7 @@ const Blob = styled.div`
   ${(props) => props.top && `top: ${props.top};`}
   ${(props) => props.left && `left: ${props.left};`}
   ${(props) => props.right && `right: ${props.right};`}
-`;
+`);
 
 const CarouselContainer = styled.div`
   width: 100%;
@@ -62,19 +64,23 @@ const CarouselContainer = styled.div`
   }
 `;
 
-const Slide = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: ${({ active }) => (active ? 1 : 0)};
-  z-index: ${({ active }) => (active ? 1 : 0)};
-  transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
+const Slide = React.memo(({ active, children }) => (
+  <div style={{
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    opacity: active ? 1 : 0,
+    zIndex: active ? 1 : 0,
+    transition: "opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    {children}
+  </div>
+));
 
 const SlideImage = styled.img`
   width: 100%;
@@ -84,17 +90,21 @@ const SlideImage = styled.img`
   ${({ active }) => active && css`animation: ${kenBurns} 10s ease-out forwards;`}
 `;
 
-const SlideContent = styled.div`
-  position: absolute;
-  z-index: 10;
-  text-align: center;
-  color: white;
-  max-width: 900px;
-  padding: 0 40px;
-  opacity: ${({ active }) => (active ? 1 : 0)};
-  transform: translateY(${({ active }) => (active ? "0" : "40px")});
-  transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s;
-`;
+const SlideContent = React.memo(({ active, children }) => (
+  <div style={{
+    position: "absolute",
+    zIndex: 10,
+    textAlign: "center",
+    color: "white",
+    maxWidth: "900px",
+    padding: "0 40px",
+    opacity: active ? 1 : 0,
+    transform: active ? "translateY(0)" : "translateY(40px)",
+    transition: "all 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s"
+  }}>
+    {children}
+  </div>
+));
 
 const PartyBadge = styled.div`
   display: inline-flex;
@@ -148,47 +158,53 @@ const ProgressTrack = styled.div`
   z-index: 100;
 `;
 
-const ProgressBar = styled.div`
-  height: 100%;
-  background: linear-gradient(90deg, #e11d48, #fb7185);
-  width: ${({ progress }) => progress}%;
-  box-shadow: 0 0 10px rgba(225, 29, 72, 0.8);
-  transition: width 0.1s linear;
-`;
+const ProgressBar = React.memo(({ progress }) => (
+  <div style={{
+    height: "100%",
+    background: "linear-gradient(90deg, #e11d48, #fb7185)",
+    width: `${progress}%`,
+    boxShadow: "0 0 10px rgba(225, 29, 72, 0.8)",
+    transition: "width 0.1s linear"
+  }} />
+));
 
-const NavButton = styled.button`
-  position: absolute;
-  top: 50%;
-  ${({ $direction }) => ($direction === "left" ? "left: 20px" : "right: 20px")};
-  transform: translateY(-50%);
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 100;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  &:hover {
-    background: #e11d48;
-    border-color: #e11d48;
-    transform: translateY(-50%) scale(1.05);
-  }
-  
-  @media (max-width: 768px) { display: none; }
-`;
+const NavButton = React.memo(({ direction, onClick }) => (
+  <button onClick={onClick} style={{
+    position: "absolute",
+    top: "50%",
+    [direction === "left" ? "left" : "right"]: "20px",
+    transform: "translateY(-50%)",
+    width: "50px",
+    height: "50px",
+    borderRadius: "50%",
+    background: "rgba(255, 255, 255, 0.04)",
+    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    zIndex: 100,
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+  }}>
+    {direction === "left" ? <ChevronLeft size={28} /> : <ChevronRight size={28} />}
+  </button>
+));
 
-const RevealSection = styled.div`
-  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
-  transform: translateY(${({ $visible }) => ($visible ? "0" : "40px")});
-  transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
-`;
+const RevealSection = React.memo(({ id, visible, children, setRef }) => (
+  <div
+    id={id}
+    ref={setRef}
+    style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0)" : "translateY(40px)",
+      transition: "all 1s cubic-bezier(0.22, 1, 0.36, 1)"
+    }}
+  >
+    {children}
+  </div>
+));
 
 const Section = styled.div`
   max-width: 1400px;
@@ -237,47 +253,41 @@ const Title = styled.h2`
   }
 `;
 
-// Responsive grid: 2 cards on mobile, 3 on tablet, 4 on desktop
 const CardWrapper = styled.div`
   display: grid;
-
   gap: 10px;
   padding: 0 10px;
-  
-  // Mobile: 2 columns
   grid-template-columns: repeat(2, 1fr);
   
-  // Tablet: 3 columns
   @media (min-width: 768px) {
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
   }
   
-  // Desktop: 4 columns
   @media (min-width: 1200px) {
     grid-template-columns: repeat(4, 1fr);
     gap: 30px;
   }
   
-  // Large screens: 4 columns with max width
   @media (min-width: 1600px) {
     grid-template-columns: repeat(4, minmax(280px, 320px));
     justify-content: center;
   }
 `;
 
-const FloatWrapper = styled.div`
-  animation: ${float} 6s ease-in-out infinite;
-  animation-delay: ${({ delay }) => delay || "0s"};
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  
-  > * {
-    width: 100%;
-  }
-`;
+const FloatWrapper = React.memo(({ delay, children }) => (
+  <div style={{
+    animation: `${float} 6s ease-in-out infinite`,
+    animationDelay: delay || "0s",
+    width: "100%",
+    display: "flex",
+    justifyContent: "center"
+  }}>
+    <div style={{ width: "100%" }}>{children}</div>
+  </div>
+));
 
+// Memoized carousel data
 const carouselData = [
   {
     image: "https://wiper.co.ke/static/assets/img/why-choose-us.jpg",
@@ -312,6 +322,10 @@ const categories = [
   { name: "Handheld Flags", slug: "flags", img: "/images/flag.jpg", delay: "1.5s" },
 ];
 
+// Memoized components
+const MemoizedCategoryCard = memo(ProductCategoryCard);
+const MemoizedProductCard = memo(ProductCard);
+
 const Home = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -321,52 +335,86 @@ const Home = () => {
   
   const SLIDE_DURATION = 6000;
   const sectionRefs = useRef([]);
+  const progressIntervalRef = useRef(null);
+  const slideIntervalRef = useRef(null);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % carouselData.length);
     setProgress(0);
   }, []);
 
+  const prevSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev - 1 + carouselData.length) % carouselData.length);
+    setProgress(0);
+  }, []);
+
+  // Optimized slide timer with cleanup
   useEffect(() => {
-    const timer = setInterval(nextSlide, SLIDE_DURATION);
-    const progressTimer = setInterval(() => {
+    slideIntervalRef.current = setInterval(nextSlide, SLIDE_DURATION);
+    progressIntervalRef.current = setInterval(() => {
       setProgress((prev) => Math.min(prev + (100 / (SLIDE_DURATION / 100)), 100));
     }, 100);
 
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setVisibleSections((prev) => ({ ...prev, [entry.target.id]: true }));
-        }
-      });
-    }, { threshold: 0.1 });
-
-    sectionRefs.current.forEach((ref) => ref && observer.observe(ref));
-
     return () => {
-      clearInterval(timer);
-      clearInterval(progressTimer);
-      observer.disconnect();
+      if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [nextSlide]);
 
-  const getProducts = async () => {
+  // Optimized intersection observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const updates = {};
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            updates[entry.target.id] = true;
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          setVisibleSections((prev) => ({ ...prev, ...updates }));
+        }
+      },
+      { threshold: 0.1, rootMargin: "50px" }
+    );
+
+    sectionRefs.current.forEach((ref) => ref && observer.observe(ref));
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Optimized product fetch with caching
+  const getProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const products = await getAllProducts();
-      // getAllProducts now returns a normalized array directly
-      setProducts(Array.isArray(products) ? products : []);
+      // Check cache first
+      const cacheKey = 'siasahub_products_cache';
+      const cachedData = sessionStorage.getItem(cacheKey);
+      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+      
+      if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 300000) { // 5 minutes cache
+        setProducts(JSON.parse(cachedData));
+        setLoading(false);
+        return;
+      }
+
+      const productsData = await getAllProducts();
+      const normalizedProducts = Array.isArray(productsData) ? productsData : [];
+      setProducts(normalizedProducts);
+      
+      // Cache the results
+      sessionStorage.setItem(cacheKey, JSON.stringify(normalizedProducts));
+      sessionStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
     } catch (error) {
       console.error("Failed to load products:", error);
       setProducts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    // Clear any stale cache entries that may have stored 404 responses
-    // (this runs once on mount and removes bad cached data)
+    // Clear old cache on mount
     try {
       const CACHE_PREFIX = 'siasahub_cache_';
       Object.keys(localStorage).forEach(key => {
@@ -375,8 +423,32 @@ const Home = () => {
         }
       });
     } catch (_) {}
+    
     getProducts();
-  }, []);
+  }, [getProducts]);
+
+  // Memoized product list
+  const productList = useMemo(() => {
+    if (loading) {
+      return (
+        <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
+          <Spinner animation="border" style={{ color: "#e11d48" }} />
+        </div>
+      );
+    }
+    
+    if (products.length === 0) {
+      return (
+        <div style={{ textAlign: "center", gridColumn: "1/-1", color: "#64748b", fontSize: "18px", padding: "60px" }}>
+          New merchandise arriving soon. Stay tuned!
+        </div>
+      );
+    }
+    
+    return products.map((product) => (
+      <MemoizedProductCard key={product._id} product={product} />
+    ));
+  }, [products, loading]);
 
   return (
     <Container>
@@ -391,6 +463,7 @@ const Home = () => {
               src={slide.image} 
               alt={slide.title} 
               active={currentSlide === index}
+              loading={index === 0 ? "eager" : "lazy"}
             />
             <SlideContent active={currentSlide === index}>
               <PartyBadge>
@@ -405,67 +478,51 @@ const Home = () => {
         <ProgressTrack>
           <ProgressBar progress={progress} />
         </ProgressTrack>
-        <NavButton $direction="left" onClick={() => { setCurrentSlide((prev) => (prev - 1 + carouselData.length) % carouselData.length); setProgress(0); }}>
-          <ChevronLeft size={28} />
-        </NavButton>
-        <NavButton $direction="right" onClick={nextSlide}>
-          <ChevronRight size={28} />
-        </NavButton>
+        <NavButton direction="left" onClick={prevSlide} />
+        <NavButton direction="right" onClick={nextSlide} />
       </CarouselContainer>
 
-      <RevealSection 
-        id="categories" 
-        ref={(el) => (sectionRefs.current[0] = el)} 
-        $visible={visibleSections.categories}
-      >
-        <Section>
-          <HeaderGroup>
-            <SectionSubtitle>Official Gear</SectionSubtitle>
-            <Title>Shop By Category</Title>
-          </HeaderGroup>
-          <CardWrapper>
-            {categories.map((cat, index) => (
-              <FloatWrapper key={index} delay={cat.delay}>
-                <ProductCategoryCard category={cat} />
-              </FloatWrapper>
-            ))}
-          </CardWrapper>
-        </Section>
-      </RevealSection>
-
-      <RevealSection 
-        id="trending" 
-        ref={(el) => (sectionRefs.current[1] = el)} 
-        $visible={visibleSections.trending}
-      >
-        <Section>
-          <HeaderGroup>
-            <SectionSubtitle>Hot Right Now</SectionSubtitle>
-            <Title style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
-            </Title>
-          </HeaderGroup>
-          {loading ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
-              <Spinner animation="border" style={{ color: "#e11d48" }} />
-            </div>
-          ) : (
+      <Suspense fallback={<div style={{ height: "400px" }} />}>
+        <RevealSection 
+          id="categories" 
+          visible={visibleSections.categories}
+          setRef={(el) => (sectionRefs.current[0] = el)}
+        >
+          <Section>
+            <HeaderGroup>
+              <SectionSubtitle>Official Gear</SectionSubtitle>
+              <Title>Shop By Category</Title>
+            </HeaderGroup>
             <CardWrapper>
-              {products.length > 0 ? (
-                products.map((product) => (
-                  <ProductCard key={product._id} product={product} />
-                ))
-              ) : (
-                <div style={{ textAlign: "center", gridColumn: "1/-1", color: "#64748b", fontSize: "18px", padding: "60px" }}>
-                  New merchandise arriving soon. Stay tuned!
-                </div>
-              )}
+              {categories.map((cat, index) => (
+                <FloatWrapper key={index} delay={cat.delay}>
+                  <MemoizedCategoryCard category={cat} />
+                </FloatWrapper>
+              ))}
             </CardWrapper>
-          )}
-        </Section>
-      </RevealSection>
+          </Section>
+        </RevealSection>
+
+        <RevealSection 
+          id="trending" 
+          visible={visibleSections.trending}
+          setRef={(el) => (sectionRefs.current[1] = el)}
+        >
+          <Section>
+            <HeaderGroup>
+              <SectionSubtitle>Hot Right Now</SectionSubtitle>
+              <Title style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
+              </Title>
+            </HeaderGroup>
+            <CardWrapper>
+              {productList}
+            </CardWrapper>
+          </Section>
+        </RevealSection>
+      </Suspense>
     </Container>
   );
 };
 
-export default Home;
+export default memo(Home);
