@@ -1,6 +1,6 @@
-// components/leaders/leaderHeader.jsx - Fixed with simple icon-only share
+// components/leaders/leaderHeader.jsx - With tracking and memoization
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   ArrowLeft,
@@ -597,7 +597,7 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-
+// FIXED: Clean image URL builder
 const buildImageUrl = (url) => {
   if (!url) return null;
   
@@ -606,10 +606,10 @@ const buildImageUrl = (url) => {
     return url;
   }
   
-  // Get base URL from API config - NO localhost fallback
+  // Get base URL from API config
   let baseUrl = API.IMAGES || API.BASE;
   
-  // If no base URL configured, return null (don't fallback to localhost)
+  // If no base URL configured, return null
   if (!baseUrl) return null;
   
   // Remove /api/v1 if present in the base URL
@@ -626,7 +626,35 @@ const buildImageUrl = (url) => {
   return `${baseUrl}${imagePath}`;
 };
 
-const LeaderHeader = ({ leader, onBack }) => {
+// Track profile view
+const trackProfileView = async (leaderId, userId) => {
+  if (!leaderId) return;
+  try {
+    await api.post(`/leaders/${leaderId}/view`, {
+      user_id: userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error tracking profile view:", error);
+  }
+};
+
+// Track share
+const trackShare = async (leaderId, userId, platform) => {
+  if (!leaderId) return;
+  try {
+    await api.post(`/leaders/${leaderId}/share`, {
+      user_id: userId,
+      platform: platform,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error tracking share:", error);
+  }
+};
+
+// Memoized LeaderHeader component for instant loading
+const LeaderHeader = memo(({ leader, onBack }) => {
   const [showBoostModal, setShowBoostModal] = useState(false);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
@@ -638,13 +666,42 @@ const LeaderHeader = ({ leader, onBack }) => {
   const [addButtonVisible, setAddButtonVisible] = useState(true);
   const [scrolledPast, setScrolledPast] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewTracked, setViewTracked] = useState(false);
   const scrollTimeoutRef = useRef(null);
   const lastScrollYRef = useRef(0);
   const dropdownRef = useRef(null);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     setCurrentUserId(getLoggedInUserId());
   }, []);
+
+  // Track time spent on profile
+  useEffect(() => {
+    if (!leader?.leader_id) return;
+    
+    startTimeRef.current = Date.now();
+    
+    return () => {
+      // Track time spent when user leaves
+      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      if (timeSpent >= 3) { // Only track if spent at least 3 seconds
+        api.post(`/leaders/${leader.leader_id}/time-spent`, {
+          user_id: currentUserId,
+          time_spent: timeSpent,
+          timestamp: new Date().toISOString()
+        }).catch(err => console.error("Error tracking time:", err));
+      }
+    };
+  }, [leader?.leader_id, currentUserId]);
+
+  // Track profile view (only once per session)
+  useEffect(() => {
+    if (leader?.leader_id && !viewTracked) {
+      trackProfileView(leader.leader_id, currentUserId);
+      setViewTracked(true);
+    }
+  }, [leader?.leader_id, currentUserId, viewTracked]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -784,7 +841,6 @@ const LeaderHeader = ({ leader, onBack }) => {
   };
 
   const handleCompetitorClick = (competitor) => {
-    // Always prefer slug for SEO-clean URLs
     const target = competitor.slug
       ? `/leader/${competitor.slug}`
       : `/leaders/${competitor.leader_id}`;
@@ -795,31 +851,34 @@ const LeaderHeader = ({ leader, onBack }) => {
     setShowAddStoryModal(true);
   };
 
-  // Build canonical share URL using slug for SEO (not the current browser URL which may be /leaders/:id)
+  // Build canonical share URL
   const canonicalUrl = leader?.slug
     ? `${window.location.origin}/leader/${leader.slug}`
     : (typeof window !== "undefined" ? window.location.href : "");
 
   const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
-  const shareImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image) || "https://siasahub.co.ke/og-default.png";
 
-  const shareToTwitter = () => {
+  // Share functions with tracking
+  const shareToTwitter = async () => {
+    await trackShare(leader?.leader_id, currentUserId, "twitter");
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
-  const shareToWhatsApp = () => {
-    // WhatsApp shows link preview from og:image — no need to embed image in text
+  const shareToWhatsApp = async () => {
+    await trackShare(leader?.leader_id, currentUserId, "whatsapp");
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText + "\n" + canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
-  const shareToFacebook = () => {
+  const shareToFacebook = async () => {
+    await trackShare(leader?.leader_id, currentUserId, "facebook");
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
-  const shareToLinkedIn = () => {
+  const shareToLinkedIn = async () => {
+    await trackShare(leader?.leader_id, currentUserId, "linkedin");
     window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}&title=${encodeURIComponent(shareText)}`, "_blank");
     setShowShareDropdown(false);
   };
@@ -827,6 +886,7 @@ const LeaderHeader = ({ leader, onBack }) => {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(canonicalUrl);
+      await trackShare(leader?.leader_id, currentUserId, "copy_link");
       setCopied(true);
       setToastMessage("Link copied to clipboard!");
       setTimeout(() => { setCopied(false); setToastMessage(null); }, 2000);
@@ -973,26 +1033,23 @@ const LeaderHeader = ({ leader, onBack }) => {
         </InfoSection>
       </ProfileCard>
 
-   // In ContentArea section - replace with this:
-
-<ContentArea>
-  {/* Only render BoostedStoriesRow if there are actual boosted stories */}
-  {boostedStories && boostedStories.length > 0 && (
-    <>
-      <BoostedStoriesRow 
-        leaderId={leader?.leader_id} 
-        currentUser={{ name: "You", id: currentUserId || "unknown" }} 
-        onBoostSuccess={handleBoostSuccess} 
-      />
-      <Divider />
-    </>
-  )}
-  <EndorsementStories 
-    leaderId={leader.leader_id} 
-    currentUser={{ name: "You", id: currentUserId || "unknown" }} 
-    onBoostSuccess={handleBoostSuccess} 
-  />
-</ContentArea>
+      <ContentArea>
+        {boostedStories && boostedStories.length > 0 && (
+          <>
+            <BoostedStoriesRow 
+              leaderId={leader?.leader_id} 
+              currentUser={{ name: "You", id: currentUserId || "unknown" }} 
+              onBoostSuccess={handleBoostSuccess} 
+            />
+            <Divider />
+          </>
+        )}
+        <EndorsementStories 
+          leaderId={leader.leader_id} 
+          currentUser={{ name: "You", id: currentUserId || "unknown" }} 
+          onBoostSuccess={handleBoostSuccess} 
+        />
+      </ContentArea>
 
       <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
 
@@ -1009,6 +1066,8 @@ const LeaderHeader = ({ leader, onBack }) => {
       )}
     </PageContainer>
   );
-};
+});
+
+LeaderHeader.displayName = 'LeaderHeader';
 
 export default LeaderHeader;
