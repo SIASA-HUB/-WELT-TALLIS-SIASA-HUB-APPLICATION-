@@ -1,4 +1,3 @@
-// routes/Leader.js - Complete routes with all endpoints
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
@@ -40,7 +39,12 @@ const {
   trackReadTime,
 } = require("../controllers/ManifestoController");
 
-const { handleInteraction } = require("../controllers/InteractionController");
+const { 
+  handleInteraction, 
+  postComment, 
+  getLeaderInteractionCounts,
+  getLeaderTimeAnalytics 
+} = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
 router.use(sanitizeMiddleware);
@@ -70,6 +74,17 @@ router.get("/analytics/county", getLeaderAnalyticsByCounty);
 router.get("/analytics/constituency", getLeaderAnalyticsByConstituency);
 router.get("/analytics/ward", getLeaderAnalyticsByWard);
 router.get("/analytics/position", getLeaderAnalyticsByPosition);
+
+// ============================================================
+// INTERACTION & TRACKING ROUTES (NEW)
+// ============================================================
+
+router.post("/interact", authenticate, handleInteraction);
+router.get("/:leaderId/interaction-stats", getLeaderInteractionCounts);
+
+// Get detailed time analytics for a leader
+router.get("/:leaderId/time-analytics", getLeaderTimeAnalytics);
+router.post("/:leaderId/comment", authenticate, postComment);
 
 // ============================================================
 // AUTH ROUTES
@@ -105,7 +120,7 @@ router.delete("/manifestos/:manifestoId", verifyAspirantToken, deleteManifesto);
 // PUBLIC LEADER ROUTES
 // ============================================================
 router.get("/popular", getPopularLeaders);
-router.get("/profile/:slug", getLeaderBySlug);  // MUST be before /:leaderId
+router.get("/profile/:slug", getLeaderBySlug);  
 router.post("/backfill-slugs", backfillSlugs);
 router.get("/", getPersonalizedFeed);
 
@@ -140,6 +155,5 @@ router.delete("/:leaderId", authenticate, authorize("admin"), async (req, res) =
   const { deleteLeader } = require("../controllers/LeaderController");
   return deleteLeader(req, res);
 });
-router.post("/interact", authenticate, handleInteraction);
 
 module.exports = router;
