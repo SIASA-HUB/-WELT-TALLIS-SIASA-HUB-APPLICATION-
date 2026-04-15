@@ -74,6 +74,35 @@ export const getCart = async (token) => {
   });
 };
 
+
+// Add this function to your API file
+export const deleteFromCart = async (token, { productId, quantity = null }) => {
+  try {
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    };
+    
+    const endpoint = quantity === null 
+      ? `/cart/remove/${productId}`  // Remove entire item
+      : `/cart/update/${productId}`; // Update quantity
+      
+    const response = await axios.post(
+      endpoint,
+      { quantity },
+      config
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error updating cart:", error);
+    throw error.response?.data || error.message;
+  }
+};
+
+
 export const addToCart = async (token, data) => {
   return await api.post("/cart/add", data, {
     headers: { Authorization: `Bearer ${token}` },
