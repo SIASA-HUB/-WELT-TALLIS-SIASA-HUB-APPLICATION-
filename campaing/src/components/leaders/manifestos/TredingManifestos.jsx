@@ -11,7 +11,8 @@ import {
   MapPin,
   Sparkles,
   Flame,
-  Zap
+  Zap,
+  AlertCircle
 } from "lucide-react";
 import api from "../../../api/api";
 import API from "../../../api/config";
@@ -34,17 +35,18 @@ const shimmer = keyframes`
   100% { background-position: 200% 0; }
 `;
 
-// --- HELPER: Build image URL using Gateway ---
+// HELPER: Build image 
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null") return null;
+
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
   
-  // Use global API images base
-  const gatewayBase = API?.IMAGES || "http://localhost:8009";
-  const path = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  return `${gatewayBase}${path}`;
+  // Clean the path
+  const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  
+  return `${API.IMAGES}${cleanPath}`;
 };
 
 // --- STYLED COMPONENTS ---
