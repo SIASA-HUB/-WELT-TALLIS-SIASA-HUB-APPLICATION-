@@ -148,7 +148,7 @@ const SearchInput = styled.input`
   font-size: 12px;
   font-weight: 500;
   border: 1.5px solid ${(props) => (props.$focused ? "#000" : "#e5e7eb")};
-  border-radius: 20px;
+  border-radius: 10px;
   background: ${(props) => (props.$focused ? "#ffffff" : "#f9fafb")};
   transition: all 0.2s ease;
   outline: none;
