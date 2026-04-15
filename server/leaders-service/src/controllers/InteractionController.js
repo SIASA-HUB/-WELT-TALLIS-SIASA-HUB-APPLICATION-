@@ -20,23 +20,22 @@ const handleInteraction = asyncHandler(async (req, res) => {
     let updatedStats = {};
 
     if (interactionType === "like") {
-      const action = metadata?.action; // "like" or "unlike"
+      const action = metadata?.action; 
 
       if (action === "like") {
-        // Remove dislike if exists
+       
         await safeQuery(
           `DELETE FROM leader_dislikes WHERE leader_id = ? AND (user_id = ? OR (user_id IS NULL AND ip_address = ?))`,
           [leaderId, user_id, ip],
         );
 
-        // Add like - NO CHECK for existing like
-        // This allows multiple likes from same IP/user
+ 
         await safeQuery(
           `INSERT INTO leader_likes (leader_id, user_id, ip_address) VALUES (?, ?, ?)`,
           [leaderId, user_id, ip],
         );
       } else if (action === "unlike") {
-        // Remove like - remove only ONE like, not all
+  
         await safeQuery(
           `DELETE FROM leader_likes WHERE leader_id = ? AND (user_id = ? OR (user_id IS NULL AND ip_address = ?)) LIMIT 1`,
           [leaderId, user_id, ip],
@@ -44,17 +43,24 @@ const handleInteraction = asyncHandler(async (req, res) => {
       }
 
       resultMessage = action === "like" ? "Liked" : "Unliked";
-    } else if (interactionType === "view") {
-      // Always record view - NO CHECKS, allow multiple views from same IP
+    } 
+    else if (interactionType === "view") {
+      // Record view
       await safeQuery(
         `INSERT INTO leader_views (leader_id, user_id, ip_address, session_id, viewed_at) 
          VALUES (?, ?, ?, ?, NOW())`,
         [leaderId, user_id, ip, metadata?.sessionId || null],
       );
-
+      
+      // Update aggregate views count in leaders table
+      await safeQuery(
+        `UPDATE leaders SET views = views + 1 WHERE leader_id = ?`,
+        [leaderId]
+      );
+      
       resultMessage = "Viewed";
-      resultMessage = "Info viewed";
-    } else if (interactionType === "share") {
+    }
+    else if (interactionType === "share") {
       // Record share
       await safeQuery(
         `INSERT INTO leader_shares (leader_id, user_id, ip_address, platform) 
@@ -70,9 +76,33 @@ const handleInteraction = asyncHandler(async (req, res) => {
       
       resultMessage = "Shared";
     }
+    else if (interactionType === "time_spent") {
+      // NEW: Track time spent on profile
+      const timeSpent = metadata?.time_spent || 0;
+      
+      // Only track if time spent is meaningful (>= 3 seconds)
+      if (timeSpent >= 3) {
+        await safeQuery(
+          `INSERT INTO leader_time_spent (leader_id, user_id, ip_address, session_id, time_spent_seconds, recorded_at) 
+           VALUES (?, ?, ?, ?, ?, NOW())`,
+          [leaderId, user_id, ip, metadata?.sessionId || null, timeSpent],
+        );
+        
+        // Update average time spent in leaders table (optional)
+        await safeQuery(
+          `UPDATE leaders 
+           SET total_time_spent = total_time_spent + ?,
+               avg_time_spent = (total_time_spent + ?) / (SELECT COUNT(*) FROM leader_views WHERE leader_id = ?)
+           WHERE leader_id = ?`,
+          [timeSpent, timeSpent, leaderId, leaderId]
+        );
+        
+        resultMessage = "Time tracked";
+      }
+    }
 
     // Get updated counts
-    const [likes, views, shares] = await Promise.all([
+    const [likes, views, shares, timeSpentData] = await Promise.all([
       safeQueryOne(
         `SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`,
         [leaderId],
@@ -85,12 +115,19 @@ const handleInteraction = asyncHandler(async (req, res) => {
         `SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`,
         [leaderId],
       ),
+      safeQueryOne(
+        `SELECT AVG(time_spent_seconds) as avg_time, SUM(time_spent_seconds) as total_time 
+         FROM leader_time_spent WHERE leader_id = ?`,
+        [leaderId],
+      ),
     ]);
     
     updatedStats = {
       likes: parseInt(likes?.count) || 0,
       views: parseInt(views?.count) || 0,
       shares: parseInt(shares?.count) || 0,
+      avgTimeSpent: Math.round(timeSpentData?.avg_time) || 0,
+      totalTimeSpent: parseInt(timeSpentData?.total_time) || 0,
     };
 
     // Clear cache for this leader
@@ -99,7 +136,6 @@ const handleInteraction = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       message: resultMessage,
-      count: updatedStats.likes,
       data: updatedStats,
     });
   } catch (error) {
@@ -137,6 +173,12 @@ const postComment = asyncHandler(async (req, res) => {
       [commentId, leaderId, userId, userName || "Anonymous", comment, req.ip],
     );
 
+    // Update comment count in leaders table
+    await safeQuery(
+      `UPDATE leaders SET comments = comments + 1 WHERE leader_id = ?`,
+      [leaderId]
+    );
+
     // Get updated comment count
     const count = await safeQueryOne(
       `SELECT COUNT(*) as total FROM leader_comments WHERE leader_id = ?`,
@@ -158,12 +200,12 @@ const postComment = asyncHandler(async (req, res) => {
   }
 });
 
-// Optional: Get total interaction counts
+// Get total interaction counts
 const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
 
   try {
-    const [likes, views, comments] = await Promise.all([
+    const [likes, views, comments, shares, timeSpent] = await Promise.all([
       safeQueryOne(
         `SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`,
         [leaderId],
@@ -180,6 +222,12 @@ const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
         `SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`,
         [leaderId],
       ),
+      safeQueryOne(
+        `SELECT AVG(time_spent_seconds) as avg_time_spent, 
+                SUM(time_spent_seconds) as total_time_spent 
+         FROM leader_time_spent WHERE leader_id = ?`,
+        [leaderId],
+      ),
     ]);
 
     res.status(200).json({
@@ -189,6 +237,8 @@ const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
         views: parseInt(views?.count) || 0,
         comments: parseInt(comments?.count) || 0,
         shares: parseInt(shares?.count) || 0,
+        avgTimeSpent: Math.round(timeSpent?.avg_time_spent) || 0,
+        totalTimeSpent: parseInt(timeSpent?.total_time_spent) || 0,
       },
     });
   } catch (error) {
@@ -200,8 +250,72 @@ const getLeaderInteractionCounts = asyncHandler(async (req, res) => {
   }
 });
 
+// NEW: Get time spent analytics for a leader
+const getLeaderTimeAnalytics = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  const { period = 'day' } = req.query; // day, week, month, all
+
+  try {
+    let timeFilter = '';
+    if (period === 'day') {
+      timeFilter = 'AND recorded_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)';
+    } else if (period === 'week') {
+      timeFilter = 'AND recorded_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    } else if (period === 'month') {
+      timeFilter = 'AND recorded_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+    }
+
+    const [avgTime, totalSessions, timeDistribution] = await Promise.all([
+      safeQueryOne(
+        `SELECT AVG(time_spent_seconds) as avg_time 
+         FROM leader_time_spent 
+         WHERE leader_id = ? ${timeFilter}`,
+        [leaderId],
+      ),
+      safeQueryOne(
+        `SELECT COUNT(*) as total_sessions 
+         FROM leader_time_spent 
+         WHERE leader_id = ? ${timeFilter}`,
+        [leaderId],
+      ),
+      safeQuery(
+        `SELECT 
+          CASE 
+            WHEN time_spent_seconds < 10 THEN '< 10s'
+            WHEN time_spent_seconds BETWEEN 10 AND 29 THEN '10-29s'
+            WHEN time_spent_seconds BETWEEN 30 AND 59 THEN '30-59s'
+            WHEN time_spent_seconds BETWEEN 60 AND 119 THEN '1-2min'
+            ELSE '> 2min'
+          END as time_range,
+          COUNT(*) as count
+         FROM leader_time_spent 
+         WHERE leader_id = ? ${timeFilter}
+         GROUP BY time_range
+         ORDER BY MIN(time_spent_seconds)`,
+        [leaderId],
+      ),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        avgTimeSpent: Math.round(avgTime?.avg_time) || 0,
+        totalSessions: parseInt(totalSessions?.total_sessions) || 0,
+        distribution: timeDistribution || [],
+      },
+    });
+  } catch (error) {
+    Logger.error(`Time analytics error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
 module.exports = {
   handleInteraction,
   postComment,
   getLeaderInteractionCounts,
+  getLeaderTimeAnalytics,
 };
