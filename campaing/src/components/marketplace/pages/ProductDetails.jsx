@@ -6,6 +6,7 @@ import { ShoppingCart, Share2, ArrowLeft } from "lucide-react";
 import { Spinner } from "react-bootstrap";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import api from "../../../api/api";
+import API from "../../../api/config";
 import { useAuth } from "@/components/hooks/useAuth";
 
 const Container = styled.div`
