@@ -38,7 +38,7 @@ const PageWrapper = styled.div`
   justify-content: center;
   align-items: flex-start;
   font-family: "Inter", sans-serif;
-  padding: 40px 20px;
+  padding: 10px 10px;
 `;
 
 const FormCard = styled.div`
@@ -497,7 +497,7 @@ const RegisterAspirant = () => {
           </NavButton>
           <div className="header-content">
             <h2>Aspirant Registration</h2>
-            <p>Join the Siasa Hub Platform</p>
+      
           </div>
           <NavButton onClick={() => navigate("/login-aspirant")}>
             <LogIn size={16} /> Login
