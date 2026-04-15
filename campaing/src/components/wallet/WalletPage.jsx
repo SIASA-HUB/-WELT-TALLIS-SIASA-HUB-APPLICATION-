@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import walletApi from "./ApiConfig";
-import userApi from "./userApiConfig";
 
 // Components
 import Header from "./Wallet";

@@ -5,9 +5,11 @@
 
 const allowedOrigins = [
   'http://localhost:5174',
-  'http://localhost:3001'
+  'http://localhost:8080',
+  'http://localhost:3001',
+  'https://siasahub.co.ke'
 ];
- 
+
 const corsOptions = {
 
   origin: function (origin, callback) {
@@ -25,9 +27,9 @@ const corsOptions = {
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Disposition'], 
-  credentials: true, 
-  optionsSuccessStatus: 200, 
+  exposedHeaders: ['Content-Disposition'],
+  credentials: true,
+  optionsSuccessStatus: 200,
 };
 
 module.exports = { allowedOrigins, corsOptions };

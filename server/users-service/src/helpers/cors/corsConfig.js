@@ -4,6 +4,7 @@ const allowedOrigins = [
   "https://tour-bestsellers-conditional-tunnel.trycloudflare.com",
 
   "https://goals-acquire-image-energy.trycloudflare.com",
+  "https://siasahub.co.ke"
 ];
 
 const corsOptions = {

@@ -5,6 +5,7 @@ const allowedOrigins = [
   "https://stomach-profits-providers-veteran.trycloudflare.com",
   "http://localhost:3001",
   "https://reseller-add-banana-api.trycloudflare.com",
+  "https://siasahub.co.ke"
 ];
 
 const corsOptions = {

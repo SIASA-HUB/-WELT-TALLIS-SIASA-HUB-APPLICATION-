@@ -7,8 +7,7 @@ const corsOptions = {
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     // Add your production domains here
-    "https://yourdomain.com",
-    "https://www.yourdomain.com",
+    "https://siasahub.co.ke"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [

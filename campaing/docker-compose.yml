@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   frontend:
     build:
@@ -14,6 +12,8 @@ services:
       - "8080:80"
     environment:
       - NODE_ENV=production
+    networks:           # ← ADD THIS
+      - siasa-network   # ← ADD THIS
 
 networks:
   siasa-network:
