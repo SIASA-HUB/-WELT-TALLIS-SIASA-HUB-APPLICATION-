@@ -1,4 +1,4 @@
-// RegisterAspirant.jsx - Sleek Dark Theme Registration
+// RegisterAspirant.jsx - Fixed Version
 
 import React, { useState } from "react";
 import axios from "axios";
@@ -105,7 +105,6 @@ const NavButton = styled.button`
 
 const Section = styled.div`
   padding: 25px 30px;
-
   flex: 1;
   overflow-y: auto;
   max-height: 80vh;
@@ -117,7 +116,7 @@ const Section = styled.div`
     background: transparent;
   }
   &::-webkit-scrollbar-thumb {
-    background: rgba(220, 38, 38, 0.5);
+    background: rgba(30, 60, 114, 0.5);
     border-radius: 10px;
   }
 `;
@@ -157,7 +156,7 @@ const Input = styled.input`
   border-radius: 12px;
   font-size: 14px;
   background: white;
-  color: #1e293b; /* Ensure text visible */
+  color: #1e293b;
   transition: all 0.2s ease;
   
   &::placeholder {
@@ -177,15 +176,15 @@ const Select = styled.select`
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   background: white;
-  color: #1e293b; /* Explicitly set dark text color */
+  color: #1e293b;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
   
   &:focus {
-    border-color: #000000;
+    border-color: #1e3c72;
     outline: none;
-    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.05);
   }
   
   option {
@@ -202,6 +201,7 @@ const InputIcon = styled.div`
   color: #52525b;
 `;
 
+// FIXED: Button has proper color now
 const SubmitBtn = styled.button`
   width: 100%;
   padding: 16px;
@@ -220,12 +220,12 @@ const SubmitBtn = styled.button`
   gap: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  &:hover {
+  &:hover:not(:disabled) {
     background: #2a4a8a;
     transform: translateY(-2px);
     box-shadow: 0 10px 25px -5px rgba(30, 60, 114, 0.25);
   }
-  &:active {
+  &:active:not(:disabled) {
     transform: translateY(0);
   }
   
@@ -234,7 +234,7 @@ const SubmitBtn = styled.button`
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-    opacity: 0.5;
+    opacity: 0.7;
   }
 `;
 
@@ -253,19 +253,19 @@ const FileInputLabel = styled.label`
   
   &:hover {
     background: #f1f5f9;
-    border-color: #000000;
-    color: #0f172a;
+    border-color: #1e3c72;
+    color: #1e3c72;
   }
 `;
 
 const TagItem = styled.div`
-  background: rgba(255, 255, 255, 0.02);
+  background: #f8fafc;
   border-radius: 14px;
   padding: 10px;
   margin-bottom: 10px;
   display: flex;
   gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid #e2e8f0;
   animation: ${slideIn} 0.3s ease;
   
   textarea {
@@ -282,11 +282,11 @@ const TagItem = styled.div`
     
     &:focus {
       outline: none;
-      border-color: #000000;
+      border-color: #1e3c72;
     }
     
     &::placeholder {
-      color: #3f3f46;
+      color: #94a3b8;
     }
   }
   
@@ -310,10 +310,10 @@ const TagItem = styled.div`
 const AddButton = styled.button`
   width: 100%;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: white;
+  border: 1px dashed #cbd5e1;
   border-radius: 12px;
-  color: #71717a;
+  color: #64748b;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -324,9 +324,9 @@ const AddButton = styled.button`
   font-weight: 600;
   
   &:hover {
-    background: rgba(220, 38, 38, 0.05);
-    border-color: #dc2626;
-    color: #ef4444;
+    background: #f8fafc;
+    border-color: #1e3c72;
+    color: #1e3c72;
   }
 `;
 
@@ -338,13 +338,12 @@ const SectionTitle = styled.h3`
   display: flex;
   align-items: center;
   gap: 10px;
-  border-left: 4px solid #000000;
+  border-left: 4px solid #1e3c72;
   padding: 6px 16px;
   text-transform: uppercase;
   letter-spacing: 1.2px;
   background: #f1f5f9;
 `;
-
 
 const CountyList = [
   "Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita Taveta",
@@ -434,8 +433,14 @@ const RegisterAspirant = () => {
       toast.error("County is required");
       return;
     }
+    if (!formData.image) {
+      toast.error("Profile image is required");
+      return;
+    }
 
     setLoading(true);
+    const toastId = toast.loading("Creating your account...");
+
     try {
       const submitData = new FormData();
       submitData.append("name", formData.name);
@@ -464,24 +469,52 @@ const RegisterAspirant = () => {
       if (formData.instagram) submitData.append("instagram", formData.instagram);
       if (formData.website) submitData.append("website", formData.website);
 
-      const response = await api.post(
-        "/leaders/register",
-        submitData,
-        { 
-          headers: { "Content-Type": "multipart/form-data" },
-          timeout: 45000 
-        }
-      );
+      // FIXED: Proper response handling
+      const response = await api.post("/leaders/register", submitData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000
+      });
 
-      if (response.data.success) {
-        toast.success("Account created successfully! Please login.");
-        setTimeout(() => navigate("/login-aspirant"), 2000);
+      console.log("Full response:", response);
+
+      // Check response properly - api interceptor returns response.data directly
+      if (response && response.success === true) {
+        toast.update(toastId, {
+          render: response.message || "Registration successful! Please login.",
+          type: "success",
+          isLoading: false,
+          autoClose: 3000,
+        });
+        
+        setTimeout(() => {
+          navigate("/login-aspirant");
+        }, 2000);
       } else {
-        toast.error(response.data.message || "Registration failed");
+        toast.update(toastId, {
+          render: response?.message || "Registration failed. Please try again.",
+          type: "error",
+          isLoading: false,
+          autoClose: 4000,
+        });
       }
     } catch (err) {
       console.error("Registration error:", err);
-      toast.error(err.response?.data?.message || "Registration failed. Please try again.");
+      
+      // Better error message extraction
+      let errorMessage = "Registration failed. Please try again.";
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      toast.update(toastId, {
+        render: errorMessage,
+        type: "error",
+        isLoading: false,
+        autoClose: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -489,17 +522,17 @@ const RegisterAspirant = () => {
 
   return (
     <PageWrapper>
-      <ToastContainer position="top-center" theme="dark" />
+      <ToastContainer position="top-center" />
       <FormCard>
         <Header>
-          <NavButton onClick={() => navigate("/leaders")}>
+          <NavButton type="button" onClick={() => navigate("/leaders")}>
             <ArrowLeft size={16} /> Back
           </NavButton>
           <div className="header-content">
             <h2>Aspirant Registration</h2>
-      
+            <p>Join the movement. Lead with vision.</p>
           </div>
-          <NavButton onClick={() => navigate("/login-aspirant")}>
+          <NavButton type="button" onClick={() => navigate("/login-aspirant")}>
             <LogIn size={16} /> Login
           </NavButton>
         </Header>
@@ -672,11 +705,11 @@ const RegisterAspirant = () => {
             />
 
             <SectionTitle>
-              <Upload size={14} /> Profile Picture
+              <Upload size={14} /> Profile Picture *
             </SectionTitle>
             <FileInputLabel>
               <Upload size={16} />
-              <span>{formData.image ? formData.image.name : "Upload Campaign Photo"}</span>
+              <span>{formData.image ? formData.image.name : "Upload Campaign Photo (Required)"}</span>
               <input type="file" hidden name="image" onChange={handleChange} accept="image/*" />
             </FileInputLabel>
 
@@ -703,7 +736,7 @@ const RegisterAspirant = () => {
             </AddButton>
 
             <SectionTitle>
-              <Briefcase size={14} /> Education Background
+              <Award size={14} /> Education Background
             </SectionTitle>
             {formData.education.map((edu, i) => (
               <TagItem key={i}>
@@ -725,11 +758,31 @@ const RegisterAspirant = () => {
             </AddButton>
 
             <SubmitBtn type="submit" disabled={loading}>
-              {loading ? "Creating Account..." : "Create Aspirant Account"}
+              {loading ? (
+                <>
+                  <div className="spinner" style={{
+                    width: "18px",
+                    height: "18px",
+                    border: "2px solid white",
+                    borderTop: "2px solid transparent",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite"
+                  }} />
+                  Creating Account...
+                </>
+              ) : (
+                "Create Aspirant Account"
+              )}
             </SubmitBtn>
           </Section>
         </form>
       </FormCard>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </PageWrapper>
   );
 };
