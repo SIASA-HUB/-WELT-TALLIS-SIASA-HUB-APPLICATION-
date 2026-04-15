@@ -38,7 +38,7 @@ const StoriesSection = styled.div`
 const StoriesContainer = styled.div`
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 0px;
 `;
 
 const StoriesHeader = styled.div`
