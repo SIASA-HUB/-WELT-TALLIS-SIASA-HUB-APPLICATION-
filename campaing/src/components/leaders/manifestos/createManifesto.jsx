@@ -1,168 +1,144 @@
-
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import {
-  Plus,
-  Trash2,
-  Send,
-  FileText,
-  Sparkles,
-  Loader2,
-  Edit3,
-  XCircle,
-} from "lucide-react";
-import { ToastContainer, toast } from "react-toastify";
+import { Plus, Trash2, Send, Loader2, Edit3, XCircle } from "lucide-react";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import api from "../../../api/api";
 
-// --- Styled Components ---
-
-const GlassCard = styled.div`
+// ---  Styled Componen ---
+const Container = styled.div`
   background: white;
-  border-radius: 20px;
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  overflow: hidden;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-  @media (max-width: 992px) {
+`;
+
+const TwoColumn = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 `;
 
-const FormSide = styled.div`
-  padding: 25px;
-  @media (min-width: 768px) {
-    padding: 40px;
-  }
-  border-right: 1px solid #f1f5f9;
+const FormSection = styled.div`
+  border-right: 1px solid #e2e8f0;
 `;
 
-const PreviewSide = styled.div`
-  padding: 30px;
+const PreviewSection = styled.div`
   background: #0f172a;
   color: white;
-  @media (max-width: 992px) {
-    min-height: 300px;
-  }
 `;
 
-const InputGroup = styled.div`
-  margin-bottom: 20px;
+const InputWrapper = styled.div`
+  margin-bottom: 16px;
+  
   label {
     display: block;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
     color: #475569;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: 6px;
   }
 `;
 
-const StyledInput = styled.input`
+const Input = styled.input`
   width: 100%;
-  padding: 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 15px;
-  transition: all 0.3s ease;
-  &:focus {
-    border-color: #1e3c72;
-    outline: none;
-    background: #f8fafc;
-  }
-`;
-
-const StyledTextArea = styled.textarea`
-  width: 100%;
-  padding: 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 14px;
-  min-height: 80px;
-  margin-top: 8px;
+  
   &:focus {
     border-color: #1e3c72;
     outline: none;
   }
 `;
 
-const AgendaBox = styled.div`
-  background: #f8fafc;
-  padding: 20px;
-  border-radius: 15px;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 15px;
+const TextArea = styled.textarea`
+  width: 100%;
+  padding: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 70px;
+  margin-top: 6px;
+  
+  &:focus {
+    border-color: #1e3c72;
+    outline: none;
+  }
 `;
 
-const ActionButton = styled.button`
+const AgendaCard = styled.div`
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+`;
+
+const Button = styled.button`
   width: 100%;
-  padding: 16px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 8px;
   border: none;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   background: #1e3c72;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  transition: 0.3s;
+  gap: 8px;
+  
   &:hover:not(:disabled) {
     background: #2a5298;
-    transform: translateY(-2px);
   }
+  
   &:disabled {
     background: #cbd5e1;
     cursor: not-allowed;
   }
 `;
 
-const DeleteButton = styled.button`
+const DeleteBtn = styled.button`
   width: 100%;
-  padding: 16px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 8px;
   border: 2px solid #ef4444;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   background: white;
   color: #ef4444;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  transition: 0.3s;
-  margin-top: 15px;
+  gap: 8px;
+  
   &:hover:not(:disabled) {
     background: #ef4444;
     color: white;
-    transform: translateY(-2px);
-  }
-  &:disabled {
-    background: #fecaca;
-    cursor: not-allowed;
   }
 `;
 
-const ModeSwitch = styled.div`
+const ModeToggle = styled.div`
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  
   button {
     flex: 1;
-    padding: 10px;
-    border: 2px solid #e2e8f0;
+    padding: 8px;
+    border: 1.5px solid #e2e8f0;
     background: white;
-    border-radius: 10px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
+    
     &.active {
       background: #1e3c72;
       color: white;
@@ -171,28 +147,47 @@ const ModeSwitch = styled.div`
   }
 `;
 
-const LoadingContainer = styled.div`
-  padding: 100px;
+const AddPillarBtn = styled.button`
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 2px dashed #cbd5e1;
+  background: white;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 20px;
+  
+  &:hover {
+    background: #f8fafc;
+    border-color: #1e3c72;
+  }
+`;
+
+const RemoveBtn = styled.button`
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const LoadingSpinner = styled.div`
   text-align: center;
+  padding: 40px;
   
   .spinner {
     animation: spin 1s linear infinite;
     margin: 0 auto;
   }
   
-  p {
-    margin-top: 15px;
-    color: #64748b;
-    font-weight: 600;
-  }
-  
   @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 `;
 
@@ -200,7 +195,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [manifestoId, setManifestoId] = useState(null);
-  const [mode, setMode] = useState("edit"); // 'edit' or 'delete'
+  const [mode, setMode] = useState("edit");
 
   const activeLeaderId = leaderId || localStorage.getItem("currentLeaderId");
 
@@ -210,7 +205,6 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
     agenda_items: [{ title: "", description: "" }],
   });
 
-  // Fetch existing manifesto
   useEffect(() => {
     const fetchExistingManifesto = async () => {
       if (!activeLeaderId) {
@@ -220,9 +214,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
       try {
         const res = await api.get(`/leaders/manifestos/leader/${activeLeaderId}`);
-        const existing = Array.isArray(res.data)
-          ? res.data[0]
-          : res.data.data?.[0];
+        const existing = Array.isArray(res.data) ? res.data[0] : res.data?.data?.[0];
 
         if (existing) {
           setManifestoId(existing.manifesto_id);
@@ -235,7 +227,6 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
           });
         }
       } catch (err) {
-        // No existing manifesto found - that's fine
         console.log("No existing manifesto found");
       } finally {
         setInitialLoading(false);
@@ -266,66 +257,53 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
     e.preventDefault();
 
     if (!formData.leader_id) {
-      toast.error("Leader ID is missing. Please refresh and try again.");
+      toast.error("Leader ID missing");
       return;
     }
 
     if (!formData.main_agenda) {
-      toast.error("Please fill out your vision statement.");
+      toast.error("Please enter your vision statement");
       return;
     }
 
     setLoading(true);
-    const toastId = toast.loading(
-      manifestoId ? "Updating your manifesto..." : "Publishing manifesto..."
-    );
+    const toastId = toast.loading(manifestoId ? "Updating..." : "Publishing...");
 
     try {
-      const cleanedItems = formData.agenda_items.filter(
-        (item) => item.title.trim() !== ""
-      );
+      const cleanedItems = formData.agenda_items.filter((item) => item.title.trim() !== "");
 
       const payload = {
         leader_id: formData.leader_id,
         main_agenda: formData.main_agenda,
-        agenda_items:
-          cleanedItems.length > 0
-            ? cleanedItems
-            : [{ title: "General Agenda", description: formData.main_agenda }],
+        agenda_items: cleanedItems.length > 0
+          ? cleanedItems
+          : [{ title: "General Agenda", description: formData.main_agenda }],
       };
 
       let response;
       if (manifestoId) {
         response = await api.put(`/leaders/manifestos/${manifestoId}`, payload);
-        toast.update(toastId, {
-          render: response.data.message || "Manifesto updated successfully!",
-          type: "success",
-          isLoading: false,
-          autoClose: 3000,
-        });
       } else {
         response = await api.post(`/leaders/manifestos/create`, payload);
         if (response.data.success && response.data.data?.manifesto_id) {
           setManifestoId(response.data.data.manifesto_id);
         }
-        toast.update(toastId, {
-          render: response.data.message || "Manifesto created successfully!",
-          type: "success",
-          isLoading: false,
-          autoClose: 3000,
-        });
       }
 
-      if (onManifestoChange) {
-        onManifestoChange(response.data.data);
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message || "Failed to save manifesto";
       toast.update(toastId, {
-        render: msg,
+        render: response.data.message || (manifestoId ? "Updated!" : "Created!"),
+        type: "success",
+        isLoading: false,
+        autoClose: 2000,
+      });
+
+      if (onManifestoChange) onManifestoChange(response.data.data);
+    } catch (err) {
+      toast.update(toastId, {
+        render: err.response?.data?.message || "Failed to save",
         type: "error",
         isLoading: false,
-        autoClose: 3000,
+        autoClose: 2000,
       });
     } finally {
       setLoading(false);
@@ -334,32 +312,25 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
   const handleDelete = async () => {
     if (!manifestoId) {
-      toast.error("No manifesto found to delete");
+      toast.error("No manifesto found");
       return;
     }
 
-    if (
-      !window.confirm(
-        "Are you sure you want to delete your manifesto? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm("Delete manifesto? This cannot be undone.")) return;
 
     setLoading(true);
-    const toastId = toast.loading("Deleting manifesto...");
+    const toastId = toast.loading("Deleting...");
 
     try {
       await api.delete(`/leaders/manifestos/${manifestoId}`);
 
       toast.update(toastId, {
-        render: "Manifesto deleted successfully!",
+        render: "Deleted successfully!",
         type: "success",
         isLoading: false,
-        autoClose: 3000,
+        autoClose: 2000,
       });
 
-      // Reset form
       setManifestoId(null);
       setFormData({
         leader_id: activeLeaderId,
@@ -367,16 +338,13 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
         agenda_items: [{ title: "", description: "" }],
       });
 
-      if (onManifestoChange) {
-        onManifestoChange(null);
-      }
+      if (onManifestoChange) onManifestoChange(null);
     } catch (err) {
-      const msg = err.response?.data?.message || "Failed to delete manifesto";
       toast.update(toastId, {
-        render: msg,
+        render: err.response?.data?.message || "Failed to delete",
         type: "error",
         isLoading: false,
-        autoClose: 3000,
+        autoClose: 2000,
       });
     } finally {
       setLoading(false);
@@ -385,271 +353,112 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
 
   if (initialLoading) {
     return (
-      <LoadingContainer>
-        <Loader2 className="spinner" size={40} color="#1e3c72" />
-        <p>Syncing your data...</p>
-      </LoadingContainer>
+      <LoadingSpinner>
+        <Loader2 className="spinner" size={32} color="#1e3c72" />
+      </LoadingSpinner>
     );
   }
 
   return (
-    <div style={{ background: "transparent", padding: "10px" }}>
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
-
+    <Container>
       {manifestoId && (
-        <ModeSwitch>
-          <button
-            className={mode === "edit" ? "active" : ""}
-            onClick={() => setMode("edit")}
-          >
-            <Edit3 size={16} />
-            Edit Manifesto
+        <ModeToggle>
+          <button className={mode === "edit" ? "active" : ""} onClick={() => setMode("edit")}>
+            <Edit3 size={14} /> Edit
           </button>
-          <button
-            className={mode === "delete" ? "active" : ""}
-            onClick={() => setMode("delete")}
-            style={
-              mode === "delete"
-                ? { background: "#ef4444", borderColor: "#ef4444", color: "white" }
-                : {}
-            }
-          >
-            <Trash2 size={16} />
-            Delete Manifesto
+          <button className={mode === "delete" ? "active" : ""} onClick={() => setMode("delete")}>
+            <Trash2 size={14} /> Delete
           </button>
-        </ModeSwitch>
+        </ModeToggle>
       )}
 
       {mode === "delete" && manifestoId ? (
-        <GlassCard>
-          <div style={{ padding: "60px 40px", textAlign: "center" }}>
-            <XCircle size={80} color="#ef4444" style={{ marginBottom: "20px" }} />
-            <h2 style={{ color: "#ef4444", marginBottom: "15px", fontWeight: "700" }}>
-              Delete Manifesto
-            </h2>
-            <p style={{ color: "#64748b", marginBottom: "30px", lineHeight: "1.6" }}>
-              Are you sure you want to delete your manifesto? This will
-              permanently remove all your agenda items and any votes associated
-              with it.
-            </p>
-            <DeleteButton onClick={handleDelete} disabled={loading}>
-              {loading ? (
-                <Loader2 className="spinner" size={18} />
-              ) : (
-                <Trash2 size={18} />
-              )}
-              {loading ? "Deleting..." : "Permanently Delete Manifesto"}
-            </DeleteButton>
-          </div>
-        </GlassCard>
+        <div style={{ textAlign: "center", padding: "40px" }}>
+          <XCircle size={60} color="#ef4444" />
+          <h3 style={{ color: "#ef4444", margin: "15px 0 10px" }}>Delete Manifesto?</h3>
+          <p style={{ color: "#64748b", marginBottom: "20px" }}>
+            This will permanently remove all agenda items and votes.
+          </p>
+          <DeleteBtn onClick={handleDelete} disabled={loading}>
+            {loading ? <Loader2 className="spinner" size={16} /> : <Trash2 size={16} />}
+            {loading ? "Deleting..." : "Permanently Delete"}
+          </DeleteBtn>
+        </div>
       ) : (
-        <GlassCard>
-          <FormSide>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "30px",
-              }}
-            >
-              <FileText size={28} color="#1e3c72" />
-              <h2 style={{ margin: 0, fontWeight: 900, color: "#1e293b" }}>
-                {manifestoId ? "Edit Campaign Agenda" : "Create Campaign Agenda"}
-              </h2>
-            </div>
-
+        <TwoColumn>
+          <FormSection style={{ padding: "20px" }}>
             <form onSubmit={handleSubmit}>
-              <InputGroup>
-                <label>The Vision Statement</label>
-                <StyledInput
+              <InputWrapper>
+                <label>Vision Statement</label>
+                <Input
                   placeholder="e.g. A digital-first economy for all Kenyans"
                   value={formData.main_agenda}
-                  onChange={(e) =>
-                    setFormData({ ...formData, main_agenda: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, main_agenda: e.target.value })}
                   required
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              <InputWrapper>
                 <label>Manifesto Pillars</label>
                 {formData.agenda_items.map((item, i) => (
-                  <AgendaBox key={i}>
-                    <StyledInput
-                      placeholder="Pillar Title (e.g. Healthcare)"
+                  <AgendaCard key={i}>
+                    <Input
+                      placeholder="Pillar Title"
                       value={item.title}
-                      onChange={(e) =>
-                        handleAgendaChange(i, "title", e.target.value)
-                      }
+                      onChange={(e) => handleAgendaChange(i, "title", e.target.value)}
                     />
-                    <StyledTextArea
-                      placeholder="Briefly describe your plan..."
+                    <TextArea
+                      placeholder="Describe your plan..."
                       value={item.description}
-                      onChange={(e) =>
-                        handleAgendaChange(i, "description", e.target.value)
-                      }
+                      onChange={(e) => handleAgendaChange(i, "description", e.target.value)}
                     />
                     {formData.agenda_items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePoint(i)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#ef4444",
-                          fontSize: "12px",
-                          marginTop: "10px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <Trash2 size={14} /> Remove Pillar
-                      </button>
+                      <RemoveBtn type="button" onClick={() => removePoint(i)}>
+                        <Trash2 size={12} /> Remove
+                      </RemoveBtn>
                     )}
-                  </AgendaBox>
+                  </AgendaCard>
                 ))}
-              </InputGroup>
+              </InputWrapper>
 
-              <button
-                type="button"
-                onClick={addPoint}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "2px dashed #cbd5e1",
-                  background: "white",
-                  color: "#64748b",
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  marginBottom: "30px",
-                  transition: "all 0.3s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f8fafc";
-                  e.currentTarget.style.borderColor = "#1e3c72";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "white";
-                  e.currentTarget.style.borderColor = "#cbd5e1";
-                }}
-              >
-                <Plus size={18} style={{ marginRight: "8px" }} /> Add Another Pillar
-              </button>
+              <AddPillarBtn type="button" onClick={addPoint}>
+                <Plus size={16} /> Add Pillar
+              </AddPillarBtn>
 
-              <ActionButton disabled={loading}>
-                {loading ? (
-                  <Loader2 className="spinner" size={18} />
-                ) : (
-                  <>
-                    <Send size={18} />
-                    {manifestoId ? "Update My Manifesto" : "Publish My Manifesto"}
-                  </>
-                )}
-              </ActionButton>
+              <Button disabled={loading}>
+                {loading ? <Loader2 className="spinner" size={16} /> : <Send size={16} />}
+                {manifestoId ? "Update" : "Publish"}
+              </Button>
             </form>
-          </FormSide>
+          </FormSection>
 
-          <PreviewSide>
-            <div
-              style={{
-                opacity: 0.5,
-                fontSize: "10px",
-                fontWeight: "900",
-                letterSpacing: "2px",
-                marginBottom: "30px",
-              }}
-            >
+          <PreviewSection style={{ padding: "20px" }}>
+            <div style={{ fontSize: "10px", fontWeight: "bold", marginBottom: "20px", opacity: 0.5 }}>
               LIVE PREVIEW
             </div>
 
-            <div style={{ borderLeft: "4px solid #3b82f6", paddingLeft: "20px" }}>
-              <Sparkles size={20} color="#3b82f6" style={{ marginBottom: "10px" }} />
-              <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "10px" }}>
-                The Vision
-              </h3>
-              <p
-                style={{
-                  color: "#94a3b8",
-                  fontStyle: "italic",
-                  lineHeight: "1.6",
-                  fontSize: "15px",
-                }}
-              >
-                "{formData.main_agenda || "Your vision statement will appear here..."}"
+            <div style={{ borderLeft: "3px solid #3b82f6", paddingLeft: "15px", marginBottom: "30px" }}>
+              <h3 style={{ fontSize: "18px", marginBottom: "8px" }}>The Vision</h3>
+              <p style={{ color: "#94a3b8", fontSize: "14px" }}>
+                "{formData.main_agenda || "Your vision will appear here..."}"
               </p>
             </div>
 
-            <div style={{ marginTop: "40px" }}>
-              <h4
-                style={{
-                  fontSize: "12px",
-                  textTransform: "uppercase",
-                  color: "#3b82f6",
-                  marginBottom: "20px",
-                  fontWeight: "900",
-                }}
-              >
-                Strategic Pillars
+            <div>
+              <h4 style={{ fontSize: "11px", color: "#3b82f6", marginBottom: "15px" }}>
+                STRATEGIC PILLARS
               </h4>
-              {formData.agenda_items.map(
-                (item, i) =>
-                  item.title && (
-                    <div
-                      key={i}
-                      style={{
-                        marginBottom: "20px",
-                        background: "rgba(255,255,255,0.05)",
-                        padding: "15px",
-                        borderRadius: "12px",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontWeight: "bold",
-                          fontSize: "16px",
-                          color: "white",
-                        }}
-                      >
-                        {item.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          color: "#94a3b8",
-                          marginTop: "5px",
-                        }}
-                      >
-                        {item.description}
-                      </div>
-                    </div>
-                  ),
-              )}
-              {formData.agenda_items.filter(i => i.title).length === 0 && (
-                <div style={{ color: "#64748b", fontSize: "13px", textAlign: "center", padding: "20px" }}>
-                  Add pillars to see preview...
+              {formData.agenda_items.map((item, i) => item.title && (
+                <div key={i} style={{ marginBottom: "12px", padding: "10px", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "14px" }}>{item.title}</div>
+                  <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>{item.description}</div>
                 </div>
-              )}
+              ))}
             </div>
-          </PreviewSide>
-        </GlassCard>
+          </PreviewSection>
+        </TwoColumn>
       )}
-    </div>
+    </Container>
   );
 };
 
