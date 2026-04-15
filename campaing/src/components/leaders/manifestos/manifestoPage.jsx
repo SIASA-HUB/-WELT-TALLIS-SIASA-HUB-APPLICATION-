@@ -275,71 +275,75 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     }
   };
 
-  const fetchManifesto = async () => {
-    if (!leaderId) return;
+ const fetchManifesto = async () => {
+  if (!leaderId) return;
 
-    loadingBarRef.current?.continuousStart();
-    setLoading(true);
+  loadingBarRef.current?.continuousStart();
+  setLoading(true);
 
-    try {
-      const response = await api.get(
-        `/leaders/manifestos/leader/${leaderId}`,
-        { timeout: 60000 },
-      );
+  try {
+    const response = await api.get(
+      `/leaders/manifestos/leader/${leaderId}`,
+      { timeout: 60000 },
+    );
 
-      if (response.data.success && response.data.data?.length > 0) {
-        const manifestoData = response.data.data[0];
-        setManifesto(manifestoData);
+    // ✅ FIX: Response is already unwrapped by interceptor
+    // The structure is: { success: true, data: [...] }
+    if (response && response.success && response.data?.length > 0) {
+      const manifestoData = response.data[0]; // Get first manifesto
+      setManifesto(manifestoData);
 
-        let agendaItems = manifestoData.agenda_items;
-        if (typeof agendaItems === "string") {
-          agendaItems = JSON.parse(agendaItems);
-        }
-
-        const itemsWithDefaultStats = (agendaItems || []).map((item, idx) => ({
-          ...item,
-          id: item.agenda_item_id || item.id || idx,
-          stats: {
-            approve_count: 0,
-            reject_count: 0,
-            neutral_count: 0,
-            total_votes: 0,
-            approval_rate: 0,
-            rejection_rate: 0,
-            neutral_rate: 0,
-          },
-        }));
-        setAgendaItems(itemsWithDefaultStats);
-
-        const manifestoId = manifestoData.manifesto_id || manifestoData.id;
-        if (manifestoId) {
-          try {
-            const statsResponse = await api.get(
-              `/leaders/manifestos/${manifestoId}/stats`,
-            );
-            if (statsResponse.data.success) {
-              setAgendaItems((prev) =>
-                prev.map((item, idx) => ({
-                  ...item,
-                  stats: statsResponse.data.data[idx] || item.stats,
-                })),
-              );
-            }
-          } catch (statsErr) {
-            console.error("Error fetching stats:", statsErr);
-          }
-        }
-      } else {
-        setError("No manifesto found for this leader");
+      let agendaItems = manifestoData.agenda_items;
+      if (typeof agendaItems === "string") {
+        agendaItems = JSON.parse(agendaItems);
       }
-    } catch (err) {
-      console.error("Error fetching manifesto:", err);
-      setError(err.response?.data?.message || "Failed to load manifesto");
-    } finally {
-      setLoading(false);
-      loadingBarRef.current?.complete();
+
+      const itemsWithDefaultStats = (agendaItems || []).map((item, idx) => ({
+        ...item,
+        id: item.id || item.agenda_item_id || idx,
+        agenda_item_id: item.id || item.agenda_item_id,
+        stats: {
+          approve_count: 0,
+          reject_count: 0,
+          neutral_count: 0,
+          total_votes: 0,
+          approval_rate: 0,
+          rejection_rate: 0,
+          neutral_rate: 0,
+        },
+      }));
+      setAgendaItems(itemsWithDefaultStats);
+
+      const manifestoId = manifestoData.manifesto_id || manifestoData.id;
+      if (manifestoId) {
+        try {
+          const statsResponse = await api.get(
+            `/leaders/manifestos/${manifestoId}/stats`,
+          );
+          // ✅ FIX: Check stats response structure
+          if (statsResponse && statsResponse.success) {
+            setAgendaItems((prev) =>
+              prev.map((item, idx) => ({
+                ...item,
+                stats: statsResponse.data[idx] || item.stats,
+              })),
+            );
+          }
+        } catch (statsErr) {
+          console.error("Error fetching stats:", statsErr);
+        }
+      }
+    } else {
+      setError(response?.message || "No manifesto found for this leader");
     }
-  };
+  } catch (err) {
+    console.error("Error fetching manifesto:", err);
+    setError(err.response?.data?.message || "Failed to load manifesto");
+  } finally {
+    setLoading(false);
+    loadingBarRef.current?.complete();
+  }
+};
 
   const handleVote = async (item, voteType) => {
     if (!manifesto) return;
