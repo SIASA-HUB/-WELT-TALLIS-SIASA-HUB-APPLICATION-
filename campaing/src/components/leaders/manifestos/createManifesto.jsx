@@ -36,7 +36,7 @@ const InputWrapper = styled.div`
   label {
     display: block;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
     color: #475569;
     margin-bottom: 6px;
   }
