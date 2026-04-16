@@ -1,7 +1,6 @@
 import axios from 'axios';
 import API from './config';
 
-
 const api = axios.create({
   baseURL: API.BASE,
   withCredentials: true,
@@ -11,9 +10,11 @@ const api = axios.create({
   timeout: 60000,
 });
 
-// Request interceptor: Auth Tokens
+// Request interceptor: Auth Tokens  include access_token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token') || 
+  // Check for token 
+  const token = localStorage.getItem('access_token') ||  
+                localStorage.getItem('token') || 
                 localStorage.getItem('leaderToken') || 
                 localStorage.getItem('aspirant_token') ||
                 localStorage.getItem('admin_token');
@@ -22,27 +23,60 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-
   
   return config;
 }, (error) => {
   return Promise.reject(error);
 });
 
-// Response interceptor: Global Error Handling & Data extraction
+
 api.interceptors.response.use(
   (response) => {
-    // Return the response data directly as the component expects
+   
     return response.data;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 Unauthorized - try to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Try to refresh the token
+        const refreshResponse = await api.post('/users/refresh');
+        
+        if (refreshResponse && refreshResponse.success && refreshResponse.accessToken) {
+          // Store the new token
+          localStorage.setItem('access_token', refreshResponse.accessToken);
+          localStorage.setItem('token', refreshResponse.accessToken);
+          
+          if (refreshResponse.csrfToken) {
+            localStorage.setItem('csrf_token', refreshResponse.csrfToken);
+          }
+          
+          // Update the authorization header
+          originalRequest.headers.Authorization = `Bearer ${refreshResponse.accessToken}`;
+          
+          // Retry the original request
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        // If refresh fails, redirect to login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('csrf_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('leaderToken');
+        localStorage.removeItem('aspirant_token');
+        localStorage.removeItem('admin_token');
+        window.location.href = '/login';
+      }
+    }
+    
     const errorMsg = error.response?.data?.message || error.message;
     console.error(' [API Error]:', errorMsg);
-    
-    // Handle specific errors (e.g., 401 Unauthorized)
-    if (error.response?.status === 401) {
-   
-    }
     
     return Promise.reject(error);
   }
@@ -58,7 +92,6 @@ api.getCachedData = (url) => {
     const cached = localStorage.getItem(CACHE_KEY_PREFIX + url);
     if (!cached) return null;
     const { data, timestamp } = JSON.parse(cached);
-    // Check if cache is still valid (optional, but SWR usually allows stale data)
     return data;
   } catch (e) {
     return null;
@@ -77,12 +110,10 @@ api.setCachedData = (url, data) => {
   }
 };
 
-
 // TTL management
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 api.getWithCache = async (url, onCacheHit, config = {}) => {
-  // 1. Check cache — but only use if within TTL
   const cached = api.getCachedData(url);
   const isCacheValid = cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL;
 
@@ -90,18 +121,15 @@ api.getWithCache = async (url, onCacheHit, config = {}) => {
     onCacheHit(cached);
   }
 
-  // 2. Always fetch fresh (Stale-While-Revalidate pattern)
   try {
     const response = await api.get(url, config);
 
-    // Only cache successful, non-empty responses
     const isValidResponse = response && (
       Array.isArray(response) ? response.length > 0 :
       (response.success !== false && response !== null)
     );
 
     if (isValidResponse) {
-      // Tag with timestamp for TTL checks
       const toCache = Array.isArray(response) ? response : { ...response, _cachedAt: Date.now() };
       if (!Array.isArray(toCache)) toCache._cachedAt = Date.now();
       api.setCachedData(url, toCache);
@@ -109,7 +137,6 @@ api.getWithCache = async (url, onCacheHit, config = {}) => {
 
     return response;
   } catch (error) {
-    // Return stale cache on network failure (but not on 404/401 errors)
     const status = error.response?.status;
     if (isCacheValid && status !== 404 && status !== 401 && status !== 403) {
       console.warn(`[Cache] Serving stale data for ${url} (status: ${status})`);
@@ -118,7 +145,6 @@ api.getWithCache = async (url, onCacheHit, config = {}) => {
     throw error;
   }
 };
-
 
 /**
  * Clean Cache 
