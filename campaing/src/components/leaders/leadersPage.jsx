@@ -267,7 +267,7 @@ const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 10px;
   margin-bottom: 12px;
   margin-top: 16px;
 
