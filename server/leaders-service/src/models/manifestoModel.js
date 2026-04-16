@@ -40,6 +40,13 @@ class ManifestoModel {
       });
     }
 
+    await safeQuery(
+      `INSERT INTO manifesto_analytics (manifesto_id, views_count, reads_count, shares_count, votes_count, created_at, updated_at)
+       VALUES (?, 0, 0, 0, 0, ?, ?)
+       ON DUPLICATE KEY UPDATE manifesto_id = manifesto_id`,
+      [manifesto_id, now, now]
+    );
+
     return {
       manifesto_id,
       leader_id,
@@ -47,6 +54,56 @@ class ManifestoModel {
       agenda_items: agendaItemsWithIds,
       created_at: now,
     };
+  }
+
+  static async ensureAnalyticsRecord(manifesto_id) {
+    if (!manifesto_id) return false;
+    await safeQuery(
+      `INSERT INTO manifesto_analytics (manifesto_id, views_count, reads_count, shares_count, votes_count, created_at, updated_at)
+       VALUES (?, 0, 0, 0, 0, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE manifesto_id = manifesto_id`,
+      [manifesto_id]
+    );
+    return true;
+  }
+
+  static async getAnalytics(manifesto_id) {
+    if (!manifesto_id) {
+      return { views_count: 0, reads_count: 0, shares_count: 0, votes_count: 0 };
+    }
+
+    const rows = await safeQuery(
+      `SELECT manifesto_id, views_count, reads_count, shares_count, votes_count
+       FROM manifesto_analytics
+       WHERE manifesto_id = ?`,
+      [manifesto_id]
+    );
+    if (!rows || rows.length === 0) {
+      return { views_count: 0, reads_count: 0, shares_count: 0, votes_count: 0 };
+    }
+    return rows[0];
+  }
+
+  static async incrementAnalytics(manifesto_id, field) {
+    if (!manifesto_id || !['views_count','reads_count','shares_count','votes_count'].includes(field)) {
+      return false;
+    }
+    await this.ensureAnalyticsRecord(manifesto_id);
+    await safeQuery(
+      `UPDATE manifesto_analytics SET ${field} = ${field} + 1, updated_at = NOW() WHERE manifesto_id = ?`,
+      [manifesto_id]
+    );
+    return true;
+  }
+
+  static async updateVoteAnalytics(manifesto_id, increment = 1) {
+    if (!manifesto_id) return false;
+    await this.ensureAnalyticsRecord(manifesto_id);
+    await safeQuery(
+      `UPDATE manifesto_analytics SET votes_count = votes_count + ?, updated_at = NOW() WHERE manifesto_id = ?`,
+      [increment, manifesto_id]
+    );
+    return true;
   }
 
   static async update(manifesto_id, main_agenda, agenda_items) {
@@ -85,10 +142,15 @@ class ManifestoModel {
 
   static async findByLeaderId(leader_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, created_at, updated_at
-       FROM manifestos
-       WHERE leader_id = ?
-       ORDER BY created_at DESC`,
+      `SELECT m.manifesto_id, m.leader_id, m.main_agenda, m.created_at, m.updated_at,
+              COALESCE(ma.views_count, 0) as views_count,
+              COALESCE(ma.reads_count, 0) as reads_count,
+              COALESCE(ma.shares_count, 0) as shares_count,
+              COALESCE(ma.votes_count, 0) as votes_count
+       FROM manifestos m
+       LEFT JOIN manifesto_analytics ma ON m.manifesto_id = ma.manifesto_id
+       WHERE m.leader_id = ?
+       ORDER BY m.created_at DESC`,
       [leader_id]
     );
 
@@ -111,9 +173,14 @@ class ManifestoModel {
 
   static async findById(manifesto_id) {
     const rows = await safeQuery(
-      `SELECT manifesto_id, leader_id, main_agenda, created_at, updated_at
-       FROM manifestos
-       WHERE manifesto_id = ?`,
+      `SELECT m.manifesto_id, m.leader_id, m.main_agenda, m.created_at, m.updated_at,
+              COALESCE(ma.views_count, 0) as views_count,
+              COALESCE(ma.reads_count, 0) as reads_count,
+              COALESCE(ma.shares_count, 0) as shares_count,
+              COALESCE(ma.votes_count, 0) as votes_count
+       FROM manifestos m
+       LEFT JOIN manifesto_analytics ma ON m.manifesto_id = ma.manifesto_id
+       WHERE m.manifesto_id = ?`,
       [manifesto_id]
     );
     if (rows.length === 0) return null;
@@ -230,13 +297,40 @@ class ManifestoModel {
     return true;
   }
 
-  // Track View (Read Time)
-  static async trackView(manifesto_id, user_id, read_time) {
+  // Track View / Read Time and increment analytics totals
+  static async trackView(manifesto_id, user_id, read_time = 0) {
+    if (!manifesto_id) return false;
     await safeQuery(
       `INSERT INTO manifesto_views (manifesto_id, user_id, read_time, created_at)
        VALUES (?, ?, ?, NOW())`,
       [manifesto_id, user_id || null, read_time]
     );
+
+    await this.incrementAnalytics(manifesto_id, 'views_count');
+    return true;
+  }
+
+  static async trackRead(manifesto_id, user_id, read_time = 0) {
+    if (!manifesto_id) return false;
+    await safeQuery(
+      `INSERT INTO manifesto_views (manifesto_id, user_id, read_time, created_at)
+       VALUES (?, ?, ?, NOW())`,
+      [manifesto_id, user_id || null, read_time]
+    );
+
+    await this.incrementAnalytics(manifesto_id, 'reads_count');
+    return true;
+  }
+
+  static async trackShare(manifesto_id, user_id, platform = 'generic') {
+    if (!manifesto_id) return false;
+    await safeQuery(
+      `INSERT INTO manifesto_shares (manifesto_id, user_id, platform, created_at)
+       VALUES (?, ?, ?, NOW())`,
+      [manifesto_id, user_id || null, platform]
+    );
+
+    await this.incrementAnalytics(manifesto_id, 'shares_count');
     return true;
   }
 }
