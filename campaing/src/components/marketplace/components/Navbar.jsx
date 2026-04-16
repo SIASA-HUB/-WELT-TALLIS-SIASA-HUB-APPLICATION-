@@ -5,8 +5,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import Button from "./Button";
 import { Menu, ShoppingCart, User as UserIcon } from "lucide-react";
 
-import { useAuth } from "@/components/hooks/useAuth";
-
 const Nav = styled.div`
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
@@ -21,31 +19,29 @@ const Nav = styled.div`
   z-index: 1000;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 `;
+
 const NavbarContainer = styled.div`
   width: 100%;
   max-width: 1400px;
   padding: 0 10px;
   display: flex;
   align-items: center;
- 
   justify-content: space-between;
   @media (max-width: 768px) {
     padding: 0 10px;
   }
 `;
+
 const NavLogo = styled.div`
   display: flex;
   align-items: center;
   cursor: pointer;
   font-size: 64px;
-  
 
   img {
     width: 130px;
     height: auto;
   }
-  
-
 `;
 
 const Logo = styled.img`
@@ -61,6 +57,7 @@ const NavItems = styled.ul`
     display: none;
   }
 `;
+
 const Navlink = styled(NavLink)`
   display: flex;
   align-items: center;
@@ -108,6 +105,7 @@ const MobileIcon = styled.div`
     align-items: center;
   }
 `;
+
 const Mobileicons = styled.div`
   color: #1e293b;
   display: none;
@@ -118,6 +116,7 @@ const Mobileicons = styled.div`
   }
 `;
 
+// Fixed: Changed isOpen to $isOpen (transient prop)
 const MobileMenu = styled.ul`
   display: flex;
   flex-direction: column;
@@ -130,8 +129,8 @@ const MobileMenu = styled.ul`
   width: 100%;
   height: calc(100vh - 80px);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: ${({ isOpen }) =>
-    isOpen ? "translateX(0)" : "translateX(100%)"};
+  transform: ${({ $isOpen }) =>
+    $isOpen ? "translateX(0)" : "translateX(100%)"};
   z-index: 999;
   box-shadow: -10px 0 30px rgba(0,0,0,0.05);
 `;
@@ -190,9 +189,8 @@ const CartBadge = styled.div`
   border: 2px solid white;
 `;
 
-const Navbar = ({ currentUser }) => {
+const Navbar = ({ currentUser, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const getCookie = (name) => {
@@ -202,9 +200,20 @@ const Navbar = ({ currentUser }) => {
     return null;
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
+  const handleLogout = () => {
+    // Clear cookies
+    document.cookie.split(";").forEach(function(c) {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    // Clear localStorage
+    localStorage.removeItem("guest_cart");
+    localStorage.removeItem("user_info");
+    sessionStorage.clear();
+    // Call parent logout handler if provided
+    if (onLogout) {
+      onLogout();
+    }
+    navigate("/login");
   };
 
   const handleSignIn = () => {
@@ -240,20 +249,23 @@ const Navbar = ({ currentUser }) => {
           </Navlink>
           
           {(currentUser || !!getCookie("user_info")) ? (
-            <AvatarCircle onClick={() => navigate("/marketplace/profile")}>
-              {userImage ? (
-                <AvatarImg src={userImage} />
-              ) : (
-                userInitial
-              )}
-            </AvatarCircle>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <AvatarCircle onClick={() => navigate("/marketplace/profile")}>
+                {userImage ? (
+                  <AvatarImg src={userImage} />
+                ) : (
+                  userInitial
+                )}
+              </AvatarCircle>
+              <TextButton onClick={handleLogout}>Logout</TextButton>
+            </div>
           ) : (
             <TextButton onClick={handleSignIn}>Sign In</TextButton>
           )}
         </ButtonContainer>
 
         <Mobileicons>
-           <Navlink to="/marketplace/cart">
+          <Navlink to="/marketplace/cart">
             <div style={{ position: "relative" }}>
               <ShoppingCart size={26} color="inherit" />
               {cartCount > 0 && <CartBadge>{cartCount}</CartBadge>}
@@ -264,10 +276,25 @@ const Navbar = ({ currentUser }) => {
           </MobileIcon>
         </Mobileicons>
 
-        <MobileMenu isOpen={isOpen}>
-            <Navlink to="/marketplace" onClick={() => setIsOpen(false)}>Home</Navlink>
-            <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Shop</Navlink>
-            <Navlink to="/marketplace/cart" onClick={() => setIsOpen(false)}>Cart</Navlink>
+        {/* Fixed: Changed isOpen to $isOpen */}
+        <MobileMenu $isOpen={isOpen}>
+          <Navlink to="/marketplace" onClick={() => setIsOpen(false)}>Home</Navlink>
+          <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Shop</Navlink>
+          <Navlink to="/marketplace/cart" onClick={() => setIsOpen(false)}>Cart</Navlink>
+          {(currentUser || !!getCookie("user_info")) ? (
+            <>
+              <Navlink to="/marketplace/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
+              <TextButton onClick={() => {
+                handleLogout();
+                setIsOpen(false);
+              }}>Logout</TextButton>
+            </>
+          ) : (
+            <TextButton onClick={() => {
+              handleSignIn();
+              setIsOpen(false);
+            }}>Sign In</TextButton>
+          )}
         </MobileMenu>
       </NavbarContainer>
     </Nav>
