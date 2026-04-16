@@ -40,15 +40,14 @@ const PageWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: "Inter", sans-serif;
   background-color: ${colors.bg};
-  padding: 40px 20px;
+  padding: 10px 20px;
 `;
 
 const FormCard = styled.div`
   background: white;
   width: 100%;
-  max-width: 1000px;
+  max-width: 1200px;
   border-radius: 24px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   overflow: hidden;
