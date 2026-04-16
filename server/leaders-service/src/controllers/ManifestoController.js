@@ -80,19 +80,33 @@ const getManifestoStats = asyncHandler(async (req, res) => {
 
   if (agenda_item_id) {
     const stats = await ManifestoVoteModel.getStats(manifestoId, agenda_item_id);
-    return res.status(200).json({ success: true, data: { manifestoId, agenda_item_id, ...stats } });
+    const analytics = await ManifestoModel.getAnalytics(manifestoId);
+    return res.status(200).json({
+      success: true,
+      data: {
+        manifestoId,
+        agenda_item_id,
+        analytics,
+        stats,
+      },
+    });
   }
 
   const manifesto = await ManifestoModel.findById(manifestoId);
   if (!manifesto) return res.status(404).json({ success: false, message: "Manifesto not found" });
 
+  const analytics = await ManifestoModel.getAnalytics(manifestoId);
   const agendaStats = await ManifestoVoteModel.getStats(manifestoId);
   const recentVotes = await ManifestoVoteModel.getRecentVotes(manifestoId, 15);
 
   res.status(200).json({
     success: true,
-    data: agendaStats,
-    recent_votes: recentVotes
+    data: {
+      manifesto,
+      analytics,
+      agenda_stats: agendaStats,
+    },
+    recent_votes: recentVotes,
   });
 });
 
@@ -121,10 +135,20 @@ const voteManifestoAgenda = asyncHandler(async (req, res) => {
     return res.status(409).json({ success: false, message: "You have already voted on this agenda item", data: { votes_count: agenda.votes_count } });
   }
 
+  await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
+
   res.status(200).json({
     success: true,
     message: "Vote recorded successfully",
-    data: { agenda_id, votes_count: result.votes_count, vote_type }
+    data: {
+      manifesto_id: agenda.manifesto_id,
+      agenda_id,
+      votes_count: result.votes_count,
+      approve_count: result.approve_count,
+      reject_count: result.reject_count,
+      total_votes: result.total_votes,
+      vote_type,
+    },
   });
 });
 
@@ -142,10 +166,26 @@ const voteOnManifesto = asyncHandler(async (req, res) => {
     return res.status(409).json({ success: false, already_voted: true, message: result.message });
   }
 
+  const agenda = await safeQueryOne(
+    `SELECT manifesto_id FROM manifesto_agendas WHERE id = ? LIMIT 1`,
+    [agenda_item_id]
+  );
+
+  if (agenda?.manifesto_id) {
+    await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
+  }
+
   res.status(200).json({
     success: true,
     message: "Vote recorded",
-    data: { manifestoId, agenda_item_id, votes_count: result.votes_count }
+    data: {
+      manifestoId,
+      agenda_item_id,
+      votes_count: result.votes_count,
+      approve_count: result.approve_count,
+      reject_count: result.reject_count,
+      total_votes: result.total_votes,
+    }
   });
 });
 
@@ -162,6 +202,63 @@ const getManifestoUserVotes = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: votes });
 });
 
+const trackManifestoView = asyncHandler(async (req, res) => {
+  const { manifestoId } = req.params;
+  const { read_time = 0 } = req.body;
+  const user_id = req.user?.user_id || null;
+
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "manifestoId is required" });
+  }
+
+  await ManifestoModel.trackView(manifestoId, user_id, read_time);
+  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+
+  res.status(200).json({
+    success: true,
+    message: "Manifesto view tracked",
+    data: { manifestoId, analytics },
+  });
+});
+
+const trackShare = asyncHandler(async (req, res) => {
+  const { manifestoId } = req.params;
+  const { platform = 'generic' } = req.body;
+  const user_id = req.user?.user_id || null;
+
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "manifestoId is required" });
+  }
+
+  await ManifestoModel.trackShare(manifestoId, user_id, platform);
+  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+
+  res.status(200).json({
+    success: true,
+    message: "Manifesto share tracked",
+    data: { manifestoId, platform, analytics },
+  });
+});
+
+const trackReadTime = asyncHandler(async (req, res) => {
+  const { manifestoId } = req.params;
+  const { user_id, read_time } = req.body;
+  const authenticatedUser = req.user?.user_id || null;
+
+  if (!manifestoId || read_time == null) {
+    return res.status(400).json({ success: false, message: "manifestoId and read_time are required" });
+  }
+
+  await ManifestoModel.trackRead(manifestoId, authenticatedUser || user_id || null, read_time);
+  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+
+  res.status(200).json({
+    success: true,
+    message: "Read time tracked",
+    data: { manifestoId, read_time, analytics },
+  });
+});
+
 // ===== GET TRENDING MANIFESTOS (real data) =====
 const getTrendingManifestos = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -176,19 +273,6 @@ const getPersonalizedManifestos = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: manifestos });
 });
 
-// ===== TRACK MANIFESTO READ TIME =====
-const trackReadTime = asyncHandler(async (req, res) => {
-  const { manifestoId } = req.params;
-  const { user_id, read_time } = req.body;
-
-  if (!manifestoId || !read_time) {
-    return res.status(400).json({ success: false, message: "manifestoId and read_time are required" });
-  }
-
-  await ManifestoModel.trackView(manifestoId, user_id, read_time);
-  res.status(200).json({ success: true, message: "Read time tracked" });
-});
-
 module.exports = {
   createManifesto,
   getManifestoById,
@@ -200,7 +284,9 @@ module.exports = {
   voteManifestoAgenda,
   voteOnManifesto,
   getManifestoUserVotes,
+  trackManifestoView,
+  trackShare,
+  trackReadTime,
   getTrendingManifestos,
   getPersonalizedManifestos,
-  trackReadTime,
 };
