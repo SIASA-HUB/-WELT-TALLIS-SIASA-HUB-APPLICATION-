@@ -21,7 +21,7 @@ const {
   boostLeader, getPersonalizedFeed, getPopularLeaders,
   getLeaderAnalyticsByCounty, getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard, getLeaderAnalyticsByPosition, getLeaderDashboardAnalytics,
-  requestVerification, getCompetitors,
+  requestVerification, getCompetitors, getAllLeaders, getLeaderAdminStats,
 } = require("../controllers/LeaderController");
 
 const {
@@ -144,6 +144,8 @@ router.post("/verification/request", verifyAspirantToken, requestVerification);
 // ============================================================
 // ADMIN ROUTES — admin role required
 // ============================================================
+router.get("/admin/all", authenticate, authorize("admin"), getAllLeaders);
+router.get("/admin/stats", authenticate, authorize("admin"), getLeaderAdminStats);
 router.post("/create", authenticate, authorize("admin"), handleMultipleUpload, processAndSaveImages, createLeader);
 router.put("/:leaderId/admin", authenticate, authorize("admin"), handleMultipleUpload, processAndSaveImages, updateLeader);
 router.patch("/verify/:leaderId", authenticate, authorize("admin"), async (req, res) => {
