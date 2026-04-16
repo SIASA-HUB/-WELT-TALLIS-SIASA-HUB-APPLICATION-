@@ -158,7 +158,7 @@ const loginUser = asyncHandler(async (req, res) => {
     };
 
     // Generate tokens with expiration based on remember_me
-    const accessTokenExpiry = remember_me ? "7d" : "15m";
+    const accessTokenExpiry = remember_me ? "7d" : "2h";
     const refreshTokenExpiry = remember_me ? "30d" : "7d";
 
     const accessToken = generateAccessToken(userPayload, accessTokenExpiry);
@@ -227,7 +227,7 @@ const loginUser = asyncHandler(async (req, res) => {
       accessToken, // Restored for frontend localStorage support
       csrfToken,
       sessionId,
-      expiresIn: remember_me ? 604800 : 900, // seconds
+      expiresIn: remember_me ? 604800 : 7200, // seconds (7 days or 2 hours)
       rememberMe: remember_me,
     });
   } catch (error) {
@@ -361,8 +361,9 @@ const refreshToken = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
+      accessToken: newAccessToken, // Added for frontend localStorage
       csrfToken: newCsrfToken,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn: 7200, // 2 hours in seconds
     });
   } catch (error) {
     Logger.error("Refresh token error", {
