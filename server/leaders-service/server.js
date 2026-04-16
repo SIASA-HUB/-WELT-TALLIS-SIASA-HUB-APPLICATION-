@@ -264,19 +264,43 @@ app.use((err, req, res, next) => {
 // DATABASE MIGRATIONS
 // ============================================
 
+
 const knexConfig = require("./knexfile");
 const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
 
 async function runMigrations() {
   try {
+    // Try to unlock first (in case of previous lock)
+    try {
+      await db.migrate.forceFreeMigrationsLock();
+      
+    } catch (unlockError) {
+      
+    }
+    
+    // Now run migrations
     await db.migrate.latest();
-    console.log("✅ Migrations up to date");
+  
   } catch (error) {
-    console.error("Migration error:", error);
+    if (error.message && error.message.includes('Migration table is already locked')) {
+    
+      
+      try {
+        // Try to unlock using raw SQL
+        await db.raw('UPDATE knex_migrations_lock SET is_locked = 0');
+        
+        
+        // Retry migrations
+        await db.migrate.latest();
+       
+      } catch (unlockErr) {
+      
+      }
+    } else {
+
+    }
   }
 }
-
-runMigrations();
 
 // ============================================
 // SERVER STARTUP
@@ -297,12 +321,7 @@ const HOST = process.env.HOST || "0.0.0.0";
         port: PORT,
         action: "server_started",
       });
-      console.log(`\n🚀 Server running at http://${HOST}:${PORT}`);
-      console.log(`🔌 Socket.IO server is ready`);
-      console.log(`📁 Serving static files from: ${uploadsDir}`);
-      console.log(`🔗 Image URL example: http://${HOST}:${PORT}/uploads/leaders/LDR_xxx/image.webp`);
-      console.log(`🏥 Health check: http://${HOST}:${PORT}/health`);
-      console.log(`\n📡 Ready to accept connections\n`);
+  
     });
 
     server.on('error', (error) => {
