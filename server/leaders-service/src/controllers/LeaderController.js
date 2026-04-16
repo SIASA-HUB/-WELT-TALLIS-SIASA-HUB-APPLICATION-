@@ -1450,6 +1450,98 @@ const deleteLeader = asyncHandler(async (req, res) => {
   }
 });
 
+// GET ALL LEADERS (Admin Only)
+const getAllLeaders = asyncHandler(async (req, res) => {
+  try {
+    const cacheKey = 'admin:all_leaders';
+    let leaders = await redisGet(cacheKey);
+
+    if (!leaders) {
+      const sql = `
+        SELECT 
+          l.leader_id, l.name, l.position, l.county, l.party, l.verification, 
+          l.boost_score, l.image_url, l.created_at, l.updated_at,
+          COUNT(m.manifesto_id) as manifesto_count
+        FROM leaders l
+        LEFT JOIN manifestos m ON l.leader_id = m.leader_id AND m.status = 'active'
+        WHERE l.status = 'active'
+        GROUP BY l.leader_id
+        ORDER BY l.created_at DESC
+      `;
+
+      leaders = await safeQuery(sql);
+      
+      // Cache for 5 minutes
+      await redisSet(cacheKey, leaders, 300);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: leaders,
+      count: leaders.length
+    });
+  } catch (error) {
+    Logger.error("Get all leaders error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leaders",
+      error: error.message
+    });
+  }
+});
+
+// GET LEADER ADMIN STATS
+const getLeaderAdminStats = asyncHandler(async (req, res) => {
+  try {
+    const cacheKey = 'admin:leader_stats';
+    let stats = await redisGet(cacheKey);
+
+    if (!stats) {
+      const sql = `
+        SELECT 
+          COUNT(*) as total_leaders,
+          SUM(CASE WHEN verification = 1 THEN 1 ELSE 0 END) as verified_leaders,
+          SUM(CASE WHEN verification = 0 THEN 1 ELSE 0 END) as pending_leaders,
+          COUNT(DISTINCT county) as total_counties,
+          COUNT(DISTINCT party) as total_parties
+        FROM leaders 
+        WHERE status = 'active'
+      `;
+
+      const result = await safeQuery(sql);
+      stats = result[0] || {};
+
+      // Get county distribution
+      const countySql = `
+        SELECT county, COUNT(*) as count 
+        FROM leaders 
+        WHERE status = 'active' AND county IS NOT NULL 
+        GROUP BY county 
+        ORDER BY count DESC 
+        LIMIT 10
+      `;
+      const countyStats = await safeQuery(countySql);
+
+      stats.countyDistribution = countyStats;
+
+      // Cache for 10 minutes
+      await redisSet(cacheKey, stats, 600);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    Logger.error("Get leader admin stats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch leader stats",
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   startLeaderWorkers,
   createLeader,
@@ -1474,5 +1566,7 @@ module.exports = {
   requestVerification,
   verifyLeader,
   rejectLeader,
-  deleteLeader
+  deleteLeader,
+  getAllLeaders,
+  getLeaderAdminStats
 };
