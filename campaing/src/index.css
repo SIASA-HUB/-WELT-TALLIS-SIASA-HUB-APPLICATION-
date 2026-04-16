@@ -1,9 +1,82 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap");
 
-/* Global Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+/* =========================
+   ROOT THEME VARIABLES
+========================= */
+:root {
+  --bg-main: #0a0a0a;
+  --bg-secondary: #121212;
+  --text-main: #ffffff;
+  --text-muted: #a0a0a0;
+  --accent-red: #e63946;
+  --border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Light Mode */
+body.light {
+  --bg-main: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --text-main: #000000;
+  --text-muted: #555;
+  --border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* =========================
+   BASE RESET
+========================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: "Poppins", "Inter", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.6;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* =========================
+   TYPOGRAPHY
+========================= */
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+p {
+  color: var(--text-muted);
+}
+
+/* Gradient Accent Text */
+.gradient-text {
+  background: linear-gradient(90deg, #e63946, #ff7b89);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* =========================
+   ANIMATIONS
+========================= */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pageReveal {
@@ -11,56 +84,166 @@
   to { opacity: 1; }
 }
 
-:root {
-  /* Political Theme Palette */
-  --bg-main: #000000;       /* Deep Black */
-  --text-main: #ffffff;     /* Pure White */
-  --accent-red: #e63946;    /* Vibrant Kenyan Red */
-  --text-muted: #a0a0a0;    /* Gray for less important info */
+.fade-up {
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards;
 }
 
-html {
-  margin: 0;
-  padding: 0;
+/* Stagger effect */
+.fade-up:nth-child(1) { animation-delay: 0.1s; }
+.fade-up:nth-child(2) { animation-delay: 0.2s; }
+.fade-up:nth-child(3) { animation-delay: 0.3s; }
+
+/* =========================
+   LAYOUT ELEMENTS
+========================= */
+#root {
+  animation: pageReveal 0.5s ease;
+}
+
+.container {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* =========================
+   CARDS (Glass Effect)
+========================= */
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* =========================
+   BUTTONS
+========================= */
+button {
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(230, 57, 70, 0.4);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* =========================
+   LINKS
+========================= */
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent-red);
+}
+
+/* =========================
+   INPUTS
+========================= */
+input,
+textarea,
+select {
   width: 100%;
-  height: auto;
-  scroll-behavior: smooth;
-  overflow-x: hidden;
-  background-color: #fff; /* Default to white for light mode */
-  font-family: "Poppins", "Inter", sans-serif;
-  color: #000; /* Default to black text */
-}
-
-/* Force Dark Mode defaults if needed, but allow Light Mode visibility */
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  background-color: #fff; /* Start with white */
-  color: #000;
-  line-height: 1.6;
-}
-
-/* Global Input Fixes for Visibility */
-input, select, textarea {
-  color: #000 !important;
-  background-color: #fff !important;
-  border: 1px solid #ccc !important;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  outline: none;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
 input::placeholder {
-  color: #666 !important;
-  opacity: 1;
+  color: var(--text-muted);
 }
 
-
-body.loaded {
-  opacity: 1;
+input:focus,
+textarea:focus {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
 }
 
-#root {
-  animation: pageReveal 0.6s ease-out;
+/* =========================
+   SCROLLBAR (Hidden but smooth)
+========================= */
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* =========================
+   SKELETON LOADER
+========================= */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #1a1a1a 25%,
+    #2a2a2a 37%,
+    #1a1a1a 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  opacity: 0.7;
+}
+
+/* =========================
+   MICRO INTERACTIONS
+========================= */
+img {
+  transition: transform 0.3s ease;
+}
+
+img:hover {
+  transform: scale(1.05);
+}
+
+/* =========================
+   UTILITY CLASSES
+========================= */
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+
+.hidden {
+  display: none;
+}  animation: pageReveal 0.6s ease-out;
 }
 
 /* Headings: Make them bold and "authoritative" */
