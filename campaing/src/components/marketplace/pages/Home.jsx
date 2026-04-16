@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, memo, lazy, Suspense } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { getAllProducts } from "../components/api";
-import { Spinner } from "react-bootstrap";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck } from "lucide-react";
 
 // Lazy load non-critical components
@@ -28,6 +27,11 @@ const float = keyframes`
 const rotateBlob = keyframes`
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 `;
 
 // --- STYLED COMPONENTS ---
@@ -64,15 +68,15 @@ const CarouselContainer = styled.div`
   }
 `;
 
-const Slide = React.memo(({ active, children }) => (
+const Slide = React.memo(({ $active, children }) => (
   <div style={{
     position: "absolute",
     top: 0,
     left: 0,
     width: "100%",
     height: "100%",
-    opacity: active ? 1 : 0,
-    zIndex: active ? 1 : 0,
+    opacity: $active ? 1 : 0,
+    zIndex: $active ? 1 : 0,
     transition: "opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
     display: "flex",
     alignItems: "center",
@@ -87,10 +91,10 @@ const SlideImage = styled.img`
   height: 100%;
   object-fit: cover;
   opacity: 0.5;
-  ${({ active }) => active && css`animation: ${kenBurns} 10s ease-out forwards;`}
+  ${({ $active }) => $active && css`animation: ${kenBurns} 10s ease-out forwards;`}
 `;
 
-const SlideContent = React.memo(({ active, children }) => (
+const SlideContent = React.memo(({ $active, children }) => (
   <div style={{
     position: "absolute",
     zIndex: 10,
@@ -98,8 +102,8 @@ const SlideContent = React.memo(({ active, children }) => (
     color: "white",
     maxWidth: "900px",
     padding: "0 40px",
-    opacity: active ? 1 : 0,
-    transform: active ? "translateY(0)" : "translateY(40px)",
+    opacity: $active ? 1 : 0,
+    transform: $active ? "translateY(0)" : "translateY(40px)",
     transition: "all 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s"
   }}>
     {children}
@@ -258,6 +262,7 @@ const CardWrapper = styled.div`
   gap: 10px;
   padding: 0 10px;
   grid-template-columns: repeat(2, 1fr);
+  contain: layout style paint;
   
   @media (min-width: 768px) {
     grid-template-columns: repeat(3, 1fr);
@@ -275,16 +280,112 @@ const CardWrapper = styled.div`
   }
 `;
 
-const FloatWrapper = React.memo(({ delay, children }) => (
-  <div style={{
-    animation: `${float} 6s ease-in-out infinite`,
-    animationDelay: delay || "0s",
-    width: "100%",
-    display: "flex",
-    justifyContent: "center"
-  }}>
-    <div style={{ width: "100%" }}>{children}</div>
-  </div>
+// Fixed FloatWrapper - 
+const FloatWrapperStyled = styled.div`
+  animation: ${float} 6s ease-in-out infinite;
+  animation-delay: ${({ $delay }) => $delay || "0s"};
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  
+  > div {
+    width: 100%;
+  }
+`;
+
+const FloatWrapper = memo(({ delay, children }) => (
+  <FloatWrapperStyled $delay={delay}>
+    {children}
+  </FloatWrapperStyled>
+));
+
+// Skeleton Components - Fixed to use styled-components
+const SkeletonCard = styled.div`
+  background: #1e293b;
+  border-radius: 16px;
+  overflow: hidden;
+  animation: ${pulse} 1.5s ease-in-out infinite;
+`;
+
+const SkeletonImage = styled.div`
+  height: 200px;
+  background: #334155;
+  border-radius: 16px 16px 0 0;
+`;
+
+const SkeletonContent = styled.div`
+  padding: 16px;
+`;
+
+const SkeletonLine = styled.div`
+  height: 20px;
+  background: #334155;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  width: ${({ $width }) => $width || '100%'};
+`;
+
+const SkeletonLineSmall = styled.div`
+  height: 16px;
+  background: #334155;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  width: ${({ $width }) => $width || '100%'};
+`;
+
+const SkeletonPrice = styled.div`
+  height: 24px;
+  background: #334155;
+  border-radius: 8px;
+  margin-top: 12px;
+  width: 40%;
+`;
+
+// Category Skeleton
+const CategorySkeletonCard = styled.div`
+  background: #1e293b;
+  border-radius: 16px;
+  overflow: hidden;
+  animation: ${pulse} 1.5s ease-in-out infinite;
+`;
+
+const CategorySkeletonImage = styled.div`
+  height: 160px;
+  background: #334155;
+  border-radius: 16px 16px 0 0;
+`;
+
+const CategorySkeletonContent = styled.div`
+  padding: 16px;
+  text-align: center;
+`;
+
+const CategorySkeletonTitle = styled.div`
+  height: 20px;
+  background: #334155;
+  border-radius: 8px;
+  width: 70%;
+  margin: 0 auto;
+`;
+
+const ProductCardSkeleton = memo(() => (
+  <SkeletonCard>
+    <SkeletonImage />
+    <SkeletonContent>
+      <SkeletonLine $width="80%" />
+      <SkeletonLineSmall $width="60%" />
+      <SkeletonPrice />
+    </SkeletonContent>
+  </SkeletonCard>
+));
+
+const CategoryCardSkeleton = memo(() => (
+  <CategorySkeletonCard>
+    <CategorySkeletonImage />
+    <CategorySkeletonContent>
+      <CategorySkeletonTitle />
+    </CategorySkeletonContent>
+  </CategorySkeletonCard>
 ));
 
 // Memoized carousel data
@@ -328,7 +429,8 @@ const MemoizedProductCard = memo(ProductCard);
 
 const Home = () => {
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [progress, setProgress] = useState(0);
   const [visibleSections, setVisibleSections] = useState({});
@@ -383,26 +485,35 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Optimized product fetch with caching
+  // Simulate categories loading
+  useEffect(() => {
+    const timer = setTimeout(() => setCategoriesLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Optimized product fetch with caching and timeout
   const getProducts = useCallback(async () => {
     setLoading(true);
     try {
-      // Check cache first
       const cacheKey = 'siasahub_products_cache';
       const cachedData = sessionStorage.getItem(cacheKey);
       const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
       
-      if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 300000) { // 5 minutes cache
+      if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 300000) {
         setProducts(JSON.parse(cachedData));
         setLoading(false);
         return;
       }
 
-      const productsData = await getAllProducts();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const productsPromise = getAllProducts();
+      const productsData = await Promise.race([productsPromise, timeoutPromise]);
       const normalizedProducts = Array.isArray(productsData) ? productsData : [];
       setProducts(normalizedProducts);
       
-      // Cache the results
       sessionStorage.setItem(cacheKey, JSON.stringify(normalizedProducts));
       sessionStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
     } catch (error) {
@@ -414,27 +525,38 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    // Clear old cache on mount
-    try {
-      const CACHE_PREFIX = 'siasahub_cache_';
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith(CACHE_PREFIX + '/products')) {
-          localStorage.removeItem(key);
-        }
-      });
-    } catch (_) {}
+    const preloadLink = document.createElement('link');
+    preloadLink.rel = 'preload';
+    preloadLink.as = 'image';
+    preloadLink.href = carouselData[0].image;
+    document.head.appendChild(preloadLink);
     
     getProducts();
+    
+    return () => {
+      if (preloadLink.parentNode) document.head.removeChild(preloadLink);
+    };
   }, [getProducts]);
 
-  // Memoized product list
+  const categoryList = useMemo(() => {
+    if (!categoriesLoaded) {
+      return Array(4).fill().map((_, i) => (
+        <CategoryCardSkeleton key={`cat-skeleton-${i}`} />
+      ));
+    }
+    
+    return categories.map((cat, index) => (
+      <FloatWrapper key={index} delay={cat.delay}>
+        <MemoizedCategoryCard category={cat} />
+      </FloatWrapper>
+    ));
+  }, [categoriesLoaded]);
+
   const productList = useMemo(() => {
     if (loading) {
-      return (
-        <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
-          <Spinner animation="border" style={{ color: "#e11d48" }} />
-        </div>
-      );
+      return Array(8).fill().map((_, i) => (
+        <ProductCardSkeleton key={`product-skeleton-${i}`} />
+      ));
     }
     
     if (products.length === 0) {
@@ -445,7 +567,7 @@ const Home = () => {
       );
     }
     
-    return products.map((product) => (
+    return products.slice(0, 8).map((product) => (
       <MemoizedProductCard key={product._id} product={product} />
     ));
   }, [products, loading]);
@@ -458,14 +580,14 @@ const Home = () => {
 
       <CarouselContainer>
         {carouselData.map((slide, index) => (
-          <Slide key={index} active={currentSlide === index}>
+          <Slide key={index} $active={currentSlide === index}>
             <SlideImage 
               src={slide.image} 
               alt={slide.title} 
-              active={currentSlide === index}
+              $active={currentSlide === index}
               loading={index === 0 ? "eager" : "lazy"}
             />
-            <SlideContent active={currentSlide === index}>
+            <SlideContent $active={currentSlide === index}>
               <PartyBadge>
                 <Sparkles size={14} />
                 {slide.party}
@@ -494,11 +616,7 @@ const Home = () => {
               <Title>Shop By Category</Title>
             </HeaderGroup>
             <CardWrapper>
-              {categories.map((cat, index) => (
-                <FloatWrapper key={index} delay={cat.delay}>
-                  <MemoizedCategoryCard category={cat} />
-                </FloatWrapper>
-              ))}
+              {categoryList}
             </CardWrapper>
           </Section>
         </RevealSection>
