@@ -151,7 +151,7 @@ const FormInput = styled.input`
   border: 1px solid ${(props) => (props.error ? "#ef4444" : "#e5e7eb")};
   border-radius: 12px;
   font-size: 15px;
-  color: #1e293b; /* Fix visibility */
+  color: #1e293b; 
   background: white;
   transition: all 0.3s ease;
 
@@ -376,61 +376,79 @@ const LoginPage = () => {
     if (errorMessage) setErrorMessage("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMessage("");
-    setSuccessMessage("");
 
-    if (!loginData.username || !loginData.password) {
-      setErrorMessage("Please fill in all fields");
-      return;
-    }
 
-    if (loginData.username.length < 3) {
-      setErrorMessage("Username must be at least 3 characters");
-      return;
-    }
+// In LoginPage.jsx - update the handleSubmit function
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setErrorMessage("");
+  setSuccessMessage("");
 
-    if (loginData.password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters");
-      return;
-    }
+  if (!loginData.username || !loginData.password) {
+    setErrorMessage("Please fill in all fields");
+    return;
+  }
 
-    setIsSubmitting(true);
-    loadingBarRef.current?.continuousStart();
+  if (loginData.username.length < 3) {
+    setErrorMessage("Username must be at least 3 characters");
+    return;
+  }
 
-    try {
-      const result = await login(loginData.username, loginData.password);
+  if (loginData.password.length < 6) {
+    setErrorMessage("Password must be at least 6 characters");
+    return;
+  }
 
-      if (result.success) {
-        const user = result.user;
-        const userRole = user?.role || "user";
-        
-        loadingBarRef.current?.complete();
+  setIsSubmitting(true);
+  loadingBarRef.current?.continuousStart();
 
-        // Redirect based on role
-        const redirectPath = getRedirectPathByRole(userRole);
-        
-        
-        
-        navigate(redirectPath, { 
-          replace: true,
-          state: { 
-            welcomeMessage: `Welcome back, ${user.real_name || user.username}!`,
-            userRole: userRole
-          }
-        });
-      } else {
-        throw new Error(result.message || "Login failed");
+  try {
+    const result = await login(loginData.username, loginData.password);
+
+    if (result.success) {
+      const user = result.user;
+      const userRole = user?.role || "user";
+      
+      // IMPORTANT: Ensure token is stored with both keys
+      if (result.token || result.accessToken) {
+        const token = result.token || result.accessToken;
+        localStorage.setItem('access_token', token);
+        localStorage.setItem('token', token);
       }
-    } catch (err) {
-      console.error("Login error:", err);
+      
       loadingBarRef.current?.complete();
-      setErrorMessage(err.message || "Invalid username or password. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+
+      // Redirect based on role
+      const redirectPath = getRedirectPathByRole(userRole);
+      
+      // For wallet access, make sure user ID is properly stored
+      if (user && user.id) {
+        localStorage.setItem('user_id', user.id);
+      }
+      
+      navigate(redirectPath, { 
+        replace: true,
+        state: { 
+          welcomeMessage: `Welcome back, ${user.real_name || user.username}!`,
+          userRole: userRole
+        }
+      });
+    } else {
+      throw new Error(result.message || "Login failed");
     }
-  };
+  } catch (err) {
+    console.error("Login error:", err);
+    loadingBarRef.current?.complete();
+    setErrorMessage(err.message || "Invalid username or password. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+
+
+
+
 
 
   return (
