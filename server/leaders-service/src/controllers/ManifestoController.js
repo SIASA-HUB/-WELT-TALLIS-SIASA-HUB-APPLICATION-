@@ -33,44 +33,98 @@ const createManifesto = asyncHandler(async (req, res) => {
 // ===== GET MANIFESTO BY ID =====
 const getManifestoById = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
-  const manifesto = await ManifestoModel.findById(manifestoId);
-  if (!manifesto) return res.status(404).json({ success: false, message: "Manifesto not found" });
-  res.status(200).json({ success: true, data: manifesto });
+  
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "Manifesto ID is required" });
+  }
+  
+  try {
+    const manifesto = await ManifestoModel.findById(manifestoId);
+    if (!manifesto) {
+      return res.status(404).json({ success: false, message: "Manifesto not found" });
+    }
+    res.status(200).json({ success: true, data: manifesto });
+  } catch (error) {
+    Logger.error("Get manifesto by ID error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch manifesto" });
+  }
 });
 
 // ===== UPDATE MANIFESTO =====
 const updateManifesto = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { main_agenda, agenda_items } = req.body;
-  await ManifestoModel.update(manifestoId, main_agenda, agenda_items);
-  const updatedManifesto = await ManifestoModel.findById(manifestoId);
-  res.status(200).json({ success: true, data: updatedManifesto, message: "Manifesto updated successfully" });
+  
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "Manifesto ID is required" });
+  }
+  
+  try {
+    await ManifestoModel.update(manifestoId, main_agenda, agenda_items);
+    const updatedManifesto = await ManifestoModel.findById(manifestoId);
+    res.status(200).json({ success: true, data: updatedManifesto, message: "Manifesto updated successfully" });
+  } catch (error) {
+    Logger.error("Update manifesto error:", error);
+    res.status(500).json({ success: false, message: "Failed to update manifesto" });
+  }
 });
 
 // ===== DELETE MANIFESTO =====
 const deleteManifesto = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
-  await ManifestoModel.delete(manifestoId);
-  res.status(200).json({ success: true, message: "Manifesto deleted successfully" });
+  
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "Manifesto ID is required" });
+  }
+  
+  try {
+    await ManifestoModel.delete(manifestoId);
+    res.status(200).json({ success: true, message: "Manifesto deleted successfully" });
+  } catch (error) {
+    Logger.error("Delete manifesto error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete manifesto" });
+  }
 });
 
 // ===== DELETE SINGLE AGENDA ITEM =====
 const deleteAgendaItem = asyncHandler(async (req, res) => {
   const { agendaId } = req.params;
-  if (!agendaId) return res.status(400).json({ success: false, message: "agendaId is required" });
+  
+  if (!agendaId) {
+    return res.status(400).json({ success: false, message: "Agenda ID is required" });
+  }
 
-  await safeQuery(`DELETE FROM manifesto_agendas WHERE id = ?`, [agendaId]);
-  res.status(200).json({ success: true, message: "Agenda item deleted successfully" });
+  try {
+    await safeQuery(`DELETE FROM manifesto_agendas WHERE id = ?`, [agendaId]);
+    res.status(200).json({ success: true, message: "Agenda item deleted successfully" });
+  } catch (error) {
+    Logger.error("Delete agenda item error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete agenda item" });
+  }
 });
 
 // ===== GET MANIFESTO BY LEADER ID =====
 const getManifestoByLeaderId = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
-  const manifestos = await ManifestoModel.findByLeaderId(leaderId);
-  if (!manifestos || manifestos.length === 0) {
-    return res.status(404).json({ success: false, message: "No manifesto found for this leader" });
+  
+  if (!leaderId) {
+    return res.status(400).json({ success: false, message: "Leader ID is required" });
   }
-  res.status(200).json({ success: true, data: manifestos });
+  
+  try {
+    const manifestos = await ManifestoModel.findByLeaderId(leaderId);
+    if (!manifestos || manifestos.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        data: [], 
+        message: "No manifesto found for this leader" 
+      });
+    }
+    res.status(200).json({ success: true, data: manifestos });
+  } catch (error) {
+    Logger.error("Get manifesto by leader ID error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch manifesto", data: [] });
+  }
 });
 
 // ===== GET MANIFESTO STATS =====
@@ -78,40 +132,58 @@ const getManifestoStats = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { agenda_item_id } = req.query;
 
-  if (agenda_item_id) {
-    const stats = await ManifestoVoteModel.getStats(manifestoId, agenda_item_id);
-    const analytics = await ManifestoModel.getAnalytics(manifestoId);
-    return res.status(200).json({
-      success: true,
-      data: {
-        manifestoId,
-        agenda_item_id,
-        analytics,
-        stats,
-      },
-    });
+  if (!manifestoId) {
+    return res.status(400).json({ success: false, message: "Manifesto ID is required" });
   }
 
-  const manifesto = await ManifestoModel.findById(manifestoId);
-  if (!manifesto) return res.status(404).json({ success: false, message: "Manifesto not found" });
+  try {
+    if (agenda_item_id) {
+      const stats = await ManifestoVoteModel.getStats(manifestoId, agenda_item_id);
+      const analytics = await ManifestoModel.getAnalytics(manifestoId);
+      return res.status(200).json({
+        success: true,
+        data: {
+          manifestoId,
+          agenda_item_id,
+          analytics: analytics || { views: 0, shares: 0, avg_read_time: 0 },
+          stats: stats || { approve_count: 0, reject_count: 0, total_votes: 0 },
+        },
+      });
+    }
 
-  const analytics = await ManifestoModel.getAnalytics(manifestoId);
-  const agendaStats = await ManifestoVoteModel.getStats(manifestoId);
-  const recentVotes = await ManifestoVoteModel.getRecentVotes(manifestoId, 15);
+    const manifesto = await ManifestoModel.findById(manifestoId);
+    if (!manifesto) {
+      return res.status(404).json({ success: false, message: "Manifesto not found" });
+    }
 
-  res.status(200).json({
-    success: true,
-    data: {
-      manifesto,
-      analytics,
-      agenda_stats: agendaStats,
-    },
-    recent_votes: recentVotes,
-  });
+    const analytics = await ManifestoModel.getAnalytics(manifestoId);
+    const agendaStats = await ManifestoVoteModel.getStats(manifestoId);
+    const recentVotes = await ManifestoVoteModel.getRecentVotes(manifestoId, 15);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        manifesto,
+        analytics: analytics || { views: 0, shares: 0, avg_read_time: 0 },
+        agenda_stats: agendaStats || [],
+      },
+      recent_votes: recentVotes || [],
+    });
+  } catch (error) {
+    Logger.error("Get manifesto stats error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch manifesto stats",
+      data: {
+        manifesto: null,
+        analytics: { views: 0, shares: 0, avg_read_time: 0 },
+        agenda_stats: []
+      }
+    });
+  }
 });
 
 // ===== UNIFIED VOTE ON AGENDA ITEM =====
-// POST /manifestos/vote  { agenda_id, user_id, vote_type }
 const voteManifestoAgenda = asyncHandler(async (req, res) => {
   const { agenda_id, user_id, vote_type = "approve" } = req.body;
 
@@ -122,34 +194,45 @@ const voteManifestoAgenda = asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, message: "Please log in to vote" });
   }
 
-  // Verify agenda exists
-  const agenda = await safeQueryOne(
-    `SELECT id, manifesto_id, votes_count FROM manifesto_agendas WHERE id = ?`,
-    [agenda_id]
-  );
-  if (!agenda) return res.status(404).json({ success: false, message: "Agenda item not found" });
+  try {
+    // Verify agenda exists
+    const agenda = await safeQueryOne(
+      `SELECT id, manifesto_id, votes_count FROM manifesto_agendas WHERE id = ?`,
+      [agenda_id]
+    );
+    if (!agenda) {
+      return res.status(404).json({ success: false, message: "Agenda item not found" });
+    }
 
-  const result = await ManifestoVoteModel.vote(agenda_id, user_id, vote_type);
+    const result = await ManifestoVoteModel.vote(agenda_id, user_id, vote_type);
 
-  if (result.already_voted) {
-    return res.status(409).json({ success: false, message: "You have already voted on this agenda item", data: { votes_count: agenda.votes_count } });
+    if (result.already_voted) {
+      return res.status(409).json({ 
+        success: false, 
+        message: "You have already voted on this agenda item", 
+        data: { votes_count: agenda.votes_count || 0 } 
+      });
+    }
+
+    await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
+
+    res.status(200).json({
+      success: true,
+      message: "Vote recorded successfully",
+      data: {
+        manifesto_id: agenda.manifesto_id,
+        agenda_id,
+        votes_count: result.votes_count || 0,
+        approve_count: result.approve_count || 0,
+        reject_count: result.reject_count || 0,
+        total_votes: result.total_votes || 0,
+        vote_type,
+      },
+    });
+  } catch (error) {
+    Logger.error("Vote manifesto agenda error:", error);
+    res.status(500).json({ success: false, message: "Failed to record vote" });
   }
-
-  await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
-
-  res.status(200).json({
-    success: true,
-    message: "Vote recorded successfully",
-    data: {
-      manifesto_id: agenda.manifesto_id,
-      agenda_id,
-      votes_count: result.votes_count,
-      approve_count: result.approve_count,
-      reject_count: result.reject_count,
-      total_votes: result.total_votes,
-      vote_type,
-    },
-  });
 });
 
 // ===== OLD voteOnManifesto (kept for backward compat) =====
@@ -161,32 +244,37 @@ const voteOnManifesto = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "agenda_item_id and user_id are required" });
   }
 
-  const result = await ManifestoVoteModel.vote(agenda_item_id, user_id, vote_type);
-  if (result.already_voted) {
-    return res.status(409).json({ success: false, already_voted: true, message: result.message });
-  }
-
-  const agenda = await safeQueryOne(
-    `SELECT manifesto_id FROM manifesto_agendas WHERE id = ? LIMIT 1`,
-    [agenda_item_id]
-  );
-
-  if (agenda?.manifesto_id) {
-    await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
-  }
-
-  res.status(200).json({
-    success: true,
-    message: "Vote recorded",
-    data: {
-      manifestoId,
-      agenda_item_id,
-      votes_count: result.votes_count,
-      approve_count: result.approve_count,
-      reject_count: result.reject_count,
-      total_votes: result.total_votes,
+  try {
+    const result = await ManifestoVoteModel.vote(agenda_item_id, user_id, vote_type);
+    if (result.already_voted) {
+      return res.status(409).json({ success: false, already_voted: true, message: result.message });
     }
-  });
+
+    const agenda = await safeQueryOne(
+      `SELECT manifesto_id FROM manifesto_agendas WHERE id = ? LIMIT 1`,
+      [agenda_item_id]
+    );
+
+    if (agenda?.manifesto_id) {
+      await ManifestoModel.updateVoteAnalytics(agenda.manifesto_id, 1);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Vote recorded",
+      data: {
+        manifestoId,
+        agenda_item_id,
+        votes_count: result.votes_count || 0,
+        approve_count: result.approve_count || 0,
+        reject_count: result.reject_count || 0,
+        total_votes: result.total_votes || 0,
+      }
+    });
+  } catch (error) {
+    Logger.error("Vote on manifesto error:", error);
+    res.status(500).json({ success: false, message: "Failed to record vote" });
+  }
 });
 
 // ===== GET USER VOTES FOR MANIFESTO =====
@@ -198,10 +286,16 @@ const getManifestoUserVotes = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "manifestoId and user_id are required" });
   }
 
-  const votes = await ManifestoVoteModel.getUserVotesForManifesto(manifestoId, user_id);
-  res.status(200).json({ success: true, data: votes });
+  try {
+    const votes = await ManifestoVoteModel.getUserVotesForManifesto(manifestoId, user_id);
+    res.status(200).json({ success: true, data: votes || [] });
+  } catch (error) {
+    Logger.error("Get user votes error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch user votes", data: [] });
+  }
 });
 
+// ===== TRACK MANIFESTO VIEW =====
 const trackManifestoView = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { read_time = 0 } = req.body;
@@ -211,16 +305,25 @@ const trackManifestoView = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "manifestoId is required" });
   }
 
-  await ManifestoModel.trackView(manifestoId, user_id, read_time);
-  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+  try {
+    await ManifestoModel.trackView(manifestoId, user_id, read_time);
+    const analytics = await ManifestoModel.getAnalytics(manifestoId);
 
-  res.status(200).json({
-    success: true,
-    message: "Manifesto view tracked",
-    data: { manifestoId, analytics },
-  });
+    res.status(200).json({
+      success: true,
+      message: "Manifesto view tracked",
+      data: { 
+        manifestoId, 
+        analytics: analytics || { views: 0, shares: 0, avg_read_time: 0 } 
+      },
+    });
+  } catch (error) {
+    Logger.error("Track manifesto view error:", error);
+    res.status(500).json({ success: false, message: "Failed to track view" });
+  }
 });
 
+// ===== TRACK SHARE =====
 const trackShare = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { platform = 'generic' } = req.body;
@@ -230,16 +333,26 @@ const trackShare = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "manifestoId is required" });
   }
 
-  await ManifestoModel.trackShare(manifestoId, user_id, platform);
-  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+  try {
+    await ManifestoModel.trackShare(manifestoId, user_id, platform);
+    const analytics = await ManifestoModel.getAnalytics(manifestoId);
 
-  res.status(200).json({
-    success: true,
-    message: "Manifesto share tracked",
-    data: { manifestoId, platform, analytics },
-  });
+    res.status(200).json({
+      success: true,
+      message: "Manifesto share tracked",
+      data: { 
+        manifestoId, 
+        platform, 
+        analytics: analytics || { views: 0, shares: 0, avg_read_time: 0 } 
+      },
+    });
+  } catch (error) {
+    Logger.error("Track share error:", error);
+    res.status(500).json({ success: false, message: "Failed to track share" });
+  }
 });
 
+// ===== TRACK READ TIME =====
 const trackReadTime = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { user_id, read_time } = req.body;
@@ -249,28 +362,57 @@ const trackReadTime = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "manifestoId and read_time are required" });
   }
 
-  await ManifestoModel.trackRead(manifestoId, authenticatedUser || user_id || null, read_time);
-  const analytics = await ManifestoModel.getAnalytics(manifestoId);
+  try {
+    await ManifestoModel.trackRead(manifestoId, authenticatedUser || user_id || null, read_time);
+    const analytics = await ManifestoModel.getAnalytics(manifestoId);
 
-  res.status(200).json({
-    success: true,
-    message: "Read time tracked",
-    data: { manifestoId, read_time, analytics },
-  });
+    res.status(200).json({
+      success: true,
+      message: "Read time tracked",
+      data: { 
+        manifestoId, 
+        read_time, 
+        analytics: analytics || { views: 0, shares: 0, avg_read_time: 0 } 
+      },
+    });
+  } catch (error) {
+    Logger.error("Track read time error:", error);
+    res.status(500).json({ success: false, message: "Failed to track read time" });
+  }
 });
 
-// ===== GET TRENDING MANIFESTOS (real data) =====
+// ===== GET TRENDING MANIFESTOS =====
 const getTrendingManifestos = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const manifestos = await ManifestoModel.getTrending(limit);
-  res.status(200).json({ success: true, data: manifestos });
+  
+  try {
+    const manifestos = await ManifestoModel.getTrending(limit);
+    res.status(200).json({ 
+      success: true, 
+      data: manifestos || [], 
+      count: (manifestos || []).length 
+    });
+  } catch (error) {
+    Logger.error("Get trending manifestos error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch trending manifestos", data: [] });
+  }
 });
 
 // ===== GET PERSONALIZED MANIFESTOS =====
 const getPersonalizedManifestos = asyncHandler(async (req, res) => {
   const { county, ward, constituency, political_party, limit = 20 } = req.query;
-  const manifestos = await ManifestoModel.getPersonalized(county, ward, constituency, political_party, parseInt(limit));
-  res.status(200).json({ success: true, data: manifestos });
+  
+  try {
+    const manifestos = await ManifestoModel.getPersonalized(county, ward, constituency, political_party, parseInt(limit));
+    res.status(200).json({ 
+      success: true, 
+      data: manifestos || [], 
+      count: (manifestos || []).length 
+    });
+  } catch (error) {
+    Logger.error("Get personalized manifestos error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch personalized manifestos", data: [] });
+  }
 });
 
 module.exports = {
