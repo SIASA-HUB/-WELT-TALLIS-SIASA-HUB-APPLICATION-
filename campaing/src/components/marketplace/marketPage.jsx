@@ -17,6 +17,7 @@ const Container = styled.div`
   flex-direction: column;
   background: #f8fafc;
   color: #1e293b;
+  padding-bottom: 10px;
   overflow-x: hidden;
   overflow-y: hidden; /* Prevent double scrollbars, children will scroll */
   transition: all 0.3s ease;
