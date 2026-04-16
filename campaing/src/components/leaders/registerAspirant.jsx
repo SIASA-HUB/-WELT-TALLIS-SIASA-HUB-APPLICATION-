@@ -1,4 +1,4 @@
-// RegisterAspirant.jsx - Fixed Version
+// RegisterAspirant.jsx - Complete Version with All Leadership Positions
 
 import React, { useState } from "react";
 import axios from "axios";
@@ -201,7 +201,6 @@ const InputIcon = styled.div`
   color: #52525b;
 `;
 
-// FIXED: Button has proper color now
 const SubmitBtn = styled.button`
   width: 100%;
   padding: 16px;
@@ -356,6 +355,17 @@ const CountyList = [
   "Kisumu", "Homa Bay", "Migori", "Kisii", "Nyamira", "Nairobi",
 ];
 
+// Complete list of all leadership positions
+const LeadershipPositions = [
+  "President",
+  "Deputy President",     // Added Deputy President
+  "Governor",
+  "Senator",
+  "Member of Parliament (MP)",
+  "Women Representative (Women Rep)",
+  "Member of County Assembly (MCA)"
+];
+
 const RegisterAspirant = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -417,6 +427,7 @@ const RegisterAspirant = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validation checks
     if (!formData.name) {
       toast.error("Name is required");
       return;
@@ -469,7 +480,6 @@ const RegisterAspirant = () => {
       if (formData.instagram) submitData.append("instagram", formData.instagram);
       if (formData.website) submitData.append("website", formData.website);
 
-      // FIXED: Proper response handling
       const response = await api.post("/leaders/register", submitData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000
@@ -477,7 +487,6 @@ const RegisterAspirant = () => {
 
       console.log("Full response:", response);
 
-      // Check response properly - api interceptor returns response.data directly
       if (response && response.success === true) {
         toast.update(toastId, {
           render: response.message || "Registration successful! Please login.",
@@ -500,7 +509,6 @@ const RegisterAspirant = () => {
     } catch (err) {
       console.error("Registration error:", err);
       
-      // Better error message extraction
       let errorMessage = "Registration failed. Please try again.";
       
       if (err.response?.data?.message) {
@@ -603,12 +611,9 @@ const RegisterAspirant = () => {
                 <Label>Vying For (Position) *</Label>
                 <Select name="position" value={formData.position} onChange={handleChange}>
                   <option value="">Select Position</option>
-                  <option value="President">President</option>
-                  <option value="Governor">Governor</option>
-                  <option value="Senator">Senator</option>
-                  <option value="MP">Member of Parliament</option>
-                  <option value="Women Rep">Women Representative</option>
-                  <option value="MCA">MCA</option>
+                  {LeadershipPositions.map((position) => (
+                    <option key={position} value={position}>{position}</option>
+                  ))}
                 </Select>
               </div>
               <div>
