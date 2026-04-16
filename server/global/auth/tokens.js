@@ -7,11 +7,11 @@ const JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET || "ballot-refresh-secret-key";
 
 // Token expiration times
-const ACCESS_TOKEN_EXPIRY = "15m";
+const ACCESS_TOKEN_EXPIRY = "2h";
 const REFRESH_TOKEN_EXPIRY = "7d";
 
 // Generate Access Token
-const generateAccessToken = (user) => {
+const generateAccessToken = (user, expiresIn = ACCESS_TOKEN_EXPIRY) => {
   return jwt.sign(
     {
       userId: user.user_id,
@@ -22,19 +22,19 @@ const generateAccessToken = (user) => {
       ageBracket: user.age_bracket,
     },
     JWT_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRY },
+    { expiresIn },
   );
 };
 
 // Generate Refresh Token
-const generateRefreshToken = (user) => {
+const generateRefreshToken = (user, expiresIn = REFRESH_TOKEN_EXPIRY) => {
   return jwt.sign(
     {
       userId: user.user_id,
       sessionId: `${user.user_id}-${Date.now()}`,
     },
     JWT_REFRESH_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRY },
+    { expiresIn },
   );
 };
 
