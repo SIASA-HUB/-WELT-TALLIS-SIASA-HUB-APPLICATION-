@@ -23,8 +23,6 @@ const RegisterAspirant = lazy(() => import("./components/leaders/registerAspiran
 const LoginAspirant = lazy(() => import("./components/leaders/loginAspirant"));
 const NotFound = lazy(() => import("./components/404"));
 const Unauthorized = lazy(() => import("./components/Unothourized"));
-const AdminLogin = lazy(() => import("./components/adminPage/adminLogin"));
-
 
 // --- Lazy Loaded Components ---
 const AspirantDashboard = lazy(() => import("./components/leaders/dashboard/aspirantDashboard"));
@@ -39,6 +37,7 @@ const LoginPage = lazy(() => import("./components/auth/Login"));
 const ProductDetails = lazy(() => import("./components/marketplace/pages/ProductDetails"));
 const Checkout = lazy(() => import("./components/marketplace/checkout/checkout"));
 const MyOrders = lazy(() => import("./components/marketplace/pages/MyOrders"));
+
 
 const GlobalStyle = createGlobalStyle`
   * {
@@ -110,8 +109,19 @@ const getCurrentUser = () => {
 // Check both key names — leaderToken (set by loginAspirant.jsx) and aspirant_token (legacy)
 const getAspirantToken = () =>
   localStorage.getItem("aspirant_token") || localStorage.getItem("leaderToken");
-const getAdminToken = () => localStorage.getItem("admin_token");
 
+// Check if user has admin or marketadmin role from normal login
+const hasAdminRole = () => {
+  const user = getCurrentUser();
+  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+  return user && token && (user.role === "admin" || user.role === "marketadmin");
+};
+
+const isAuthenticated = () => {
+  const user = getCurrentUser();
+  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+  return !!(user && token);
+};
 
 // --- Protected Route Component ---
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
@@ -119,26 +129,27 @@ const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
 
   useEffect(() => {
     const checkAuth = () => {
-      const adminToken = getAdminToken();
-      if (adminToken && requiredRole === "admin") {
-        setAuthState({ isAuthenticated: true, userRole: "admin" });
-        return;
-      }
-
+      // Check for aspirant role
       const aspirantToken = getAspirantToken();
       if (aspirantToken && requiredRole === "aspirant") {
         setAuthState({ isAuthenticated: true, userRole: "aspirant" });
         return;
       }
 
+      // Check for admin/marketadmin from normal login
       const user = getCurrentUser();
-      if (user && requiredRole === "marketadmin" && ["marketadmin", "admin"].includes(user.role)) {
-        setAuthState({ isAuthenticated: true, userRole: user.role });
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      
+      if (requiredRole === "admin" || requiredRole === "marketadmin") {
+        if (user && token && (user.role === "admin" || user.role === "marketadmin")) {
+          setAuthState({ isAuthenticated: true, userRole: user.role });
+          return;
+        }
+        setAuthState({ isAuthenticated: false, userRole: null });
         return;
       }
 
-      // Check JWT token presence for regular user routes
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      // Check for regular user routes
       if (user && token && requiredRole === "user") {
         setAuthState({ isAuthenticated: true, userRole: "user" });
         return;
@@ -175,11 +186,13 @@ const App = () => {
 
 // --- LAYOUT WRAPPER ---
 const AppLayout = () => {
+
+
   const location = useLocation();
 
   // Pages where NavMenu should be hidden
   const hideNavPaths = [
-    "/admin", "/admin/login", "/admin/dashboard", "/admin/users",
+    "/admin/dashboard", "/admin/users",
     "/marketplace-admin", "/login-aspirant", "/register-aspirant",
     "/aspirant-dashboard", "/login", "/register"
   ];
@@ -203,33 +216,38 @@ const AppLayout = () => {
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
 
-            {/* ===== ADMIN ROUTES ===== */}
-            <Route path="/admin/login" element={<AdminLogin />} />
+            {/* ===== ADMIN ROUTES - Using normal login ===== */}
             <Route path="/admin/dashboard" element={
-              <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
+              <ProtectedRoute requiredRole="admin" redirectTo="/login">
                 <AdminDashboard />
               </ProtectedRoute>
             } />
             <Route path="/admin/users" element={
-              <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
+              <ProtectedRoute requiredRole="admin" redirectTo="/login">
                 <UsersAdmin />
               </ProtectedRoute>
             } />
             <Route path="/admin/aspirants" element={
-              <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
+              <ProtectedRoute requiredRole="admin" redirectTo="/login">
                 <AdminDashboard />
               </ProtectedRoute>
             } />
 
-            {/* ===== MARKETPLACE ROUTES ===== */}
+            {/* ===== MARKETPLACE ADMIN ROUTES - Using normal login ===== */}
             <Route path="/marketplace-admin" element={
               <ProtectedRoute requiredRole="marketadmin" redirectTo="/login">
                 <AdminPanel />
               </ProtectedRoute>
             } />
+
+            {/* ===== MARKETPLACE ROUTES ===== */}
             <Route path="/marketplace" element={<MarketplacePage />} />
             <Route path="/marketplace/shop" element={<MarketplacePage />} />
-            <Route path="/marketplace/checkout" element={<Checkout />} />
+            <Route path="/marketplace/checkout" element={
+              <ProtectedRoute requiredRole="user" redirectTo="/login">
+                <Checkout />
+              </ProtectedRoute>
+            } />
             <Route path="/marketplace/*" element={<MarketplacePage />} />
             <Route path="/shop" element={<Navigate to="/marketplace" replace />} />
 
@@ -275,12 +293,6 @@ const AppLayout = () => {
             {/* Leaders listing */}
             <Route path="/leaders" element={<LeadersPage />} />
 
-            {/* ===== COUNTY / POSITION LISTING PAGES (SEO) ===== */}
-            {/*
-              These MUST come BEFORE the generic /:county routes to avoid capture conflicts.
-              /county/nairobi/position/governor
-              /county/nairobi/position/governor?party=uda
-            */}
             <Route path="/county/:county/position/:position" element={<LeaderListingPage />} />
             <Route path="/county/:county" element={<LeadersPage />} />
 
