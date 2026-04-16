@@ -45,13 +45,13 @@ const LoginWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 10px;
   position: relative;
 `;
 
 const LoginContainer = styled.div`
   width: 100%;
-  max-width: 440px;
+  max-width: 1200px;
   animation: ${slideIn} 0.5s ease-out;
   position: relative;
   z-index: 1;
@@ -59,7 +59,7 @@ const LoginContainer = styled.div`
 
 const LoginCard = styled.div`
   background: #111111;
-  border-radius: 24px;
+  border-radius: 10px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -120,7 +120,7 @@ const LogoIcon = styled.div`
 `;
 
 const LoginBody = styled.div`
-  padding: 32px;
+  padding: 10px;
   background: #111111;
 
   @media (max-width: 768px) {
