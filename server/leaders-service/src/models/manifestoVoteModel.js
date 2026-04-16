@@ -36,13 +36,28 @@ class ManifestoVoteModel {
       await conn.commit();
       conn.release();
 
-      // 4. Return new count
+      // 4. Return new count and vote breakdown
       const updated = await safeQueryOne(
         `SELECT votes_count FROM manifesto_agendas WHERE id = ?`,
         [agenda_id]
       );
+      const voteBreakdown = await safeQueryOne(
+        `SELECT 
+           COALESCE(SUM(vote_type = 'approve'), 0) as approve_count,
+           COALESCE(SUM(vote_type = 'reject'), 0) as reject_count,
+           COUNT(*) as total_votes
+         FROM agenda_votes
+         WHERE agenda_id = ?`,
+        [agenda_id]
+      );
 
-      return { success: true, votes_count: updated?.votes_count || 0 };
+      return {
+        success: true,
+        votes_count: updated?.votes_count || 0,
+        approve_count: voteBreakdown?.approve_count || 0,
+        reject_count: voteBreakdown?.reject_count || 0,
+        total_votes: voteBreakdown?.total_votes || 0,
+      };
     } catch (error) {
       try { await conn.rollback(); conn.release(); } catch {}
       throw error;
@@ -79,15 +94,41 @@ class ManifestoVoteModel {
   static async getStats(manifesto_id, agenda_id = null) {
     if (agenda_id) {
       const row = await safeQueryOne(
-        `SELECT votes_count, title FROM manifesto_agendas WHERE id = ?`,
+        `SELECT 
+           ma.id as agenda_id,
+           ma.title,
+           ma.votes_count,
+           COALESCE(SUM(av.vote_type = 'approve'), 0) as approve_count,
+           COALESCE(SUM(av.vote_type = 'reject'), 0) as reject_count,
+           COUNT(av.id) as total_votes
+         FROM manifesto_agendas ma
+         LEFT JOIN agenda_votes av ON ma.id = av.agenda_id
+         WHERE ma.id = ?
+         GROUP BY ma.id`,
         [agenda_id]
       );
-      return { total_votes: row?.votes_count || 0 };
+      return {
+        total_votes: row?.total_votes || row?.votes_count || 0,
+        approve_count: row?.approve_count || 0,
+        reject_count: row?.reject_count || 0,
+        votes_count: row?.votes_count || 0,
+        title: row?.title || '',
+      };
     }
 
     return await safeQuery(
-      `SELECT id as agenda_id, title, votes_count FROM manifesto_agendas 
-       WHERE manifesto_id = ? ORDER BY votes_count DESC`,
+      `SELECT 
+         ma.id as agenda_id,
+         ma.title,
+         ma.votes_count,
+         COALESCE(SUM(av.vote_type = 'approve'), 0) as approve_count,
+         COALESCE(SUM(av.vote_type = 'reject'), 0) as reject_count,
+         COUNT(av.id) as total_votes
+       FROM manifesto_agendas ma
+       LEFT JOIN agenda_votes av ON ma.id = av.agenda_id
+       WHERE ma.manifesto_id = ?
+       GROUP BY ma.id
+       ORDER BY ma.votes_count DESC`,
       [manifesto_id]
     );
   }
