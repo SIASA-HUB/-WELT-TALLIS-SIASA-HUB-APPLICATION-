@@ -54,17 +54,8 @@ const NavItem = styled(Link)`
   }
 `;
 
-const ActiveBar = styled.div`
-  position: absolute;
-  top: 0;
-  width: 30px;
-  height: 3px;
-  background: #10b981;
-  border-radius: 0 0 4px 4px;
-  transition: all 0.2s ease-in-out;
-  opacity: ${(props) => (props.$active ? "1" : "0")};
-  transform: translateY(${(props) => (props.$active ? "0" : "-5px")});
-`;
+// ActiveBar is now completely removed - no underline/corner for active links
+// The active state is only shown through icon color and text weight
 
 const NavMenu = () => {
   const location = useLocation();
@@ -99,10 +90,8 @@ const NavMenu = () => {
     { path: "/", label: "Home", icon: Home },
     { path: "/leaders", label: "Aspirants", icon: UserCheck },
     { path: "/marketplace", label: "Store", icon: ShoppingBag },
-
     { path: "/profile", label: "Profile", icon: User },
   ];
-
 
   const handleNavClick = (path) => {
     // Only trigger loading if we are moving to a NEW page
@@ -130,7 +119,7 @@ const NavMenu = () => {
               $active={isActive}
               onClick={() => handleNavClick(item.path)}
             >
-              <ActiveBar $active={isActive} />
+              {/* ActiveBar component removed - no more underline/corner */}
               <item.icon
                 size={20}
                 strokeWidth={isActive ? 2.5 : 2}
