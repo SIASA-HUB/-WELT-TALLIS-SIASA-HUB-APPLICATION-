@@ -830,6 +830,7 @@ const boostLeader = asyncHandler(async (req, res) => {
 // ============================================
 // GET PERSONALIZED FEED - DEBUG & FIXED
 // ============================================
+
 const getPersonalizedFeed = asyncHandler(async (req, res) => {
   try {
     const {
@@ -847,14 +848,14 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
 
     console.log("Building feed with:", { uCounty, uWard, uConstituency, uParty });
 
-    // Base query helper
+    
     const getLeadersBase = `
       SELECT 
         l.leader_id, l.name, l.slug, l.party, l.position, l.position_running_for, 
         l.county, l.constituency, l.ward,
         l.verification, l.status, l.created_at,
         COALESCE(l.endorsement_count, 0) as endorsement_count,
-        (l.views + (COALESCE(l.shares, 0) * 5)) as trending_score,
+        (l.views + (COALESCE(l.shares, 0) * 5) + (COALESCE(l.endorsement_count, 0) * 10)) as trending_score,
         COALESCE(l.image_url, li.image_url) as image_url
       FROM leaders l
       LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
@@ -864,7 +865,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     const responseGroups = [];
     const usedIds = new Set();
 
-    const addGroup = async (id, title, subtitle, type, filterQuery, params, limit = 15) => {
+    const addGroup = async (id, title, subtitle, type, filterQuery, params, limit = 20) => {
       const leaders = await safeQuery(`${getLeadersBase} ${filterQuery} LIMIT ${limit}`, params);
       const filtered = leaders.filter(l => !usedIds.has(l.leader_id));
       if (filtered.length > 0) {
@@ -873,41 +874,75 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
       }
     };
 
+    // Helper function to check position match
+    const matchesPosition = (leader, positionNames) => {
+      const positionField = (leader.position_running_for || leader.position || '').toLowerCase();
+      return positionNames.some(name => positionField.includes(name.toLowerCase()));
+    };
+
     // 1. PRESIDENTIAL
     await addGroup('presidential', 'Presidential Candidates', 'Candidates running for President', 'presidential',
       "AND (LOWER(l.position_running_for) LIKE '%president%' OR LOWER(l.position) LIKE '%president%') ORDER BY trending_score DESC", []);
 
-    // 2. YOUR COUNTY
+    // 2. DEPUTY PRESIDENTIAL
+    await addGroup('deputy_presidential', 'Deputy President Candidates', 'Candidates running for Deputy President', 'deputy_presidential',
+      "AND (LOWER(l.position_running_for) LIKE '%deputy president%' OR LOWER(l.position) LIKE '%deputy president%' OR LOWER(l.position_running_for) LIKE '%deputy%' OR LOWER(l.position) LIKE '%deputy%') ORDER BY trending_score DESC", []);
+
+    // 3. GOVERNORS
+    await addGroup('governors', 'Governors', 'Candidates running for Governor', 'governors',
+      "AND (LOWER(l.position_running_for) LIKE '%governor%' OR LOWER(l.position) LIKE '%governor%') ORDER BY trending_score DESC", []);
+
+    // 4. SENATORS
+    await addGroup('senators', 'Senators', 'Candidates running for Senator', 'senators',
+      "AND (LOWER(l.position_running_for) LIKE '%senator%' OR LOWER(l.position) LIKE '%senator%') ORDER BY trending_score DESC", []);
+
+    // 5. MEMBERS OF PARLIAMENT (MPs)
+    await addGroup('mps', 'Members of Parliament', 'Candidates running for MP', 'mps',
+      "AND (LOWER(l.position_running_for) LIKE '%mp%' OR LOWER(l.position) LIKE '%mp%' OR LOWER(l.position_running_for) LIKE '%member of parliament%' OR LOWER(l.position) LIKE '%member of parliament%') ORDER BY trending_score DESC", []);
+
+    // 6. WOMEN REPRESENTATIVES
+    await addGroup('women_reps', 'Women Representatives', 'Candidates running for Women Rep', 'women_reps',
+      "AND (LOWER(l.position_running_for) LIKE '%women rep%' OR LOWER(l.position) LIKE '%women rep%' OR LOWER(l.position_running_for) LIKE '%woman representative%' OR LOWER(l.position) LIKE '%woman representative%') ORDER BY trending_score DESC", []);
+
+    // 7. MCAs (Members of County Assembly)
+    await addGroup('mcas', 'MCAs', 'Candidates running for Member of County Assembly', 'mcas',
+      "AND (LOWER(l.position_running_for) LIKE '%mca%' OR LOWER(l.position) LIKE '%mca%' OR LOWER(l.position_running_for) LIKE '%member of county assembly%' OR LOWER(l.position) LIKE '%member of county assembly%') ORDER BY trending_score DESC", []);
+
+    // 8. YOUR COUNTY - All positions
     if (uCounty) {
       await addGroup('your_county', `${uCounty} County`, `Top aspirants in ${uCounty}`, 'county',
         'AND l.county = ? ORDER BY trending_score DESC', [uCounty]);
     }
 
-    // 3. YOUR CONSTITUENCY
+    // 9. YOUR CONSTITUENCY - All positions
     if (uConstituency) {
       await addGroup('your_constituency', `${uConstituency} Constituency`, `Representation in ${uConstituency}`, 'constituency',
         'AND l.constituency = ? ORDER BY trending_score DESC', [uConstituency]);
     }
 
-    // 4. YOUR WARD
+    // 10. YOUR WARD - All positions
     if (uWard) {
       await addGroup('your_ward', `${uWard} Ward`, `Local aspirants in ${uWard}`, 'ward',
         'AND l.ward = ? ORDER BY trending_score DESC', [uWard]);
     }
 
-    // 5. YOUR PARTY
+    // 11. YOUR PARTY
     if (uParty) {
       await addGroup('your_party', `${uParty} Party`, `Aspirants from ${uParty}`, 'party',
         'AND l.party = ? ORDER BY trending_score DESC', [uParty]);
     }
 
-    // 6. HOT & NEW
+    // 12. HOT & NEW
     await addGroup('new', 'New Candidates', 'Aspirants who recently joined', 'new',
       'ORDER BY l.created_at DESC', []);
 
-    // 7. TRENDING / DISCOVER
+    // 13. TRENDING / DISCOVER
     await addGroup('trending', 'Trending Now', 'Aspirants making waves', 'trending',
       'ORDER BY trending_score DESC', []);
+
+    // 14. MOST ENDORSED
+    await addGroup('most_endorsed', 'Most Endorsed', 'Aspirants with highest endorsements', 'most_endorsed',
+      'ORDER BY l.endorsement_count DESC', []);
 
     const responseData = {
       success: true,
@@ -917,7 +952,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    // Cache key based on user context for 5 minutes
+    // Cache key based on user context 
     try {
       const cacheKey = `feed:u:${uCounty || 'X'}:${uWard || 'X'}:${uConstituency || 'X'}:${uParty || 'X'}`;
       await redis.set(cacheKey, JSON.stringify(responseData), 300);
@@ -929,8 +964,6 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
     res.status(500).json({ success: false, message: "Error building feed", data: [] });
   }
 });
-
-
 
 
 // ============================================
