@@ -37,6 +37,8 @@ const {
   deleteAgendaItem,
   getManifestoUserVotes,
   trackReadTime,
+  trackManifestoView,
+  trackShare,
 } = require("../controllers/ManifestoController");
 
 const { 
@@ -96,12 +98,11 @@ router.post("/login", loginAspirant);
 // MANIFESTO ROUTES (all specific paths BEFORE /:manifestoId)
 // ============================================================
 
-// IMPORTANT: Specific routes first to avoid /:manifestoId capturing them
 router.get("/manifestos/trending", getTrendingManifestos);
 router.get("/manifestos/personalized", optionalAuth, getPersonalizedManifestos);
 router.post("/manifestos/create", verifyAspirantToken, createManifesto); // aspirants only
 
-// Vote — authenticated users (rate limited at gateway)
+
 router.post("/manifestos/vote", authenticate, voteManifestoAgenda);
 
 // Delete agenda item — aspirant (owner) only
@@ -112,6 +113,8 @@ router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
 router.get("/manifestos/:manifestoId/stats", getManifestoStats);
 router.get("/manifestos/:manifestoId/user-votes", optionalAuth, getManifestoUserVotes);
 router.post("/manifestos/:manifestoId/vote", authenticate, voteOnManifesto);
+router.post("/manifestos/:manifestoId/view", optionalAuth, trackManifestoView);
+router.post("/manifestos/:manifestoId/share", optionalAuth, trackShare);
 router.post("/manifestos/:manifestoId/read-time", optionalAuth, trackReadTime);
 router.put("/manifestos/:manifestoId", verifyAspirantToken, editManifesto); // aspirants only
 router.delete("/manifestos/:manifestoId", verifyAspirantToken, deleteManifesto); // aspirants only
