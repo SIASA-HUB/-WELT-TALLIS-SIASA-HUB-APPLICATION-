@@ -1,6 +1,5 @@
-// components/AddStoryModal.jsx - Fixed with correct API URL
+// components/AddStoryModal.jsx 
 import React, { useState, useRef, useEffect } from "react";
-import { useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
   X,
@@ -15,7 +14,6 @@ import {
   Lock,
   User,
 } from "lucide-react";
-import API from "../../api/config";
 import api from "../../api/api";
 import { useAuth } from "../hooks/useAuth";
 
@@ -49,11 +47,24 @@ const Content = styled.div`
   max-width: 480px;
   border-radius: 24px 24px 0 0;
   padding: 24px;
+  // IMPORTANT FIX: Add enough bottom padding so button clears the nav bar
+  padding-bottom: calc(env(safe-area-inset-bottom, 32px) + 80px);
   animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  padding-bottom: env(safe-area-inset-bottom, 32px);
-  max-height: 92vh;
+  max-height: 85vh;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #25d366;
+    border-radius: 4px;
+  }
 `;
 
 const Header = styled.div`
@@ -61,6 +72,7 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  flex-shrink: 0;
 `;
 
 const UserProfile = styled.div`
@@ -107,6 +119,7 @@ const TabGroup = styled.div`
   padding: 4px;
   border-radius: 14px;
   margin-bottom: 20px;
+  flex-shrink: 0;
 `;
 
 const Tab = styled.button`
@@ -231,7 +244,8 @@ const MediaUploadBtn = styled.button`
 const SubmitBtn = styled.button`
   width: 100%;
   margin-top: 24px;
-  padding: 16px;
+  // Fixed: Make button proper size, not too big
+  padding: 14px 20px;
   border-radius: 16px;
   border: none;
   background: #25d366;
@@ -335,6 +349,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const [success, setSuccess] = useState(null);
 
   const fileInput = useRef(null);
+  const contentRef = useRef(null);
 
   const user = authUser || getLocalUser();
   const isAuthenticated = authIsAuth || isUserAuthenticated();
@@ -354,6 +369,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const leaderId = getLeaderId();
   const leaderName = getLeaderName();
 
+  // Auto-scroll to show button when keyboard opens
   useEffect(() => {
     if (!isOpen) {
       setText("");
@@ -363,6 +379,15 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       setPostType("text");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && contentRef.current) {
+      // Small delay to ensure keyboard is fully shown
+      setTimeout(() => {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }, 300);
+    }
+  }, [isOpen, text]);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -452,11 +477,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       formData.append("media", media.file);
     }
 
-    // Use centralized api instance
     const path = "/endorsements/create";
-    
-    
-    
 
     try {
       const responseData = await api.post(path, formData, {
@@ -471,7 +492,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           onClose();
         }, 1500);
       } else {
-        setError(response.data?.message || "Failed to post story");
+        setError(responseData?.message || "Failed to post story");
       }
     } catch (err) {
       console.error("❌ Post error:", err);
@@ -523,7 +544,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
 
   return (
     <Overlay onClick={onClose}>
-      <Content onClick={(e) => e.stopPropagation()}>
+      <Content ref={contentRef} onClick={(e) => e.stopPropagation()}>
         <Header>
           <UserProfile>
             <div className="avatar">
