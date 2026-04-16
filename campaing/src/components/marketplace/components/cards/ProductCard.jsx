@@ -1,5 +1,4 @@
 import React, { useEffect, useState, memo } from "react";
-
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import {
@@ -9,7 +8,7 @@ import {
 import {
   addToCart,
 } from "../api/index";
-import { useAuth } from "@/components/hooks/useAuth";
+import API from "../../../../api/config";
 
 const Card = styled.div`
   width: 280px;
@@ -188,17 +187,24 @@ const StarRating = ({ value }) => {
 };
 
 const ProductCard = ({ product }) => {
-  const { isAuthenticated } = useAuth();
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
 
-  const getAuthToken = () => localStorage.getItem("access_token");
+  // Check if user is authenticated by checking token
+  const isAuthenticated = () => {
+    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+    const user = localStorage.getItem("user_data");
+    return !!(token && user);
+  };
+
+  const getAuthToken = () => localStorage.getItem("access_token") || localStorage.getItem("token");
 
   const addCart = async (e) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
+    if (!isAuthenticated()) {
       // Guest Cart Implementation
       const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
+      const existingItemIndex = guestCart.findIndex(item => item.product?._id === product._id);
       
       if (existingItemIndex > -1) {
         guestCart[existingItemIndex].quantity += 1;
@@ -221,42 +227,60 @@ const ProductCard = ({ product }) => {
     }
   };
 
-  const checkFavourite = async () => {
-    if (!isAuthenticated || !product) return;
-    try {
-      const res = await getFavourite(getAuthToken(), { productId: product?._id });
-      const isFavorite = res.data?.some(fav => fav._id === product?._id);
-      setFavorite(isFavorite);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    checkFavourite();
-  }, [isAuthenticated, product]);
-
   // Build the correct navigation URL using slug (SEO) or fall back to ID
   const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${product._id || product.id}`;
   
-  // Build the full image URL (handle relative paths from server)
-  const imgUrl = (() => {
+  // Build the full image URL using your API config
+  const getImageUrl = () => {
     const raw = product?.img || product?.image || product?.image_url;
-    if (!raw) return `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || 'P')}&background=e11d48&color=fff&size=400`;
-    if (raw.startsWith('http')) return raw;
-    return `http://localhost:8009${raw.startsWith('/') ? '' : '/'}${raw}`;
-  })();
+    
+    // If no image path provided, return placeholder
+    if (!raw) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || product?.name || 'P')}&background=e11d48&color=fff&size=400&bold=true`;
+    }
+    
+    // If it's already a full URL (starts with http:// or https://)
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+    
+    // Use your API's IMAGE_BASE_URL from config
+    const imageBaseUrl = API.IMAGES || API.UPLOAD_BASE || "http://localhost:8009";
+    
+    // If it's a relative path starting with /uploads or /images
+    if (raw.startsWith('/uploads') || raw.startsWith('/images') || raw.startsWith('/static')) {
+      return `${imageBaseUrl}${raw}`;
+    }
+    
+    // If it's a relative path without leading slash
+    if (raw.startsWith('uploads/') || raw.startsWith('images/')) {
+      return `${imageBaseUrl}/${raw}`;
+    }
+    
+    // Default: treat as relative path
+    return `${imageBaseUrl}/${raw}`;
+  };
+  
+  const imgUrl = getImageUrl();
+  
+  // Handle image error - try fallback or placeholder
+  const handleImageError = (e) => {
+    if (!imageError) {
+      setImageError(true);
+      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || product?.name || 'P')}&background=e11d48&color=fff&size=400&bold=true`;
+    }
+  };
 
   return (
     <Card onClick={() => navigate(productUrl)}>
       <ImageContainer>
         <Image 
           src={imgUrl} 
-          alt={product?.title || product?.name}
+          alt={product?.title || product?.name || "Product"}
           loading="lazy"
           width="280"
           height="350"
-          onError={e => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || 'P')}&background=e11d48&color=fff`; }}
+          onError={handleImageError}
         />
 
         <Overlay />
@@ -289,4 +313,3 @@ const ProductCard = ({ product }) => {
 };
 
 export default memo(ProductCard);
-
