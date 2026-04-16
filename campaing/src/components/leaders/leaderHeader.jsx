@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - With tracking and memoization
+// components/leaders/leaderHeader.jsx - Fixed Image Handling
 
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
@@ -597,7 +597,7 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-// FIXED: Clean image URL builder
+// FIXED: Improved image URL builder with better fallback handling
 const buildImageUrl = (url) => {
   if (!url) return null;
   
@@ -607,10 +607,7 @@ const buildImageUrl = (url) => {
   }
   
   // Get base URL from API config
-  let baseUrl = API.IMAGES || API.BASE;
-  
-  // If no base URL configured, return null
-  if (!baseUrl) return null;
+  let baseUrl = API?.IMAGES || API?.BASE || process.env.REACT_APP_API_URL || "http://localhost:5000";
   
   // Remove /api/v1 if present in the base URL
   if (baseUrl.includes("/api/v1")) {
@@ -623,7 +620,24 @@ const buildImageUrl = (url) => {
   // Ensure image path has leading slash
   let imagePath = url.startsWith("/") ? url : `/${url}`;
   
-  return `${baseUrl}${imagePath}`;
+  const fullUrl = `${baseUrl}${imagePath}`;
+  console.log("Building image URL:", { original: url, baseUrl, fullUrl });
+  
+  return fullUrl;
+};
+
+// Helper to safely get image URL from leader object
+const getLeaderImage = (leader) => {
+  if (!leader) return null;
+  
+  // Try multiple possible field names
+  const imageUrl = leader.image_url || 
+                   leader.primary_image || 
+                   leader.profile_image || 
+                   leader.avatar || 
+                   leader.image;
+  
+  return buildImageUrl(imageUrl);
 };
 
 // Track profile view
@@ -667,6 +681,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const [scrolledPast, setScrolledPast] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewTracked, setViewTracked] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const scrollTimeoutRef = useRef(null);
   const lastScrollYRef = useRef(0);
   const dropdownRef = useRef(null);
@@ -685,7 +700,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     return () => {
       // Track time spent when user leaves
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      if (timeSpent >= 3) { // Only track if spent at least 3 seconds
+      if (timeSpent >= 3) { // Oonly more  than  3  seconds 
         api.post(`/leaders/${leader.leader_id}/time-spent`, {
           user_id: currentUserId,
           time_spent: timeSpent,
@@ -783,6 +798,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     if (lower.includes("mca") || lower.includes("member of county assembly")) return "Member of County Assembly";
     if (lower.includes("senator")) return "Senator";
     if (lower.includes("president")) return "President";
+    if (lower.includes("deputy president")) return "Deputy President";
     return position;
   };
 
@@ -815,6 +831,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
             } else if (normalizedCurrentPosition === "Member of County Assembly") {
               sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
+            } else if (normalizedCurrentPosition === "President" || normalizedCurrentPosition === "Deputy President") {
+              sameLocation = true; // National positions have no location restriction
             }
             return sameLocation;
           })
@@ -898,7 +916,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   if (!leader) return null;
 
-  const leaderImageUrl = buildImageUrl(leader.image_url || leader.primary_image);
+  // Get leader image 
+  const leaderImageUrl = getLeaderImage(leader);
   const coverImage = leaderImageUrl || "https://images.unsplash.com/photo-1570126688035-1e6adbd61053?auto=format&fit=crop&q=80&w=1400";
   const partyName = leader?.party || leader?.political_party || "Independent";
   const partyLogo = getPartyLogo(partyName);
@@ -915,6 +934,17 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const displayPosition = formattedPosition + (getLocationText() ? ` - ${getLocationText()}` : "");
+
+
+
+  const handleImageError = () => {
+    console.error("Failed to load image:", leaderImageUrl);
+    setImageError(true);
+  };
+
+  const getFallbackAvatar = () => {
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
+  };
 
   return (
     <PageContainer>
@@ -978,7 +1008,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       <ProfileCard>
         <ProfileTopRow>
           <AvatarWrapper>
-            <Avatar src={leaderImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100`} alt={leader.name} />
+            <Avatar 
+              src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} 
+              alt={leader.name}
+              onError={handleImageError}
+            />
             <VerifiedIcon $verified={isVerified}>
               {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
             </VerifiedIcon>
@@ -995,7 +1029,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           <CompetitorsRow>
             <CompetitorsScroll>
               {competitors.map((competitor, idx) => {
-                const competitorImg = competitor.image_url || competitor.primary_image;
+                const competitorImg = getLeaderImage(competitor);
                 const isTop = idx === 0;
                 return (
                   <CompetitorStoryItem key={competitor.leader_id} onClick={() => handleCompetitorClick(competitor)}>
@@ -1003,7 +1037,14 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                       <CompetitorRing $isTop={isTop}>
                         <CompetitorAvatar>
                           {competitorImg ? (
-                            <img src={buildImageUrl(competitorImg)} alt={competitor.name} />
+                            <img 
+                              src={competitorImg} 
+                              alt={competitor.name}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`;
+                              }}
+                            />
                           ) : (
                             <div className="default-avatar">
                               <User size={24} />
