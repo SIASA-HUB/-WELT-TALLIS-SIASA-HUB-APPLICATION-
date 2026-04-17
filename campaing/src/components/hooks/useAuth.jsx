@@ -1,5 +1,4 @@
-// hooks/useAuth.jsx - Fixed for first-time/unauthenticated users
-
+// hooks/useAuth.jsx - Fixed: Token expiry handling
 import {
   createContext,
   useContext,
@@ -8,43 +7,52 @@ import {
   useCallback,
   useRef,
 } from "react";
-import axios from "axios";
-
-// ============================================
-// API CONFIGURATION
-// ============================================
 import api from "../../api/api";
-import API from "../../api/config";
 
-// ============================================
-// AUTH CONTEXT
-// ============================================
 const AuthContext = createContext(null);
 
-// ============================================
-// JWT DECODE FUNCTION
-// ============================================
+// ========== ADDED: Helper functions for token expiry ==========
+const getStoredToken = () => {
+  return localStorage.getItem("access_token") || localStorage.getItem("token");
+};
+
+const isTokenExpired = () => {
+  const expiry = localStorage.getItem("token_expiry");
+  if (!expiry) return false;
+  const parsedExpiry = parseInt(expiry);
+  if (isNaN(parsedExpiry)) return false;
+  
+  // Safety: If expiry is suspiciously small (e.g. before year 2024), it's likely invalid.
+  // We assume it's NOT expired and let the backend decide via 401.
+  if (parsedExpiry < 1704067200000) return false; 
+  
+  return Date.now() > parsedExpiry;
+};
+
+const clearAuthData = () => {
+  console.log('[AUTH] Clearing all local authentication data');
+  const keys = [
+    "access_token", "token", "csrf_token", "user_data", "token_expiry",
+    "leaderToken", "aspirant_token", "admin_token"
+  ];
+  keys.forEach(k => localStorage.removeItem(k));
+};
+// ==============================================================
+
 const decodeJWT = (token) => {
   if (!token) return null;
-
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-
     const payload = parts[1];
     const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    const userData = JSON.parse(decoded);
-
-    return userData;
+    return JSON.parse(decoded);
   } catch (error) {
     console.error("Error decoding JWT:", error);
     return null;
   }
 };
 
-// ============================================
-// AUTH PROVIDER COMPONENT
-// ============================================
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -52,77 +60,51 @@ export const AuthProvider = ({ children }) => {
   const [csrfToken, setCsrfToken] = useState(null);
   const authCheckDoneRef = useRef(false);
 
-  // Get CSRF token - only if authenticated
   const fetchCsrfToken = useCallback(async () => {
-    // Don't fetch CSRF token if not authenticated
-    const token = localStorage.getItem("access_token");
-    if (!token) return null;
-
+    const token = getStoredToken();
+    if (!token || isTokenExpired()) return null; // <-- ADDED expiry check
     try {
       const response = await api.get("/users/csrf-token");
-
-      if (response && response.success) {
+      if (response?.success) {
         setCsrfToken(response.csrfToken);
         return response.csrfToken;
       }
     } catch (error) {
-      // Silent fail for CSRF token - not critical
       console.debug("CSRF token fetch skipped:", error?.message);
-      return null;
     }
+    return null;
   }, []);
 
-  // Get user info from /me endpoint - FIXED: Only called when token exists
   const fetchUser = useCallback(async () => {
-    const token = localStorage.getItem("access_token");
-
-    // CRITICAL FIX: If no token, don't even try to fetch
-    if (!token) {
-      return null;
-    }
-
+    const token = getStoredToken();
+    if (!token || isTokenExpired()) return null; // <-- ADDED expiry check
     try {
       const response = await api.get("/users/me");
-      if (response && response.success) {
+      if (response?.success && response?.data) {
         setUser(response.data);
         setIsAuthenticated(true);
         return response.data;
       } else {
-        // Response but not successful - clear tokens
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("token");
-        localStorage.removeItem("user_data");
+        clearAuthData();
         setUser(null);
         setIsAuthenticated(false);
         return null;
       }
     } catch (error) {
-      // Clear invalid token if API returns 401
-      if (error?.response?.status === 401) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("token");
-        localStorage.removeItem("user_data");
-        setUser(null);
-        setIsAuthenticated(false);
-      }
+      if (error?.response?.status === 401) clearAuthData();
+      setUser(null);
+      setIsAuthenticated(false);
       return null;
     }
   }, []);
 
-  // Check authentication status - FIXED for first-time users
   const checkAuthStatus = useCallback(async () => {
-    // Prevent multiple simultaneous checks
     if (authCheckDoneRef.current && !isLoading) return;
-
     setIsLoading(true);
 
     try {
-      // First check if there's a token in localStorage
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-
+      const token = getStoredToken();
       if (!token) {
-        // No token = definitely not authenticated
-        // This is the path for FIRST-TIME USERS
         setUser(null);
         setIsAuthenticated(false);
         setIsLoading(false);
@@ -130,39 +112,35 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // Token exists, verify with backend
+      // <-- ADDED: If token expired, clear and treat as not authenticated
+      if (isTokenExpired()) {
+        clearAuthData();
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        authCheckDoneRef.current = true;
+        return;
+      }
+
+      // Token exists and not expired – verify with backend
       try {
         const response = await api.get("/users/status");
-
-        if (response && response.success && response.isAuthenticated) {
+        if (response?.success && response?.isAuthenticated) {
           setUser(response.user);
           setIsAuthenticated(true);
-          // Only fetch CSRF if authenticated
           await fetchCsrfToken();
         } else {
-          // Token invalid or expired
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("token");
-          localStorage.removeItem("user_data");
+          clearAuthData();
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (statusError) {
-        // API error during status check - assume not authenticated
-        console.debug("Status check failed:", statusError?.response?.status);
-
-        // If 401, clear tokens
-        if (statusError?.response?.status === 401) {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("token");
-          localStorage.removeItem("user_data");
-        }
-
+        if (statusError?.response?.status === 401) clearAuthData();
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.debug("Auth check outer error:", error?.message);
+      console.debug("Auth check error:", error?.message);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -171,32 +149,25 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchCsrfToken, isLoading]);
 
-  // Login function
   const login = async (username, password) => {
     try {
-      const response = await api.post("/users/login", {
-        identifier: username,
-        password,
-      });
-
-      if (response && response.success) {
-        // Store tokens
-        if (response.accessToken) {
-          localStorage.setItem("token", response.accessToken);
-          localStorage.setItem("access_token", response.accessToken);
-        }
-
+      const response = await api.post("/users/login", { identifier: username, password });
+      if (response?.success && response?.accessToken) {
+        const token = response.accessToken;
+        const expiresIn = response.expiresIn || 7200; // <-- use expiresIn from response
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("token", token);
+        // <-- ADDED: store expiry timestamp
+        localStorage.setItem("token_expiry", Date.now() + expiresIn * 1000);
         if (response.csrfToken) {
           localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
         }
-
         const userData = response.user || response.data;
         if (userData) {
           localStorage.setItem("user_data", JSON.stringify(userData));
+          setUser(userData);
         }
-
-        setUser(userData);
         setIsAuthenticated(true);
         return { success: true, user: userData };
       }
@@ -210,34 +181,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
   const logout = async () => {
     try {
       await api.post("/users/logout").catch(() => { });
-    } catch (_) {
-      // Ignore
-    }
-
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("token");
-    localStorage.removeItem("csrf_token");
-    localStorage.removeItem("user_data");
-
+    } catch (_) { }
+    clearAuthData();
     setUser(null);
     setIsAuthenticated(false);
     setCsrfToken(null);
-
+    window.location.href = "/login";
     return { success: true };
   };
 
-  // Refresh token
   const refreshToken = async () => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return { success: false };
-
+    const token = getStoredToken();
+    if (!token || isTokenExpired()) return { success: false };
     try {
       const response = await api.post("/users/refresh");
-      if (response && response.success) {
+      if (response?.success && response?.accessToken) {
+        const newToken = response.accessToken;
+        const expiresIn = response.expiresIn || 7200;
+        localStorage.setItem("access_token", newToken);
+        localStorage.setItem("token", newToken);
+        localStorage.setItem("token_expiry", Date.now() + expiresIn * 1000);
         if (response.csrfToken) {
           localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
@@ -252,33 +218,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Get user role with hierarchy
-  const getUserRole = () => {
-    return user?.role || "user";
-  };
-
+  // Role helpers (unchanged)
+  const getUserRole = () => user?.role || "user";
   const hasRole = (requiredRole) => {
-    const userRole = getUserRole();
-    const roleHierarchy = {
-      user: 1,
-      admin: 2,
-      market_admin: 3,
-      super_admin: 4,
-      ceo: 5,
-    };
-
-    const userLevel = roleHierarchy[userRole] || 0;
+    const roleHierarchy = { user: 1, admin: 2, market_admin: 3, super_admin: 4, ceo: 5 };
+    const userLevel = roleHierarchy[getUserRole()] || 0;
     const requiredLevel = roleHierarchy[requiredRole] || 0;
-
     return userLevel >= requiredLevel;
   };
-
   const isAdmin = () => hasRole("admin");
   const isSuperAdmin = () => hasRole("super_admin");
   const isCEO = () => hasRole("ceo");
   const isMarketAdmin = () => hasRole("market_admin");
 
-  // Initialize auth on mount - only once
   useEffect(() => {
     authCheckDoneRef.current = false;
     checkAuthStatus();
@@ -305,107 +257,43 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
 
 export const decodeToken = (token) => decodeJWT(token);
-
-// Get token from localStorage
-export const getToken = () => {
-  return localStorage.getItem("access_token") || localStorage.getItem("token");
-};
-
-// Get decoded user from token
+export const getToken = () => getStoredToken();
 export const getDecodedUserFromToken = () => {
   const token = getToken();
-  if (!token) return null;
-  return decodeJWT(token);
+  return token ? decodeJWT(token) : null;
 };
 
-// SYNC check - no API calls, just checks localStorage
+// SYNC check includes expiry
 export const isLoggedIn = () => {
-  const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-  return !!token;
+  const token = getStoredToken();
+  return !!token && !isTokenExpired();
 };
-
 
 export const ProtectedRoute = ({ children, requiredRole = null }) => {
   const { isAuthenticated, isLoading, hasRole } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          background: "#000",
-          color: "white",
-        }}
-      >
-        <div>Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    window.location.href = "/login";
-    return null;
-  }
-
+  if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#000", color: "white" }}>Loading...</div>;
+  if (!isAuthenticated) { window.location.href = "/login"; return null; }
   if (requiredRole && !hasRole(requiredRole)) {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          background: "#000",
-          color: "white",
-          textAlign: "center",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#000", color: "white", textAlign: "center" }}>
         <div>
           <h2>Access Denied</h2>
           <p>You don't have permission to access this page.</p>
-          <button
-            onClick={() => (window.location.href = "/")}
-            style={{
-              marginTop: 20,
-              padding: "10px 24px",
-              background: "#ff3b3b",
-              color: "white",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            Go Home
-          </button>
+          <button onClick={() => (window.location.href = "/")} style={{ marginTop: 20, padding: "10px 24px", background: "#ff3b3b", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}>Go Home</button>
         </div>
       </div>
     );
   }
-
   return children;
 };
 
-export const AdminRoute = ({ children }) => (
-  <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>
-);
-
-export const SuperAdminRoute = ({ children }) => (
-  <ProtectedRoute requiredRole="super_admin">{children}</ProtectedRoute>
-);
-
-export const CEORoute = ({ children }) => (
-  <ProtectedRoute requiredRole="ceo">{children}</ProtectedRoute>
-);
+export const AdminRoute = ({ children }) => <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>;
+export const SuperAdminRoute = ({ children }) => <ProtectedRoute requiredRole="super_admin">{children}</ProtectedRoute>;
+export const CEORoute = ({ children }) => <ProtectedRoute requiredRole="ceo">{children}</ProtectedRoute>;

@@ -202,9 +202,14 @@ const RalliesSection = ({ limit = 6 }) => {
     };
 
     try {
-      await api.getWithCache("/rallies", handleRalliesUpdate, {
-        timeout: 30000, // Increased timeout for stability
+      const response = await api.getWithCache("/rallies", handleRalliesUpdate, {
+        timeout: 30000,
       });
+
+      // Also handle fresh response (getWithCache callback is only for cache hits)
+      if (response) {
+        handleRalliesUpdate(response);
+      }
     } catch (err) {
       console.error("Error fetching rallies:", err);
       setError(err.message || "Failed to load rallies");

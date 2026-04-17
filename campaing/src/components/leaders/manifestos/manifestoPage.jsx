@@ -1,4 +1,4 @@
-// manifestoPage.jsx - Fixed with WTA style and features
+// manifestoPage.jsx - Fixed stats display only, keeping your sleek design
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -199,7 +199,7 @@ const IconButton = styled.button`
 
   &:hover {
     background: ${(props) =>
-      props.$active ? props.$color : "rgba(255,255,255,0.1)"};
+    props.$active ? props.$color : "rgba(255,255,255,0.1)"};
   }
 
   &:disabled {
@@ -251,6 +251,8 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const [voting, setVoting] = useState({});
 
   const userId = user?.user_id || user?.id || "guest";
+  const readStartRef = useRef(Date.now());
+  const manifestoIdRef = useRef(null);
 
   useEffect(() => {
     if (leaderId) {
@@ -260,6 +262,16 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
       setError("Leader ID is required");
       setLoading(false);
     }
+
+    return () => {
+      const readTimeSeconds = Math.round((Date.now() - readStartRef.current) / 1000);
+      if (manifestoIdRef.current && readTimeSeconds > 2) {
+        api.post(`/leaders/manifestos/${manifestoIdRef.current}/read-time`, {
+          user_id: userId,
+          read_time: readTimeSeconds,
+        }).catch(() => { });
+      }
+    };
   }, [leaderId]);
 
   const trackView = async () => {
@@ -275,75 +287,99 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     }
   };
 
- const fetchManifesto = async () => {
-  if (!leaderId) return;
+  const fetchManifesto = async () => {
+    if (!leaderId) return;
 
-  loadingBarRef.current?.continuousStart();
-  setLoading(true);
+    loadingBarRef.current?.continuousStart();
+    setLoading(true);
 
-  try {
-    const response = await api.get(
-      `/leaders/manifestos/leader/${leaderId}`,
-      { timeout: 60000 },
-    );
+    try {
+      const response = await api.get(
+        `/leaders/manifestos/leader/${leaderId}`,
+        { timeout: 60000 },
+      );
 
-    // ✅ FIX: Response is already unwrapped by interceptor
-    // The structure is: { success: true, data: [...] }
-    if (response && response.success && response.data?.length > 0) {
-      const manifestoData = response.data[0]; // Get first manifesto
-      setManifesto(manifestoData);
+      if (response && response.success && response.data) {
+        // Handle both array and object responses
+        const manifestoData = Array.isArray(response.data) ? response.data[0] : response.data;
 
-      let agendaItems = manifestoData.agenda_items;
-      if (typeof agendaItems === "string") {
-        agendaItems = JSON.parse(agendaItems);
-      }
+        if (manifestoData) {
+          setManifesto(manifestoData);
+          manifestoIdRef.current = manifestoData.manifesto_id || manifestoData.id;
 
-      const itemsWithDefaultStats = (agendaItems || []).map((item, idx) => ({
-        ...item,
-        id: item.id || item.agenda_item_id || idx,
-        agenda_item_id: item.id || item.agenda_item_id,
-        stats: {
-          approve_count: 0,
-          reject_count: 0,
-          neutral_count: 0,
-          total_votes: 0,
-          approval_rate: 0,
-          rejection_rate: 0,
-          neutral_rate: 0,
-        },
-      }));
-      setAgendaItems(itemsWithDefaultStats);
-
-      const manifestoId = manifestoData.manifesto_id || manifestoData.id;
-      if (manifestoId) {
-        try {
-          const statsResponse = await api.get(
-            `/leaders/manifestos/${manifestoId}/stats`,
-          );
-          // ✅ FIX: Check stats response structure
-          if (statsResponse && statsResponse.success) {
-            setAgendaItems((prev) =>
-              prev.map((item, idx) => ({
-                ...item,
-                stats: statsResponse.data[idx] || item.stats,
-              })),
-            );
+          let agendaItemsList = manifestoData.agenda_items || [];
+          if (typeof agendaItemsList === "string") {
+            agendaItemsList = JSON.parse(agendaItemsList);
           }
-        } catch (statsErr) {
-          console.error("Error fetching stats:", statsErr);
+
+          const itemsWithDefaultStats = (agendaItemsList || []).map((item, idx) => ({
+            ...item,
+            id: item.id || item.agenda_item_id || idx,
+            agenda_item_id: item.id || item.agenda_item_id,
+            stats: {
+              approve_count: 0,
+              reject_count: 0,
+              neutral_count: 0,
+              total_votes: 0,
+              approval_rate: 0,
+              rejection_rate: 0,
+            },
+          }));
+
+          setAgendaItems(itemsWithDefaultStats);
+
+          const manifestoId = manifestoData.manifesto_id || manifestoData.id;
+          if (manifestoId) {
+            try {
+              const statsResponse = await api.get(`/leaders/manifestos/${manifestoId}/stats`);
+
+              // FIX: The stats are in data.agenda_stats array
+              if (statsResponse && statsResponse.success && statsResponse.data?.agenda_stats) {
+                const statsMap = {};
+                statsResponse.data.agenda_stats.forEach(stat => {
+                  statsMap[stat.agenda_id] = stat;
+                });
+
+                setAgendaItems(prev =>
+                  prev.map(item => ({
+                    ...item,
+                    stats: statsMap[item.agenda_item_id || item.id] || {
+                      approve_count: 0,
+                      reject_count: 0,
+                      total_votes: 0,
+                      approval_rate: 0,
+                      rejection_rate: 0,
+                    }
+                  }))
+                );
+              }
+
+              // Load user votes if available
+              if (statsResponse?.data?.user_votes) {
+                const votesMap = {};
+                statsResponse.data.user_votes.forEach(vote => {
+                  votesMap[`${manifestoId}_${vote.agenda_item_id}`] = vote.vote_type;
+                });
+                setUserVotes(votesMap);
+              }
+            } catch (statsErr) {
+              console.error("Error fetching stats:", statsErr);
+            }
+          }
+        } else {
+          setError("No manifesto found for this leader");
         }
+      } else {
+        setError(response?.message || "No manifesto found for this leader");
       }
-    } else {
-      setError(response?.message || "No manifesto found for this leader");
+    } catch (err) {
+      console.error("Error fetching manifesto:", err);
+      setError(err.response?.data?.message || "Failed to load manifesto");
+    } finally {
+      setLoading(false);
+      loadingBarRef.current?.complete();
     }
-  } catch (err) {
-    console.error("Error fetching manifesto:", err);
-    setError(err.response?.data?.message || "Failed to load manifesto");
-  } finally {
-    setLoading(false);
-    loadingBarRef.current?.complete();
-  }
-};
+  };
 
   const handleVote = async (item, voteType) => {
     if (!manifesto) return;
@@ -363,33 +399,69 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
       [voteKey]: previousVote === voteType ? null : voteType,
     }));
 
-    try {
-      const response = await api.post(
-        `/leaders/manifestos/${manifestoId}/vote`,
-        {
-          manifesto_id: manifestoId,
-          agenda_item_id: agendaItemId,
-          user_id: userId,
-          vote_type: voteType === "approve" ? "approve" : "reject",
-        },
-      );
+    // Optimistic stats update
+    setAgendaItems((prev) =>
+      prev.map((i) => {
+        if ((i.agenda_item_id || i.id) === agendaItemId) {
+          const currentStats = { ...i.stats };
+          let newStats = { ...currentStats };
 
-      if (response.data.success) {
-        // Update stats for this agenda item
+          // Remove previous vote if exists
+          if (previousVote === 'approve') {
+            newStats.approve_count = Math.max(0, (newStats.approve_count || 0) - 1);
+            newStats.total_votes = Math.max(0, (newStats.total_votes || 0) - 1);
+          } else if (previousVote === 'reject') {
+            newStats.reject_count = Math.max(0, (newStats.reject_count || 0) - 1);
+            newStats.total_votes = Math.max(0, (newStats.total_votes || 0) - 1);
+          }
+
+          // Add new vote if not toggling off
+          if (previousVote !== voteType) {
+            if (voteType === 'approve') {
+              newStats.approve_count = (newStats.approve_count || 0) + 1;
+              newStats.total_votes = (newStats.total_votes || 0) + 1;
+            } else if (voteType === 'reject') {
+              newStats.reject_count = (newStats.reject_count || 0) + 1;
+              newStats.total_votes = (newStats.total_votes || 0) + 1;
+            }
+          }
+
+          newStats.approval_rate = newStats.total_votes > 0
+            ? ((newStats.approve_count / newStats.total_votes) * 100).toFixed(1)
+            : 0;
+          newStats.rejection_rate = newStats.total_votes > 0
+            ? ((newStats.reject_count / newStats.total_votes) * 100).toFixed(1)
+            : 0;
+
+          return { ...i, stats: newStats };
+        }
+        return i;
+      })
+    );
+
+    try {
+      const response = await api.post(`/leaders/manifestos/${manifestoId}/vote`, {
+        manifesto_id: manifestoId,
+        agenda_item_id: agendaItemId,
+        user_id: userId,
+        vote_type: voteType,
+      });
+
+      if (response && response.success && response.data?.stats) {
+        // Update with actual stats from server
         setAgendaItems((prev) =>
           prev.map((i) =>
-            i.agenda_item_id === agendaItemId || i.id === agendaItemId
-              ? { ...i, stats: response.data.data.stats }
-              : i,
-          ),
+            (i.agenda_item_id || i.id) === agendaItemId
+              ? { ...i, stats: response.data.stats }
+              : i
+          )
         );
-      } else {
-        // Revert optimistic update on failure
-        setUserVotes((prev) => ({ ...prev, [voteKey]: previousVote }));
       }
     } catch (err) {
       console.error("Error voting:", err);
+      // Revert on failure
       setUserVotes((prev) => ({ ...prev, [voteKey]: previousVote }));
+      fetchManifesto(); // Refresh data
     } finally {
       setVoting((prev) => ({ ...prev, [voteKey]: false }));
     }

@@ -58,7 +58,7 @@ const verifyAccessToken = (token) => {
     // Add your actual JWT verification logic here
     // This is a placeholder - replace with your actual implementation
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+    const JWT_SECRET = process.env.JWT_SECRET || 'ballot-super-secret-key-change-in-production';
     return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     return null;

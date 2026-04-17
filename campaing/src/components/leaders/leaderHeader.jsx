@@ -1,5 +1,4 @@
-// components/leaders/leaderHeader.jsx - Fixed Image Handling
-
+// components/leaders/leaderHeader.jsx - Fixed Image Handling & Competitors
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -135,23 +134,28 @@ const TopNav = styled.div`
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
 `;
 
+// FIXED: Back button with white background and black icon
 const IconButton = styled.button`
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
+  background: white;
   border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 30px;
+  width: 40px;
+  height: 40px;
+  border-radius: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: white;
+  color: #000;
   transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
   &:hover {
-    background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.05);
+    background: #f0f0f0;
+    transform: scale(1.02);
+  }
+
+  svg {
+    stroke-width: 2.5;
   }
 `;
 
@@ -274,7 +278,6 @@ const ShareButton = styled.button`
   }
 `;
 
-// Share Dropdown - Simple icon only
 const ShareDropdown = styled.div`
   position: absolute;
   bottom: 60px;
@@ -597,46 +600,21 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-// FIXED: Improved image URL builder with better fallback handling
+// Improved image URL builder
 const buildImageUrl = (url) => {
   if (!url) return null;
-  
-  // If it's already an absolute URL (http/https), return as is
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  
-  // Get base URL from API config
-  let baseUrl = API?.IMAGES || API?.BASE || process.env.REACT_APP_API_URL || "http://localhost:5000";
-  
-  // Remove /api/v1 if present in the base URL
-  if (baseUrl.includes("/api/v1")) {
-    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
-  }
-  
-  // Remove trailing slash
-  baseUrl = baseUrl.replace(/\/$/, "");
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
 
-  // Ensure image path has leading slash
+  let baseUrl = API?.IMAGES || API?.BASE || process.env.REACT_APP_API_URL || "http://localhost:5000";
+  if (baseUrl.includes("/api/v1")) baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
+  baseUrl = baseUrl.replace(/\/$/, "");
   let imagePath = url.startsWith("/") ? url : `/${url}`;
-  
-  const fullUrl = `${baseUrl}${imagePath}`;
-  console.log("Building image URL:", { original: url, baseUrl, fullUrl });
-  
-  return fullUrl;
+  return `${baseUrl}${imagePath}`;
 };
 
-// Helper to safely get image URL from leader object
 const getLeaderImage = (leader) => {
   if (!leader) return null;
-  
-  // Try multiple possible field names
-  const imageUrl = leader.image_url || 
-                   leader.primary_image || 
-                   leader.profile_image || 
-                   leader.avatar || 
-                   leader.image;
-  
+  const imageUrl = leader.image_url || leader.primary_image || leader.profile_image || leader.avatar || leader.image;
   return buildImageUrl(imageUrl);
 };
 
@@ -644,30 +622,36 @@ const getLeaderImage = (leader) => {
 const trackProfileView = async (leaderId, userId) => {
   if (!leaderId) return;
   try {
-    await api.post(`/leaders/${leaderId}/view`, {
-      user_id: userId,
-      timestamp: new Date().toISOString()
-    });
+    await api.post(`/leaders/${leaderId}/view`, { user_id: userId, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error("Error tracking profile view:", error);
   }
 };
 
-// Track share
 const trackShare = async (leaderId, userId, platform) => {
   if (!leaderId) return;
   try {
-    await api.post(`/leaders/${leaderId}/share`, {
-      user_id: userId,
-      platform: platform,
-      timestamp: new Date().toISOString()
-    });
+    await api.post(`/leaders/${leaderId}/share`, { user_id: userId, platform, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error("Error tracking share:", error);
   }
 };
 
-// Memoized LeaderHeader component for instant loading
+// Normalize position strings for matching
+const normalizePosition = (position) => {
+  if (!position) return "";
+  const lower = position.toLowerCase();
+  if (lower.includes("governor")) return "Governor";
+  if (lower.includes("women rep") || lower.includes("woman rep")) return "Women Representative";
+  if (lower.includes("mp") || lower.includes("member of parliament")) return "Member of Parliament";
+  if (lower.includes("mca") || lower.includes("member of county assembly")) return "Member of County Assembly";
+  if (lower.includes("senator")) return "Senator";
+  if (lower.includes("president")) return "President";
+  if (lower.includes("deputy president")) return "Deputy President";
+  return position.charAt(0).toUpperCase() + position.slice(1);
+};
+
+// Memoized LeaderHeader component
 const LeaderHeader = memo(({ leader, onBack }) => {
   const [showBoostModal, setShowBoostModal] = useState(false);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
@@ -694,13 +678,10 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   // Track time spent on profile
   useEffect(() => {
     if (!leader?.leader_id) return;
-    
     startTimeRef.current = Date.now();
-    
     return () => {
-      // Track time spent when user leaves
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      if (timeSpent >= 3) { // Oonly more  than  3  seconds 
+      if (timeSpent >= 3) {
         api.post(`/leaders/${leader.leader_id}/time-spent`, {
           user_id: currentUserId,
           time_spent: timeSpent,
@@ -710,7 +691,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     };
   }, [leader?.leader_id, currentUserId]);
 
-  // Track profile view (only once per session)
+  // Track profile view (once)
   useEffect(() => {
     if (leader?.leader_id && !viewTracked) {
       trackProfileView(leader.leader_id, currentUserId);
@@ -718,7 +699,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     }
   }, [leader?.leader_id, currentUserId, viewTracked]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -729,6 +710,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Scroll handling for side actions visibility
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -742,114 +724,94 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       } else if (currentScrollY > 50) {
         setAddButtonVisible(false);
       }
-
-      if (currentScrollY <= 10) {
-        setAddButtonVisible(true);
-      }
+      if (currentScrollY <= 10) setAddButtonVisible(true);
 
       setSideActionsVisible(false);
-
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-
-      scrollTimeoutRef.current = setTimeout(() => {
-        setSideActionsVisible(true);
-      }, 300);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(() => setSideActionsVisible(true), 300);
 
       lastScrollYRef.current = currentScrollY;
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
 
   const fetchBoostedStories = useCallback(async () => {
     if (!leader?.leader_id) return;
     try {
-      const response = await api.get(
-        `/endorsements/leader/${leader.leader_id}/boosted?limit=15`,
-      );
-      if (response.data?.success && response.data?.data) {
-        setBoostedStories(response.data.data);
-      }
+      const response = await api.get(`/endorsements/leader/${leader.leader_id}/boosted?limit=15`);
+      if (response.data?.success && response.data?.data) setBoostedStories(response.data.data);
     } catch (error) {
       console.error("Error fetching boosted stories:", error);
     }
   }, [leader?.leader_id]);
 
   useEffect(() => {
-    if (leader?.leader_id) {
-      fetchBoostedStories();
-    }
+    if (leader?.leader_id) fetchBoostedStories();
   }, [leader?.leader_id, fetchBoostedStories]);
 
-  const normalizePosition = (position) => {
-    if (!position) return "";
-    const lower = position.toLowerCase();
-    if (lower.includes("governor")) return "Governor";
-    if (lower.includes("women rep") || lower.includes("woman rep")) return "Women Representative";
-    if (lower.includes("mp") || lower.includes("member of parliament")) return "Member of Parliament";
-    if (lower.includes("mca") || lower.includes("member of county assembly")) return "Member of County Assembly";
-    if (lower.includes("senator")) return "Senator";
-    if (lower.includes("president")) return "President";
-    if (lower.includes("deputy president")) return "Deputy President";
-    return position;
-  };
-
+  // FIXED: Competitors fetching – correctly extract leaders from groups response
   const fetchCompetitors = useCallback(async () => {
     if (!leader?.leader_id) return;
 
     try {
-      const currentPosition = leader.vying_for || leader.position || "";
-      const normalizedCurrentPosition = normalizePosition(currentPosition);
+      const currentPositionRaw = leader.vying_for || leader.position || "";
+      const normalizedCurrentPosition = normalizePosition(currentPositionRaw);
       const currentCounty = leader.county || "";
       const currentConstituency = leader.constituency || "";
 
-      const response = await api.get(`/leaders`, {
-        timeout: 8000,
-      });
+      // Fetch all leaders (paginated groups)
+      const response = await api.get("/leaders", { params: { limit: 500 } });
 
-      if (response.data?.data) {
-        const competitorsList = response.data.data
-          .filter((aspirant) => {
-            const aspirantPosition = normalizePosition(aspirant.position_running_for || aspirant.position || "");
-            const notSelf = aspirant.leader_id !== leader.leader_id;
-            const samePosition = aspirantPosition === normalizedCurrentPosition;
-            
-            if (!samePosition || !notSelf) return false;
-            
-            let sameLocation = false;
-            if (normalizedCurrentPosition === "Governor" || normalizedCurrentPosition === "Senator" || normalizedCurrentPosition === "Women Representative") {
-              sameLocation = currentCounty && aspirant.county && aspirant.county.toLowerCase() === currentCounty.toLowerCase();
-            } else if (normalizedCurrentPosition === "Member of Parliament") {
-              sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
-            } else if (normalizedCurrentPosition === "Member of County Assembly") {
-              sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
-            } else if (normalizedCurrentPosition === "President" || normalizedCurrentPosition === "Deputy President") {
-              sameLocation = true; // National positions have no location restriction
-            }
-            return sameLocation;
-          })
-          .slice(0, 10);
-          
-        setCompetitors(competitorsList);
+      if (!response?.success || !response?.data) return;
+
+      let allLeaders = [];
+      // Response.data is an array of groups
+      if (Array.isArray(response.data)) {
+        response.data.forEach(group => {
+          if (group.leaders && Array.isArray(group.leaders)) {
+            allLeaders.push(...group.leaders);
+          }
+        });
+      } else if (response.data.leaders) {
+        allLeaders = response.data.leaders;
       }
+
+      // Filter competitors
+      const competitorsList = allLeaders
+        .filter(aspirant => {
+          const aspirantPosition = normalizePosition(aspirant.position_running_for || aspirant.position || "");
+          const notSelf = aspirant.leader_id !== leader.leader_id;
+          const samePosition = aspirantPosition === normalizedCurrentPosition;
+          if (!samePosition || !notSelf) return false;
+
+          let sameLocation = false;
+          const pos = normalizedCurrentPosition;
+          if (pos === "Governor" || pos === "Senator" || pos === "Women Representative") {
+            sameLocation = currentCounty && aspirant.county && aspirant.county.toLowerCase() === currentCounty.toLowerCase();
+          } else if (pos === "Member of Parliament") {
+            sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
+          } else if (pos === "Member of County Assembly") {
+            sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
+          } else if (pos === "President" || pos === "Deputy President") {
+            sameLocation = true;
+          }
+          return sameLocation;
+        })
+        .slice(0, 10);
+
+      setCompetitors(competitorsList);
     } catch (error) {
       console.error("Error fetching competitors:", error);
       setCompetitors([]);
     }
-  }, [leader?.leader_id, leader?.vying_for, leader?.position, leader?.county, leader?.constituency]);
+  }, [leader]);
 
   useEffect(() => {
-    if (leader?.leader_id) {
-      fetchCompetitors();
-    }
+    if (leader?.leader_id) fetchCompetitors();
   }, [leader?.leader_id, fetchCompetitors]);
 
   const handleBoostSuccess = () => {
@@ -859,24 +821,18 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const handleCompetitorClick = (competitor) => {
-    const target = competitor.slug
-      ? `/leader/${competitor.slug}`
-      : `/leaders/${competitor.leader_id}`;
+    const target = competitor.slug ? `/leader/${competitor.slug}` : `/leaders/${competitor.leader_id}`;
     window.location.href = target;
   };
 
-  const handleAddStory = () => {
-    setShowAddStoryModal(true);
-  };
+  const handleAddStory = () => setShowAddStoryModal(true);
 
-  // Build canonical share URL
   const canonicalUrl = leader?.slug
     ? `${window.location.origin}/leader/${leader.slug}`
     : (typeof window !== "undefined" ? window.location.href : "");
 
   const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
 
-  // Share functions with tracking
   const shareToTwitter = async () => {
     await trackShare(leader?.leader_id, currentUserId, "twitter");
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
@@ -916,35 +872,21 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   if (!leader) return null;
 
-  // Get leader image 
   const leaderImageUrl = getLeaderImage(leader);
   const coverImage = leaderImageUrl || "https://images.unsplash.com/photo-1570126688035-1e6adbd61053?auto=format&fit=crop&q=80&w=1400";
   const partyName = leader?.party || leader?.political_party || "Independent";
   const partyLogo = getPartyLogo(partyName);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
-
   const runningFor = leader?.vying_for || leader?.position || "Candidate";
   const formattedPosition = normalizePosition(runningFor);
-
   const getLocationText = () => {
-    const position = formattedPosition;
-    if (position === "Governor" || position === "Women Representative" || position === "Senator") return leader?.county || "";
-    if (position === "Member of Parliament" || position === "Member of County Assembly") return leader?.constituency || "";
+    const pos = formattedPosition;
+    if (pos === "Governor" || pos === "Women Representative" || pos === "Senator") return leader?.county || "";
+    if (pos === "Member of Parliament" || pos === "Member of County Assembly") return leader?.constituency || "";
     return "";
   };
-
   const displayPosition = formattedPosition + (getLocationText() ? ` - ${getLocationText()}` : "");
-
-
-
-  const handleImageError = () => {
-    console.error("Failed to load image:", leaderImageUrl);
-    setImageError(true);
-  };
-
-  const getFallbackAvatar = () => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
-  };
+  const getFallbackAvatar = () => `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
 
   return (
     <PageContainer>
@@ -960,43 +902,25 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
         <div style={{ position: "relative" }} ref={dropdownRef}>
           <ShareButton onClick={() => setShowShareDropdown(!showShareDropdown)}>
-            <div className="share-icon">
-              <Share2 size={18} />
-            </div>
+            <div className="share-icon"><Share2 size={18} /></div>
             <div className="share-text">Share</div>
           </ShareButton>
-          
           {showShareDropdown && (
             <ShareDropdown>
-              <ShareIconRow onClick={shareToTwitter} $bg="#000000">
-                <Twitter size={18} /> Twitter
-              </ShareIconRow>
-              <ShareIconRow onClick={shareToWhatsApp} $bg="#25D366">
-                <MessageCircle size={18} /> WhatsApp
-              </ShareIconRow>
-              <ShareIconRow onClick={shareToFacebook} $bg="#1877F2">
-                <Facebook size={18} /> Facebook
-              </ShareIconRow>
-              <ShareIconRow onClick={shareToLinkedIn} $bg="#0077B5">
-                <Linkedin size={18} /> LinkedIn
-              </ShareIconRow>
-              <ShareIconRow onClick={handleCopyLink} $bg="#10b981">
-                <Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}
-              </ShareIconRow>
+              <ShareIconRow onClick={shareToTwitter} $bg="#000000"><Twitter size={18} /> Twitter</ShareIconRow>
+              <ShareIconRow onClick={shareToWhatsApp} $bg="#25D366"><MessageCircle size={18} /> WhatsApp</ShareIconRow>
+              <ShareIconRow onClick={shareToFacebook} $bg="#1877F2"><Facebook size={18} /> Facebook</ShareIconRow>
+              <ShareIconRow onClick={shareToLinkedIn} $bg="#0077B5"><Linkedin size={18} /> LinkedIn</ShareIconRow>
+              <ShareIconRow onClick={handleCopyLink} $bg="#10b981"><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
             </ShareDropdown>
           )}
         </div>
-        
         <BoostButton onClick={() => setShowBoostModal(true)}>
-          <div className="boost-icon">
-            <TrendingUp size={18} />
-          </div>
+          <div className="boost-icon"><TrendingUp size={18} /></div>
           <div className="boost-text">Boost</div>
         </BoostButton>
         <VerifiedBadge $verified={isVerified}>
-          <div className="verified-icon">
-            {isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-          </div>
+          <div className="verified-icon">{isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}</div>
           <div className="verified-text">{isVerified ? "Verified" : "Pending"}</div>
         </VerifiedBadge>
       </SideActions>
@@ -1008,19 +932,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       <ProfileCard>
         <ProfileTopRow>
           <AvatarWrapper>
-            <Avatar 
-              src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} 
-              alt={leader.name}
-              onError={handleImageError}
-            />
+            <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
             <VerifiedIcon $verified={isVerified}>
               {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
             </VerifiedIcon>
           </AvatarWrapper>
           <PartyLogoContainer>
-            <PartyCircle>
-              {partyLogo ? <PartyLogoImg src={partyLogo} alt={partyName} /> : <Flag size={20} color="#f59e0b" />}
-            </PartyCircle>
+            <PartyCircle>{partyLogo ? <PartyLogoImg src={partyLogo} alt={partyName} /> : <Flag size={20} color="#f59e0b" />}</PartyCircle>
             <PartyName>{partyName}</PartyName>
           </PartyLogoContainer>
         </ProfileTopRow>
@@ -1037,18 +955,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                       <CompetitorRing $isTop={isTop}>
                         <CompetitorAvatar>
                           {competitorImg ? (
-                            <img 
-                              src={competitorImg} 
-                              alt={competitor.name}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`;
-                              }}
-                            />
+                            <img src={competitorImg} alt={competitor.name} onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`; }} />
                           ) : (
-                            <div className="default-avatar">
-                              <User size={24} />
-                            </div>
+                            <div className="default-avatar"><User size={24} /></div>
                           )}
                         </CompetitorAvatar>
                       </CompetitorRing>
@@ -1077,23 +986,14 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       <ContentArea>
         {boostedStories && boostedStories.length > 0 && (
           <>
-            <BoostedStoriesRow 
-              leaderId={leader?.leader_id} 
-              currentUser={{ name: "You", id: currentUserId || "unknown" }} 
-              onBoostSuccess={handleBoostSuccess} 
-            />
+            <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
             <Divider />
           </>
         )}
-        <EndorsementStories 
-          leaderId={leader.leader_id} 
-          currentUser={{ name: "You", id: currentUserId || "unknown" }} 
-          onBoostSuccess={handleBoostSuccess} 
-        />
+        <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
       </ContentArea>
 
       <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
-
       <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
         setToastMessage("Story posted successfully!");
         setTimeout(() => setToastMessage(null), 3000);
@@ -1110,5 +1010,4 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 });
 
 LeaderHeader.displayName = 'LeaderHeader';
-
 export default LeaderHeader;

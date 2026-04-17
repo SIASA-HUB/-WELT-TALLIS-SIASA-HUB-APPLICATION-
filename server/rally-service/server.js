@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const helmet = require("helmet");
+const path = require("path");
+const fs = require("fs");
 const corsMiddleware = require("../global/middlewares/corsMiddleware");
 
 const Logger = require("./src/utils/logger/logger");
@@ -39,7 +41,7 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net", "http://localhost:*"],
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -48,6 +50,34 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ==================== STATIC FILE SERVING ====================
+const uploadsPath = path.join(__dirname, "uploads");
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+if (!fs.existsSync(path.join(uploadsPath, "rallies"))) {
+  fs.mkdirSync(path.join(uploadsPath, "rallies"), { recursive: true });
+}
+
+// Serve rally images from disk
+app.use(
+  "/uploads",
+  express.static(uploadsPath, {
+    maxAge: "30d",
+    immutable: true,
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    },
+  }),
+);
+
+Logger.info(`📁 Rally uploads served from: ${uploadsPath}`);
 
 // ==================== ROUTES ====================
 app.use("/api/v1/rallies", rallyRoutes);

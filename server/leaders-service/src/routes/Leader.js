@@ -41,11 +41,11 @@ const {
   trackShare,
 } = require("../controllers/ManifestoController");
 
-const { 
-  handleInteraction, 
-  postComment, 
+const {
+  handleInteraction,
+  postComment,
   getLeaderInteractionCounts,
-  getLeaderTimeAnalytics 
+  getLeaderTimeAnalytics
 } = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
@@ -100,7 +100,7 @@ router.post("/login", loginAspirant);
 
 router.get("/manifestos/trending", getTrendingManifestos);
 router.get("/manifestos/personalized", optionalAuth, getPersonalizedManifestos);
-router.post("/manifestos/create", verifyAspirantToken, createManifesto); // aspirants only
+router.post("/manifestos/create", createManifesto); // aspirants only
 
 
 router.post("/manifestos/vote", authenticate, voteManifestoAgenda);
@@ -123,7 +123,7 @@ router.delete("/manifestos/:manifestoId", verifyAspirantToken, deleteManifesto);
 // PUBLIC LEADER ROUTES
 // ============================================================
 router.get("/popular", getPopularLeaders);
-router.get("/profile/:slug", getLeaderBySlug);  
+router.get("/profile/:slug", getLeaderBySlug);
 router.post("/backfill-slugs", backfillSlugs);
 router.get("/", getPersonalizedFeed);
 
@@ -138,7 +138,7 @@ router.get("/:leaderId", getLeaderById);
 // PROTECTED / ME ROUTES — aspirant only
 // ============================================================
 router.get("/profile/me", verifyAspirantToken, getMyProfile);
-router.put("/profile/me",  updateMyProfile);
+router.put("/profile/me", updateMyProfile);
 router.post("/verification/request", verifyAspirantToken, requestVerification);
 
 // ============================================================

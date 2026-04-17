@@ -194,9 +194,8 @@ const AdminLogin = () => {
       });
 
       if (response.success) {
-        localStorage.setItem("admin_token", response.accessToken || response.token);
-        localStorage.setItem("token", response.accessToken || response.token); // Standard key for interceptor
-        localStorage.setItem("admin_data", JSON.stringify(response.admin));
+        const { storeAuthData } = await import("../../api/api");
+        storeAuthData(response);
         navigate("/admin/dashboard");
       } else {
         setError(response.data.message || "Invalid credentials");

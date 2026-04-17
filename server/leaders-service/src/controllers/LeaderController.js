@@ -8,6 +8,7 @@ const {
   jwt,
   crypto,
   redis,
+  generateAccessToken,
   db: { safeQuery, safeQueryOne },
   utils: { getKenyaTimeISO },
 } = require("../../../global/index");
@@ -274,25 +275,31 @@ const getLeaderById = asyncHandler(async (req, res) => {
 // ============================================
 // REGISTER ASPIRANT
 // ============================================
+// ============================================
+// REGISTER ASPIRANT - FIXED VERSION
+// ============================================
 const registerAspirant = asyncHandler(async (req, res) => {
   try {
     const {
       name, password, email, party, slogan, position, county, constituency, ward, experience, education,
       facebook, twitter, linkedin, instagram, website
     } = req.body;
-    const image = req.file;
+    const imageFile = req.file; // This is the uploaded file from multer
 
-
+    // Validate required fields
     if (!name) return res.status(400).json({ success: false, message: "Name is required" });
     if (!password) return res.status(400).json({ success: false, message: "Password is required" });
     if (password.length < 6) return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     if (!position) return res.status(400).json({ success: false, message: "Position is required" });
     if (!county) return res.status(400).json({ success: false, message: "County is required" });
-    if (!image) {
+
+    // Validate image
+    if (!imageFile) {
       Logger.warn("Registration failed: Missing profile image");
       return res.status(400).json({ success: false, message: "Profile image is required" });
     }
 
+    // Check for existing records
     const existingName = await safeQueryOne(`SELECT leader_id FROM leaders WHERE name = ? AND status != 'deleted'`, [name]);
     if (existingName) return res.status(400).json({ success: false, message: "Name already registered" });
 
@@ -301,27 +308,98 @@ const registerAspirant = asyncHandler(async (req, res) => {
       if (existingEmail) return res.status(400).json({ success: false, message: "Email already registered" });
     }
 
+    // Parse JSON fields
     let parsedExperience = [], parsedEducation = [];
     try {
       if (experience) parsedExperience = typeof experience === "string" ? JSON.parse(experience) : experience;
       if (education) parsedEducation = typeof education === "string" ? JSON.parse(education) : education;
-    } catch (e) { }
+    } catch (e) {
+      Logger.warn("Failed to parse experience/education JSON", { error: e.message });
+    }
 
     const leaderId = `LDR_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     const now = getKenyaTimeISO();
     const password_hash = await bcrypt.hash(password, 10);
 
+    // === IMAGE PROCESSING ===
+    // Process the image immediately (or send to queue)
+    const fs = require("fs");
+    const path = require("path");
+    const sharp = require("sharp");
+
+    const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+
+    const leaderDir = path.join(UPLOAD_DIR, leaderId);
+    if (!fs.existsSync(leaderDir)) {
+      fs.mkdirSync(leaderDir, { recursive: true });
+    }
+
+    const buffer = imageFile.buffer;
+    const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+
+    const originalFileName = `${baseName}_original.webp`;
+    const thumbFileName = `${baseName}_thumb.webp`;
+    const mediumFileName = `${baseName}_medium.webp`;
+    const largeFileName = `${baseName}_large.webp`;
+
+    // Generate different sizes
+    await sharp(buffer)
+      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(path.join(leaderDir, originalFileName));
+
+    await sharp(buffer)
+      .resize(800, 800, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(path.join(leaderDir, largeFileName));
+
+    await sharp(buffer)
+      .resize(400, 400, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(path.join(leaderDir, mediumFileName));
+
+    await sharp(buffer)
+      .resize(150, 150, { fit: "cover", position: "attention" })
+      .webp({ quality: 75 })
+      .toFile(path.join(leaderDir, thumbFileName));
+
+    const imageUrl = `/uploads/leaders/${leaderId}/${originalFileName}`;
+    const thumbnailUrl = `/uploads/leaders/${leaderId}/${thumbFileName}`;
+    const mediumUrl = `/uploads/leaders/${leaderId}/${mediumFileName}`;
+    const socialUrl = `/uploads/leaders/${leaderId}/${largeFileName}`;
+
+    const metadata = await sharp(buffer).metadata();
+
+    // === INSERT LEADER ===
     await safeQuery(
       `INSERT INTO leaders (
         leader_id, name, email, password_hash, party, slogan,
         position, position_running_for, county, constituency, ward,
-        education, experience, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        education, experience, status, image_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [leaderId, name, email || null, password_hash, party || null, slogan || null,
         position, position, county, constituency || null, ward || null,
         parsedEducation.length > 0 ? JSON.stringify(parsedEducation) : null,
         parsedExperience.length > 0 ? JSON.stringify(parsedExperience) : null,
-        "active", now, now]
+        "active", imageUrl, now, now]
+    );
+
+    // === INSERT IMAGE METADATA ===
+    const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    await safeQuery(
+      `INSERT INTO leader_images (
+        image_id, leader_id, image_url, public_id,
+        is_primary, sort_order, width, height, format, bytes,
+        thumbnail_url, medium_url, social_url, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        imageId, leaderId, imageUrl, `${leaderId}/${baseName}`,
+        1, 0, metadata.width || null, metadata.height || null,
+        "webp", imageFile.size || null, thumbnailUrl, mediumUrl, socialUrl, now
+      ]
     );
 
     // Generate and save slug
@@ -329,39 +407,7 @@ const registerAspirant = asyncHandler(async (req, res) => {
     const slug = await generateUniqueSlug(name, party, position, area);
     await safeQuery(`UPDATE leaders SET slug = ? WHERE leader_id = ?`, [slug, leaderId]);
 
-    let imageUrl = null, thumbnailUrl = null;
-    try {
-      const fs = require("fs"), path = require("path"), sharp = require("sharp");
-      const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
-      if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      const leaderDir = path.join(UPLOAD_DIR, leaderId);
-      if (!fs.existsSync(leaderDir)) fs.mkdirSync(leaderDir, { recursive: true });
-
-      const buffer = image.buffer;
-      const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-      const originalFileName = `${baseName}_original.webp`;
-      const thumbFileName = `${baseName}_thumb.webp`;
-
-      await sharp(buffer).resize(1200, 1200, { fit: "inside", withoutEnlargement: true }).webp({ quality: 85 }).toFile(path.join(leaderDir, originalFileName));
-      await sharp(buffer).resize(150, 150, { fit: "cover", position: "attention" }).webp({ quality: 75 }).toFile(path.join(leaderDir, thumbFileName));
-
-      imageUrl = `/uploads/leaders/${leaderId}/${originalFileName}`;
-      thumbnailUrl = `/uploads/leaders/${leaderId}/${thumbFileName}`;
-      const metadata = await sharp(buffer).metadata();
-      const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-
-      await safeQuery(
-        `INSERT INTO leader_images (image_id, leader_id, image_url, public_id, is_primary, sort_order, width, height, format, bytes, thumbnail_url, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [imageId, leaderId, imageUrl, `${leaderId}/${baseName}`, 1, 0, metadata.width, metadata.height, "webp", image.size, thumbnailUrl, now]
-      );
-
-      await safeQuery(`UPDATE leaders SET image_url = ? WHERE leader_id = ?`, [imageUrl, leaderId]);
-    } catch (imgError) {
-      Logger.error("Image processing error:", { error: imgError.message });
-    }
-
-    // Save Social Links to leader_portfolio
+    // Save Social Links
     try {
       const socialLinks = [
         { type: 'facebook', url: facebook },
@@ -387,19 +433,31 @@ const registerAspirant = asyncHandler(async (req, res) => {
       await redis.del('leaders:featured:10');
       await redis.del('leaders:popular');
       await redis.del('global:all_leaders');
-    } catch (cacheErr) { }
+    } catch (cacheErr) {
+      Logger.warn("Cache clear error:", cacheErr);
+    }
 
     res.status(201).json({
       success: true,
       message: "Registration successful!",
-      data: { leader_id: leaderId, name, email: email || null, position, county, status: "active", image_url: imageUrl, slug }
+      data: {
+        leader_id: leaderId,
+        name,
+        email: email || null,
+        position,
+        county,
+        status: "active",
+        image_url: imageUrl,
+        thumbnail_url: thumbnailUrl,
+        slug
+      }
     });
+
   } catch (error) {
     Logger.error("Register aspirant error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to register" });
   }
 });
-
 // ============================================
 // LOGIN ASPIRANT
 // ============================================
@@ -470,20 +528,15 @@ const loginAspirant = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate JWT token — MUST use same secret as global/auth/tokens.js verifyAccessToken
-    const JWT_SECRET = process.env.JWT_SECRET || "ballot-super-secret-key-development";
-    const token = jwt.sign(
-      {
-        leaderId: leader.leader_id,
-        userId: leader.leader_id,
-        name: leader.name,
-        role: "aspirant",
-        position: leader.position_running_for || leader.position,
-        party: leader.party
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Generate JWT token — Standardized via global auth utility
+    const token = generateAccessToken({
+      leaderId: leader.leader_id,
+      userId: leader.leader_id,
+      name: leader.name,
+      role: "aspirant",
+      position: leader.position_running_for || leader.position,
+      party: leader.party
+    }, "7d");
 
     // Remove sensitive data before sending response
     const { password_hash, ...leaderData } = leader;
@@ -848,7 +901,7 @@ const getPersonalizedFeed = asyncHandler(async (req, res) => {
 
     console.log("Building feed with:", { uCounty, uWard, uConstituency, uParty });
 
-    
+
     const getLeadersBase = `
       SELECT 
         l.leader_id, l.name, l.slug, l.party, l.position, l.position_running_for, 
@@ -1503,7 +1556,7 @@ const getAllLeaders = asyncHandler(async (req, res) => {
       `;
 
       leaders = await safeQuery(sql);
-      
+
       // Cache for 5 minutes
       await redisSet(cacheKey, leaders, 300);
     }

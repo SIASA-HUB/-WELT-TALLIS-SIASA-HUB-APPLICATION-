@@ -83,15 +83,19 @@ const getUserFromCookies = (req) => {
 
 // Get token from cookies or headers
 const getTokenFromRequest = (req) => {
-  // Check cookies first
-  let token = req.cookies?.access_token;
+  let token = null;
 
-  // Check Authorization header
-  if (!token && req.headers.authorization) {
+  // Check Authorization header first (most reliable for microservices)
+  if (req.headers.authorization) {
     const parts = req.headers.authorization.split(" ");
     if (parts.length === 2 && parts[0] === "Bearer") {
       token = parts[1];
     }
+  }
+
+  // Check cookies as fallback
+  if (!token) {
+    token = req.cookies?.access_token;
   }
 
   return token;

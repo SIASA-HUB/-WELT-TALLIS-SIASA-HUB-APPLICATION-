@@ -8,10 +8,14 @@ const redis = new Redis({
   port: process.env.REDIS_PORT || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
+    // Only retry for 10 seconds total, then fail gracefully
+    if (times > 10) return null;
+    const delay = Math.min(times * 200, 2000);
     return delay;
   },
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: 0, // Fail fast if disconnected
+  enableOfflineQueue: false, // Critical: don't queue commands when redis is down
+  connectTimeout: 5000,
 });
 
 // Connection logging

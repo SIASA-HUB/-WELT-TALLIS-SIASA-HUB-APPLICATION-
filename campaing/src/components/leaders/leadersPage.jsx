@@ -1,5 +1,4 @@
-// pages/LeadersPage.jsx - Fixed version with proper error handling and image URLs
-
+// pages/LeadersPage.jsx - Fixed: Only search bar is sticky, trending scrolls with content
 import React, {
   useState,
   useEffect,
@@ -12,21 +11,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
 import { Helmet } from "react-helmet-async";
-import axios from "axios";
 import {
   Search,
   X,
   TrendingUp,
   UserPlus,
-  Clock,
   MapPin,
   Star,
-  Flame,
-  User,
-  Shield,
-  Briefcase,
   Users,
-  Award,
 } from "lucide-react";
 import TrendingManifestos from "./manifestos/TredingManifestos";
 
@@ -37,50 +29,34 @@ import API from "../../api/config";
 import api from "../../api/api";
 
 // ============================================
-// IMAGE URL BUILDER - Fix for production
+// IMAGE URL BUILDER
 // ============================================
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
-  
-  // If it's already an absolute URL (http/https), return as is
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
-  
-  // Get base URL from API config (no hardcoded localhost for production)
   let baseUrl = API.IMAGES || API.BASE;
-  
-  // If no base URL configured, return null
   if (!baseUrl) return null;
-  
-  // Remove /api/v1 if present in the base URL
   if (baseUrl.includes("/api/v1")) {
     baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
-  
-  // Remove trailing slash
   baseUrl = baseUrl.replace(/\/$/, "");
-  
-  // Ensure image path has leading slash
   let imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  
   return `${baseUrl}${imagePath}`;
 };
 
-// Helper to get avatar with fallback
 const getLeaderAvatar = (leader) => {
-  const imageUrl = leader.image || leader.profile_image || leader.avatar;
+  const imageUrl = leader.image || leader.profile_image || leader.avatar || leader.image_url;
   const builtUrl = buildImageUrl(imageUrl);
-  
   if (builtUrl) return builtUrl;
-  
-  // Fallback to UI Avatars API
   const name = leader.name || leader.full_name || "Leader";
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.charAt(0))}&background=000&color=fff&size=80&bold=true&length=1`;
 };
 
 // ============================================
-
+// ANIMATIONS
+// ============================================
 const pulse = keyframes`
   0% { opacity: 0.6; }
   50% { opacity: 1; }
@@ -92,7 +68,9 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-// PageWrapper
+// ============================================
+// STYLED COMPONENTS
+// ============================================
 const PageWrapper = styled.div`
   min-height: 100vh;
   padding-bottom: 60px;
@@ -108,6 +86,7 @@ const LoadingWrapper = styled.div`
   pointer-events: none;
 `;
 
+// Only the search bar container is sticky
 const StickySearchWrapper = styled.div`
   position: sticky;
   top: 0;
@@ -206,54 +185,6 @@ const RegisterButton = styled.button`
   &:hover {
     background: #333;
     transform: translateY(-1px);
-  }
-`;
-
-const UserInfoBar = styled.div`
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: white;
-
-  .user-details {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .info-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255, 255, 255, 0.15);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-weight: 500;
-
-    svg {
-      opacity: 0.8;
-    }
-  }
-
-  .greeting {
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .personalized-note {
-    font-size: 11px;
-    opacity: 0.8;
-    display: flex;
-    align-items: center;
-    gap: 6px;
   }
 `;
 
@@ -368,6 +299,14 @@ const EmptyState = styled.div`
   }
 `;
 
+const ContentWrapper = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+`;
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 const LeadersPage = () => {
   const navigate = useNavigate();
   const { county: urlCounty, constituency: urlConstituency, ward: urlWard } = useParams();
@@ -382,14 +321,22 @@ const LeadersPage = () => {
   const loadingBarRef = useRef(null);
   const dataFetchedRef = useRef(false);
 
-  // Get user data from localStorage (from login response)
+  // Handle scroll for shadow effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setHasScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Get user data from localStorage
   useEffect(() => {
     const getUserData = () => {
       try {
         const storedUser = localStorage.getItem("user_data");
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
-          
           setUserData(parsedUser);
           setIsUserLoggedIn(true);
           return;
@@ -409,7 +356,6 @@ const LeadersPage = () => {
               );
             }
           } catch (err) {
-            
             setIsUserLoggedIn(false);
           }
         };
@@ -430,12 +376,11 @@ const LeadersPage = () => {
       const county = userData.county || userData.user_county;
       const constituency = userData.constituency || userData.user_constituency;
       const ward = userData.ward || userData.user_ward;
-      
+
       if (county) {
         let path = `/${county.toLowerCase()}`;
         if (constituency) path += `/${constituency.toLowerCase()}`;
         if (ward) path += `/${ward.toLowerCase()}`;
-        
         navigate(path, { replace: true });
       }
     }
@@ -445,10 +390,9 @@ const LeadersPage = () => {
   useEffect(() => {
     const fetchPersonalizedFeed = async () => {
       if (dataFetchedRef.current) return;
-      
+
       setLoading(true);
       setError(null);
-      
       if (loadingBarRef.current) {
         loadingBarRef.current.continuousStart(30);
       }
@@ -475,8 +419,6 @@ const LeadersPage = () => {
 
         if (response && response.success) {
           const groups = Array.isArray(response.data) ? response.data : [];
-          
-          // Process leaders to add image URLs
           const processedGroups = groups.map(group => ({
             ...group,
             leaders: (group.leaders || []).map(leader => ({
@@ -484,17 +426,7 @@ const LeadersPage = () => {
               imageUrl: getLeaderAvatar(leader)
             }))
           }));
-          
           setFeedGroups(processedGroups);
-
-          const cacheKey = `feed_cache_${userData?.user_id || "guest"}`;
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              timestamp: Date.now(),
-              data: processedGroups,
-            })
-          );
         } else {
           setFeedGroups([]);
           setError(response?.message || "No leaders found for this criteria");
@@ -502,7 +434,7 @@ const LeadersPage = () => {
 
         dataFetchedRef.current = true;
       } catch (err) {
-        console.error("❌ Leader Feed Error:", err);
+        console.error("Leader Feed Error:", err);
         setError("Unable to load the leaders feed. Please try again later.");
       } finally {
         setLoading(false);
@@ -520,23 +452,19 @@ const LeadersPage = () => {
     if (!searchTerm.trim()) return feedGroups;
 
     const term = searchTerm.toLowerCase().trim();
-
     return feedGroups
-      .map((group) => {
-        const leaders = Array.isArray(group.leaders) ? group.leaders : [];
-        return {
-          ...group,
-          leaders: leaders.filter(
-            (leader) =>
-              leader.name?.toLowerCase().includes(term) ||
-              leader.party?.toLowerCase().includes(term) ||
-              leader.position?.toLowerCase().includes(term) ||
-              leader.county?.toLowerCase().includes(term) ||
-              leader.constituency?.toLowerCase().includes(term) ||
-              leader.ward?.toLowerCase().includes(term),
-          ),
-        };
-      })
+      .map((group) => ({
+        ...group,
+        leaders: (group.leaders || []).filter(
+          (leader) =>
+            leader.name?.toLowerCase().includes(term) ||
+            leader.party?.toLowerCase().includes(term) ||
+            leader.position?.toLowerCase().includes(term) ||
+            leader.county?.toLowerCase().includes(term) ||
+            leader.constituency?.toLowerCase().includes(term) ||
+            leader.ward?.toLowerCase().includes(term),
+        ),
+      }))
       .filter((group) => group.leaders.length > 0);
   }, [feedGroups, searchTerm]);
 
@@ -580,7 +508,7 @@ const LeadersPage = () => {
             </RegisterButton>
           </SearchContainer>
         </StickySearchWrapper>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <ContentWrapper>
           {[1, 2, 3].map((i) => (
             <Section key={i}>
               <SectionHeader>
@@ -594,7 +522,7 @@ const LeadersPage = () => {
               </Tray>
             </Section>
           ))}
-        </div>
+        </ContentWrapper>
       </PageWrapper>
     );
   }
@@ -616,10 +544,12 @@ const LeadersPage = () => {
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Siasahub" />
       </Helmet>
+
       <LoadingWrapper>
         <LoadingBar ref={loadingBarRef} color="#000" height={2} />
       </LoadingWrapper>
 
+      {/* Only search bar is sticky */}
       <StickySearchWrapper $hasScroll={hasScrolled}>
         <SearchContainer>
           <SearchInputWrapper>
@@ -646,28 +576,14 @@ const LeadersPage = () => {
             <UserPlus size={14} /> Register Aspirant
           </RegisterButton>
         </SearchContainer>
-
-        <TrendingManifestos leaders={[]} compact={true} />
       </StickySearchWrapper>
 
+      {/* Trending manifestos section - now scrolls with content (not sticky) */}
+      <TrendingManifestos leaders={[]} compact={true} />
+
       {searchTerm && (
-        <div
-          style={{
-            maxWidth: 800,
-            margin: "0 auto",
-            padding: "12px 20px",
-            background: "#f9fafb",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+        <div style={{ maxWidth: 800, margin: "0 auto", padding: "12px 20px", background: "#f9fafb" }}>
+          <div style={{ fontSize: 13, color: "#6b7280", display: "flex", alignItems: "center", gap: 8 }}>
             <TrendingUp size={14} />
             Found <strong>{totalLeaders}</strong> aspirant
             {totalLeaders !== 1 ? "s" : ""} matching "
@@ -676,42 +592,28 @@ const LeadersPage = () => {
         </div>
       )}
 
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <ContentWrapper>
         {Array.isArray(filteredGroups) && filteredGroups.length > 0 ? (
           filteredGroups.map((group, index) => (
-            <Section
-              key={group.id || group.title || index}
-              $delay={`${index * 0.05}s`}
-            >
+            <Section key={group.id || group.title || index} $delay={`${index * 0.05}s`}>
               <SectionHeader>
                 <h2>
-                  {group.type === "presidential" && (
-                    <Star size={14} color="#ff0000" />
-                  )}
+                  {group.type === "presidential" && <Star size={14} color="#ff0000" />}
                   {group.type === "county" && <MapPin size={14} />}
                   {group.type === "party" && <Users size={14} />}
                   {group.title || "Leaders"}
                   {group.type === "presidential" && (
-                    <SectionBadge $type="presidential">
-                      🇰🇪 National
-                    </SectionBadge>
+                    <SectionBadge $type="presidential">🇰🇪 National</SectionBadge>
                   )}
-                  {group.type === "county" &&
-                    userData?.county === group.title && (
-                      <SectionBadge $type="your-county">
-                        📍 Your County
-                      </SectionBadge>
-                    )}
-                  {group.type === "party" &&
-                    userData?.political_party === group.title && (
-                      <SectionBadge $type="your-party">
-                        🎯 Your Party
-                      </SectionBadge>
-                    )}
+                  {group.type === "county" && userData?.county === group.title && (
+                    <SectionBadge $type="your-county">📍 Your County</SectionBadge>
+                  )}
+                  {group.type === "party" && userData?.political_party === group.title && (
+                    <SectionBadge $type="your-party">🎯 Your Party</SectionBadge>
+                  )}
                 </h2>
                 <span className="count">
-                  {group.leaders?.length || 0} /{" "}
-                  {group.total || group.leaders?.length || 0}
+                  {group.leaders?.length || 0} / {group.total || group.leaders?.length || 0}
                 </span>
               </SectionHeader>
               <Tray>
@@ -748,10 +650,7 @@ const LeadersPage = () => {
             )}
             {!searchTerm && !isUserLoggedIn && (
               <>
-                <p>
-                  Login to see personalized feed based on your location and
-                  preferences
-                </p>
+                <p>Login to see personalized feed based on your location and preferences</p>
                 <button
                   onClick={() => navigate("/login")}
                   style={{
@@ -770,7 +669,7 @@ const LeadersPage = () => {
             )}
           </EmptyState>
         )}
-      </div>
+      </ContentWrapper>
     </PageWrapper>
   );
 };

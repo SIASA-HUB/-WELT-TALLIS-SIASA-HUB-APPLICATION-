@@ -1,13 +1,12 @@
 import React, { useState, useEffect, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { 
-  ChevronRight, 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  Clock, 
+import {
+  ChevronRight,
+  Eye,
+  Heart,
+  MessageCircle,
+  Clock,
   MapPin,
   Sparkles,
   Flame,
@@ -42,10 +41,10 @@ const buildImageUrl = (imageUrl) => {
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
-  
+
   // Clean the path
   const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  
+
   return `${API.IMAGES}${cleanPath}`;
 };
 
@@ -180,7 +179,7 @@ const ManifestoCard = styled.div`
   &:hover {
     transform: none;
     background: ${(props) =>
-      props.$isLocal ? "rgba(34, 197, 94, 0.08)" : "rgba(255, 255, 255, 0.03)"};
+    props.$isLocal ? "rgba(34, 197, 94, 0.08)" : "rgba(255, 255, 255, 0.03)"};
     border-color: ${(props) => (props.$isLocal ? "#22c55e" : "rgba(255,255,255,0.1)")};
     
     &::before {
@@ -391,21 +390,21 @@ const TrendingManifestos = ({ userId, currentUser }) => {
         setLoading(true);
         setError(null);
         const finalUserId = userId || currentUser?.user_id || localStorage.getItem("user_id");
-        
+
         // Try personalized first if user is logged in
-        let url = finalUserId 
-          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=15` 
+        let url = finalUserId
+          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=15`
           : `/leaders/manifestos/trending?limit=30`; // Fetch more for randomization
 
         await api.getWithCache(url, (data) => {
           if (data.success && data.data) {
             let fetchedData = data.data || [];
-            
+
             // Randomize for guests or to keep it fresh
             if (!finalUserId || fetchedData.length > 5) {
               fetchedData = [...fetchedData].sort(() => 0.5 - Math.random());
             }
-            
+
             setManifestos(fetchedData.slice(0, 15));
             if (data.meta?.user_location) setUserLocation(data.meta.user_location);
           }
@@ -458,6 +457,17 @@ const TrendingManifestos = ({ userId, currentUser }) => {
     likes: Math.floor(Math.random() * 500) + 10,
     comments: Math.floor(Math.random() * 100) + 5,
   });
+
+  // FIX: Use slug for navigation, fallback to leader_id if slug missing
+  const handleCardClick = (leaderSlug, leaderId) => {
+    if (leaderSlug) {
+      navigate(`/leaders/${leaderSlug}`);
+    } else if (leaderId) {
+      navigate(`/leaders/${leaderId}`);
+    } else {
+      console.warn("No slug or leader_id available");
+    }
+  };
 
   if (loading) {
     return (
@@ -519,11 +529,15 @@ const TrendingManifestos = ({ userId, currentUser }) => {
           const isHot = i < 3;
           const timeAgo = i === 0 ? "2 min ago" : i === 1 ? "1 hour ago" : i === 2 ? "3 hours ago" : `${i + 5} hours ago`;
 
+          // Use leader_slug if available, otherwise fallback to leader_id
+          const leaderSlug = m.leader_slug || m.slug;
+          const leaderId = m.leader_id;
+
           return (
             <ManifestoCard
               key={m.manifesto_id || i}
               $isLocal={local}
-              onClick={() => navigate(`/leaders/${m.leader_id}`)}
+              onClick={() => handleCardClick(leaderSlug, leaderId)}
             >
               <CardHeader>
                 <RankBadge $top3={i < 3}>
@@ -531,10 +545,10 @@ const TrendingManifestos = ({ userId, currentUser }) => {
                 </RankBadge>
                 <Avatar>
                   <div className="card-avatar">
-                    <img 
-                      src={getAvatarUrl(m.leader_name, m.leader_image, m.cover_image || m.image)} 
-                      alt={m.leader_name} 
-                      onError={(e) => { 
+                    <img
+                      src={getAvatarUrl(m.leader_name, m.leader_image, m.cover_image || m.image)}
+                      alt={m.leader_name}
+                      onError={(e) => {
                         e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.leader_name?.charAt(0) || "C")}&background=22c55e&color=fff&size=80&bold=true&length=2`;
                       }}
                     />

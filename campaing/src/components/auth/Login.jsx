@@ -1,5 +1,4 @@
-// pages/LoginPage.jsx - With Role-Based Redirection
-
+// pages/LoginPage.jsx - Fixed Token Storage & Role Redirection
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -16,9 +15,7 @@ import {
 } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoadingBar from "../../utils/LoadingBar";
-import theme from "../../utils/theme";
 import { useAuth } from "../hooks/useAuth";
-
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
@@ -28,12 +25,6 @@ const fadeIn = keyframes`
 const slideIn = keyframes`
   from { transform: translateX(20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
-`;
-
-const shake = keyframes`
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
 `;
 
 // ==========================================
@@ -120,7 +111,7 @@ const LogoIcon = styled.div`
 `;
 
 const LoginBody = styled.div`
-  padding: 10px;
+  padding: 32px;
   background: #111111;
 
   @media (max-width: 768px) {
@@ -151,7 +142,7 @@ const FormInput = styled.input`
   border: 1px solid ${(props) => (props.error ? "#ef4444" : "#e5e7eb")};
   border-radius: 12px;
   font-size: 15px;
-  color: #1e293b; 
+  color: #1e293b;
   background: white;
   transition: all 0.3s ease;
 
@@ -214,7 +205,7 @@ const LoginButton = styled.button`
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 10px 25px -5px rgba(30, 60, 114, 0.4);
   }
 
   &:active {
@@ -311,10 +302,16 @@ const SecurityBadge = styled.div`
 // LOGIN PAGE COMPONENT
 // ==========================================
 const LoginPage = () => {
-  const { login, isAuthenticated: authIsAuth, user: authUser } = useAuth();
+  const { login, isAuthenticated, user: authUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const loadingBarRef = useRef(null);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loginData, setLoginData] = useState({ username: "", password: "" });
 
   // Role-based redirect helper
   const getRedirectPathByRole = (role) => {
@@ -335,18 +332,6 @@ const LoginPage = () => {
     }
   };
 
-
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-
-  const [loginData, setLoginData] = useState({
-    username: "",
-    password: "",
-  });
-
   useEffect(() => {
     loadingBarRef.current?.continuousStart();
 
@@ -354,107 +339,73 @@ const LoginPage = () => {
       setSuccessMessage("Registration successful! Please login with your credentials.");
     }
 
-    if (authIsAuth) {
-      if (authUser) {
-        const redirectPath = getRedirectPathByRole(authUser.role);
-        navigate(redirectPath, { replace: true });
-      }
+    if (isAuthenticated && authUser) {
+      const redirectPath = getRedirectPathByRole(authUser.role);
+      navigate(redirectPath, { replace: true });
     }
 
-    setTimeout(() => {
-      loadingBarRef.current?.complete();
-    }, 500);
-  }, [location, navigate, authIsAuth, authUser]);
-
+    setTimeout(() => loadingBarRef.current?.complete(), 500);
+  }, [location, navigate, isAuthenticated, authUser]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setLoginData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setLoginData((prev) => ({ ...prev, [name]: value }));
     if (errorMessage) setErrorMessage("");
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
 
-
-// In LoginPage.jsx - update the handleSubmit function
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrorMessage("");
-  setSuccessMessage("");
-
-  if (!loginData.username || !loginData.password) {
-    setErrorMessage("Please fill in all fields");
-    return;
-  }
-
-  if (loginData.username.length < 3) {
-    setErrorMessage("Username must be at least 3 characters");
-    return;
-  }
-
-  if (loginData.password.length < 6) {
-    setErrorMessage("Password must be at least 6 characters");
-    return;
-  }
-
-  setIsSubmitting(true);
-  loadingBarRef.current?.continuousStart();
-
-  try {
-    const result = await login(loginData.username, loginData.password);
-
-    if (result.success) {
-      const user = result.user;
-      const userRole = user?.role || "user";
-      
-      // IMPORTANT: Ensure token is stored with both keys
-      if (result.token || result.accessToken) {
-        const token = result.token || result.accessToken;
-        localStorage.setItem('access_token', token);
-        localStorage.setItem('token', token);
-      }
-      
-      loadingBarRef.current?.complete();
-
-      // Redirect based on role
-      const redirectPath = getRedirectPathByRole(userRole);
-      
-      // For wallet access, make sure user ID is properly stored
-      if (user && user.id) {
-        localStorage.setItem('user_id', user.id);
-      }
-      
-      navigate(redirectPath, { 
-        replace: true,
-        state: { 
-          welcomeMessage: `Welcome back, ${user.real_name || user.username}!`,
-          userRole: userRole
-        }
-      });
-    } else {
-      throw new Error(result.message || "Login failed");
+    if (!loginData.username || !loginData.password) {
+      setErrorMessage("Please fill in all fields");
+      return;
     }
-  } catch (err) {
-    console.error("Login error:", err);
-    loadingBarRef.current?.complete();
-    setErrorMessage(err.message || "Invalid username or password. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    if (loginData.username.length < 3) {
+      setErrorMessage("Username must be at least 3 characters");
+      return;
+    }
+    if (loginData.password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters");
+      return;
+    }
 
+    setIsSubmitting(true);
+    loadingBarRef.current?.continuousStart();
 
+      try {
+        const result = await login(loginData.username, loginData.password);
+        if (result.success) {
+          const user = result.user;
+          const userRole = user?.role || "user";
 
+          loadingBarRef.current?.complete();
 
-
-
+        // Redirect based on role
+        const redirectPath = getRedirectPathByRole(userRole);
+        navigate(redirectPath, {
+          replace: true,
+          state: {
+            welcomeMessage: `Welcome back, ${user.real_name || user.username}!`,
+            userRole,
+          },
+        });
+      } else {
+        throw new Error(result.message || "Login failed");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      loadingBarRef.current?.complete();
+      setErrorMessage(err.message || "Invalid username or password. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
       <AppLoadingBar ref={loadingBarRef} color="#10b981" />
-
       <LoginWrapper>
         <LoginContainer>
           <LoginCard>
@@ -462,11 +413,9 @@ const handleSubmit = async (e) => {
               <BackButton to="/">
                 <ArrowLeft size={20} />
               </BackButton>
-
               <LogoIcon>
                 <Fingerprint size={32} />
               </LogoIcon>
-
               <h1 style={{ margin: "0 0 8px", fontSize: "28px", fontWeight: 700 }}>
                 Welcome Back
               </h1>
@@ -482,7 +431,6 @@ const handleSubmit = async (e) => {
                   <span>{successMessage}</span>
                 </SuccessAlert>
               )}
-
               {errorMessage && (
                 <ErrorAlert>
                   <AlertTriangle size={18} />
@@ -518,10 +466,7 @@ const handleSubmit = async (e) => {
                       placeholder="Enter your password"
                       disabled={isSubmitting}
                     />
-                    <TogglePasswordButton
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
+                    <TogglePasswordButton type="button" onClick={() => setShowPassword(!showPassword)}>
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </TogglePasswordButton>
                   </PasswordInputWrapper>

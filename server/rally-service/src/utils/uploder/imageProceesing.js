@@ -1,16 +1,26 @@
 const dotenv = require("dotenv");
 dotenv.config();
-const cloudinary = require("cloudinary").v2;
 const sharp = require("sharp");
 const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
 const Logger = require("../logger/logger");
 
-// ================= CLOUDINARY CONFIGURATION =================
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// ================= UPLOADS DIRECTORY =================
+const UPLOADS_DIR = path.join(__dirname, "../../../uploads");
+const RALLIES_DIR = path.join(UPLOADS_DIR, "rallies");
+
+// Ensure directories exist
+const ensureDirectories = () => {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(RALLIES_DIR)) {
+    fs.mkdirSync(RALLIES_DIR, { recursive: true });
+  }
+};
+ensureDirectories();
 
 // ================= MULTER MEMORY STORAGE =================
 const upload = multer({
@@ -26,42 +36,13 @@ const upload = multer({
   },
 });
 
-// ================= CLOUDINARY UPLOAD HELPER (EAGER PROCESSING) =================
-const uploadToCloudinary = (buffer, folder = "rallies") =>
-  new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: "image",
-
-        eager: [
-          {
-            width: 1280,
-            height: 1280,
-            crop: "limit",
-            fetch_format: "auto",
-            quality: "auto",
-          },
-        ],
-        eager_async: false, // Ensures it's finished before we return the URL
-      },
-      (error, result) => {
-        if (error) return reject(error);
-
-        // We use the Eager URL if it exists, as it points to the fully optimized version
-        const finalUrl =
-          result.eager && result.eager.length > 0
-            ? result.eager[0].secure_url
-            : result.secure_url;
-
-        resolve({
-          url: finalUrl,
-          public_id: result.public_id,
-        });
-      },
-    );
-    stream.end(buffer);
-  });
+// ================= GENERATE UNIQUE FILENAME =================
+const generateFileName = (originalName) => {
+  const timestamp = Date.now();
+  const random = crypto.randomBytes(8).toString("hex");
+  const ext = ".webp"; // Always save as webp after Sharp processing
+  return `${timestamp}_${random}${ext}`;
+};
 
 // ================= PROCESS SINGLE IMAGE =================
 const processSingleImage = async (req, res, next) => {
@@ -79,18 +60,34 @@ const processSingleImage = async (req, res, next) => {
       .webp({ quality: 85, smartSubsample: true })
       .toBuffer();
 
-    // 2. Upload to Cloudinary with Eager instructions
-    const result = await uploadToCloudinary(buffer);
+    // 2. Save to disk with date-based folder structure
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const dateDir = path.join(RALLIES_DIR, String(year), month);
+
+    if (!fs.existsSync(dateDir)) {
+      fs.mkdirSync(dateDir, { recursive: true });
+      Logger.info(`📁 Created directory: ${dateDir}`);
+    }
+
+    const fileName = generateFileName(req.file.originalname);
+    const filePath = path.join(dateDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    // 3. Create URL path for the file
+    const imageUrl = `/uploads/rallies/${year}/${month}/${fileName}`;
+    Logger.info(`✅ Rally image saved to disk: ${imageUrl}`);
 
     req.body.image = {
-      url: result.url,
-      public_id: result.public_id,
+      url: imageUrl,
+      public_id: null,
     };
 
     next();
   } catch (error) {
-    Logger.error("Single image upload failed", error);
-    res.status(500).json({ message: "Image upload failed" });
+    Logger.error("Single image process failed", error);
+    res.status(500).json({ message: "Image upload processing failed" });
   }
 };
 
@@ -111,11 +108,24 @@ const processMultipleImages = async (req, res, next) => {
           .webp({ quality: 85, smartSubsample: true })
           .toBuffer();
 
-        const result = await uploadToCloudinary(buffer);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const dateDir = path.join(RALLIES_DIR, String(year), month);
+
+        if (!fs.existsSync(dateDir)) {
+          fs.mkdirSync(dateDir, { recursive: true });
+        }
+
+        const fileName = generateFileName(file.originalname);
+        const filePath = path.join(dateDir, fileName);
+        fs.writeFileSync(filePath, buffer);
+
+        const imageUrl = `/uploads/rallies/${year}/${month}/${fileName}`;
 
         return {
-          url: result.url,
-          public_id: result.public_id,
+          url: imageUrl,
+          public_id: null,
         };
       }),
     );
@@ -123,19 +133,16 @@ const processMultipleImages = async (req, res, next) => {
     req.body.images = uploadedImages;
     next();
   } catch (error) {
-    Logger.error("Multiple image upload failed", error);
-    res.status(500).json({ message: "Image upload failed" });
+    Logger.error("Multiple image process failed", error);
+    res.status(500).json({ message: "Image upload processing failed" });
   }
 };
 
 // ================= DELETE MEDIA =================
 const deleteMediaFromCloudinary = async (publicId) => {
-  try {
-    await cloudinary.uploader.destroy(publicId);
-  } catch (error) {
-    Logger.error("Failed to delete asset from Cloudinary", error);
-    throw new Error("Failed to delete asset from Cloudinary");
-  }
+  // No-op: Cloudinary removed. Images are stored on local disk.
+  // Old images with publicId are simply abandoned. New images use disk paths.
+  return Promise.resolve();
 };
 
 module.exports = {

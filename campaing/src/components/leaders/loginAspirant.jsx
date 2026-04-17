@@ -287,22 +287,11 @@ const LoginAspirant = () => {
       console.log("📥 Login response:", response);
 
       if (response.success) {
-        const { token, leader } = response.data;
+        // Use the centralized storeAuthData helper from api.js
+        const { storeAuthData } = await import("../../api/api");
+        storeAuthData(response.data);
 
-        // Store in localStorage — use BOTH keys for cross-compatibility
-        // App.jsx ProtectedRoute reads 'aspirant_token'
-        // api.js interceptor reads 'leaderToken' / 'token'
-        localStorage.setItem("leaderToken", token);
-        localStorage.setItem("aspirant_token", token); // ← required for ProtectedRoute
-        localStorage.setItem("token", token); // Backup for api.js interceptor
-        localStorage.setItem("leaderData", JSON.stringify(leader));
-        
-        const leaderId = leader.leader_id || leader.id || leader._id;
-        if (leaderId) {
-          localStorage.setItem("currentLeaderId", leaderId);
-        }
-
-        setSuccessMessage(`Welcome back, ${leader.name}! Redirecting...`);
+        setSuccessMessage(`Welcome back! Redirecting...`);
         
         toast.success(`Welcome back, ${leader.name}!`);
 

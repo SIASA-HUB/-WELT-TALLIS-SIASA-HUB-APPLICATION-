@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import axios from "axios";
 import {
   Zap,
   Smartphone,
@@ -15,7 +14,8 @@ import {
   AtSign,
 } from "lucide-react";
 
-import api from "../../api/api";
+// ✅ FIX: Use walletApi instead of main api
+import walletApi from "./ApiConfig";
 
 const Container = styled.div`
   padding: 40px 24px;
@@ -354,8 +354,6 @@ const WalletPage = () => {
       setCurrentUser(user);
       setUserId(user.user_id);
       setIsAuthenticated(true);
-    } else {
-      
     }
   }, []);
 
@@ -381,13 +379,13 @@ const WalletPage = () => {
     setBonus(calculateBonusAmount(amount));
   }, [selectedAmount, customAmount]);
 
+  // ✅ FIX: Use walletApi for all wallet endpoints
   const fetchBalance = async () => {
     if (!userId) return;
     try {
-      const response = await api.get(`/wallet/balance/${userId}`);
-
-      if (response.data.success) {
-        setBalance(response.data.data.balance || 0);
+      const response = await walletApi.get(`/wallet/balance/${userId}`);
+      if (response.success) {
+        setBalance(response.data?.balance || 0);
       }
     } catch (err) {
       console.error("Error fetching balance:", err);
@@ -398,9 +396,9 @@ const WalletPage = () => {
   const fetchTransactions = async () => {
     if (!userId) return;
     try {
-      const response = await api.get(`/wallet/transactions/${userId}?limit=5`);
-      if (response.data.success) {
-        setTransactions(response.data.data || []);
+      const response = await walletApi.get(`/wallet/transactions/${userId}?limit=5`);
+      if (response.success) {
+        setTransactions(response.data || []);
       }
     } catch (err) {
       console.error("Error fetching transactions:", err);
@@ -436,11 +434,12 @@ const WalletPage = () => {
           currentUser?.real_name || currentUser?.username || "SiasaHub User",
       };
 
-      const response = await api.post("/wallet/deposit", payload);
+      // ✅ Use walletApi
+      const response = await walletApi.post("/wallet/deposit", payload);
 
-      if (response.data.success) {
-        if (response.data.data?.redirect_url) {
-          window.location.href = response.data.data.redirect_url;
+      if (response.success) {
+        if (response.data?.redirect_url) {
+          window.location.href = response.data.redirect_url;
         } else {
           setSuccess(`Payment initiated! Check your phone for M-Pesa prompt...`);
           setTimeout(() => {
@@ -449,13 +448,13 @@ const WalletPage = () => {
           }, 3000);
         }
       } else {
-        setError(response.data.message || "Failed to initiate payment");
+        setError(response.message || "Failed to initiate payment");
       }
     } catch (err) {
       console.error("Deposit error:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to initiate payment. Please try again."
+        "Failed to initiate payment. Please try again."
       );
     } finally {
       setLoading(false);
@@ -483,9 +482,9 @@ const WalletPage = () => {
       <Container>
         <TopBar>
           <Brand>
-            <img 
-              src="/image/siasa.png" 
-              alt="SiasaHub" 
+            <img
+              src="/image/siasa.png"
+              alt="SiasaHub"
               className="logo-img"
               style={{ height: "40px" }}
               onError={(e) => {
@@ -517,9 +516,9 @@ const WalletPage = () => {
     <Container>
       <TopBar>
         <Brand onClick={() => window.location.href = "/"}>
-          <img 
-            src="/image/siasa.png" 
-            alt="SiasaHub" 
+          <img
+            src="/image/siasa.png"
+            alt="SiasaHub"
             className="logo-img"
             style={{ height: "44px" }}
             onError={(e) => {
@@ -645,10 +644,10 @@ const WalletPage = () => {
                   {tx.type === "deposit"
                     ? "💳 Deposit"
                     : tx.type === "bonus"
-                    ? "🎁 Bonus"
-                    : tx.type === "withdrawal"
-                    ? "✨ Endorsement"
-                    : tx.type}
+                      ? "🎁 Bonus"
+                      : tx.type === "withdrawal"
+                        ? "✨ Endorsement"
+                        : tx.type}
                 </div>
                 <div
                   style={{ color: "rgba(255,255,255,0.4)", fontSize: "9px" }}

@@ -33,9 +33,9 @@ const Aspirants = () => {
   const fetchDashboardData = async () => {
     try {
       const response = await api.get("/leaders/analytics/dashboard");
-      if (response.data.success) {
-        setDashboardStats(response.data.data.overview);
-        setPositionBreakdown(response.data.data.position_breakdown || []);
+      if (response.success) {
+        setDashboardStats(response.data.overview);
+        setPositionBreakdown(response.data.position_breakdown || []);
       }
     } catch (error) {
       console.error(
@@ -48,8 +48,8 @@ const Aspirants = () => {
   const fetchCountyAnalytics = async () => {
     try {
       const response = await api.get("/leaders/analytics/county");
-      if (response.data.success) {
-        setCountyAnalytics(response.data.data.counties || []);
+      if (response.success) {
+        setCountyAnalytics(response.data.counties || []);
       }
     } catch (error) {
       console.error(
@@ -63,11 +63,11 @@ const Aspirants = () => {
     try {
       setLoading(true);
       const response = await api.get("/leaders");
-      if (response.data.success) {
+      if (response.success) {
         // Extract leaders from grouped response
         const allLeaders = [];
-        if (response.data.data && Array.isArray(response.data.data)) {
-          response.data.data.forEach((group) => {
+        if (response.data && Array.isArray(response.data)) {
+          response.data.forEach((group) => {
             if (group.leaders && Array.isArray(group.leaders)) {
               allLeaders.push(...group.leaders);
             }
@@ -90,8 +90,8 @@ const Aspirants = () => {
       const response = await api.get(
         `/leaders/analytics/constituency?county=${encodeURIComponent(county)}`,
       );
-      if (response.data.success) {
-        setConstituencyStats(response.data.data.constituencies || []);
+      if (response.success) {
+        setConstituencyStats(response.data.constituencies || []);
       }
     } catch (error) {
       console.error(
@@ -106,8 +106,8 @@ const Aspirants = () => {
       const response = await api.get(
         `/leaders/analytics/ward?constituency=${encodeURIComponent(constituency)}`,
       );
-      if (response.data.success) {
-        setWardStats(response.data.data.wards || []);
+      if (response.success) {
+        setWardStats(response.data.wards || []);
       }
     } catch (error) {
       console.error(

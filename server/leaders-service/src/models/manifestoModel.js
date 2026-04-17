@@ -85,7 +85,7 @@ class ManifestoModel {
   }
 
   static async incrementAnalytics(manifesto_id, field) {
-    if (!manifesto_id || !['views_count','reads_count','shares_count','votes_count'].includes(field)) {
+    if (!manifesto_id || !['views_count', 'reads_count', 'shares_count', 'votes_count'].includes(field)) {
       return false;
     }
     await this.ensureAnalyticsRecord(manifesto_id);

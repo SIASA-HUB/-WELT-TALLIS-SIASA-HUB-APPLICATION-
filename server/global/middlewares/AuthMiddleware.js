@@ -7,8 +7,10 @@ const Logger = require("../logger/logger");
 const authenticate = async (req, res, next) => {
   try {
     const token = getTokenFromRequest(req);
+    const source = req.headers.authorization ? "header" : (req.cookies?.access_token ? "cookie" : "none");
 
     if (!token) {
+      Logger.warn(`[AUTH] Authentication failed: No token found. Source: ${source}, Path: ${req.path}`);
       return res.status(401).json({
         success: false,
         message: "Authentication required. Please log in.",
@@ -18,6 +20,7 @@ const authenticate = async (req, res, next) => {
     const decoded = verifyAccessToken(token);
 
     if (!decoded) {
+      Logger.warn(`[AUTH] Authentication failed: Invalid or expired token. Source: ${source}, Path: ${req.path}`);
       return res.status(401).json({
         success: false,
         message: "Invalid or expired token. Please log in again.",
@@ -25,6 +28,9 @@ const authenticate = async (req, res, next) => {
     }
 
     // Attach user to request
+    if (decoded && decoded.userId) {
+      Logger.info(`[AUTH] Authenticated user ${decoded.userId} via ${source} for ${req.path}`);
+    }
     req.user = decoded;
     req.userId = decoded.userId;
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { Flame, ChevronRight, Trophy, Verified } from "lucide-react";
 import AppLoadingBar from "../../utils/LoadingBar";
 import theme from "../../utils/theme";
@@ -168,40 +167,30 @@ const Party = styled.div`
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 `;
 
-// FIXED: Helper function to build correct image URL without double slashes
+// Helper: Build correct image URL without double slashes
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
 
-  // If it's already a full URL
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
 
-  // Get base URL
   let baseUrl = API.IMAGES || API.BASE || '';
-  
-  // Remove /api/v1 if present
   if (baseUrl && baseUrl.includes("/api/v1")) {
     baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
-  
-  // Remove trailing slash from baseUrl
   if (baseUrl) {
     baseUrl = baseUrl.replace(/\/$/, "");
   }
-  
-  // Clean up image path - remove leading slash
+
   let cleanPath = imageUrl;
   if (cleanPath.startsWith("/")) {
     cleanPath = cleanPath.substring(1);
   }
-  
-  // If no baseUrl (production with relative paths)
+
   if (!baseUrl) {
     return `/${cleanPath}`;
   }
-  
-  // Return with single slash
   return `${baseUrl}/${cleanPath}`;
 };
 
@@ -229,6 +218,16 @@ const TrendingLeaders = () => {
     fetchPopularLeaders();
   }, []);
 
+  // Navigation uses slug only – no fallback to ID
+  const handleLeaderClick = (leader) => {
+    if (leader.slug) {
+      navigate(`/leaders/${leader.slug}`);
+    } else {
+      console.error("Leader missing slug, cannot navigate:", leader);
+      // Optionally show a toast or ignore
+    }
+  };
+
   if (loading && !leaders.length) return <AppLoadingBar ref={loadingBarRef} />;
   if (!leaders.length) return null;
 
@@ -252,7 +251,6 @@ const TrendingLeaders = () => {
 
       <CardsContainer>
         {leaders.map((leader, index) => {
-          // Build the correct image URL
           const imageSrc = buildImageUrl(
             leader.image_url || leader.primary_image || leader.image
           );
@@ -260,13 +258,7 @@ const TrendingLeaders = () => {
           return (
             <LeaderCard
               key={leader.leader_id}
-              onClick={() => {
-                if (leader.slug) {
-                  navigate(`/aspirants/${leader.slug}`);
-                } else {
-                  navigate(`/leaders/${leader.leader_id}`);
-                }
-              }}
+              onClick={() => handleLeaderClick(leader)}
             >
               <RankBadge $rank={index + 1}>
                 {index === 0 ? <Trophy size={12} /> : index + 1}

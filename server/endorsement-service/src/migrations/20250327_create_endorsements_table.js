@@ -149,6 +149,7 @@ exports.up = async function (knex) {
   await knex.raw("DROP PROCEDURE IF EXISTS update_endorsement_analytics");
   await knex.raw(`
     CREATE PROCEDURE update_endorsement_analytics()
+    BEGIN
       INSERT INTO endorsement_analytics (date, total_endorsements, total_revenue, unique_users, unique_leaders, level_breakdown)
       SELECT 
         DATE(e.created_at) as date,

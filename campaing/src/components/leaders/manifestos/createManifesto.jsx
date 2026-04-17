@@ -285,8 +285,8 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
         response = await api.put(`/leaders/manifestos/${manifestoId}`, payload);
       } else {
         response = await api.post(`/leaders/manifestos/create`, payload);
-        if (response.data.success && response.data.data?.manifesto_id) {
-          setManifestoId(response.data.data.manifesto_id);
+        if (response.success && response.data?.manifesto_id) {
+          setManifestoId(response.data.manifesto_id);
         }
       }
 
