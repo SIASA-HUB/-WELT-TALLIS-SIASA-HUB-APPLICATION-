@@ -1,3 +1,5 @@
+// index.js - API Gateway (Production Safe - No Missing Exports)
+
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -8,7 +10,7 @@ const cors = require("cors");
 const knex = require("knex");
 const winston = require("winston");
 
-//internal module s
+// internal modules
 const authTokens = require("./auth/tokens");
 const authCookies = require("./auth/cookies");
 const authCsrf = require("./auth/csrf");
@@ -19,23 +21,131 @@ const redis = require("./config/redis");
 const rateLimiter = require("./rateLimit/index");
 const logger = require("./logger/logger");
 const mpesa = require("./mpesa/index");
-const {
-  getKenyaTimeISO,
-  getKenyaTimeFormatted,
-} = require("./utils/timeStamps");
+const { getKenyaTimeISO, getKenyaTimeFormatted } = require("./utils/timeStamps");
 
 // === STARTUP GUARD: enforce strong JWT secrets ===
-const WEAK_SECRETS = new Set(['ballot-super-secret-key-change-in-production', 'ballot-refresh-secret-key', 'default', 'secret', 'changeme']);
+const WEAK_SECRETS = new Set([
+  'ballot-super-secret-key-change-in-production',
+  'ballot-refresh-secret-key',
+  'default',
+  'secret',
+  'changeme'
+]);
+
 if (WEAK_SECRETS.has(process.env.JWT_SECRET)) {
-  logger.warn('⚠️  JWT_SECRET is using a default/weak value. Set a strong secret in your .env file.');
+  logger.warn('JWT_SECRET is using a default/weak value. Set a strong secret in your .env file.');
 }
 if (WEAK_SECRETS.has(process.env.JWT_REFRESH_SECRET)) {
-  logger.warn('⚠️  JWT_REFRESH_SECRET is using a default/weak value.');
+  logger.warn('JWT_REFRESH_SECRET is using a default/weak value.');
 }
 
-// core    exports
+// ============================================
+// SAFE REDIS EXPORTS (with fallback methods)
+// ============================================
+const safeRedisClient = redis?.redis || null;
+const safeRedisGet = async (key) => {
+  if (!safeRedisClient) return null;
+  try {
+    return await redis.get(key);
+  } catch (err) {
+    logger.error(`Redis get error: ${key}`, err);
+    return null;
+  }
+};
+const safeRedisSet = async (key, value, ttl) => {
+  if (!safeRedisClient) return false;
+  try {
+    await redis.set(key, value, ttl);
+    return true;
+  } catch (err) {
+    logger.error(`Redis set error: ${key}`, err);
+    return false;
+  }
+};
+const safeRedisDel = async (key) => {
+  if (!safeRedisClient) return false;
+  try {
+    await redis.del(key);
+    return true;
+  } catch (err) {
+    logger.error(`Redis del error: ${key}`, err);
+    return false;
+  }
+};
+const safeRedisExists = async (key) => {
+  if (!safeRedisClient) return false;
+  try {
+    return await redis.exists(key);
+  } catch (err) {
+    logger.error(`Redis exists error: ${key}`, err);
+    return false;
+  }
+};
+const safeRedisExpire = async (key, seconds) => {
+  if (!safeRedisClient) return false;
+  try {
+    return await redis.expire(key, seconds);
+  } catch (err) {
+    logger.error(`Redis expire error: ${key}`, err);
+    return false;
+  }
+};
+const safeRedisIncr = async (key) => {
+  if (!safeRedisClient) return 0;
+  try {
+    return await redis.incr(key);
+  } catch (err) {
+    logger.error(`Redis incr error: ${key}`, err);
+    return 0;
+  }
+};
+const safeRedisKeys = async (pattern) => {
+  if (!safeRedisClient) return [];
+  try {
+    // If redis client has .keys() method
+    if (typeof redis.keys === 'function') return await redis.keys(pattern);
+    // If redis client has .sendCommand() (raw Redis)
+    if (typeof redis.sendCommand === 'function') {
+      const result = await redis.sendCommand('KEYS', [pattern]);
+      return Array.isArray(result) ? result : [];
+    }
+    logger.warn(`Redis keys pattern ${pattern} not supported`);
+    return [];
+  } catch (err) {
+    logger.error(`Redis keys error: ${pattern}`, err);
+    return [];
+  }
+};
+const safeRedisScan = async (cursor, match, count) => {
+  if (!safeRedisClient) return ['0', []];
+  try {
+    if (typeof redis.scan === 'function') {
+      return await redis.scan(cursor, 'MATCH', match, 'COUNT', count);
+    }
+    return ['0', []];
+  } catch (err) {
+    logger.error(`Redis scan error`, err);
+    return ['0', []];
+  }
+};
+const safeRedisSendCommand = async (command, args) => {
+  if (!safeRedisClient) return null;
+  try {
+    if (typeof redis.sendCommand === 'function') {
+      return await redis.sendCommand(command, args);
+    }
+    return null;
+  } catch (err) {
+    logger.error(`Redis sendCommand error: ${command}`, err);
+    return null;
+  }
+};
+
+// ============================================
+// CORE EXPORTS (all original, plus safe Redis methods)
+// ============================================
 module.exports = {
-  // --- Global Libraries (For version consistency) ---
+  // --- Global Libraries ---
   bcrypt,
   crypto,
   jwt,
@@ -94,7 +204,7 @@ module.exports = {
   applyLimiters: rateLimiter.applyLimiters,
   skipIfWhitelisted: rateLimiter.skipIfWhitelisted,
 
-  // --- Database (ballot  / Siasa Hub) ---
+  // --- Database ---
   db: {
     pool: db.pool,
     initDB: db.initDB,
@@ -107,21 +217,24 @@ module.exports = {
     closeDB: db.closeDB,
   },
 
-  // --- Redis Cache ---
+  // --- Redis Cache
   redis: {
-    client: redis.redis,
-    get: redis.get,
-    set: redis.set,
-    del: redis.del,
-    exists: redis.exists,
-    expire: redis.expire,
-    incr: redis.incr,
+    client: safeRedisClient,
+    get: safeRedisGet,
+    set: safeRedisSet,
+    del: safeRedisDel,
+    exists: safeRedisExists,
+    expire: safeRedisExpire,
+    incr: safeRedisIncr,
+    keys: safeRedisKeys,
+    scan: safeRedisScan,
+    sendCommand: safeRedisSendCommand,
   },
 
   // --- Logger ---
   logger: logger,
 
-  // --- M-Pesa (Kenya Infrastructure) ---
+  // --- M-Pesa ---
   mpesa: {
     stkPush: mpesa.stkPush.bind(mpesa),
     queryStatus: mpesa.queryStatus.bind(mpesa),
