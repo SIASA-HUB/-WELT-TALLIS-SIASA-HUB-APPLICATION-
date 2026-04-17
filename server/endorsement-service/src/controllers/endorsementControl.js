@@ -1,4 +1,4 @@
-// endorsementController.js - COMPLETE FIXED VERSION
+// endorsementController.js - PRODUCTION SAFE (No crashes, full fallbacks)
 
 const path = require("path");
 const fs = require("fs");
@@ -28,6 +28,7 @@ const getExpirationHours = (boostPoints, totalBoostAmount) => {
 };
 
 const isStoryExpired = (createdAt, boostPoints, totalBoostAmount) => {
+  if (!createdAt) return true;
   const expirationHours = getExpirationHours(boostPoints, totalBoostAmount);
   const expirationTime = new Date(createdAt);
   expirationTime.setHours(expirationTime.getHours() + expirationHours);
@@ -35,7 +36,7 @@ const isStoryExpired = (createdAt, boostPoints, totalBoostAmount) => {
 };
 
 // ============================================
-// CACHE MANAGER - COMPLETELY FIXED
+// CACHE MANAGER - FULLY SAFE
 // ============================================
 class CacheManager {
   constructor() {
@@ -43,9 +44,12 @@ class CacheManager {
   }
 
   async get(key) {
+    if (!redis) return null;
     try {
       const data = await redis.get(key);
-      return data ? JSON.parse(data) : null;
+      if (!data) return null;
+      // If data is already an object, return it, otherwise parse
+      return typeof data === 'string' ? JSON.parse(data) : data;
     } catch (error) {
       Logger.error(`Cache get error: ${key}`, error);
       return null;
@@ -53,9 +57,10 @@ class CacheManager {
   }
 
   async set(key, data, ttl = this.defaultTTL) {
+    if (!redis) return false;
     try {
-      const stringifiedData = typeof data === 'string' ? data : JSON.stringify(data);
-      await redis.set(key, stringifiedData, ttl);
+      const stringified = typeof data === 'string' ? data : JSON.stringify(data);
+      await redis.set(key, stringified, ttl);
       return true;
     } catch (error) {
       Logger.error(`Cache set error: ${key}`, error);
@@ -64,6 +69,7 @@ class CacheManager {
   }
 
   async del(key) {
+    if (!redis) return false;
     try {
       await redis.del(key);
       return true;
@@ -73,54 +79,43 @@ class CacheManager {
     }
   }
 
-  // FIXED: Universal Redis pattern deleter - works with any Redis client
+  // Safe pattern deleter – works with any Redis client, never crashes
   async delPattern(pattern) {
+    if (!redis) return 0;
     try {
       let deletedCount = 0;
-      
-      // Try different methods based on what's available
+
+      // Try SCAN (ioredis style)
       if (typeof redis.scan === 'function') {
-        // Method 1: Use SCAN (ioredis style)
         let cursor = '0';
         do {
           const result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
           cursor = result[0];
           const keys = result[1];
-          
-          if (keys && keys.length > 0) {
+          if (keys && keys.length) {
             await redis.del(...keys);
             deletedCount += keys.length;
           }
         } while (cursor !== '0');
-      } 
+      }
+      // Try KEYS (node-redis style)
       else if (typeof redis.keys === 'function') {
-        // Method 2: Use KEYS (node-redis style)
         const keys = await redis.keys(pattern);
-        if (keys && keys.length > 0) {
+        if (keys && keys.length) {
           await redis.del(...keys);
           deletedCount = keys.length;
         }
       }
+      // Try sendCommand as last resort
       else if (typeof redis.sendCommand === 'function') {
-        // Method 3: Use sendCommand for raw Redis commands
-        try {
-          const keys = await redis.sendCommand('KEYS', [pattern]);
-          if (keys && keys.length > 0) {
-            await redis.sendCommand('DEL', keys);
-            deletedCount = keys.length;
-          }
-        } catch (cmdError) {
-          Logger.warn(`sendCommand failed: ${cmdError.message}`);
+        const keys = await redis.sendCommand('KEYS', [pattern]);
+        if (keys && keys.length) {
+          await redis.sendCommand('DEL', keys);
+          deletedCount = keys.length;
         }
       }
-      else {
-        // Method 4: Can't delete patterns, just log warning
-        Logger.warn(`Cannot clear cache pattern: ${pattern} - Redis client doesn't support keys/scan`);
-      }
-      
-      if (deletedCount > 0) {
-        Logger.info(`Cleared ${deletedCount} cache keys matching: ${pattern}`);
-      }
+
+      if (deletedCount) Logger.info(`Cleared ${deletedCount} cache keys matching: ${pattern}`);
       return deletedCount;
     } catch (error) {
       Logger.error(`Cache pattern delete error: ${pattern}`, error);
@@ -129,6 +124,7 @@ class CacheManager {
   }
 
   async clearLeaderCache(leaderId) {
+    if (!redis || !leaderId) return 0;
     const patterns = [
       `leader:${leaderId}:recent_endorsements:*`,
       `leader:${leaderId}:active_stories:*`,
@@ -139,28 +135,32 @@ class CacheManager {
 
     let totalCleared = 0;
     for (const pattern of patterns) {
-      const cleared = await this.delPattern(pattern);
-      totalCleared += cleared;
+      totalCleared += await this.delPattern(pattern);
     }
-
-    // Clear global patterns
     await this.delPattern("global:trending_endorsements:*");
     await this.delPattern("global:trending:*");
-
     Logger.info(`✅ Cleared ${totalCleared} cache entries for leader: ${leaderId}`);
     return totalCleared;
   }
 
   async getOrSet(key, fetcher, ttl = this.defaultTTL) {
     try {
-      let data = await this.get(key);
-      if (data !== null) return data;
-      data = await fetcher();
-      if (data) await this.set(key, data, ttl);
-      return data;
+      const cached = await this.get(key);
+      if (cached !== null) return cached;
+      const fresh = await fetcher();
+      if (fresh !== undefined && fresh !== null) {
+        await this.set(key, fresh, ttl);
+      }
+      return fresh;
     } catch (error) {
       Logger.error(`Cache getOrSet error: ${key}`, error);
-      return await fetcher();
+      // Fallback: try fetcher directly without caching
+      try {
+        return await fetcher();
+      } catch (fallbackError) {
+        Logger.error(`Fallback fetcher also failed: ${key}`, fallbackError);
+        return null;
+      }
     }
   }
 }
@@ -186,6 +186,7 @@ const createEndorsement = [
     let mediaUrl = null;
     let userMessage = message || "";
 
+    // Handle media from middleware or fallback
     if (req.fileProcessed && req.mediaUrl) {
       mediaUrl = req.mediaUrl;
       mediaType = req.mediaType || "image";
@@ -213,7 +214,7 @@ const createEndorsement = [
     }
 
     try {
-      // Check daily limit
+      // Daily limit check
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const dailyCount = await safeQuery(
@@ -221,34 +222,27 @@ const createEndorsement = [
         [finalUserId, todayStart]
       );
       const endorsementsToday = dailyCount[0]?.count || 0;
-
       if (endorsementsToday >= 100) {
-        return res.status(429).json({ 
-          success: false, 
-          message: `Daily limit reached. You can only make 100 endorsements per day.` 
+        return res.status(429).json({
+          success: false,
+          message: `Daily limit reached. You can only make 100 endorsements per day.`
         });
       }
 
-      // Check if leader exists
+      // Verify leader exists
       const leader = await safeQueryOne(`SELECT leader_id, name FROM leaders WHERE leader_id = ?`, [leader_id]);
       if (!leader) {
         return res.status(404).json({ success: false, message: "Leader not found" });
       }
 
-      // Prepare message
+      // Build final message
       let finalMessage = userMessage;
-      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) {
-        finalMessage = "📷 Photo";
-      }
-      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) {
-        finalMessage = "📹 Video";
-      }
-      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) {
-        finalMessage = "💬 Support message";
-      }
+      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) finalMessage = "📷 Photo";
+      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) finalMessage = "📹 Video";
+      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) finalMessage = "💬 Support message";
       finalMessage = finalMessage.trim();
 
-      // Insert endorsement (NO CHARGES - amount = 0)
+      // Insert endorsement (free)
       const insertResult = await safeQuery(
         `INSERT INTO endorsements (
           leader_id, user_id, user_name, amount, phrase, message, 
@@ -261,15 +255,14 @@ const createEndorsement = [
       // Update leader endorsement count
       await safeQuery(`UPDATE leaders SET endorsement_count = COALESCE(endorsement_count, 0) + 1 WHERE leader_id = ?`, [leader_id]);
 
-      // Get the created endorsement
+      // Retrieve created endorsement
       const result = await safeQueryOne(`SELECT * FROM endorsements WHERE id = ?`, [insertResult.insertId]);
 
-      // Clear cache (with error handling so it doesn't break the response)
+      // Clear cache (non-blocking)
       try {
         await cacheManager.clearLeaderCache(leader_id);
       } catch (cacheError) {
         Logger.warn("Cache clear failed but endorsement was created:", cacheError.message);
-        // Don't fail the request because cache clear failed
       }
 
       return res.status(201).json({
@@ -285,10 +278,9 @@ const createEndorsement = [
       });
     } catch (error) {
       Logger.error("Error creating story:", error.message);
-      Logger.error("Full error:", { error: error.message, stack: error.stack });
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || "Failed to post story" 
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to post story"
       });
     }
   }),
@@ -326,8 +318,9 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
     queryParams.push(limit);
 
     const endorsements = await safeQuery(queryStr, queryParams);
+    const safeEndorsements = Array.isArray(endorsements) ? endorsements : [];
 
-    const processedEndorsements = endorsements.map((e) => ({
+    const processedEndorsements = safeEndorsements.map((e) => ({
       id: e.id,
       user_id: e.user_id,
       user_name: e.user_name,
@@ -350,7 +343,6 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
     }));
 
     await cacheManager.set(cacheKey, processedEndorsements, 60);
-
     return res.status(200).json({ success: true, data: processedEndorsements, source: "database", count: processedEndorsements.length });
   } catch (error) {
     Logger.error("Error fetching recent endorsements:", error);
@@ -377,11 +369,10 @@ const getActiveStories = asyncHandler(async (req, res) => {
        LIMIT ?`,
       [leaderId, limit]
     );
-
-    const activeStories = endorsements.filter(
+    const safeEndorsements = Array.isArray(endorsements) ? endorsements : [];
+    const activeStories = safeEndorsements.filter(
       (story) => !isStoryExpired(story.created_at, story.boost_count, story.total_boost_amount)
     );
-
     return activeStories.map((e) => ({
       ...e,
       isFree: parseInt(e.amount) === 0,
@@ -390,21 +381,18 @@ const getActiveStories = asyncHandler(async (req, res) => {
     }));
   }, 60);
 
-  return res.status(200).json({ success: true, data, total: data.length });
+  return res.status(200).json({ success: true, data: data || [], total: data?.length || 0 });
 });
 
 // ============================================
-// GET BOOSTED ENDORSEMENTS
+// GET BOOSTED ENDORSEMENTS 
 // ============================================
-
-// ===== GET BOOSTED ENDORSEMENTS (WITH FALLBACK TO RECENT) =====
 const getBoostedEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const cacheKey = `leader:${leaderId}:boosted_endorsements:${limit}`;
 
   const data = await cacheManager.getOrSet(cacheKey, async () => {
-    // First try to get boosted endorsements
     let endorsements = await safeQuery(
       `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments,
@@ -416,10 +404,8 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
       [leaderId, limit]
     );
 
-    // If no boosted endorsements found, fallback to most recent
     if (!endorsements || endorsements.length === 0) {
       Logger.info(`No boosted endorsements found for leader ${leaderId}, fetching most recent...`);
-      
       endorsements = await safeQuery(
         `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
                 media_type, post_type, level, likes, views, shares, comments,
@@ -432,12 +418,8 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
       );
     }
 
-    // If still no endorsements, return empty array
-    if (!endorsements || endorsements.length === 0) {
-      return [];
-    }
-
-    return endorsements.map((e) => ({
+    const safeEndorsements = Array.isArray(endorsements) ? endorsements : [];
+    return safeEndorsements.map((e) => ({
       ...e,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
@@ -446,8 +428,8 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
     }));
   }, 300);
 
-  return res.status(200).json({ 
-    success: true, 
+  return res.status(200).json({
+    success: true,
     data: data || [],
     count: data?.length || 0,
     source: data?.length > 0 && data[0]?.isBoosted ? "boosted" : "recent"
@@ -455,10 +437,8 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET TRENDING ENDORSEMENTS
+// GET TRENDING ENDORSEMENTS 
 // ============================================
-
-// ===== GET TRENDING ENDORSEMENTS (WITH FALLBACK TO MOST RECENT) =====
 const getTrendingEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
@@ -466,7 +446,6 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
   const cacheKey = `leader:${leaderId}:trending_endorsements:${limit}:days:${days}`;
 
   const data = await cacheManager.getOrSet(cacheKey, async () => {
-    // First try to get trending endorsements
     let endorsements = await safeQuery(
       `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments,
@@ -480,10 +459,8 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
       [leaderId, days, limit]
     );
 
-    // If no trending endorsements found, fallback to most recent
     if (!endorsements || endorsements.length === 0) {
       Logger.info(`No trending endorsements found for leader ${leaderId}, fetching most recent...`);
-      
       endorsements = await safeQuery(
         `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
                 media_type, post_type, level, likes, views, shares, comments,
@@ -497,12 +474,8 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
       );
     }
 
-    // If still no endorsements, return empty array
-    if (!endorsements || endorsements.length === 0) {
-      return [];
-    }
-
-    return endorsements.map((e) => ({
+    const safeEndorsements = Array.isArray(endorsements) ? endorsements : [];
+    return safeEndorsements.map((e) => ({
       id: e.id,
       user_id: e.user_id,
       user_name: e.user_name,
@@ -526,9 +499,8 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
     }));
   }, 180);
 
-  // Always return something - either endorsements or empty array
-  return res.status(200).json({ 
-    success: true, 
+  return res.status(200).json({
+    success: true,
     data: data || [],
     count: data?.length || 0,
     source: data?.length > 0 ? (data[0]?.trending_score > 0 ? "trending" : "recent") : "none"
@@ -552,7 +524,6 @@ const likeEndorsement = asyncHandler(async (req, res) => {
       `SELECT id, leader_id, likes FROM endorsements WHERE id = ?`,
       [endorsementId]
     );
-
     if (!endorsement) {
       return res.status(404).json({ success: false, message: "Endorsement not found" });
     }
@@ -578,6 +549,7 @@ const likeEndorsement = asyncHandler(async (req, res) => {
       likesCount = (endorsement.likes || 0) + 1;
     }
 
+    // Non-blocking cache clear
     try {
       await cacheManager.clearLeaderCache(leaderId);
     } catch (cacheError) {
@@ -609,7 +581,6 @@ const boostEndorsement = asyncHandler(async (req, res) => {
   if (!endorsementId || !finalUserId) {
     return res.status(400).json({ success: false, message: "Missing required fields" });
   }
-
   if (!allowedAmounts.includes(boostAmount)) {
     return res.status(400).json({ success: false, message: "Invalid boost amount. Allowed: 10, 50, 100, 500 KES" });
   }
@@ -619,7 +590,6 @@ const boostEndorsement = asyncHandler(async (req, res) => {
       `SELECT id, leader_id, amount, boost_count, total_boost_amount FROM endorsements WHERE id = ?`,
       [endorsementId]
     );
-
     if (!endorsement) {
       return res.status(404).json({ success: false, message: "Endorsement not found" });
     }
@@ -631,7 +601,7 @@ const boostEndorsement = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: "Wallet not found" });
     }
 
-    const currentBalance = parseFloat(wallet.balance);
+    const currentBalance = parseFloat(wallet.balance) || 0;
     if (currentBalance < boostAmount) {
       return res.status(400).json({ success: false, message: `Insufficient balance. Need KES ${boostAmount}, have KES ${currentBalance}` });
     }
@@ -679,7 +649,7 @@ const boostEndorsement = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// ADD COMMENT
+// ADD COMMENT (with table creation safety)
 // ============================================
 const addComment = asyncHandler(async (req, res) => {
   const { endorsementId } = req.params;
@@ -695,12 +665,7 @@ const addComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    const endorsement = await safeQueryOne(`SELECT id, leader_id FROM endorsements WHERE id = ?`, [endorsementId]);
-
-    if (!endorsement) {
-      return res.status(404).json({ success: false, message: "Endorsement not found" });
-    }
-
+    // Ensure table exists
     await safeQuery(`
       CREATE TABLE IF NOT EXISTS endorsement_comments (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -714,7 +679,12 @@ const addComment = asyncHandler(async (req, res) => {
         INDEX idx_endorsement (endorsement_id),
         INDEX idx_user (user_id)
       )
-    `);
+    `).catch(err => Logger.warn("Table creation warning:", err.message));
+
+    const endorsement = await safeQueryOne(`SELECT id, leader_id FROM endorsements WHERE id = ?`, [endorsementId]);
+    if (!endorsement) {
+      return res.status(404).json({ success: false, message: "Endorsement not found" });
+    }
 
     const insertResult = await safeQuery(
       `INSERT INTO endorsement_comments (endorsement_id, user_id, user_name, user_avatar, comment, created_at)
@@ -770,7 +740,7 @@ const getComments = asyncHandler(async (req, res) => {
     const countResult = await safeQueryOne(`SELECT COUNT(*) as total FROM endorsement_comments WHERE endorsement_id = ?`, [endorsementId]);
 
     const response = {
-      comments,
+      comments: Array.isArray(comments) ? comments : [],
       pagination: {
         total: countResult?.total || 0,
         limit,
@@ -779,7 +749,6 @@ const getComments = asyncHandler(async (req, res) => {
     };
 
     await cacheManager.set(cacheKey, response, 60);
-
     return res.status(200).json({ success: true, source: "database", data: response });
   } catch (error) {
     Logger.error("Error fetching comments:", error);
@@ -801,15 +770,7 @@ const likeComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    const comment = await safeQueryOne(`SELECT id, likes FROM endorsement_comments WHERE id = ?`, [commentId]);
-
-    if (!comment) {
-      return res.status(404).json({ success: false, message: "Comment not found" });
-    }
-
-    let liked = false;
-    let likesCount = comment.likes || 0;
-
+    // Ensure table exists
     await safeQuery(`
       CREATE TABLE IF NOT EXISTS comment_likes (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -818,7 +779,15 @@ const likeComment = asyncHandler(async (req, res) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_comment_like (comment_id, user_id)
       )
-    `);
+    `).catch(err => Logger.warn("Table creation warning:", err.message));
+
+    const comment = await safeQueryOne(`SELECT id, likes FROM endorsement_comments WHERE id = ?`, [commentId]);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    let liked = false;
+    let likesCount = comment.likes || 0;
 
     const existingLike = await safeQueryOne(`SELECT id FROM comment_likes WHERE comment_id = ? AND user_id = ?`, [commentId, finalUserId]);
 
@@ -867,7 +836,7 @@ const getEndorsementStats = asyncHandler(async (req, res) => {
       [endorsementId]
     );
 
-    return res.status(200).json({ success: true, data: stats });
+    return res.status(200).json({ success: true, data: stats || {} });
   } catch (error) {
     Logger.error("Error fetching endorsement stats:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch stats" });
@@ -882,7 +851,7 @@ const getLeaderEndorsementStats = asyncHandler(async (req, res) => {
   const cacheKey = `leader:${leaderId}:endorsement_stats`;
 
   const stats = await cacheManager.getOrSet(cacheKey, async () => {
-    return await safeQueryOne(
+    const result = await safeQueryOne(
       `SELECT 
         COUNT(*) as total_endorsements, 
         COUNT(DISTINCT user_id) as unique_supporters,
@@ -896,6 +865,16 @@ const getLeaderEndorsementStats = asyncHandler(async (req, res) => {
        WHERE leader_id = ? AND status = 'active'`,
       [leaderId]
     );
+    return result || {
+      total_endorsements: 0,
+      unique_supporters: 0,
+      free_endorsements: 0,
+      paid_endorsements: 0,
+      total_likes: 0,
+      total_comments: 0,
+      total_boosts: 0,
+      total_boost_amount: 0
+    };
   }, 3600);
 
   return res.status(200).json({ success: true, data: stats });
@@ -906,9 +885,8 @@ const getLeaderEndorsementStats = asyncHandler(async (req, res) => {
 // ============================================
 const getEndorsementAdminStats = asyncHandler(async (req, res) => {
   const cacheKey = "admin:endorsement_stats";
-  
+
   const stats = await cacheManager.getOrSet(cacheKey, async () => {
-    // Total stats
     const totals = await safeQueryOne(`
       SELECT 
         COUNT(*) as total_endorsements,
@@ -917,9 +895,8 @@ const getEndorsementAdminStats = asyncHandler(async (req, res) => {
         COUNT(DISTINCT user_id) as total_supporters
       FROM endorsements
       WHERE status = 'active'
-    `);
+    `) || { total_endorsements: 0, total_boosts: 0, total_revenue: 0, total_supporters: 0 };
 
-    // County distribution
     const countyDistribution = await safeQuery(`
       SELECT l.county, COUNT(e.id) as count
       FROM endorsements e
@@ -927,9 +904,8 @@ const getEndorsementAdminStats = asyncHandler(async (req, res) => {
       WHERE e.status = 'active'
       GROUP BY l.county
       ORDER BY count DESC
-    `);
+    `) || [];
 
-    // Top leaders
     const topLeaders = await safeQuery(`
       SELECT l.name, l.county, COUNT(e.id) as count
       FROM endorsements e
@@ -938,24 +914,21 @@ const getEndorsementAdminStats = asyncHandler(async (req, res) => {
       GROUP BY l.leader_id, l.name, l.county
       ORDER BY count DESC
       LIMIT 10
-    `);
+    `) || [];
 
-    return {
-      totals,
-      countyDistribution,
-      topLeaders
-    };
-  }, 300); // 5 minute cache
+    return { totals, countyDistribution, topLeaders };
+  }, 300);
 
   return res.status(200).json({ success: true, data: stats });
 });
 
 // ============================================
-// CLEANUP EXPIRED STORIES
+// CLEANUP EXPIRED STORIES (background job)
 // ============================================
 const cleanupExpiredStories = async () => {
   try {
     const endorsements = await safeQuery(`SELECT id, created_at, boost_count, total_boost_amount FROM endorsements WHERE status = 'active'`);
+    if (!Array.isArray(endorsements)) return;
 
     let expiredCount = 0;
     for (const endorsement of endorsements) {
@@ -964,17 +937,14 @@ const cleanupExpiredStories = async () => {
         expiredCount++;
       }
     }
-
-    if (expiredCount > 0) {
-      Logger.info(`Cleaned up ${expiredCount} expired stories`);
-    }
+    if (expiredCount > 0) Logger.info(`Cleaned up ${expiredCount} expired stories`);
   } catch (error) {
     Logger.error("Cleanup expired stories error:", error);
   }
 };
 
 // ============================================
-// EXPORTS
+// EXPORTS (all functions present)
 // ============================================
 module.exports = {
   createEndorsement,
@@ -991,4 +961,4 @@ module.exports = {
   getComments,
   likeComment,
   getEndorsementStats,
-};
+};
