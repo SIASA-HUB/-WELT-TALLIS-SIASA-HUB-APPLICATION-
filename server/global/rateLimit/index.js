@@ -14,24 +14,24 @@ const createRateLimiter = ({ windowMs, max, message }) =>
     handler: (req, res, _next, options) => {
       res.status(429).json(options.message);
     },
-    skip: (req) => req.method === "OPTIONS", // Never throttle CORS preflight
+    skip: (req) => req.method === "OPTIONS", 
   });
 
 // ============================================================
 // PRE-BUILT LIMITERS
 // ============================================================
 
-/** General API — 100 req / 15 min */
+/** General API — 200 req / 15 min */
 const apiLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
   message: "Rate limit exceeded. Please slow down.",
 });
 
-/** Auth endpoints — 10 req / 15 min (prevent brute force) */
+/** Auth endpoints — 15 req / 15 min (prevent brute force) */
 const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 15,
   message: "Too many login attempts. Try again in 15 minutes.",
 });
 
