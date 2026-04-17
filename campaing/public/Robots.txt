@@ -1,4 +1,20 @@
+# Improved robots.txt
+
+# Allow all bots to crawl your entire site
 User-agent: *
 Allow: /
 
+# Disallow specific paths if needed (examples)
+# Disallow: /admin/
+# Disallow: /private/
+# Disallow: /temp/
+# Disallow: /*.pdf$
+
+# Disallow crawling of common bot traffic
+Disallow: /cgi-bin/
+
+# Crawl delay (optional - time in seconds between requests)
+# Crawl-delay: 1
+
+# Set sitemap location
 Sitemap: https://siasahub.co.ke/sitemap.xml
