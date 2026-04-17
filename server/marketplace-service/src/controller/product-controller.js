@@ -1,10 +1,10 @@
-// productController.js - Complete with Redis Cache & Slug Support (Redis Fixed)
+// productController.js - PRODUCTION READY (Redis Caching Fixed)
 
 const { safeQuery, safeQueryOne } = require("../configurations/db");
 const Logger = require("../utils/logger/logger");
 const slugify = require("slugify");
 
-// Redis client - handle both ioredis and node-redis
+// Redis client - handle both ioredis and node-redis safely
 let redis;
 try {
   redis = require("../../../global/index").redis;
@@ -22,7 +22,9 @@ const CACHE_TTL = {
   LATEST_PRODUCTS: 300     // 5 minutes
 };
 
-// Helper function to generate slug
+// ============================================
+// SLUG GENERATION
+// ============================================
 const generateSlug = (name, id = null) => {
   let slug = slugify(name, {
     lower: true,
@@ -30,124 +32,115 @@ const generateSlug = (name, id = null) => {
     remove: /[*+~.()'"!:@]/g,
     replacement: '-'
   });
-  
-  if (id) {
-    slug = `${slug}-${id}`;
-  }
-  
+  if (id) slug = `${slug}-${id}`;
   return slug;
 };
 
-// Helper function to clean undefined values
-const cleanUndefined = (value) => {
-  return value === undefined ? null : value;
-};
+const cleanUndefined = (value) => (value === undefined ? null : value);
 
-// Cache helper functions
-const getCacheKey = (prefix, params) => {
-  return `${prefix}:${JSON.stringify(params)}`;
-};
+// ============================================
+// REDIS HELPERS (FIXED: no double-stringify)
+// ============================================
+const getCacheKey = (prefix, params) => `${prefix}:${JSON.stringify(params)}`;
 
-// Redis set helper - works with both ioredis and node-redis
 const redisSet = async (key, value, ttl) => {
   if (!redis) return false;
   try {
-    // The global redis.set already handles JSON.stringify and TTL conversion
-    return await redis.set(key, value, ttl);
+    // Global redis.set already handles JSON.stringify and TTL conversion
+    await redis.set(key, value, ttl);
+    return true;
   } catch (err) {
-    Logger.error("Redis set error:", { error: err.message });
+    Logger.error("Redis set error:", { error: err.message, key });
     return false;
   }
 };
 
-// Redis get helper
 const redisGet = async (key) => {
   if (!redis) return null;
   try {
-    // The global redis.get already handles JSON.parse
+    // Global redis.get already returns parsed object (if stored as JSON)
     return await redis.get(key);
   } catch (err) {
-    Logger.error("Redis get error:", { error: err.message });
+    Logger.error("Redis get error:", { error: err.message, key });
     return null;
   }
 };
 
-// Redis del helper
 const redisDel = async (key) => {
   if (!redis) return false;
   try {
     await redis.del(key);
     return true;
   } catch (err) {
-    Logger.error("Redis del error:", { error: err.message });
+    Logger.error("Redis del error:", { error: err.message, key });
     return false;
   }
 };
 
-// Redis keys helper
 const redisKeys = async (pattern) => {
   if (!redis) return [];
   try {
     return await redis.keys(pattern);
   } catch (err) {
-    Logger.error("Redis keys error:", { error: err.message });
+    Logger.error("Redis keys error:", { error: err.message, pattern });
     return [];
   }
 };
 
+// ============================================
+// CACHE CLEARING (FIXED: await all deletions)
+// ============================================
 const clearProductCache = async (productId = null, slug = null) => {
   if (!redis) return;
-  
+
   try {
-    // Clear products list cache
-    const keys = await redisKeys("products:list:*");
-    if (keys && keys.length > 0) {
-      for (const key of keys) {
-        await redisDel(key);
-      }
-    }
-    
-    // Clear hot products cache
+    // Clear all products list caches
+    const listKeys = await redisKeys("products:list:*");
+    for (const key of listKeys) await redisDel(key);
+
+    // Clear hot products caches
     await redisDel("products:hot");
-    await redisDel("products:hot:*");
-    
-    // Clear latest products cache
+    const hotKeys = await redisKeys("products:hot:*");
+    for (const key of hotKeys) await redisDel(key);
+
+    // Clear latest products caches
     await redisDel("products:latest");
-    await redisDel("products:latest:*");
-    
+    const latestKeys = await redisKeys("products:latest:*");
+    for (const key of latestKeys) await redisDel(key);
+
     // Clear categories cache
     await redisDel("products:categories");
-    
-    // Clear specific product cache if ID provided
+
+    // Clear featured products caches
+    const featuredKeys = await redisKeys("products:featured:*");
+    for (const key of featuredKeys) await redisDel(key);
+
+    // Clear specific product cache
     if (productId) {
       await redisDel(`product:${productId}`);
       const slugKeys = await redisKeys(`product:slug:*`);
-      if (slugKeys && slugKeys.length > 0) {
-        for (const key of slugKeys) {
-          await redisDel(key);
-        }
-      }
+      for (const key of slugKeys) await redisDel(key);
     }
-    
-    if (slug) {
-      await redisDel(`product:slug:${slug}`);
-    }
-    
+
+    if (slug) await redisDel(`product:slug:${slug}`);
+
     Logger.info("✅ Product cache cleared");
   } catch (error) {
     Logger.error("Error clearing cache:", { error: error.message });
   }
 };
 
-// Get all products with filters (CACHED)
+// ============================================
+// GET ALL PRODUCTS (with filters, pagination, caching)
+// ============================================
 const getProducts = async (req, res) => {
   try {
-    const { 
-      category, 
+    const {
+      category,
       categories,
-      featured, 
-      limit = 50, 
-      offset = 0, 
+      featured,
+      limit = 50,
+      offset = 0,
       search,
       minPrice,
       maxPrice,
@@ -155,19 +148,14 @@ const getProducts = async (req, res) => {
       sort = "newest"
     } = req.query;
 
-    // Create cache key based on all query params
     const cacheKey = getCacheKey("products:list", req.query);
-    
-    // Try to get from cache
+
+    // Try cache
     if (redis) {
-      try {
-        const cachedData = await redisGet(cacheKey);
-        if (cachedData) {
-          Logger.info("📦 Returning cached products");
-          return res.json(cachedData); // No JSON.parse() needed
-        }
-      } catch (cacheErr) {
-        Logger.warn("Cache read error, continuing to database:", { error: cacheErr.message });
+      const cached = await redisGet(cacheKey);
+      if (cached) {
+        Logger.info("📦 Returning cached products");
+        return res.json(cached);
       }
     }
 
@@ -179,15 +167,13 @@ const getProducts = async (req, res) => {
       params.push(category);
     } else if (categories) {
       const categoryList = categories.split(",");
-      if (categoryList.length > 0) {
+      if (categoryList.length) {
         sql += ` AND LOWER(category) IN (${categoryList.map(() => "LOWER(?)").join(",")})`;
         params.push(...categoryList);
       }
     }
 
-    if (featured === "true") {
-      sql += ` AND featured = 1`;
-    }
+    if (featured === "true") sql += ` AND featured = 1`;
 
     if (search) {
       sql += ` AND (LOWER(name) LIKE LOWER(?) OR LOWER(title) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?))`;
@@ -198,7 +184,6 @@ const getProducts = async (req, res) => {
       sql += ` AND price >= ?`;
       params.push(parseFloat(minPrice));
     }
-
     if (maxPrice) {
       sql += ` AND price <= ?`;
       params.push(parseFloat(maxPrice));
@@ -206,39 +191,33 @@ const getProducts = async (req, res) => {
 
     if (sizes) {
       const sizeList = sizes.split(",");
-      if (sizeList.length > 0) {
+      if (sizeList.length) {
         sql += ` AND (${sizeList.map(() => "LOWER(sizes) LIKE LOWER(?)").join(" OR ")})`;
         sizeList.forEach(s => params.push(`%${s.trim()}%`));
       }
     }
 
     // Sorting
-    switch(sort) {
-      case "price_asc":
-        sql += ` ORDER BY price ASC`;
-        break;
-      case "price_desc":
-        sql += ` ORDER BY price DESC`;
-        break;
-      default:
-        sql += ` ORDER BY created_at DESC`;
+    switch (sort) {
+      case "price_asc": sql += ` ORDER BY price ASC`; break;
+      case "price_desc": sql += ` ORDER BY price DESC`; break;
+      default: sql += ` ORDER BY created_at DESC`;
     }
-    
+
     sql += ` LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
     const products = await safeQuery(sql, params);
 
-    // Get total count
+    // Count query (same filters)
     let countSql = `SELECT COUNT(*) as total FROM products WHERE status = 'active'`;
     const countParams = [];
-    
     if (category) {
       countSql += ` AND LOWER(category) = LOWER(?)`;
       countParams.push(category);
     } else if (categories) {
       const categoryList = categories.split(",");
-      if (categoryList.length > 0) {
+      if (categoryList.length) {
         countSql += ` AND LOWER(category) IN (${categoryList.map(() => "LOWER(?)").join(",")})`;
         countParams.push(...categoryList);
       }
@@ -269,12 +248,8 @@ const getProducts = async (req, res) => {
       },
     };
 
-    // Store in cache
-    if (redis) {
-      await redisSet(cacheKey, response, CACHE_TTL.PRODUCTS_LIST); // No JSON.stringify() needed
-      Logger.info("💾 Products cached");
-    }
-
+    // Cache response (already an object)
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.PRODUCTS_LIST);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching products:", error);
@@ -282,46 +257,37 @@ const getProducts = async (req, res) => {
   }
 };
 
-// Get single product by ID or Slug (CACHED)
+// ============================================
+// GET PRODUCT BY ID OR SLUG (CACHED)
+// ============================================
 const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
     let cacheKey = `product:${id}`;
     let product = null;
-    
-    // Try to get from cache
+
     if (redis) {
-      try {
-        const cachedProduct = await redisGet(cacheKey);
-        if (cachedProduct) {
-          Logger.info("📦 Returning cached product");
-          return res.json(cachedProduct);
-        }
-      } catch (cacheErr) {
-        Logger.warn("Cache read error:", { error: cacheErr.message });
+      const cached = await redisGet(cacheKey);
+      if (cached) {
+        Logger.info("📦 Returning cached product by ID");
+        return res.json(cached);
       }
     }
-    
-    // Check if id is a slug or numeric
+
     if (isNaN(id)) {
       cacheKey = `product:slug:${id}`;
       if (redis) {
-        try {
-          const cachedBySlug = await redisGet(cacheKey);
-          if (cachedBySlug) {
-            return res.json(cachedBySlug);
-          }
-        } catch (cacheErr) {}
+        const cachedBySlug = await redisGet(cacheKey);
+        if (cachedBySlug) return res.json(cachedBySlug);
       }
-      
       product = await safeQueryOne(
         `SELECT * FROM products WHERE slug = ? AND status = 'active'`,
-        [id],
+        [id]
       );
     } else {
       product = await safeQueryOne(
         `SELECT * FROM products WHERE id = ? AND status = 'active'`,
-        [id],
+        [id]
       );
     }
 
@@ -329,69 +295,54 @@ const getProductById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // Store in cache
-    if (redis) {
-      await redisSet(cacheKey, { success: true, data: product }, CACHE_TTL.PRODUCT_DETAIL);
-    }
-
-    res.json({ success: true, data: product });
+    const response = { success: true, data: product };
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.PRODUCT_DETAIL);
+    res.json(response);
   } catch (error) {
     Logger.error("Error fetching product:", error);
     res.status(500).json({ success: false, message: "Error fetching product" });
   }
 };
 
-// Get product by slug (SEO friendly)
+// ============================================
+// GET PRODUCT BY SLUG (SEO)
+// ============================================
 const getProductBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
     const cacheKey = `product:slug:${slug}`;
-    
+
     if (redis) {
-      try {
-        const cachedProduct = await redisGet(cacheKey);
-        if (cachedProduct) {
-          return res.json(cachedProduct);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet(cacheKey);
+      if (cached) return res.json(cached);
     }
-    
+
     const product = await safeQueryOne(
       `SELECT * FROM products WHERE slug = ? AND status = 'active'`,
-      [slug],
+      [slug]
     );
 
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    if (redis) {
-      await redisSet(cacheKey, { success: true, data: product }, CACHE_TTL.PRODUCT_DETAIL);
-    }
-
-    res.json({ success: true, data: product });
+    const response = { success: true, data: product };
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.PRODUCT_DETAIL);
+    res.json(response);
   } catch (error) {
     Logger.error("Error fetching product by slug:", error);
     res.status(500).json({ success: false, message: "Error fetching product" });
   }
 };
 
-// Create new product (Admin only)
+// ============================================
+// CREATE PRODUCT (Admin)
+// ============================================
 const createProduct = async (req, res) => {
   try {
     const {
-      name,
-      title,
-      description,
-      price,
-      mrp,
-      category,
-      stock,
-      image,
-      seller,
-      featured,
-      sizes,
-      rating
+      name, title, description, price, mrp, category, stock, image,
+      seller, featured, sizes, rating
     } = req.body;
 
     if (!name || !price || !category) {
@@ -403,13 +354,11 @@ const createProduct = async (req, res) => {
 
     let slug = generateSlug(name);
     const existingSlug = await safeQueryOne(`SELECT id FROM products WHERE slug = ?`, [slug]);
-    if (existingSlug) {
-      slug = `${slug}-${Date.now()}`;
-    }
+    if (existingSlug) slug = `${slug}-${Date.now()}`;
 
     const sql = `
       INSERT INTO products (
-        name, title, description, price, mrp, category, stock, image, seller, featured, 
+        name, title, description, price, mrp, category, stock, image, seller, featured,
         sizes, rating, slug, status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
     `;
@@ -430,24 +379,20 @@ const createProduct = async (req, res) => {
       slug
     ]);
 
-    const newProduct = await safeQueryOne(
-      `SELECT * FROM products WHERE id = ?`,
-      [result.insertId],
-    );
+    const newProduct = await safeQueryOne(`SELECT * FROM products WHERE id = ?`, [result.insertId]);
 
     await clearProductCache(newProduct.id, slug);
 
     res.status(201).json({ success: true, data: newProduct });
   } catch (error) {
     Logger.error("Error creating product:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error creating product: " + error.message,
-    });
+    res.status(500).json({ success: false, message: "Error creating product: " + error.message });
   }
 };
 
-// Update product (Admin only)
+// ============================================
+// UPDATE PRODUCT (Admin)
+// ============================================
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -464,23 +409,16 @@ const updateProduct = async (req, res) => {
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         fields.push(`${field} = ?`);
-        if (field === "price") {
-          values.push(parseFloat(updates[field]));
-        } else if (field === "mrp") {
-          values.push(updates[field] ? parseFloat(updates[field]) : null);
-        } else if (field === "stock") {
-          values.push(updates[field] ? parseInt(updates[field]) : 0);
-        } else if (field === "featured") {
-          values.push(updates[field] ? 1 : 0);
-        } else if (field === "rating") {
-          values.push(parseFloat(updates[field]));
-        } else if (field === "name") {
+        if (field === "price") values.push(parseFloat(updates[field]));
+        else if (field === "mrp") values.push(updates[field] ? parseFloat(updates[field]) : null);
+        else if (field === "stock") values.push(updates[field] ? parseInt(updates[field]) : 0);
+        else if (field === "featured") values.push(updates[field] ? 1 : 0);
+        else if (field === "rating") values.push(parseFloat(updates[field]));
+        else if (field === "name") {
           values.push(updates[field]);
           let newSlug = generateSlug(updates[field]);
-          const existingSlug = await safeQueryOne(`SELECT id FROM products WHERE slug = ? AND id != ?`, [newSlug, id]);
-          if (existingSlug) {
-            newSlug = `${newSlug}-${id}`;
-          }
+          const existing = await safeQueryOne(`SELECT id FROM products WHERE slug = ? AND id != ?`, [newSlug, id]);
+          if (existing) newSlug = `${newSlug}-${id}`;
           fields.push(`slug = ?`);
           values.push(newSlug);
         } else {
@@ -495,10 +433,9 @@ const updateProduct = async (req, res) => {
 
     values.push(id);
     const sql = `UPDATE products SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`;
-
     await safeQuery(sql, values);
-    const updatedProduct = await safeQueryOne(`SELECT * FROM products WHERE id = ?`, [id]);
 
+    const updatedProduct = await safeQueryOne(`SELECT * FROM products WHERE id = ?`, [id]);
     await clearProductCache(id, updatedProduct?.slug);
 
     res.json({ success: true, data: updatedProduct });
@@ -508,16 +445,15 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// Delete product
+// ============================================
+// DELETE PRODUCT (soft delete)
+// ============================================
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const product = await safeQueryOne(`SELECT slug FROM products WHERE id = ?`, [id]);
-    
     await safeQuery(`UPDATE products SET status = 'inactive', updated_at = NOW() WHERE id = ?`, [id]);
-
     await clearProductCache(id, product?.slug);
-
     res.json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
     Logger.error("Error deleting product:", error);
@@ -525,27 +461,22 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// Get product categories (CACHED)
+// ============================================
+// GET CATEGORIES (CACHED)
+// ============================================
 const getCategories = async (req, res) => {
   try {
     if (redis) {
-      try {
-        const cached = await redisGet("products:categories");
-        if (cached) {
-          return res.json(cached);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet("products:categories");
+      if (cached) return res.json(cached);
     }
-    
+
     const categories = await safeQuery(
-      `SELECT DISTINCT category, COUNT(*) as count FROM products WHERE status = 'active' GROUP BY category`,
+      `SELECT DISTINCT category, COUNT(*) as count FROM products WHERE status = 'active' GROUP BY category`
     );
 
     const response = { success: true, data: categories };
-    if (redis) {
-      await redisSet("products:categories", response, CACHE_TTL.CATEGORIES);
-    }
-
+    if (redis) await redisSet("products:categories", response, CACHE_TTL.CATEGORIES);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching categories:", error);
@@ -553,35 +484,30 @@ const getCategories = async (req, res) => {
   }
 };
 
-// Get latest products (CACHED)
+// ============================================
+// GET LATEST PRODUCTS (CACHED)
+// ============================================
 const getLatestProducts = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     const cacheKey = `products:latest:${limit}`;
-    
+
     if (redis) {
-      try {
-        const cached = await redisGet(cacheKey);
-        if (cached) {
-          return res.json(cached);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet(cacheKey);
+      if (cached) return res.json(cached);
     }
-    
+
     const products = await safeQuery(
-      `SELECT id, name, title, price, mrp, image, seller, category, slug, created_at 
-       FROM products 
-       WHERE status = 'active' 
-       ORDER BY created_at DESC 
+      `SELECT id, name, title, price, mrp, image, seller, category, slug, created_at
+       FROM products
+       WHERE status = 'active'
+       ORDER BY created_at DESC
        LIMIT ?`,
-      [parseInt(limit)],
+      [parseInt(limit)]
     );
 
     const response = { success: true, data: products };
-    if (redis) {
-      await redisSet(cacheKey, response, CACHE_TTL.LATEST_PRODUCTS);
-    }
-
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.LATEST_PRODUCTS);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching latest products:", error);
@@ -589,35 +515,30 @@ const getLatestProducts = async (req, res) => {
   }
 };
 
-// Get HOT products (CACHED)
+// ============================================
+// GET HOT PRODUCTS (CACHED)
+// ============================================
 const getHotProducts = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 20);
     const cacheKey = `products:hot:${limit}`;
-    
+
     if (redis) {
-      try {
-        const cached = await redisGet(cacheKey);
-        if (cached) {
-          return res.json(cached);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet(cacheKey);
+      if (cached) return res.json(cached);
     }
-    
+
     const products = await safeQuery(
       `SELECT id, name, title, price, mrp, image, seller, category, slug
-       FROM products 
+       FROM products
        WHERE status = 'active'
        ORDER BY created_at DESC
        LIMIT ?`,
       [limit]
     );
-    
-    const response = { success: true, data: products };
-    if (redis) {
-      await redisSet(cacheKey, response, CACHE_TTL.HOT_PRODUCTS);
-    }
 
+    const response = { success: true, data: products };
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.HOT_PRODUCTS);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching hot products:", error);
@@ -625,32 +546,28 @@ const getHotProducts = async (req, res) => {
   }
 };
 
-// Get products by category (CACHED)
+// ============================================
+// GET PRODUCTS BY CATEGORY (CACHED - FIXED DOUBLE STRINGIFY)
+// ============================================
 const getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { limit = 20 } = req.query;
     const cacheKey = `products:category:${category}:${limit}`;
-    
+
     if (redis) {
-      try {
-        const cached = await redisGet(cacheKey);
-        if (cached) {
-          return res.json(cached);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet(cacheKey);
+      if (cached) return res.json(cached);
     }
-    
+
     const products = await safeQuery(
       `SELECT * FROM products WHERE category = ? AND status = 'active' ORDER BY featured DESC, created_at DESC LIMIT ?`,
-      [category, parseInt(limit)],
+      [category, parseInt(limit)]
     );
 
     const response = { success: true, data: products };
-    if (redis) {
-      await redisSet(cacheKey, JSON.stringify(response), CACHE_TTL.PRODUCTS_LIST);
-    }
-
+    // FIXED: Pass object directly, not JSON.stringify (redisSet handles it)
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.PRODUCTS_LIST);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching products by category:", error);
@@ -658,31 +575,27 @@ const getProductsByCategory = async (req, res) => {
   }
 };
 
-// Get featured products (CACHED)
+// ============================================
+// GET FEATURED PRODUCTS (CACHED - FIXED DOUBLE STRINGIFY)
+// ============================================
 const getFeaturedProducts = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     const cacheKey = `products:featured:${limit}`;
-    
+
     if (redis) {
-      try {
-        const cached = await redisGet(cacheKey);
-        if (cached) {
-          return res.json(cached);
-        }
-      } catch (cacheErr) {}
+      const cached = await redisGet(cacheKey);
+      if (cached) return res.json(cached);
     }
-    
+
     const products = await safeQuery(
       `SELECT * FROM products WHERE featured = 1 AND status = 'active' ORDER BY created_at DESC LIMIT ?`,
-      [parseInt(limit)],
+      [parseInt(limit)]
     );
 
     const response = { success: true, data: products };
-    if (redis) {
-      await redisSet(cacheKey, JSON.stringify(response), CACHE_TTL.PRODUCTS_LIST);
-    }
-
+    // FIXED: Pass object directly
+    if (redis) await redisSet(cacheKey, response, CACHE_TTL.PRODUCTS_LIST);
     res.json(response);
   } catch (error) {
     Logger.error("Error fetching featured products:", error);
