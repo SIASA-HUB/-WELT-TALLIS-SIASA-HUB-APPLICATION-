@@ -1,4 +1,4 @@
-// index.js - API Gateway (Production Safe - No Missing Exports)
+// index.js - API Gateway 
 
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
