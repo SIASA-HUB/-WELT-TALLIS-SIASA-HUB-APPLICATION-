@@ -1,4 +1,4 @@
-// src/App.jsx - SEO-First Routing with Slugs, Leader Listings & Shopping History
+// 
 
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import {
@@ -37,7 +37,6 @@ const LoginPage = lazy(() => import("./components/auth/Login"));
 const ProductDetails = lazy(() => import("./components/marketplace/pages/ProductDetails"));
 const Checkout = lazy(() => import("./components/marketplace/checkout/checkout"));
 const MyOrders = lazy(() => import("./components/marketplace/pages/MyOrders"));
-
 
 const GlobalStyle = createGlobalStyle`
   * {
@@ -96,8 +95,10 @@ const ScrollToTop = () => {
   return null;
 };
 
-// --- Auth Helper Functions ---
-const getCurrentUser = () => {
+// ============================================================
+// AUTHENTICATION HELPERS (NO TOKENS – only user_data)
+// ============================================================
+const getUser = () => {
   try {
     const userData = localStorage.getItem("user_data");
     return userData ? JSON.parse(userData) : null;
@@ -106,56 +107,49 @@ const getCurrentUser = () => {
   }
 };
 
-// Check both key names — leaderToken (set by loginAspirant.jsx) and aspirant_token (legacy)
-const getAspirantToken = () =>
-  localStorage.getItem("aspirant_token") || localStorage.getItem("leaderToken");
-
-// Check if user has admin or marketadmin role from normal login
-const hasAdminRole = () => {
-  const user = getCurrentUser();
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-  return user && token && (user.role === "admin" || user.role === "marketadmin");
-};
-
+// A user is considered authenticated if user_data exists
 const isAuthenticated = () => {
-  const user = getCurrentUser();
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-  return !!(user && token);
+  return getUser() !== null;
 };
 
-// --- Protected Route Component ---
+// Role check based on user_data.role
+const hasRole = (role) => {
+  const user = getUser();
+  return user && user.role === role;
+};
+
+// Aspirant check: either user.role === "aspirant" OR (if your aspirant login sets a flag)
+const isAspirant = () => {
+  const user = getUser();
+  if (user && user.role === "aspirant") return true;
+  // If your backend sets a special field like is_aspirant: true
+  if (user && user.is_aspirant === true) return true;
+  return false;
+};
+
+// ============================================================
+// PROTECTED ROUTE COMPONENT (no token checks)
+// ============================================================
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
   const [authState, setAuthState] = useState({ isAuthenticated: null, userRole: null });
 
   useEffect(() => {
     const checkAuth = () => {
-      // Check for aspirant role
-      const aspirantToken = getAspirantToken();
-      if (aspirantToken && requiredRole === "aspirant") {
-        setAuthState({ isAuthenticated: true, userRole: "aspirant" });
+      if (requiredRole === "aspirant") {
+        const authenticated = isAspirant();
+        setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? "aspirant" : null });
         return;
       }
 
-      // Check for admin/marketadmin from normal login
-      const user = getCurrentUser();
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-      
       if (requiredRole === "admin" || requiredRole === "marketadmin") {
-        if (user && token && (user.role === "admin" || user.role === "marketadmin")) {
-          setAuthState({ isAuthenticated: true, userRole: user.role });
-          return;
-        }
-        setAuthState({ isAuthenticated: false, userRole: null });
+        const authenticated = hasRole(requiredRole);
+        setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? requiredRole : null });
         return;
       }
 
-      // Check for regular user routes
-      if (user && token && requiredRole === "user") {
-        setAuthState({ isAuthenticated: true, userRole: "user" });
-        return;
-      }
-
-      setAuthState({ isAuthenticated: false, userRole: null });
+      // Default "user" role – any logged‑in user (including aspirants) is allowed
+      const authenticated = isAuthenticated();
+      setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? "user" : null });
     };
     checkAuth();
   }, [requiredRole]);
@@ -171,7 +165,9 @@ const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
   return children;
 };
 
-// --- MAIN APP COMPONENT ---
+// ============================================================
+// MAIN APP COMPONENT
+// ============================================================
 const App = () => {
   return (
     <ThemeProvider theme={theme}>
@@ -184,26 +180,32 @@ const App = () => {
   );
 };
 
-// --- LAYOUT WRAPPER ---
+// ============================================================
+// LAYOUT WRAPPER (with startsWith path handling)
+// ============================================================
 const AppLayout = () => {
-
-
   const location = useLocation();
 
-  // Pages where NavMenu should be hidden
+  // Pages where NavMenu should be hidden (all use startsWith)
   const hideNavPaths = [
-    "/admin/dashboard", "/admin/users",
-    "/marketplace-admin", "/login-aspirant", "/register-aspirant",
-    "/aspirant-dashboard", "/login", "/register"
+    "/admin/dashboard",
+    "/admin/users",
+    "/marketplace-admin",
+    "/login-aspirant",
+    "/register-aspirant",
+    "/aspirant-dashboard",
+    "/login",
+    "/register",
   ];
 
   const shouldHideNav = hideNavPaths.some(path => location.pathname.startsWith(path));
 
-  const shouldShowSlogan = !location.pathname.startsWith("/marketplace") &&
-                           !location.pathname.startsWith("/product") &&
-                           !location.pathname.startsWith("/account") &&
-                           !shouldHideNav &&
-                           location.pathname !== "/";
+  const shouldShowSlogan = 
+    !location.pathname.startsWith("/marketplace") &&
+    !location.pathname.startsWith("/product") &&
+    !location.pathname.startsWith("/account") &&
+    !shouldHideNav &&
+    location.pathname !== "/";
 
   return (
     <>
@@ -216,7 +218,7 @@ const AppLayout = () => {
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
 
-            {/* ===== ADMIN ROUTES - Using normal login ===== */}
+            {/* ===== ADMIN ROUTES ===== */}
             <Route path="/admin/dashboard" element={
               <ProtectedRoute requiredRole="admin" redirectTo="/login">
                 <AdminDashboard />
@@ -233,7 +235,7 @@ const AppLayout = () => {
               </ProtectedRoute>
             } />
 
-            {/* ===== MARKETPLACE ADMIN ROUTES - Using normal login ===== */}
+            {/* ===== MARKETPLACE ADMIN ROUTES ===== */}
             <Route path="/marketplace-admin" element={
               <ProtectedRoute requiredRole="marketadmin" redirectTo="/login">
                 <AdminPanel />
@@ -252,20 +254,17 @@ const AppLayout = () => {
             <Route path="/shop" element={<Navigate to="/marketplace" replace />} />
 
             {/* ===== SEO PRODUCT ROUTES ===== */}
-            {/* Clean slug-based product URL — primary route for SEO */}
             <Route path="/product/:slug" element={<ProductDetails />} />
-            {/* Legacy route redirects — keeps old links working */}
+            {/* Legacy redirects */}
             <Route path="/marketplace/shop/:id" element={<Navigate to="/marketplace" replace />} />
             <Route path="/shop/:id" element={<Navigate to="/marketplace" replace />} />
 
             {/* ===== USER ACCOUNT ROUTES ===== */}
-            {/* /account/history — SEO-friendly shopping history */}
             <Route path="/account/history" element={
               <ProtectedRoute requiredRole="user" redirectTo="/login">
                 <MyOrders />
               </ProtectedRoute>
             } />
-            {/* Redirect old /marketplace/orders to clean /account/history */}
             <Route path="/marketplace/orders" element={<Navigate to="/account/history" replace />} />
             <Route path="/profile" element={
               <ProtectedRoute requiredRole="user" redirectTo="/login">
@@ -284,13 +283,9 @@ const AppLayout = () => {
             } />
 
             {/* ===== SEO LEADER ROUTES ===== */}
-            {/* Primary clean leader page */}
             <Route path="/leader/:slug" element={<LeaderInsightPage />} />
-            {/* /aspirants/:slug — keep working, same component */}
             <Route path="/aspirants/:slug" element={<LeaderInsightPage />} />
-            {/* Legacy numeric ID route */}
             <Route path="/leaders/:id" element={<LeaderInsightPage />} />
-            {/* Leaders listing */}
             <Route path="/leaders" element={<LeadersPage />} />
 
             <Route path="/county/:county/position/:position" element={<LeaderListingPage />} />
