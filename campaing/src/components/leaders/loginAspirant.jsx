@@ -179,6 +179,21 @@ const ErrorAlert = styled.div`
   font-size: 13px;
 `;
 
+
+
+const leader = styled.div`
+  background: #d1fae5;
+  color: #059669;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+`;
+
+
 const SuccessMessage = styled.div`
   background: #d1fae5;
   color: #059669;
@@ -232,7 +247,7 @@ const LoginAspirant = () => {
         try {
           // Verify token is still valid - FIXED use api instance not config
           const response = await api.get("/leaders/profile/me");
-          
+
           if (response.success) {
             // User is already logged in, redirect to dashboard
             navigate("/aspirant-dashboard");
@@ -240,13 +255,13 @@ const LoginAspirant = () => {
           }
         } catch (err) {
           // Token is invalid, clear localStorage
-          
+
           localStorage.removeItem("leaderToken");
           localStorage.removeItem("leaderData");
           localStorage.removeItem("currentLeaderId");
         }
       }
-      
+
       setCheckingAuth(false);
     };
 
@@ -261,12 +276,12 @@ const LoginAspirant = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.name.trim()) {
       setError("Please enter your name");
       return;
     }
-    
+
     if (!formData.password) {
       setError("Please enter your password");
       return;
@@ -278,7 +293,7 @@ const LoginAspirant = () => {
 
     try {
       console.log("📤 Sending login request:", { name: formData.name });
-      
+
       const response = await api.post("/leaders/login", {
         name: formData.name.trim(),
         password: formData.password,
@@ -292,8 +307,8 @@ const LoginAspirant = () => {
         storeAuthData(response.data);
 
         setSuccessMessage(`Welcome back! Redirecting...`);
-        
-        toast.success(`Welcome back, ${leader.name}!`);
+
+        toast.success(`Welcome back, ${response.data.leader.name}!`);
 
         // Redirect after a short delay
         setTimeout(() => {
@@ -303,15 +318,15 @@ const LoginAspirant = () => {
         setError(response.data.message || "Login failed");
       }
     } catch (err) {
-      console.error("❌ Login error:", err);
-      
+      console.error("Login error:", err);
+
       if (err.response) {
         // Server responded with error
-        const errorMsg = err.response.data?.message || 
-                        err.response.data?.error || 
-                        "Invalid name or password";
+        const errorMsg = err.response.data?.message ||
+          err.response.data?.error ||
+          "Invalid name or password";
         setError(errorMsg);
-        
+
         if (err.response.status === 401) {
           setError("Invalid name or password. Please try again.");
         } else if (err.response.status === 404) {

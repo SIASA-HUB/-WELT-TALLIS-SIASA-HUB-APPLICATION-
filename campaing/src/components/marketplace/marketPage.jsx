@@ -17,9 +17,10 @@ const Container = styled.div`
   flex-direction: column;
   background: #f8fafc;
   color: #1e293b;
-  padding-bottom: 10px;
+
   overflow-x: hidden;
-  overflow-y: hidden; /* Prevent double scrollbars, children will scroll */
+  overflow-y: hidden;
+  padding-bottom:   70px;
   transition: all 0.3s ease;
 `;
 
@@ -31,7 +32,7 @@ const Content = styled.div`
 
 function marketPage() {
   const { user } = useAuth();
-  
+
   return (
     <ThemeProvider theme={lightTheme}>
       <Container>

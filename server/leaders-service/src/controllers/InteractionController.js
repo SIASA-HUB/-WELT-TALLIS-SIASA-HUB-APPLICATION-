@@ -313,9 +313,78 @@ const getLeaderTimeAnalytics = asyncHandler(async (req, res) => {
   }
 });
 
+// Specialized handlers for RESTful routes
+const trackView = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  const { userId, sessionId } = req.body;
+  const ip = req.ip;
+
+  await safeQuery(
+    `INSERT INTO leader_views (leader_id, user_id, ip_address, session_id, viewed_at) 
+     VALUES (?, ?, ?, ?, NOW())`,
+    [leaderId, userId || null, ip, sessionId || null],
+  );
+
+  await safeQuery(
+    `UPDATE leaders SET views = views + 1 WHERE leader_id = ?`,
+    [leaderId]
+  );
+
+  res.status(200).json({ success: true, message: "View tracked" });
+});
+
+const trackShare = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  const { userId, platform } = req.body;
+  const ip = req.ip;
+
+  await safeQuery(
+    `INSERT INTO leader_shares (leader_id, user_id, ip_address, platform) 
+     VALUES (?, ?, ?, ?)`,
+    [leaderId, userId || null, ip, platform || 'Direct'],
+  );
+
+  await safeQuery(
+    `UPDATE leaders SET shares = shares + 1 WHERE leader_id = ?`,
+    [leaderId]
+  );
+
+  res.status(200).json({ success: true, message: "Share tracked" });
+});
+
+const trackTimeSpent = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  const { userId, sessionId, time_spent } = req.body;
+  const ip = req.ip;
+
+  if (!time_spent || time_spent < 3) {
+    return res.status(200).json({ success: true, message: "Time spent too low to track" });
+  }
+
+  await safeQuery(
+    `INSERT INTO leader_time_spent (leader_id, user_id, ip_address, session_id, time_spent_seconds, recorded_at) 
+     VALUES (?, ?, ?, ?, ?, NOW())`,
+    [leaderId, userId || null, ip, sessionId || null, time_spent],
+  );
+
+  // Update aggregate stats
+  await safeQuery(
+    `UPDATE leaders 
+     SET total_time_spent = total_time_spent + ?,
+         avg_time_spent = (total_time_spent + ?) / GREATEST((SELECT COUNT(*) FROM leader_views WHERE leader_id = ?), 1)
+     WHERE leader_id = ?`,
+    [time_spent, time_spent, leaderId, leaderId]
+  );
+
+  res.status(200).json({ success: true, message: "Time spent tracked" });
+});
+
 module.exports = {
   handleInteraction,
   postComment,
   getLeaderInteractionCounts,
   getLeaderTimeAnalytics,
+  trackView,
+  trackShare,
+  trackTimeSpent,
 };

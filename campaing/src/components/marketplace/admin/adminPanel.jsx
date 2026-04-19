@@ -10,11 +10,11 @@ import ProductsManagement from "./productsMangment";
 import OrdersManagement from "./orderMangment";
 import CategoriesManagement from "./categoriesMangment";
 
-import { 
-  getAllProducts, 
-  getAdminOrders, 
-  getAdminStats, 
-  updateOrderStatus 
+import {
+  getAllProducts,
+  getAdminOrders,
+  getAdminStats,
+  updateOrderStatus
 } from "../components/api";
 
 const API_URL = "/api/v1/marketplace";
@@ -94,7 +94,7 @@ const NavItem = styled.button`
 
   &:hover {
     background: ${(props) =>
-      props.$active ? "#bb0000" : "rgba(255,255,255,0.1)"};
+    props.$active ? "#bb0000" : "rgba(255,255,255,0.1)"};
     color: #ffffff;
   }
 
@@ -107,7 +107,7 @@ const NavItem = styled.button`
 const MainContent = styled.main`
   flex: 1;
   margin-left: 260px;
-  padding: 20px;
+  padding: 0px;
 
   @media (max-width: 768px) {
     margin-left: 0;

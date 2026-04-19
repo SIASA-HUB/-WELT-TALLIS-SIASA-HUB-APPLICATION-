@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import * as Icons from "lucide-react";
 import axios from "axios";
-
-const API_URL = "/api/v1/marketplace";
+import { adminCreateProduct, adminUpdateProduct } from "../components/api";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -38,6 +37,7 @@ const ModalHeader = styled.div`
 const ModalTitle = styled.h3`
   margin: 0;
   font-size: 20px;
+  color: #1a1a2e;
 `;
 
 const CloseButton = styled.button`
@@ -45,6 +45,8 @@ const CloseButton = styled.button`
   border: none;
   cursor: pointer;
   padding: 4px;
+  color: #666;
+  &:hover { color: #000; }
 `;
 
 const ModalBody = styled.div`
@@ -60,6 +62,7 @@ const Label = styled.label`
   margin-bottom: 8px;
   font-weight: 500;
   font-size: 14px;
+  color: #1a1a2e;
 `;
 
 const Input = styled.input`
@@ -68,9 +71,8 @@ const Input = styled.input`
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
-  color: #1a1a2e; /* Explicit dark text so it's visible on white bg */
+  color: #1a1a2e;
   background: #fff;
-
   &:focus {
     outline: none;
     border-color: #bb0000;
@@ -85,19 +87,16 @@ const Select = styled.select`
   font-size: 14px;
   color: #1a1a2e;
   background: #fff;
-
   &:focus {
     outline: none;
     border-color: #bb0000;
   }
 `;
 
-
 const FormRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
@@ -117,10 +116,8 @@ const CancelButton = styled.button`
   border: none;
   border-radius: 8px;
   cursor: pointer;
-
-  &:hover {
-    background: #e0e0e0;
-  }
+  color: #333;
+  &:hover { background: #e0e0e0; }
 `;
 
 const SaveButton = styled.button`
@@ -133,15 +130,8 @@ const SaveButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-
-  &:hover {
-    background: #990000;
-  }
-
-  &:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-  }
+  &:hover { background: #990000; }
+  &:disabled { background: #ccc; cursor: not-allowed; }
 `;
 
 const ErrorMessage = styled.div`
@@ -176,7 +166,6 @@ const ImagePreview = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-
   img {
     width: 80px;
     height: 80px;
@@ -193,7 +182,6 @@ const UploadArea = styled.div`
   cursor: pointer;
   transition: all 0.2s;
   background: #fafafa;
-
   &:hover {
     border-color: #bb0000;
     background: #fff5f5;
@@ -216,32 +204,14 @@ const FileInput = styled.input`
 `;
 
 const categories = [
-  "caps",
-  "tshirts",
-  "hoodies",
-  "posters",
-  "badges",
-  "stickers",
-  "banners",
-  "wristbands",
-  "bags",
+  "caps", "tshirts", "hoodies", "posters", "badges",
+  "stickers", "banners", "wristbands", "bags"
 ];
-
-import { adminCreateProduct, adminUpdateProduct } from "../components/api";
 
 const ProductModal = ({ isOpen, onClose, onSave, product }) => {
   const [formData, setFormData] = useState({
-    name: "",
-    title: "",
-    price: "",
-    cost: "",
-    mrp: "",
-    discount: "",
-    category: "",
-    stock: "",
-    image: "",
-    seller: "Campaign Store",
-    featured: false,
+    name: "", title: "", price: "", cost: "", mrp: "", discount: "",
+    category: "", stock: "", image: "", seller: "Campaign Store", featured: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -249,6 +219,8 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
   const [imagePreview, setImagePreview] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const abortControllerRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (product) {
@@ -268,37 +240,31 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
       setImagePreview(product.image || "");
     } else {
       setFormData({
-        name: "",
-        title: "",
-        price: "",
-        cost: "",
-        mrp: "",
-        discount: "",
-        category: "",
-        stock: "",
-        image: "",
-        seller: "Campaign Store",
-        featured: false,
+        name: "", title: "", price: "", cost: "", mrp: "", discount: "",
+        category: "", stock: "", image: "", seller: "Campaign Store", featured: false,
       });
       setImagePreview("");
       setSelectedFile(null);
     }
     setError("");
     setSuccess("");
-  }, [product]);
+    isSubmittingRef.current = false;
+    // Cancel any ongoing request when modal closes or product changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, [product, isOpen]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setError("Only JPG, PNG, and WEBP images are allowed");
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("Image size must be less than 5MB");
       return;
@@ -308,36 +274,30 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
     setUploadingImage(true);
     setError("");
 
-    // Create preview
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
+    reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
 
-    // Upload to server
-    const data = new FormData();
-    data.append("image", file);
-    data.append("folder", "products");
+    const uploadData = new FormData();
+    uploadData.append("image", file);
+    uploadData.append("folder", "products");
 
     try {
-      const response = await axios.post(`/api/v1/upload`, data, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      const response = await axios.post("/api/v1/upload", uploadData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
       if (response.data.url) {
-        setFormData((prev) => ({
-          ...prev,
-          image: response.data.url,
-        }));
+        const uploadedUrl = response.data.url;
+        setFormData(prev => ({ ...prev, image: uploadedUrl }));
         setSuccess("Image uploaded successfully!");
         setTimeout(() => setSuccess(""), 3000);
+      } else {
+        throw new Error("No URL returned from upload");
       }
     } catch (err) {
-      console.error("Error uploading image:", err);
+      console.error("Upload error:", err);
       setError("Failed to upload image. Please try again.");
+      setImagePreview("");
     } finally {
       setUploadingImage(false);
     }
@@ -357,9 +317,20 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent double submission
+    if (loading || uploadingImage || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setLoading(true);
     setError("");
     setSuccess("");
+
+    // Cancel previous request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const productData = {
@@ -371,7 +342,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
         discount: calculateDiscount() || formData.discount,
         category: formData.category,
         stock: parseInt(formData.stock),
-        image: formData.image,
+        image: formData.image,  // ✅ this must be the uploaded URL
         seller: formData.seller,
         featured: formData.featured,
         status: "active",
@@ -379,29 +350,31 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
 
       let response;
       if (product) {
-        response = await adminUpdateProduct(product.id, productData);
+        response = await adminUpdateProduct(product.id, productData, { signal: controller.signal });
         setSuccess("Product updated successfully!");
       } else {
-        response = await adminCreateProduct(productData);
+        response = await adminCreateProduct(productData, { signal: controller.signal });
         setSuccess("Product created successfully!");
       }
 
       if (onSave) {
-        // api interceptor already unwraps response.data, so access directly
         onSave(response?.data || productData);
       }
 
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      setTimeout(() => onClose(), 1000);
     } catch (err) {
+      if (err.name === "AbortError") {
+        console.log("Request cancelled");
+        return;
+      }
       console.error("Error saving product:", err);
-      setError(
-        err.response?.data?.message ||
-          "Failed to save product. Please try again.",
-      );
+      setError(err.response?.data?.message || "Failed to save product. Please try again.");
+      isSubmittingRef.current = false; // allow retry
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
+      // On success, modal will close; on error, allow resubmit
+      if (error) isSubmittingRef.current = false;
     }
   };
 
@@ -413,203 +386,77 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
     <ModalOverlay onClick={onClose}>
       <ModalContainer onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <ModalTitle>
-            {product ? "Edit Product" : "Add New Product"}
-          </ModalTitle>
-          <CloseButton onClick={onClose}>
-            <Icons.X size={20} />
-          </CloseButton>
+          <ModalTitle>{product ? "Edit Product" : "Add New Product"}</ModalTitle>
+          <CloseButton onClick={onClose}><Icons.X size={20} /></CloseButton>
         </ModalHeader>
         <form onSubmit={handleSubmit}>
           <ModalBody>
-            {error && (
-              <ErrorMessage>
-                <Icons.AlertCircle size={16} />
-                {error}
-              </ErrorMessage>
-            )}
-            {success && (
-              <SuccessMessage>
-                <Icons.CheckCircle size={16} />
-                {success}
-              </SuccessMessage>
-            )}
+            {error && <ErrorMessage><Icons.AlertCircle size={16} />{error}</ErrorMessage>}
+            {success && <SuccessMessage><Icons.CheckCircle size={16} />{success}</SuccessMessage>}
 
             <FormRow>
               <FormGroup>
                 <Label>Product Name *</Label>
-                <Input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                  placeholder="e.g., Campaign Cap"
-                />
+                <Input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Campaign Cap" />
               </FormGroup>
               <FormGroup>
                 <Label>Category *</Label>
-                <Select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  required
-                >
+                <Select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required>
                   <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.toUpperCase()}
-                    </option>
-                  ))}
+                  {categories.map(cat => <option key={cat} value={cat}>{cat.toUpperCase()}</option>)}
                 </Select>
               </FormGroup>
             </FormRow>
 
             <FormGroup>
               <Label>Title</Label>
-              <Input
-                type="text"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                placeholder="Full product title for display (e.g., Official Campaign Cap - Adjustable)"
-              />
+              <Input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Full product title for display" />
             </FormGroup>
 
             <FormRow>
               <FormGroup>
                 <Label>Selling Price (KES) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => {
-                    setFormData({ ...formData, price: e.target.value });
-                    if (formData.mrp) {
-                      const discount = calculateDiscount();
-                      if (discount) {
-                        setFormData({
-                          ...formData,
-                          price: e.target.value,
-                          discount,
-                        });
-                      } else {
-                        setFormData({ ...formData, price: e.target.value });
-                      }
-                    }
-                  }}
-                  required
-                  placeholder="e.g., 499"
-                />
+                <Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required placeholder="e.g., 499" />
               </FormGroup>
               <FormGroup>
                 <Label>MRP (KES)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.mrp}
-                  onChange={(e) => {
-                    setFormData({ ...formData, mrp: e.target.value });
-                    if (formData.price) {
-                      const discount = calculateDiscount();
-                      if (discount) {
-                        setFormData({ ...formData, discount });
-                      }
-                    }
-                  }}
-                  placeholder="e.g., 999"
-                />
+                <Input type="number" step="0.01" value={formData.mrp} onChange={(e) => setFormData({ ...formData, mrp: e.target.value })} placeholder="e.g., 999" />
               </FormGroup>
             </FormRow>
 
             {discountPreview && (
               <FormGroup>
                 <Label>Discount Preview</Label>
-                <div style={{ fontSize: 14, color: "#388e3c" }}>
-                  {discountPreview} (KES{" "}
-                  {parseFloat(formData.mrp) - parseFloat(formData.price)} saved)
-                </div>
+                <div style={{ fontSize: 14, color: "#388e3c" }}>{discountPreview} (KES {parseFloat(formData.mrp) - parseFloat(formData.price)} saved)</div>
               </FormGroup>
             )}
 
             <FormRow>
               <FormGroup>
                 <Label>Stock Quantity *</Label>
-                <Input
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stock: e.target.value })
-                  }
-                  required
-                  placeholder="e.g., 100"
-                />
+                <Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} required placeholder="e.g., 100" />
               </FormGroup>
               <FormGroup>
                 <Label>Seller</Label>
-                <Input
-                  type="text"
-                  value={formData.seller}
-                  onChange={(e) =>
-                    setFormData({ ...formData, seller: e.target.value })
-                  }
-                  placeholder="Campaign Store"
-                />
+                <Input type="text" value={formData.seller} onChange={(e) => setFormData({ ...formData, seller: e.target.value })} placeholder="Campaign Store" />
               </FormGroup>
             </FormRow>
 
             <FormGroup>
               <Label>Product Image</Label>
-              <UploadArea
-                onClick={() => document.getElementById("fileInput").click()}
-              >
-                <UploadIcon>
-                  <Icons.Image size={32} />
-                </UploadIcon>
-                <UploadText>
-                  {uploadingImage ? "Uploading..." : "Click to upload image"}
-                </UploadText>
-                <UploadText style={{ fontSize: 12, color: "#999" }}>
-                  JPG, PNG, WEBP (Max 5MB)
-                </UploadText>
+              <UploadArea onClick={() => document.getElementById("fileInput").click()}>
+                <UploadIcon><Icons.Image size={32} /></UploadIcon>
+                <UploadText>{uploadingImage ? "Uploading..." : "Click to upload image"}</UploadText>
+                <UploadText style={{ fontSize: 12, color: "#999" }}>JPG, PNG, WEBP (Max 5MB)</UploadText>
               </UploadArea>
-              <FileInput
-                id="fileInput"
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
-                onChange={handleFileChange}
-              />
+              <FileInput id="fileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleFileChange} />
               {imagePreview && (
                 <ImagePreview>
                   <img src={imagePreview} alt="Preview" />
                   <div>
                     <Icons.Image size={16} />
-                    <span
-                      style={{ fontSize: 12, color: "#666", marginLeft: 4 }}
-                    >
-                      Image uploaded
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImagePreview("");
-                        setFormData({ ...formData, image: "" });
-                        setSelectedFile(null);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#ff4444",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        marginLeft: 12,
-                      }}
-                    >
-                      Remove
-                    </button>
+                    <span style={{ fontSize: 12, color: "#666", marginLeft: 4 }}>Image uploaded</span>
+                    <button type="button" onClick={() => { setImagePreview(""); setFormData({ ...formData, image: "" }); setSelectedFile(null); }} style={{ background: "none", border: "none", color: "#ff4444", cursor: "pointer", fontSize: 12, marginLeft: 12 }}>Remove</button>
                   </div>
                 </ImagePreview>
               )}
@@ -617,49 +464,20 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
 
             <FormGroup>
               <Label>
-                <input
-                  type="checkbox"
-                  checked={formData.featured}
-                  onChange={(e) =>
-                    setFormData({ ...formData, featured: e.target.checked })
-                  }
-                  style={{ marginRight: 8 }}
-                />
+                <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} style={{ marginRight: 8 }} />
                 Featured Product
               </Label>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                Featured products appear on the homepage
-              </div>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Featured products appear on the homepage</div>
             </FormGroup>
           </ModalBody>
           <ModalFooter>
-            <CancelButton type="button" onClick={onClose}>
-              Cancel
-            </CancelButton>
+            <CancelButton type="button" onClick={onClose}>Cancel</CancelButton>
             <SaveButton type="submit" disabled={loading || uploadingImage}>
-              {loading ? (
-                <>
-                  <Icons.Loader2
-                    size={16}
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Icons.Save size={16} />
-                  {product ? "Update Product" : "Create Product"}
-                </>
-              )}
+              {loading ? <><Icons.Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Saving...</> : <><Icons.Save size={16} /> {product ? "Update Product" : "Create Product"}</>}
             </SaveButton>
           </ModalFooter>
         </form>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </ModalContainer>
     </ModalOverlay>
   );

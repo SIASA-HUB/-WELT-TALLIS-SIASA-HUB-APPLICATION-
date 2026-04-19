@@ -107,6 +107,11 @@ const getUser = () => {
   }
 };
 
+
+
+
+
+
 // A user is considered authenticated if user_data exists
 const isAuthenticated = () => {
   return getUser() !== null;
@@ -200,7 +205,7 @@ const AppLayout = () => {
 
   const shouldHideNav = hideNavPaths.some(path => location.pathname.startsWith(path));
 
-  const shouldShowSlogan = 
+  const shouldShowSlogan =
     !location.pathname.startsWith("/marketplace") &&
     !location.pathname.startsWith("/product") &&
     !location.pathname.startsWith("/account") &&

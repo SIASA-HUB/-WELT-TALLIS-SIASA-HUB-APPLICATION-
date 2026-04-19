@@ -21,7 +21,7 @@ const storeAuthData = (data) => {
     // Backward compatibility for different segments of the app
     localStorage.setItem('leaderToken', token);
     localStorage.setItem('aspirant_token', token);
-    
+
     if (data.expiresIn) {
       localStorage.setItem('token_expiry', (Date.now() + data.expiresIn * 1000).toString());
     }
@@ -60,7 +60,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const token = getToken();
-    
+
     // Detect if we are already trying to refresh or login to avoid loops
     const isRefreshCall = originalRequest.url.includes('/users/refresh');
     const isLoginCall = originalRequest.url.includes('/users/login');
@@ -72,7 +72,7 @@ api.interceptors.response.use(
         // Use the instance but the _retry flag protects us from loops if we handle it carefully
         // or just use axios.post if preferred. Here we use api.post but the isRefreshCall check above prevents loops.
         const refreshResponse = await api.post('/users/refresh');
-        
+
         if (refreshResponse?.success && refreshResponse?.accessToken) {
           console.log('[AUTH] Refresh successful');
           storeAuthData(refreshResponse);
@@ -81,20 +81,26 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         console.error('[AUTH] Token refresh failed:', refreshError.message);
+        
+        // ONLY clear data if the backend explicitly says the refresh token is dead
+        const status = refreshError.response?.status;
+        if (status === 401 || status === 403) {
+          console.warn('[AUTH] Refresh token invalid or expired. Logging out.');
+          clearAuthData();
+          
+          // Redirect to login only if not already there
+          const isAspirant = window.location.pathname.startsWith('/aspirant');
+          const loginPath = isAspirant ? '/login-aspirant' : '/login';
+          if (!window.location.pathname.includes(loginPath)) {
+            window.location.href = loginPath;
+          }
+        } else {
+          console.warn('[AUTH] Refresh failed due to network/server error. Keeping session for retry.');
+        }
       }
-      
-      // If we reach here, refresh failed or was not possible
-      clearAuthData();
-      
-      // Only redirect if we are not already on the login page
-      const isAspirant = window.location.pathname.startsWith('/aspirant');
-      const loginPath = isAspirant ? '/login-aspirant' : '/login';
-      if (!window.location.pathname.includes(loginPath)) {
-        window.location.href = loginPath;
-      }
+      return Promise.reject(error);
     }
 
-    const errorMsg = error.response?.data?.message || error.message;
     return Promise.reject(error);
   }
 );

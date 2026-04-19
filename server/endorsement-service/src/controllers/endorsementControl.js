@@ -665,21 +665,13 @@ const addComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Ensure table exists
-    await safeQuery(`
-      CREATE TABLE IF NOT EXISTS endorsement_comments (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        endorsement_id INT NOT NULL,
-        user_id VARCHAR(255) NOT NULL,
-        user_name VARCHAR(255),
-        user_avatar TEXT,
-        comment TEXT NOT NULL,
-        likes INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_endorsement (endorsement_id),
-        INDEX idx_user (user_id)
-      )
-    `).catch(err => Logger.warn("Table creation warning:", err.message));
+    try {
+      const dbCheck = await safeQueryOne(`SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'endorsement_comments'`);
+      if (!dbCheck || dbCheck.cnt === 0) {
+        return res.status(503).json({ success: false, message: "Comments feature is temporarily unavailable while database upgrades apply" });
+      }
+    } catch (err) { }
+
 
     const endorsement = await safeQueryOne(`SELECT id, leader_id FROM endorsements WHERE id = ?`, [endorsementId]);
     if (!endorsement) {
@@ -770,16 +762,13 @@ const likeComment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Ensure table exists
-    await safeQuery(`
-      CREATE TABLE IF NOT EXISTS comment_likes (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        comment_id INT NOT NULL,
-        user_id VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_comment_like (comment_id, user_id)
-      )
-    `).catch(err => Logger.warn("Table creation warning:", err.message));
+    try {
+      const dbCheck = await safeQueryOne(`SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'comment_likes'`);
+      if (!dbCheck || dbCheck.cnt === 0) {
+        return res.status(503).json({ success: false, message: "Comment likes feature is temporarily unavailable" });
+      }
+    } catch (err) { }
+
 
     const comment = await safeQueryOne(`SELECT id, likes FROM endorsement_comments WHERE id = ?`, [commentId]);
     if (!comment) {

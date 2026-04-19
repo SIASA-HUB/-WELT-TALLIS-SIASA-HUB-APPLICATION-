@@ -1,4 +1,4 @@
-// hooks/useAuth.jsx - Fixed: Token expiry handling
+// hooks/useAuth.jsx - Stable, keeps you logged in even when backend fails
 import {
   createContext,
   useContext,
@@ -11,22 +11,22 @@ import api from "../../api/api";
 
 const AuthContext = createContext(null);
 
-// ========== ADDED: Helper functions for token expiry ==========
+// ========== HELPERS ==========
 const getStoredToken = () => {
   return localStorage.getItem("access_token") || localStorage.getItem("token");
 };
 
-const isTokenExpired = () => {
-  const expiry = localStorage.getItem("token_expiry");
-  if (!expiry) return false;
-  const parsedExpiry = parseInt(expiry);
-  if (isNaN(parsedExpiry)) return false;
-  
-  // Safety: If expiry is suspiciously small (e.g. before year 2024), it's likely invalid.
-  // We assume it's NOT expired and let the backend decide via 401.
-  if (parsedExpiry < 1704067200000) return false; 
-  
-  return Date.now() > parsedExpiry;
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return false;
+    return Date.now() > payload.exp * 1000;
+  } catch {
+    return true;
+  }
 };
 
 const clearAuthData = () => {
@@ -37,7 +37,6 @@ const clearAuthData = () => {
   ];
   keys.forEach(k => localStorage.removeItem(k));
 };
-// ==============================================================
 
 const decodeJWT = (token) => {
   if (!token) return null;
@@ -52,6 +51,7 @@ const decodeJWT = (token) => {
     return null;
   }
 };
+// =================================
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -60,9 +60,22 @@ export const AuthProvider = ({ children }) => {
   const [csrfToken, setCsrfToken] = useState(null);
   const authCheckDoneRef = useRef(false);
 
+  // OPTIMISTIC AUTH: if token and user_data exist, assume logged in immediately
+  useEffect(() => {
+    const token = getStoredToken();
+    const storedUser = localStorage.getItem("user_data");
+    if (token && storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUser(parsed);
+        setIsAuthenticated(true);
+      } catch (e) { }
+    }
+  }, []);
+
   const fetchCsrfToken = useCallback(async () => {
     const token = getStoredToken();
-    if (!token || isTokenExpired()) return null; // <-- ADDED expiry check
+    if (!token) return null;
     try {
       const response = await api.get("/users/csrf-token");
       if (response?.success) {
@@ -77,88 +90,96 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = useCallback(async () => {
     const token = getStoredToken();
-    if (!token || isTokenExpired()) return null; // <-- ADDED expiry check
+    if (!token) return null;
     try {
       const response = await api.get("/users/me");
       if (response?.success && response?.data) {
         setUser(response.data);
         setIsAuthenticated(true);
+        localStorage.setItem("user_data", JSON.stringify(response.data));
         return response.data;
       } else {
-        clearAuthData();
-        setUser(null);
         setIsAuthenticated(false);
         return null;
       }
     } catch (error) {
-      if (error?.response?.status === 401) clearAuthData();
-      setUser(null);
-      setIsAuthenticated(false);
+      if (error?.response?.status === 401) {
+        // Do NOT clearAuthData here – let the refresh logic in checkAuthStatus handle it
+        console.log("[AUTH] /me returned 401, checkAuthStatus will attempt refresh");
+        setIsAuthenticated(false);
+        setUser(null);
+      } else {
+        // 500, network error, etc. – keep existing user (do not log out)
+        console.warn("Auth check network/server error, using cached user", error.message);
+        // Keep the current user from localStorage (already set optimistically)
+      }
       return null;
     }
   }, []);
 
   const checkAuthStatus = useCallback(async () => {
-    if (authCheckDoneRef.current && !isLoading) return;
-    setIsLoading(true);
-
+    if (authCheckDoneRef.current) return;
     try {
       const token = getStoredToken();
       if (!token) {
-        setUser(null);
-        setIsAuthenticated(false);
         setIsLoading(false);
         authCheckDoneRef.current = true;
         return;
       }
 
-      // <-- ADDED: If token expired, clear and treat as not authenticated
-      if (isTokenExpired()) {
-        clearAuthData();
-        setUser(null);
-        setIsAuthenticated(false);
+      // Try to fetch fresh user data
+      const userData = await fetchUser();
+      if (userData) {
+        await fetchCsrfToken();
         setIsLoading(false);
         authCheckDoneRef.current = true;
         return;
       }
 
-      // Token exists and not expired – verify with backend
-      try {
-        const response = await api.get("/users/status");
-        if (response?.success && response?.isAuthenticated) {
-          setUser(response.user);
+      // If fetchUser failed but we still have token, try to refresh
+      const refreshResponse = await api.post("/users/refresh").catch(() => null);
+      if (refreshResponse?.success && refreshResponse?.accessToken) {
+        console.log("[AUTH] Refresh successful in checkAuthStatus");
+        const newToken = refreshResponse.accessToken;
+        storeAuthData(refreshResponse); // Use helper for consistency
+
+        // Retry fetch user after refresh
+        const newUser = await fetchUser();
+        if (newUser) {
           setIsAuthenticated(true);
-          await fetchCsrfToken();
-        } else {
+          setUser(newUser);
+        }
+      } else {
+        // Refresh failed (401 or other)
+        const token = getStoredToken();
+        if (token && isTokenExpired(token)) {
+          console.warn("[AUTH] Session expired and refresh failed. Clearing.");
           clearAuthData();
           setUser(null);
           setIsAuthenticated(false);
+        } else {
+          console.log("[AUTH] Refresh failed but token still valid (optimistic fallback)");
         }
-      } catch (statusError) {
-        if (statusError?.response?.status === 401) clearAuthData();
-        setUser(null);
-        setIsAuthenticated(false);
       }
     } catch (error) {
-      console.debug("Auth check error:", error?.message);
-      setUser(null);
-      setIsAuthenticated(false);
+      console.error("Auth check error:", error);
+      // On any unexpected error, keep existing user (don't log out)
     } finally {
       setIsLoading(false);
       authCheckDoneRef.current = true;
     }
-  }, [fetchCsrfToken, isLoading]);
+  }, [fetchUser, fetchCsrfToken]);
 
   const login = async (username, password) => {
     try {
       const response = await api.post("/users/login", { identifier: username, password });
       if (response?.success && response?.accessToken) {
         const token = response.accessToken;
-        const expiresIn = response.expiresIn || 7200; // <-- use expiresIn from response
         localStorage.setItem("access_token", token);
         localStorage.setItem("token", token);
-        // <-- ADDED: store expiry timestamp
-        localStorage.setItem("token_expiry", Date.now() + expiresIn * 1000);
+        if (response.expiresIn) {
+          localStorage.setItem("token_expiry", Date.now() + response.expiresIn * 1000);
+        }
         if (response.csrfToken) {
           localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
@@ -195,15 +216,16 @@ export const AuthProvider = ({ children }) => {
 
   const refreshToken = async () => {
     const token = getStoredToken();
-    if (!token || isTokenExpired()) return { success: false };
+    if (!token) return { success: false };
     try {
       const response = await api.post("/users/refresh");
       if (response?.success && response?.accessToken) {
         const newToken = response.accessToken;
-        const expiresIn = response.expiresIn || 7200;
         localStorage.setItem("access_token", newToken);
         localStorage.setItem("token", newToken);
-        localStorage.setItem("token_expiry", Date.now() + expiresIn * 1000);
+        if (response.expiresIn) {
+          localStorage.setItem("token_expiry", Date.now() + response.expiresIn * 1000);
+        }
         if (response.csrfToken) {
           localStorage.setItem("csrf_token", response.csrfToken);
           setCsrfToken(response.csrfToken);
@@ -218,7 +240,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Role helpers (unchanged)
+  // Role helpers
   const getUserRole = () => user?.role || "user";
   const hasRole = (requiredRole) => {
     const roleHierarchy = { user: 1, admin: 2, market_admin: 3, super_admin: 4, ceo: 5 };
@@ -270,10 +292,9 @@ export const getDecodedUserFromToken = () => {
   return token ? decodeJWT(token) : null;
 };
 
-// SYNC check includes expiry
 export const isLoggedIn = () => {
   const token = getStoredToken();
-  return !!token && !isTokenExpired();
+  return !!token;
 };
 
 export const ProtectedRoute = ({ children, requiredRole = null }) => {

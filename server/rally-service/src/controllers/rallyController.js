@@ -23,6 +23,28 @@ const getAnonymousId = (req) => {
     .substring(0, 16);
 };
 
+// Helper to format image URLs for the UI
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  
+  // Use gateway URL if possible, or fallback to the service itself
+  const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8001}`;
+  return `${imageBaseUrl.replace(/\/$/, '')}${url.startsWith('/') ? url : `/${url}`}`;
+};
+
+// Helper to format a rally object
+const formatRally = (rally) => {
+  if (!rally) return null;
+  return {
+    ...rally,
+    image: formatImageUrl(rally.image),
+    // Ensure thumbnails/medium sizes exist if we implement them later
+    thumbnail_url: formatImageUrl(rally.image),
+    medium_url: formatImageUrl(rally.image)
+  };
+};
+
 // ===== CREATE RALLY WITH IMAGE =====
 const createRally = asyncHandler(async (req, res) => {
   try {
@@ -36,16 +58,10 @@ const createRally = asyncHandler(async (req, res) => {
 
     const rally = await RallyModel.create(rallyData, getKenyaTimeISO);
 
-    // Clear ALL cache keys related to rallies
+    // Clear caching
     try {
       const keys = await redis.keys("rallies:*");
-      if (keys.length > 0) {
-        await redis.del(keys);
-        Logger.info(`[CACHE CLEAR] Cleared ${keys.length} rally cache keys`);
-      }
-      await redis.del("rallies:all");
-      await redis.del("rallies:upcoming");
-      Logger.info("[CACHE CLEAR] Cleared specific rally cache keys");
+      if (keys.length > 0) await redis.del(keys);
     } catch (cacheError) {
       Logger.error("[CACHE CLEAR ERROR]", cacheError);
     }
@@ -53,22 +69,17 @@ const createRally = asyncHandler(async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Rally created successfully",
-      data: rally,
+      data: formatRally(rally),
     });
   } catch (error) {
     Logger.error("[CREATE RALLY] Error:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
 // ===== GET ALL RALLIES =====
 const getAllRallies = asyncHandler(async (req, res) => {
   try {
-    Logger.info("[GET ALL RALLIES] Request received", req.query);
-
     const filters = {
       page: req.query.page,
       limit: req.query.limit,
@@ -78,82 +89,60 @@ const getAllRallies = asyncHandler(async (req, res) => {
       search: req.query.search,
     };
 
-    // Try to get from cache first
     const cacheKey = `rallies:list:${JSON.stringify(filters)}`;
     try {
       const cached = await redis.get(cacheKey);
-      if (cached) {
-        Logger.info("[GET ALL RALLIES] Returning cached data");
-        return res.status(200).json(JSON.parse(cached));
-      }
-    } catch (cacheError) {
-      Logger.warn("[CACHE READ ERROR]", cacheError);
-    }
+      if (cached) return res.status(200).json(JSON.parse(cached));
+    } catch (e) {}
 
     const result = await RallyModel.getAll(filters);
+    const formattedData = (result.data || []).map(formatRally);
+
     const response = {
       success: true,
-      data: result.data,
+      data: formattedData,
       pagination: result.pagination,
     };
 
-    // Store in cache for 5 minutes
     try {
       await redis.set(cacheKey, JSON.stringify(response), "EX", 300);
-    } catch (cacheError) {
-      Logger.error("[CACHE WRITE ERROR]", cacheError);
-    }
+    } catch (e) {}
 
     res.status(200).json(response);
   } catch (error) {
     Logger.error("[GET ALL RALLIES] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch rallies",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch rallies" });
   }
 });
 
 // ===== GET UPCOMING RALLIES =====
 const getUpcomingRallies = asyncHandler(async (req, res) => {
   try {
-    Logger.info("[GET UPCOMING RALLIES] Request received");
-
     const limit = req.query.limit || 10;
     const cacheKey = `rallies:upcoming:${limit}`;
 
-    // Try to get from cache first
     try {
       const cached = await redis.get(cacheKey);
-      if (cached) {
-        Logger.info("[GET UPCOMING RALLIES] Returning cached data");
-        return res.status(200).json(JSON.parse(cached));
-      }
-    } catch (cacheError) {
-      Logger.warn("[CACHE READ ERROR]", cacheError);
-    }
+      if (cached) return res.status(200).json(JSON.parse(cached));
+    } catch (e) {}
 
     const rallies = await RallyModel.getUpcoming(limit);
+    const formattedRallies = rallies.map(formatRally);
+
     const response = {
       success: true,
-      count: rallies.length,
-      data: rallies,
+      count: formattedRallies.length,
+      data: formattedRallies,
     };
 
-    // Store in cache for 5 minutes
     try {
       await redis.set(cacheKey, JSON.stringify(response), "EX", 300);
-    } catch (cacheError) {
-      Logger.error("[CACHE WRITE ERROR]", cacheError);
-    }
+    } catch (e) {}
 
     res.status(200).json(response);
   } catch (error) {
     Logger.error("[GET UPCOMING RALLIES] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch upcoming rallies",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch upcoming rallies" });
   }
 });
 
@@ -161,93 +150,49 @@ const getUpcomingRallies = asyncHandler(async (req, res) => {
 const getRallyById = asyncHandler(async (req, res) => {
   try {
     const { rallyId } = req.params;
-    Logger.info(`[GET RALLY BY ID] Request for ${rallyId}`);
-
     const rally = await RallyModel.getById(rallyId);
 
-    if (!rally) {
-      return res.status(404).json({
-        success: false,
-        message: "Rally not found",
-      });
-    }
+    if (!rally) return res.status(404).json({ success: false, message: "Rally not found" });
 
     res.status(200).json({
       success: true,
-      data: rally,
+      data: formatRally(rally),
     });
   } catch (error) {
     Logger.error("[GET RALLY BY ID] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch rally",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch rally" });
   }
 });
 
-// ===== UPDATE RALLY WITH IMAGE =====
+// ===== UPDATE RALLY =====
 const updateRally = asyncHandler(async (req, res) => {
   try {
     const { rallyId } = req.params;
-    Logger.info(`[UPDATE RALLY] Request for ${rallyId}`, req.body);
-
     const existingRally = await RallyModel.getById(rallyId);
 
-    if (!existingRally) {
-      return res.status(404).json({
-        success: false,
-        message: "Rally not found",
-      });
-    }
+    if (!existingRally) return res.status(404).json({ success: false, message: "Rally not found" });
 
     const updateData = { ...req.body };
-
     if (req.body.image?.url) {
       updateData.image = req.body.image.url;
       updateData.image_public_id = req.body.image.public_id;
-
-      if (existingRally.image_public_id) {
-        try {
-          await deleteMediaFromCloudinary(existingRally.image_public_id);
-          Logger.info(`Deleted old image for rally ${rallyId}`);
-        } catch (deleteError) {
-          Logger.error(
-            `Failed to delete old image for rally ${rallyId}:`,
-            deleteError,
-          );
-        }
-      }
     }
 
-    const updated = await RallyModel.update(
-      rallyId,
-      updateData,
-      getKenyaTimeISO,
-    );
+    const updated = await RallyModel.update(rallyId, updateData, getKenyaTimeISO);
 
     try {
       const keys = await redis.keys("rallies:*");
-      if (keys.length > 0) {
-        await redis.del(keys);
-        Logger.info(
-          `[CACHE CLEAR] Cleared ${keys.length} rally cache keys after update`,
-        );
-      }
-    } catch (cacheError) {
-      Logger.error("[CACHE CLEAR ERROR]", cacheError);
-    }
+      if (keys.length > 0) await redis.del(keys);
+    } catch (e) {}
 
     res.status(200).json({
       success: true,
       message: "Rally updated successfully",
-      data: updated,
+      data: formatRally(updated),
     });
   } catch (error) {
     Logger.error("[UPDATE RALLY] Error:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
@@ -255,79 +200,35 @@ const updateRally = asyncHandler(async (req, res) => {
 const deleteRally = asyncHandler(async (req, res) => {
   try {
     const { rallyId } = req.params;
-    Logger.info(`[DELETE RALLY] Request for ${rallyId}`);
-
     const rally = await RallyModel.getById(rallyId);
-
-    if (!rally) {
-      return res.status(404).json({
-        success: false,
-        message: "Rally not found",
-      });
-    }
-
-    if (rally.image_public_id) {
-      try {
-        await deleteMediaFromCloudinary(rally.image_public_id);
-        Logger.info(`Deleted image for rally ${rallyId}`);
-      } catch (deleteError) {
-        Logger.error(
-          `Failed to delete image for rally ${rallyId}:`,
-          deleteError,
-        );
-      }
-    }
+    if (!rally) return res.status(404).json({ success: false, message: "Rally not found" });
 
     await RallyModel.delete(rallyId);
 
     try {
       const keys = await redis.keys("rallies:*");
-      if (keys.length > 0) {
-        await redis.del(keys);
-        Logger.info(
-          `[CACHE CLEAR] Cleared ${keys.length} rally cache keys after delete`,
-        );
-      }
-    } catch (cacheError) {
-      Logger.error("[CACHE CLEAR ERROR]", cacheError);
-    }
+      if (keys.length > 0) await redis.del(keys);
+    } catch (e) {}
 
-    res.status(200).json({
-      success: true,
-      message: "Rally deleted successfully",
-    });
+    res.status(200).json({ success: true, message: "Rally deleted successfully" });
   } catch (error) {
     Logger.error("[DELETE RALLY] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete rally",
-    });
+    res.status(500).json({ success: false, message: "Failed to delete rally" });
   }
 });
 
-// ===== TOGGLE LIKE - FIXED CACHE =====
+// ===== TOGGLE LIKE =====
 const toggleLike = asyncHandler(async (req, res) => {
   try {
     const { rallyId } = req.params;
     const anonymousId = getAnonymousId(req);
+    const result = await RallyModel.toggleLike(rallyId, anonymousId, getKenyaTimeISO);
 
-    Logger.info(`[TOGGLE LIKE] Rally: ${rallyId}, Anonymous: ${anonymousId}`);
-
-    const result = await RallyModel.toggleLike(
-      rallyId,
-      anonymousId,
-      getKenyaTimeISO,
-    );
-
-    // FIXED: Clear ALL rally list caches so the counts update everywhere
     try {
       const keys = await redis.keys("rallies:*");
       if (keys.length > 0) await redis.del(keys);
       await redis.del(`rally:${rallyId}`);
-      Logger.info(`[CACHE CLEAR] Cleared caches for Like update`);
-    } catch (cacheError) {
-      Logger.error("[CACHE CLEAR ERROR]", cacheError);
-    }
+    } catch (e) {}
 
     res.status(200).json({
       success: true,
@@ -337,36 +238,22 @@ const toggleLike = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     Logger.error("[TOGGLE LIKE] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to toggle like",
-    });
+    res.status(500).json({ success: false, message: "Failed to toggle like" });
   }
 });
 
-// ===== TOGGLE ATTEND - FIXED CACHE =====
+// ===== TOGGLE ATTEND =====
 const toggleAttend = asyncHandler(async (req, res) => {
   try {
     const { rallyId } = req.params;
     const anonymousId = getAnonymousId(req);
+    const result = await RallyModel.toggleAttend(rallyId, anonymousId, getKenyaTimeISO);
 
-    Logger.info(`[TOGGLE ATTEND] Rally: ${rallyId}, Anonymous: ${anonymousId}`);
-
-    const result = await RallyModel.toggleAttend(
-      rallyId,
-      anonymousId,
-      getKenyaTimeISO,
-    );
-
-    // FIXED: Clear ALL rally list caches so the counts update everywhere
     try {
       const keys = await redis.keys("rallies:*");
       if (keys.length > 0) await redis.del(keys);
       await redis.del(`rally:${rallyId}`);
-      Logger.info(`[CACHE CLEAR] Cleared caches for Attend update`);
-    } catch (cacheError) {
-      Logger.error("[CACHE CLEAR ERROR]", cacheError);
-    }
+    } catch (e) {}
 
     res.status(200).json({
       success: true,
@@ -376,10 +263,7 @@ const toggleAttend = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     Logger.error("[TOGGLE ATTEND] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to toggle attendance",
-    });
+    res.status(500).json({ success: false, message: "Failed to toggle attendance" });
   }
 });
 
@@ -388,22 +272,16 @@ const getRalliesByParty = asyncHandler(async (req, res) => {
   try {
     const { party } = req.params;
     const limit = req.query.limit || 20;
-
-    Logger.info(`[GET RALLIES BY PARTY] Party: ${party}`);
-
     const rallies = await RallyModel.getByParty(party, limit);
 
     res.status(200).json({
       success: true,
       count: rallies.length,
-      data: rallies,
+      data: rallies.map(formatRally),
     });
   } catch (error) {
     Logger.error("[GET RALLIES BY PARTY] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch rallies by party",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch rallies by party" });
   }
 });
 
@@ -412,22 +290,16 @@ const getRalliesByCounty = asyncHandler(async (req, res) => {
   try {
     const { county } = req.params;
     const limit = req.query.limit || 20;
-
-    Logger.info(`[GET RALLIES BY COUNTY] County: ${county}`);
-
     const rallies = await RallyModel.getByCounty(county, limit);
 
     res.status(200).json({
       success: true,
       count: rallies.length,
-      data: rallies,
+      data: rallies.map(formatRally),
     });
   } catch (error) {
     Logger.error("[GET RALLIES BY COUNTY] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch rallies by county",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch rallies by county" });
   }
 });
 
@@ -435,23 +307,11 @@ const getRalliesByCounty = asyncHandler(async (req, res) => {
 const clearCache = asyncHandler(async (req, res) => {
   try {
     const keys = await redis.keys("rallies:*");
-    if (keys.length > 0) {
-      await redis.del(keys);
-      Logger.info(
-        `[CACHE CLEAR] Manually cleared ${keys.length} rally cache keys`,
-      );
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Rally caches cleared",
-    });
+    if (keys.length > 0) await redis.del(keys);
+    res.status(200).json({ success: true, message: "Rally caches cleared" });
   } catch (error) {
     Logger.error("[CLEAR CACHE] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to clear cache",
-    });
+    res.status(500).json({ success: false, message: "Failed to clear cache" });
   }
 });
 

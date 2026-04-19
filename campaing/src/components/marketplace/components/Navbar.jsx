@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
-import Button from "./Button";
 import { Menu, ShoppingCart, User as UserIcon } from "lucide-react";
 
 const Nav = styled.div`
@@ -37,7 +36,6 @@ const NavLogo = styled.div`
   align-items: center;
   cursor: pointer;
   font-size: 64px;
-
   img {
     width: 130px;
     height: auto;
@@ -116,7 +114,6 @@ const Mobileicons = styled.div`
   }
 `;
 
-// Fixed: Changed isOpen to $isOpen (transient prop)
 const MobileMenu = styled.ul`
   display: flex;
   flex-direction: column;
@@ -129,10 +126,9 @@ const MobileMenu = styled.ul`
   width: 100%;
   height: calc(100vh - 80px);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: ${({ $isOpen }) =>
-    $isOpen ? "translateX(0)" : "translateX(100%)"};
+  transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(100%)")};
   z-index: 999;
-  box-shadow: -10px 0 30px rgba(0,0,0,0.05);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
 `;
 
 const TextButton = styled.div`
@@ -176,8 +172,8 @@ const CartBadge = styled.div`
   position: absolute;
   top: -6px;
   right: -8px;
-  background: #e11d48;
-  color: white;
+  color: #e11d48;
+
   font-size: 10px;
   font-weight: 700;
   width: 18px;
@@ -201,31 +197,23 @@ const Navbar = ({ currentUser, onLogout }) => {
   };
 
   const handleLogout = () => {
-    // Clear cookies
-    document.cookie.split(";").forEach(function(c) {
+    document.cookie.split(";").forEach(function (c) {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    // Clear localStorage
     localStorage.removeItem("guest_cart");
     localStorage.removeItem("user_info");
     sessionStorage.clear();
-    // Call parent logout handler if provided
-    if (onLogout) {
-      onLogout();
-    }
-    navigate("/login");
-  };
-
-  const handleSignIn = () => {
+    if (onLogout) onLogout();
     navigate("/login");
   };
 
   const userInitial = currentUser?.name?.[0] || currentUser?.anonymous_username?.[0] || "U";
   const userImage = currentUser?.image || currentUser?.img;
 
-  // Track guest cart count
   const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
   const cartCount = guestCart.reduce((acc, item) => acc + item.quantity, 0);
+
+  const isLoggedIn = currentUser || !!getCookie("user_info");
 
   return (
     <Nav>
@@ -241,26 +229,23 @@ const Navbar = ({ currentUser, onLogout }) => {
         </NavItems>
 
         <ButtonContainer>
+          {/* Cart icon - always visible */}
           <Navlink to="/marketplace/cart">
             <div style={{ position: "relative" }}>
-              <ShoppingCart size={24} color="inherit" />
+
+              <ShoppingCart size={24} color="#1e293b" />
               {cartCount > 0 && <CartBadge>{cartCount}</CartBadge>}
             </div>
           </Navlink>
-          
-          {(currentUser || !!getCookie("user_info")) ? (
+
+          {/* Only show user avatar/logout if logged in - NO SIGN IN BUTTON */}
+          {isLoggedIn && (
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <AvatarCircle onClick={() => navigate("/marketplace/profile")}>
-                {userImage ? (
-                  <AvatarImg src={userImage} />
-                ) : (
-                  userInitial
-                )}
+                {userImage ? <AvatarImg src={userImage} /> : userInitial}
               </AvatarCircle>
               <TextButton onClick={handleLogout}>Logout</TextButton>
             </div>
-          ) : (
-            <TextButton onClick={handleSignIn}>Sign In</TextButton>
           )}
         </ButtonContainer>
 
@@ -276,25 +261,17 @@ const Navbar = ({ currentUser, onLogout }) => {
           </MobileIcon>
         </Mobileicons>
 
-        {/* Fixed: Changed isOpen to $isOpen */}
         <MobileMenu $isOpen={isOpen}>
           <Navlink to="/marketplace" onClick={() => setIsOpen(false)}>Home</Navlink>
           <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Shop</Navlink>
           <Navlink to="/marketplace/cart" onClick={() => setIsOpen(false)}>Cart</Navlink>
-          {(currentUser || !!getCookie("user_info")) ? (
+          {isLoggedIn ? (
             <>
               <Navlink to="/marketplace/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
-              <TextButton onClick={() => {
-                handleLogout();
-                setIsOpen(false);
-              }}>Logout</TextButton>
+              <TextButton onClick={() => { handleLogout(); setIsOpen(false); }}>Logout</TextButton>
             </>
-          ) : (
-            <TextButton onClick={() => {
-              handleSignIn();
-              setIsOpen(false);
-            }}>Sign In</TextButton>
-          )}
+          ) : null}
+
         </MobileMenu>
       </NavbarContainer>
     </Nav>

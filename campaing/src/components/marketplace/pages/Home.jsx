@@ -434,7 +434,7 @@ const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [progress, setProgress] = useState(0);
   const [visibleSections, setVisibleSections] = useState({});
-  
+
   const SLIDE_DURATION = 6000;
   const sectionRefs = useRef([]);
   const progressIntervalRef = useRef(null);
@@ -498,22 +498,22 @@ const Home = () => {
       const cacheKey = 'siasahub_products_cache';
       const cachedData = sessionStorage.getItem(cacheKey);
       const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-      
+
       if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 300000) {
         setProducts(JSON.parse(cachedData));
         setLoading(false);
         return;
       }
 
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       );
-      
+
       const productsPromise = getAllProducts();
       const productsData = await Promise.race([productsPromise, timeoutPromise]);
       const normalizedProducts = Array.isArray(productsData) ? productsData : [];
       setProducts(normalizedProducts);
-      
+
       sessionStorage.setItem(cacheKey, JSON.stringify(normalizedProducts));
       sessionStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
     } catch (error) {
@@ -530,9 +530,9 @@ const Home = () => {
     preloadLink.as = 'image';
     preloadLink.href = carouselData[0].image;
     document.head.appendChild(preloadLink);
-    
+
     getProducts();
-    
+
     return () => {
       if (preloadLink.parentNode) document.head.removeChild(preloadLink);
     };
@@ -544,7 +544,7 @@ const Home = () => {
         <CategoryCardSkeleton key={`cat-skeleton-${i}`} />
       ));
     }
-    
+
     return categories.map((cat, index) => (
       <FloatWrapper key={index} delay={cat.delay}>
         <MemoizedCategoryCard category={cat} />
@@ -558,7 +558,7 @@ const Home = () => {
         <ProductCardSkeleton key={`product-skeleton-${i}`} />
       ));
     }
-    
+
     if (products.length === 0) {
       return (
         <div style={{ textAlign: "center", gridColumn: "1/-1", color: "#64748b", fontSize: "18px", padding: "60px" }}>
@@ -566,9 +566,9 @@ const Home = () => {
         </div>
       );
     }
-    
+
     return products.slice(0, 8).map((product) => (
-      <MemoizedProductCard key={product._id} product={product} />
+      <MemoizedProductCard key={product.id || product._id} product={product} />
     ));
   }, [products, loading]);
 
@@ -581,9 +581,9 @@ const Home = () => {
       <CarouselContainer>
         {carouselData.map((slide, index) => (
           <Slide key={index} $active={currentSlide === index}>
-            <SlideImage 
-              src={slide.image} 
-              alt={slide.title} 
+            <SlideImage
+              src={slide.image}
+              alt={slide.title}
               $active={currentSlide === index}
               loading={index === 0 ? "eager" : "lazy"}
             />
@@ -605,14 +605,13 @@ const Home = () => {
       </CarouselContainer>
 
       <Suspense fallback={<div style={{ height: "400px" }} />}>
-        <RevealSection 
-          id="categories" 
+        <RevealSection
+          id="categories"
           visible={visibleSections.categories}
           setRef={(el) => (sectionRefs.current[0] = el)}
         >
           <Section>
             <HeaderGroup>
-              <SectionSubtitle>Official Gear</SectionSubtitle>
               <Title>Shop By Category</Title>
             </HeaderGroup>
             <CardWrapper>
@@ -621,14 +620,14 @@ const Home = () => {
           </Section>
         </RevealSection>
 
-        <RevealSection 
-          id="trending" 
+        <RevealSection
+          id="trending"
           visible={visibleSections.trending}
           setRef={(el) => (sectionRefs.current[1] = el)}
         >
           <Section>
             <HeaderGroup>
-              <SectionSubtitle>Hot Right Now</SectionSubtitle>
+
               <Title style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
               </Title>

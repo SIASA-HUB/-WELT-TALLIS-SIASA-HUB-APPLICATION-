@@ -15,13 +15,13 @@ const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/Leader");
 const battleRoutes = require("./src/routes/battle");
 const battleController = require("./src/controllers/BattleController");
-const corsMiddleware = require("../global/middlewares/corsMiddleware");
+
 
 const app = express();
 const server = http.createServer(app);
 
 // ============================================
-// UPLOADS DIRECTORY - CREATE AND SERVE STATIC FILES
+// UPLOADS DIRECTORY - CREATE AND SERVE STATIC FILES/
 // ============================================
 
 // Ensure uploads directory exists inside leaders-service
@@ -47,12 +47,8 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// ============================================
-// CORS CONFIGURATION
-// ============================================
 
-// CORS middleware
-app.use(corsMiddleware);
+
 
 // ============================================
 // SOCKET.IO CONFIGURATION
@@ -428,7 +424,7 @@ const HOST = process.env.HOST || "0.0.0.0";
     process.on("SIGINT", shutdown);
 
   } catch (error) {
-    console.error("❌ Failed to start application:", error);
+    console.error("Failed to start application:", error);
     console.error("Error details:", {
       message: error.message,
       stack: error.stack,
@@ -441,7 +437,6 @@ const HOST = process.env.HOST || "0.0.0.0";
       action: "startup_failed",
     });
 
-    // Even if there's an error, try to close database connection
     try {
       await db.destroy();
     } catch (dbError) {

@@ -7,6 +7,12 @@ const {
   removeFromCart,
 } = require("../controller/cart-controller");
 
+// Import global auth
+const { authenticate } = require("../../../global/index");
+
+// All cart routes require authentication
+router.use(authenticate);
+
 router.get("/", getCart);
 router.post("/", addToCart);
 router.put("/:id", updateCartItem);

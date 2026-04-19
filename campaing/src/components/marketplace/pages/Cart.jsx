@@ -366,7 +366,7 @@ const Cart = () => {
     if (!isAuthenticated) {
       let guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
       const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
-      
+
       if (existingItemIndex > -1) {
         if (type === "full" || quantity <= 0) {
           guestCart = guestCart.filter(item => item.product._id !== product._id);
@@ -431,7 +431,7 @@ const Cart = () => {
 
       const token = localStorage.getItem("access_token");
       const totalAmount = calculateSubtotal().toFixed(2);
-      
+
       const orderDetails = {
         userId: user?._id || null,
         guestName: `${deliveryDetails.firstName} ${deliveryDetails.lastName}`,
@@ -491,7 +491,7 @@ const Cart = () => {
               Continue Shopping
             </BackButton>
           </div>
-          
+
           {products.length === 0 ? (
             <EmptyCart>
               <ShoppingCart size={64} color="#cbd5e1" />
@@ -512,7 +512,7 @@ const Cart = () => {
                       Clear Cart
                     </button>
                   </div>
-                  
+
                   <ItemHeader>
                     <div>Product</div>
                     <div>Price</div>
@@ -520,7 +520,7 @@ const Cart = () => {
                     <div>Subtotal</div>
                     <div></div>
                   </ItemHeader>
-                  
+
                   {products?.map((item) => (
                     <CartItemRow key={item?.product?._id}>
                       <ProductInfo>
@@ -530,9 +530,9 @@ const Cart = () => {
                           <ProductSub>{item?.product?.category || "Premium Collection"}</ProductSub>
                         </ProductDetails>
                       </ProductInfo>
-                      
+
                       <Price>KES {getPrice(item?.product).toLocaleString()}</Price>
-                      
+
                       <Counter>
                         <CounterBtn onClick={() => removeCart(item?.product, item?.quantity - 1)}>
                           <Minus size={14} />
@@ -542,21 +542,21 @@ const Cart = () => {
                           <Plus size={14} />
                         </CounterBtn>
                       </Counter>
-                      
+
                       <Price>KES {(item.quantity * getPrice(item?.product)).toLocaleString()}</Price>
-                      
+
                       <DeleteIcon onClick={() => removeCart(item?.product, 0, "full")} />
                     </CartItemRow>
                   ))}
                 </Card>
-                
+
                 {/* Delivery Information - Single Clean Card */}
                 <Card>
                   <SectionTitle>
                     <MapPin size={16} />
                     Delivery Information
                   </SectionTitle>
-                  
+
                   <FormGroup>
                     <FormRow>
                       <InputWrapper>
@@ -576,7 +576,7 @@ const Cart = () => {
                         />
                       </InputWrapper>
                     </FormRow>
-                    
+
                     <InputWrapper>
                       <InputLabel>Email Address</InputLabel>
                       <TextInput
@@ -585,7 +585,7 @@ const Cart = () => {
                         placeholder="Enter email address"
                       />
                     </InputWrapper>
-                    
+
                     <InputWrapper>
                       <InputLabel>Phone Number</InputLabel>
                       <TextInput
@@ -594,7 +594,7 @@ const Cart = () => {
                         placeholder="Enter phone number"
                       />
                     </InputWrapper>
-                    
+
                     <InputWrapper>
                       <InputLabel>Complete Shipping Address</InputLabel>
                       <TextInput
@@ -612,29 +612,25 @@ const Cart = () => {
               <Right>
                 <SummaryCard>
                   <SummaryTitle>Order Summary</SummaryTitle>
-                  
+
                   <SummaryRow>
                     <span>Subtotal ({products.reduce((acc, i) => acc + i.quantity, 0)} items)</span>
                     <span>KES {calculateSubtotal().toLocaleString()}</span>
                   </SummaryRow>
-                  
+
                   <SummaryRow>
                     <span>Shipping</span>
-                    <span style={{ color: "#22c55e", fontWeight: "600" }}>Free</span>
+                    <span style={{ color: "#22c55e", fontWeight: "600" }}>Free in  Nairobi only</span>
                   </SummaryRow>
-                  
-                  <SummaryRow>
-                    <span>Tax</span>
-                    <span>Included</span>
-                  </SummaryRow>
-                  
+
+
                   <Divider />
-                  
+
                   <SummaryRow total>
                     <span>Total</span>
                     <span>KES {calculateSubtotal().toLocaleString()}</span>
                   </SummaryRow>
-                  
+
                   <Button
                     text={buttonLoad ? "Processing..." : "Place Order"}
                     isLoading={buttonLoad}
@@ -643,10 +639,10 @@ const Cart = () => {
                     full
                     style={{ background: "#e11d48", border: "none", fontWeight: "600", padding: "12px" }}
                   />
-                  
+
                   <div style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                     <Truck size={12} />
-                    Free shipping on all orders
+                    Powered  By  welt tallis  siasahub division
                     <CreditCard size={12} />
                     Secure payment
                   </div>

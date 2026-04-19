@@ -19,6 +19,7 @@ const {
   clearAuthCookies,
   generateCsrfSecret,
   generateCsrfToken,
+  getTokenFromRequest,
 } = require("../../../global/index");
 
 // Generate secure random token
@@ -177,19 +178,12 @@ const loginUser = asyncHandler(async (req, res) => {
     // Create session ID for tracking
     const sessionId = generateSecureToken();
 
-    // Set cookies with security options
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    };
-
-    setAccessTokenCookie(res, accessToken, cookieOptions);
+    // Set cookies with security options (Lax for dev/prod compatibility)
+    setAccessTokenCookie(res, accessToken);
     setRefreshTokenCookie(res, refreshToken, {
-      ...cookieOptions,
       maxAge: remember_me ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000,
     });
-    setCsrfSecretCookie(res, csrfSecret, cookieOptions);
+    setCsrfSecretCookie(res, csrfSecret);
 
     // User info for client (non-sensitive) - INCLUDES ROLE
     const userInfo = {
@@ -209,7 +203,7 @@ const loginUser = asyncHandler(async (req, res) => {
       last_login: new Date().toISOString(),
     };
 
-    setUserInfoCookie(res, userInfo, cookieOptions);
+    setUserInfoCookie(res, userInfo);
 
     // Log successful login
     Logger.info(
@@ -254,6 +248,7 @@ const refreshToken = asyncHandler(async (req, res) => {
   const ipAddress = req.ip || req.connection.remoteAddress;
 
   if (!token) {
+    Logger.warn(`[REFRESH] No refresh token found in cookies. IP: ${ipAddress}`);
     return res.status(401).json({
       success: false,
       message: "No refresh token provided. Please login again.",
@@ -327,17 +322,7 @@ const refreshToken = asyncHandler(async (req, res) => {
     const newCsrfSecret = await generateCsrfSecret();
     const newCsrfToken = generateCsrfToken(newCsrfSecret);
 
-    // Set new cookies
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    };
-
-    setAccessTokenCookie(res, newAccessToken, cookieOptions);
-    setCsrfSecretCookie(res, newCsrfSecret, cookieOptions);
-
-    // Update user info cookie with latest data
+    // Prepare public user info for client
     const userInfo = {
       user_id: user.user_id,
       username: user.anonymous_username,
@@ -352,7 +337,10 @@ const refreshToken = asyncHandler(async (req, res) => {
       is_verified: user.is_verified === 1,
     };
 
-    setUserInfoCookie(res, userInfo, cookieOptions);
+    setAccessTokenCookie(res, newAccessToken);
+    setCsrfSecretCookie(res, newCsrfSecret);
+
+    setUserInfoCookie(res, userInfo);
 
     Logger.info(
       `Token refreshed for user ${user.anonymous_username} (ID: ${user.user_id})`,
@@ -361,9 +349,10 @@ const refreshToken = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
-      accessToken: newAccessToken, // Added for frontend localStorage
+      accessToken: newAccessToken,
       csrfToken: newCsrfToken,
-      expiresIn: 7200, // 2 hours in seconds
+      user: userInfo, // Added for frontend context consistency
+      expiresIn: 7200, 
     });
   } catch (error) {
     Logger.error("Refresh token error", {
@@ -569,10 +558,10 @@ const getUserFromCookie = asyncHandler(async (req, res) => {
 // CHECK AUTH STATUS
 // ============================================
 const checkAuthStatus = asyncHandler(async (req, res) => {
-  const accessToken = req.cookies.access_token;
+  const token = getTokenFromRequest(req);
   const userInfoCookie = req.cookies.user_info;
 
-  if (!accessToken || !userInfoCookie) {
+  if (!token) {
     return res.status(200).json({
       success: true,
       isAuthenticated: false,
@@ -581,7 +570,7 @@ const checkAuthStatus = asyncHandler(async (req, res) => {
   }
 
   try {
-    const decoded = verifyAccessToken(accessToken);
+    const decoded = verifyAccessToken(token);
 
     if (!decoded) {
       // Token expired but might have refresh token
@@ -613,34 +602,42 @@ const checkAuthStatus = asyncHandler(async (req, res) => {
       });
     }
 
-    let userInfo;
-    try {
-      userInfo =
-        typeof userInfoCookie === "string"
-          ? JSON.parse(userInfoCookie)
-          : userInfoCookie;
-    } catch (parseError) {
-      Logger.error("Failed to parse userInfo cookie in status check", { error: parseError.message });
-      return res.status(200).json({
-        success: true,
-        isAuthenticated: false,
-        message: "Invalid session data format",
-      });
+    // handle user data normalization
+    let finalUser = userInfoCookie;
+    if (typeof userInfoCookie === "string") {
+      try { finalUser = JSON.parse(userInfoCookie); } catch (_) { finalUser = null; }
     }
+
+    if (!finalUser) {
+      // Reconstruct from database/token if cookie is missing
+      finalUser = {
+        user_id: user.user_id,
+        username: user.anonymous_username || decoded.username,
+        real_name: user.real_name || decoded.real_name,
+        email: user.email || decoded.email,
+        role: user.role || decoded.role || "user",
+        county: user.county,
+        ward: user.ward,
+        political_party: user.political_party,
+        is_verified: user.is_verified === 1,
+      };
+    }
+
+    Logger.info(`[AUTH] Status check successful for user: ${finalUser.username} (ID: ${finalUser.user_id})`);
 
     return res.status(200).json({
       success: true,
       isAuthenticated: true,
-      user: userInfo,
-      role: decoded.role,
+      user: finalUser,
+      role: finalUser.role,
       permissions: decoded.permissions || [],
     });
   } catch (error) {
-    Logger.error("Auth status check error", { error: error.message });
+    Logger.error("[AUTH] Status check error", { error: error.message });
     return res.status(200).json({
       success: true,
       isAuthenticated: false,
-      message: "Error checking authentication status",
+      message: "Internal error during auth check",
     });
   }
 });

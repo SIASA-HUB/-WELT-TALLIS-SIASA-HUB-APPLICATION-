@@ -1,4 +1,4 @@
-// pages/LeadersPage.jsx
+// pages/LeadersPage.jsx - Fixed: Only search bar is sticky, trending scrolls with content
 import React, {
   useState,
   useEffect,
@@ -29,7 +29,7 @@ import API from "../../api/config";
 import api from "../../api/api";
 
 // ============================================
-// IMAGE URL BUILDER (safe)
+// IMAGE URL BUILDER
 // ============================================
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
@@ -47,11 +47,10 @@ const buildImageUrl = (imageUrl) => {
 };
 
 const getLeaderAvatar = (leader) => {
-  // Safe access with fallbacks
-  const imageUrl = leader?.image || leader?.profile_image || leader?.avatar || leader?.image_url;
+  const imageUrl = leader.image || leader.profile_image || leader.avatar || leader.image_url;
   const builtUrl = buildImageUrl(imageUrl);
   if (builtUrl) return builtUrl;
-  const name = leader?.name || leader?.full_name || "Leader";
+  const name = leader.name || leader.full_name || "Leader";
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.charAt(0))}&background=000&color=fff&size=80&bold=true&length=1`;
 };
 
@@ -87,6 +86,7 @@ const LoadingWrapper = styled.div`
   pointer-events: none;
 `;
 
+// Only the search bar container is sticky
 const StickySearchWrapper = styled.div`
   position: sticky;
   top: 0;
@@ -105,6 +105,7 @@ const SearchContainer = styled.div`
   display: flex;
   gap: 12px;
   align-items: center;
+
 `;
 
 const SearchInputWrapper = styled.div`
@@ -273,7 +274,7 @@ const SkeletonCard = styled.div`
   background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: ${pulse} 1.5s ease-in-out infinite;
-  border-radius: 12px;
+  border-radius: 10px;
   flex-shrink: 0;
 `;
 
@@ -447,34 +448,26 @@ const LeadersPage = () => {
     fetchPersonalizedFeed();
   }, [userData, urlCounty, urlConstituency, urlWard]);
 
-  // ============================================
-  // MEMOIZED DERIVED DATA (safe fallbacks)
-  // ============================================
-  const safeFeedGroups = useMemo(() => {
-    return Array.isArray(feedGroups) ? feedGroups : [];
-  }, [feedGroups]);
-
   const filteredGroups = useMemo(() => {
-    const groups = safeFeedGroups;
-    if (groups.length === 0) return [];
-    if (!searchTerm.trim()) return groups;
+    if (!Array.isArray(feedGroups) || feedGroups.length === 0) return [];
+    if (!searchTerm.trim()) return feedGroups;
 
     const term = searchTerm.toLowerCase().trim();
-    return groups
+    return feedGroups
       .map((group) => ({
         ...group,
         leaders: (group.leaders || []).filter(
           (leader) =>
-            leader?.name?.toLowerCase().includes(term) ||
-            leader?.party?.toLowerCase().includes(term) ||
-            leader?.position?.toLowerCase().includes(term) ||
-            leader?.county?.toLowerCase().includes(term) ||
-            leader?.constituency?.toLowerCase().includes(term) ||
-            leader?.ward?.toLowerCase().includes(term),
+            leader.name?.toLowerCase().includes(term) ||
+            leader.party?.toLowerCase().includes(term) ||
+            leader.position?.toLowerCase().includes(term) ||
+            leader.county?.toLowerCase().includes(term) ||
+            leader.constituency?.toLowerCase().includes(term) ||
+            leader.ward?.toLowerCase().includes(term),
         ),
       }))
       .filter((group) => group.leaders.length > 0);
-  }, [safeFeedGroups, searchTerm]);
+  }, [feedGroups, searchTerm]);
 
   const totalLeaders = useMemo(() => {
     if (!Array.isArray(filteredGroups)) return 0;
@@ -492,7 +485,6 @@ const LeadersPage = () => {
     navigate("/register-aspirant");
   };
 
-  // Loading skeleton
   if (loading) {
     return (
       <PageWrapper>
@@ -536,7 +528,6 @@ const LeadersPage = () => {
     );
   }
 
-  // SEO metadata
   const locationTitle = urlCounty
     ? `${urlWard ? urlWard + ' Ward' : ''} ${urlConstituency ? urlConstituency + ' Constituency' : ''} ${urlCounty} County Aspirants 2027 | Siasahub`.replace(/\s+/g, ' ').trim()
     : 'All Aspirants & Candidates 2027 | Siasahub';
@@ -588,7 +579,7 @@ const LeadersPage = () => {
         </SearchContainer>
       </StickySearchWrapper>
 
-      {/* Trending manifestos section - scrolls with content */}
+      {/* Trending manifestos section - now scrolls with content (not sticky) */}
       <TrendingManifestos leaders={[]} compact={true} />
 
       {searchTerm && (
@@ -603,34 +594,33 @@ const LeadersPage = () => {
       )}
 
       <ContentWrapper>
-        {/* Safe check for filteredGroups existence and length */}
         {Array.isArray(filteredGroups) && filteredGroups.length > 0 ? (
           filteredGroups.map((group, index) => (
-            <Section key={group?.id || group?.title || index} $delay={`${index * 0.05}s`}>
+            <Section key={group.id || group.title || index} $delay={`${index * 0.05}s`}>
               <SectionHeader>
                 <h2>
-                  {group?.type === "presidential" && <Star size={14} color="#ff0000" />}
-                  {group?.type === "county" && <MapPin size={14} />}
-                  {group?.type === "party" && <Users size={14} />}
-                  {group?.title || "Leaders"}
-                  {group?.type === "presidential" && (
+                  {group.type === "presidential" && <Star size={14} color="#ff0000" />}
+                  {group.type === "county" && <MapPin size={14} />}
+                  {group.type === "party" && <Users size={14} />}
+                  {group.title || "Leaders"}
+                  {group.type === "presidential" && (
                     <SectionBadge $type="presidential">🇰🇪 National</SectionBadge>
                   )}
-                  {group?.type === "county" && userData?.county === group?.title && (
+                  {group.type === "county" && userData?.county === group.title && (
                     <SectionBadge $type="your-county">📍 Your County</SectionBadge>
                   )}
-                  {group?.type === "party" && userData?.political_party === group?.title && (
+                  {group.type === "party" && userData?.political_party === group.title && (
                     <SectionBadge $type="your-party">🎯 Your Party</SectionBadge>
                   )}
                 </h2>
                 <span className="count">
-                  {group?.leaders?.length || 0} / {group?.total || group?.leaders?.length || 0}
+                  {group.leaders?.length || 0} / {group.total || group.leaders?.length || 0}
                 </span>
               </SectionHeader>
               <Tray>
                 <Suspense fallback={<SkeletonLeaderCard />}>
-                  {(group?.leaders || []).map((leader) => (
-                    <LeaderCard key={leader?.leader_id} leader={leader} />
+                  {(group.leaders || []).map((leader) => (
+                    <LeaderCard key={leader.leader_id} leader={leader} />
                   ))}
                 </Suspense>
               </Tray>

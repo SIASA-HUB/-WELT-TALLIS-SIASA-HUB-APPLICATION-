@@ -204,7 +204,8 @@ const ProductCard = ({ product }) => {
     if (!isAuthenticated()) {
       // Guest Cart Implementation
       const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      const existingItemIndex = guestCart.findIndex(item => item.product?._id === product._id);
+      const currentId = product?.id || product?._id;
+      const existingItemIndex = guestCart.findIndex(item => (item.product?.id || item.product?._id) === currentId);
       
       if (existingItemIndex > -1) {
         guestCart[existingItemIndex].quantity += 1;
@@ -219,7 +220,8 @@ const ProductCard = ({ product }) => {
     }
     
     try {
-      await addToCart(getAuthToken(), { productId: product?._id, quantity: 1 });
+      const productId = product?.id || product?._id;
+      await addToCart(getAuthToken(), { productId, quantity: 1 });
       navigate("/marketplace/cart");
     } catch (err) {
       console.error(err);
@@ -228,7 +230,8 @@ const ProductCard = ({ product }) => {
   };
 
   // Build the correct navigation URL using slug (SEO) or fall back to ID
-  const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${product._id || product.id}`;
+  const productId = product?.id || product?._id;
+  const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${productId}`;
   
   // Build the full image URL using your API config
   const getImageUrl = () => {
@@ -258,7 +261,8 @@ const ProductCard = ({ product }) => {
     }
     
     // Default: treat as relative path
-    return `${imageBaseUrl}/${raw}`;
+    const cleanPath = raw.startsWith('/') ? raw : `/${raw}`;
+    return `${imageBaseUrl}${cleanPath}`;
   };
   
   const imgUrl = getImageUrl();

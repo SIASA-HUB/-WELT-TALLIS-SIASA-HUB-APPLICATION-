@@ -26,16 +26,16 @@ const pool = mysql.createPool({
 });
 
 // Safe query (multiple rows)
-const safeQuery = asyncHandler(async (sql, params = []) => {
+const safeQuery = async (sql, params = []) => {
   const [rows] = await pool.execute(sql, params);
   return rows;
-});
+};
 
 // Safe query (single row)
-const safeQueryOne = asyncHandler(async (sql, params = []) => {
+const safeQueryOne = async (sql, params = []) => {
   const [rows] = await pool.execute(sql, params);
   return rows[0] || null;
-});
+};
 
 // Get raw connection (transactions)
 async function getConnection() {

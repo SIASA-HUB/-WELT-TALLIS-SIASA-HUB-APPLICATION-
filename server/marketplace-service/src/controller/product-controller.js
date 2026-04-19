@@ -398,6 +398,19 @@ const updateProduct = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    // Resolve product ID if slug was provided
+    let productId = parseInt(id);
+    let originalProduct = null;
+    
+    if (isNaN(productId)) {
+      originalProduct = await safeQueryOne(`SELECT id, slug FROM products WHERE slug = ?`, [id]);
+      if (!originalProduct) return res.status(404).json({ success: false, message: "Product not found" });
+      productId = originalProduct.id;
+    } else {
+      originalProduct = await safeQueryOne(`SELECT id, slug FROM products WHERE id = ?`, [productId]);
+      if (!originalProduct) return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     const fields = [];
     const values = [];
 
@@ -411,14 +424,14 @@ const updateProduct = async (req, res) => {
         fields.push(`${field} = ?`);
         if (field === "price") values.push(parseFloat(updates[field]));
         else if (field === "mrp") values.push(updates[field] ? parseFloat(updates[field]) : null);
-        else if (field === "stock") values.push(updates[field] ? parseInt(updates[field]) : 0);
+        else if (field === "stock") values.push(updates[field] !== null ? parseInt(updates[field]) : 0);
         else if (field === "featured") values.push(updates[field] ? 1 : 0);
         else if (field === "rating") values.push(parseFloat(updates[field]));
         else if (field === "name") {
           values.push(updates[field]);
           let newSlug = generateSlug(updates[field]);
-          const existing = await safeQueryOne(`SELECT id FROM products WHERE slug = ? AND id != ?`, [newSlug, id]);
-          if (existing) newSlug = `${newSlug}-${id}`;
+          const existing = await safeQueryOne(`SELECT id FROM products WHERE slug = ? AND id != ?`, [newSlug, productId]);
+          if (existing) newSlug = `${newSlug}-${productId}`;
           fields.push(`slug = ?`);
           values.push(newSlug);
         } else {
@@ -431,12 +444,15 @@ const updateProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: "No fields to update" });
     }
 
-    values.push(id);
+    values.push(productId);
     const sql = `UPDATE products SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`;
     await safeQuery(sql, values);
 
-    const updatedProduct = await safeQueryOne(`SELECT * FROM products WHERE id = ?`, [id]);
-    await clearProductCache(id, updatedProduct?.slug);
+    const updatedProduct = await safeQueryOne(`SELECT * FROM products WHERE id = ?`, [productId]);
+    await clearProductCache(productId, originalProduct.slug);
+    if (updatedProduct.slug !== originalProduct.slug) {
+       await clearProductCache(null, updatedProduct.slug);
+    }
 
     res.json({ success: true, data: updatedProduct });
   } catch (error) {
@@ -451,9 +467,21 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await safeQueryOne(`SELECT slug FROM products WHERE id = ?`, [id]);
-    await safeQuery(`UPDATE products SET status = 'inactive', updated_at = NOW() WHERE id = ?`, [id]);
-    await clearProductCache(id, product?.slug);
+    let productId = parseInt(id);
+    let originalProduct = null;
+
+    if (isNaN(productId)) {
+      originalProduct = await safeQueryOne(`SELECT id, slug FROM products WHERE slug = ?`, [id]);
+      if (!originalProduct) return res.status(404).json({ success: false, message: "Product not found" });
+      productId = originalProduct.id;
+    } else {
+      originalProduct = await safeQueryOne(`SELECT id, slug FROM products WHERE id = ?`, [productId]);
+      if (!originalProduct) return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    await safeQuery(`UPDATE products SET status = 'inactive', updated_at = NOW() WHERE id = ?`, [productId]);
+    await clearProductCache(productId, originalProduct.slug);
+    
     res.json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
     Logger.error("Error deleting product:", error);

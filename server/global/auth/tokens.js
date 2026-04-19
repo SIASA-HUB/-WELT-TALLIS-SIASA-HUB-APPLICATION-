@@ -12,14 +12,19 @@ const REFRESH_TOKEN_EXPIRY = "7d";
 
 // Generate Access Token
 const generateAccessToken = (user, expiresIn = ACCESS_TOKEN_EXPIRY) => {
+  // Aliases for common user object structures
+  const userId = user.userId || user.user_id || user.id;
+  const username = user.username || user.anonymous_username || user.user_name;
+  const email = user.email || user.personal_email;
+  
   return jwt.sign(
     {
-      userId: user.user_id,
-      username: user.anonymous_username,
-      email: user.email,
+      userId,
+      username,
+      email,
       county: user.county,
       role: user.role || "user",
-      ageBracket: user.age_bracket,
+      ageBracket: user.age_bracket || user.ageBracket,
     },
     JWT_SECRET,
     { expiresIn },
@@ -28,10 +33,12 @@ const generateAccessToken = (user, expiresIn = ACCESS_TOKEN_EXPIRY) => {
 
 // Generate Refresh Token
 const generateRefreshToken = (user, expiresIn = REFRESH_TOKEN_EXPIRY) => {
+  const userId = user.userId || user.user_id || user.id;
+  
   return jwt.sign(
     {
-      userId: user.user_id,
-      sessionId: `${user.user_id}-${Date.now()}`,
+      userId,
+      sessionId: user.sessionId || `${userId}-${Date.now()}`,
     },
     JWT_REFRESH_SECRET,
     { expiresIn },

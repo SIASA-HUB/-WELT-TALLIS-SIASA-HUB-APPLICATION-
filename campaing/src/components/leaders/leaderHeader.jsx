@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - Fixed Image Handling & Competitors
+// components/leaders/leaderHeader.jsx - Competitors aside the logo (side by side)
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -134,7 +134,6 @@ const TopNav = styled.div`
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
 `;
 
-// FIXED: Back button with white background and black icon
 const IconButton = styled.button`
   background: white;
   border: none;
@@ -424,41 +423,70 @@ const PartyName = styled.span`
   text-align: center;
 `;
 
-const CompetitorsRow = styled.div`
-  margin: 16px 0;
+// ========== COMPETITORS SECTION – NOW SIDE BY SIDE WITH LOGO ==========
+const CompetitorsWrapper = styled.div`
+  flex: 1;
+  min-width: 0; /* prevents overflow */
   overflow-x: auto;
-  scrollbar-width: none;
-
+  scrollbar-width: thin;
+  margin-left: auto;
+  
   &::-webkit-scrollbar {
-    display: none;
+    height: 2px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #e11d48;
+    border-radius: 10px;
+  }
+`;
+
+const CompetitorsHeading = styled.div`
+  font-size: 9px;
+  font-weight: 600;
+  color: #e11d48;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  svg {
+    width: 10px;
+    height: 10px;
   }
 `;
 
 const CompetitorsScroll = styled.div`
   display: flex;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 12px;
 `;
 
-const CompetitorStoryItem = styled.div`
+const CompetitorItem = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.2s;
-
+  
   &:hover {
     transform: translateY(-2px);
   }
 `;
 
 const CompetitorRing = styled.div`
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  padding: 2px;
+  padding: 1px;
   background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #f59e0b, #ea580c)" : "rgba(255,255,255,0.2)")};
   animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
 `;
@@ -467,15 +495,15 @@ const CompetitorAvatar = styled.div`
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #1a1a1a;
-  overflow: hidden;
 
+  overflow: hidden;
+  
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
-
+  
   .default-avatar {
     width: 100%;
     height: 100%;
@@ -484,36 +512,36 @@ const CompetitorAvatar = styled.div`
     justify-content: center;
     background: #2a2a2a;
     svg {
-      width: 24px;
-      height: 24px;
-      color: rgba(255, 255, 255, 0.3);
+      width: 20px;
+      height: 20px;
+      color: rgba(255,255,255,0.4);
     }
   }
 `;
 
 const CompetitorName = styled.div`
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  max-width: 60px;
+  color: #fff;
+  max-width: 50px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 `;
 
-const TopCompetitorBadge = styled.div`
+const TopBadge = styled.div`
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -3px;
+  right: -3px;
   background: #f59e0b;
   border-radius: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 7px;
+  font-size: 6px;
   font-weight: bold;
   color: white;
 `;
@@ -600,7 +628,6 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-// Improved image URL builder
 const buildImageUrl = (url) => {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -618,7 +645,6 @@ const getLeaderImage = (leader) => {
   return buildImageUrl(imageUrl);
 };
 
-// Track profile view
 const trackProfileView = async (leaderId, userId) => {
   if (!leaderId) return;
   try {
@@ -637,7 +663,6 @@ const trackShare = async (leaderId, userId, platform) => {
   }
 };
 
-// Normalize position strings for matching
 const normalizePosition = (position) => {
   if (!position) return "";
   const lower = position.toLowerCase();
@@ -753,7 +778,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     if (leader?.leader_id) fetchBoostedStories();
   }, [leader?.leader_id, fetchBoostedStories]);
 
-  // FIXED: Competitors fetching – correctly extract leaders from groups response
+  // Competitors fetching
   const fetchCompetitors = useCallback(async () => {
     if (!leader?.leader_id) return;
 
@@ -763,13 +788,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       const currentCounty = leader.county || "";
       const currentConstituency = leader.constituency || "";
 
-      // Fetch all leaders (paginated groups)
       const response = await api.get("/leaders", { params: { limit: 500 } });
 
       if (!response?.success || !response?.data) return;
 
       let allLeaders = [];
-      // Response.data is an array of groups
       if (Array.isArray(response.data)) {
         response.data.forEach(group => {
           if (group.leaders && Array.isArray(group.leaders)) {
@@ -780,7 +803,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         allLeaders = response.data.leaders;
       }
 
-      // Filter competitors
       const competitorsList = allLeaders
         .filter(aspirant => {
           const aspirantPosition = normalizePosition(aspirant.position_running_for || aspirant.position || "");
@@ -801,7 +823,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           }
           return sameLocation;
         })
-        .slice(0, 10);
+        .slice(0, 8); // limit to 8 for horizontal space
 
       setCompetitors(competitorsList);
     } catch (error) {
@@ -941,35 +963,39 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             <PartyCircle>{partyLogo ? <PartyLogoImg src={partyLogo} alt={partyName} /> : <Flag size={20} color="#f59e0b" />}</PartyCircle>
             <PartyName>{partyName}</PartyName>
           </PartyLogoContainer>
-        </ProfileTopRow>
 
-        {competitors.length > 0 && (
-          <CompetitorsRow>
-            <CompetitorsScroll>
-              {competitors.map((competitor, idx) => {
-                const competitorImg = getLeaderImage(competitor);
-                const isTop = idx === 0;
-                return (
-                  <CompetitorStoryItem key={competitor.leader_id} onClick={() => handleCompetitorClick(competitor)}>
-                    <div style={{ position: "relative" }}>
-                      <CompetitorRing $isTop={isTop}>
-                        <CompetitorAvatar>
-                          {competitorImg ? (
-                            <img src={competitorImg} alt={competitor.name} onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`; }} />
-                          ) : (
-                            <div className="default-avatar"><User size={24} /></div>
-                          )}
-                        </CompetitorAvatar>
-                      </CompetitorRing>
-                      {isTop && <TopCompetitorBadge>👑</TopCompetitorBadge>}
-                    </div>
-                    <CompetitorName>{competitor.name.split(" ")[0]}</CompetitorName>
-                  </CompetitorStoryItem>
-                );
-              })}
-            </CompetitorsScroll>
-          </CompetitorsRow>
-        )}
+          {/* Competitors now appear here – to the right of the party logo */}
+          {competitors.length > 0 && (
+            <CompetitorsWrapper>
+              <CompetitorsHeading>
+                <Flag size={10} /> Competitors
+              </CompetitorsHeading>
+              <CompetitorsScroll>
+                {competitors.map((competitor, idx) => {
+                  const competitorImg = getLeaderImage(competitor);
+                  const isTop = idx === 0;
+                  return (
+                    <CompetitorItem key={competitor.leader_id} onClick={() => handleCompetitorClick(competitor)}>
+                      <div style={{ position: "relative" }}>
+                        <CompetitorRing $isTop={isTop}>
+                          <CompetitorAvatar>
+                            {competitorImg ? (
+                              <img src={competitorImg} alt={competitor.name} onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`; }} />
+                            ) : (
+                              <div className="default-avatar"><User size={20} /></div>
+                            )}
+                          </CompetitorAvatar>
+                        </CompetitorRing>
+                        {isTop && <TopBadge>👑</TopBadge>}
+                      </div>
+                      <CompetitorName>{competitor.name.split(" ")[0]}</CompetitorName>
+                    </CompetitorItem>
+                  );
+                })}
+              </CompetitorsScroll>
+            </CompetitorsWrapper>
+          )}
+        </ProfileTopRow>
 
         <InfoSection>
           <Name>

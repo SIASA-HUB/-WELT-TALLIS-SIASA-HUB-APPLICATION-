@@ -38,14 +38,17 @@ const {
   getManifestoUserVotes,
   trackReadTime,
   trackManifestoView,
-  trackShare,
+
 } = require("../controllers/ManifestoController");
 
 const {
   handleInteraction,
   postComment,
   getLeaderInteractionCounts,
-  getLeaderTimeAnalytics
+  getLeaderTimeAnalytics,
+  trackView,
+  trackShare,
+  trackTimeSpent,
 } = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
@@ -88,6 +91,11 @@ router.get("/:leaderId/interaction-stats", getLeaderInteractionCounts);
 router.get("/:leaderId/time-analytics", getLeaderTimeAnalytics);
 router.post("/:leaderId/comment", authenticate, postComment);
 
+// Specialized interaction tracking routes
+router.post("/:leaderId/view", optionalAuth, trackView);
+router.post("/:leaderId/share", optionalAuth, trackShare);
+router.post("/:leaderId/time-spent", optionalAuth, trackTimeSpent);
+
 // ============================================================
 // AUTH ROUTES
 // ============================================================
@@ -99,7 +107,7 @@ router.post("/login", loginAspirant);
 // ============================================================
 
 router.get("/manifestos/trending", getTrendingManifestos);
-router.get("/manifestos/personalized", optionalAuth, getPersonalizedManifestos);
+router.get("/manifestos/personalized", getPersonalizedManifestos);
 router.post("/manifestos/create", createManifesto); // aspirants only
 
 
@@ -137,7 +145,7 @@ router.get("/:leaderId", getLeaderById);
 // ============================================================
 // PROTECTED / ME ROUTES — aspirant only
 // ============================================================
-router.get("/profile/me", verifyAspirantToken, getMyProfile);
+router.get("/profile/me", getMyProfile);
 router.put("/profile/me", updateMyProfile);
 router.post("/verification/request", verifyAspirantToken, requestVerification);
 

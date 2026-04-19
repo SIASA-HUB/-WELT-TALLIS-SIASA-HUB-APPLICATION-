@@ -4,12 +4,12 @@ const Logger = require("../utils/logger/logger");
 // Get user's cart
 const getCart = async (req, res) => {
   try {
-    const { userId } = req.query;
-
+    const userId = req.userId || req.query.userId;
+    
     if (!userId) {
       return res
-        .status(400)
-        .json({ success: false, message: "User ID required" });
+        .status(401)
+        .json({ success: false, message: "User ID required. Please log in." });
     }
 
     const cartItems = await safeQuery(
@@ -45,7 +45,8 @@ const getCart = async (req, res) => {
 // Add to cart
 const addToCart = async (req, res) => {
   try {
-    const { userId, productId, quantity = 1 } = req.body;
+    const userId = req.userId || req.body.userId;
+    const { productId, quantity = 1 } = req.body;
 
     if (!userId || !productId) {
       return res

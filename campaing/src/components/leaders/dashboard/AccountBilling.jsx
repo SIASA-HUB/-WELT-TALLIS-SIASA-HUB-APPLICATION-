@@ -18,7 +18,7 @@ import {
   X,
   Loader,
 } from "lucide-react";
-import api from "../../../api/api"; // Fixed import path to centralized API
+import api from "../../../api/api";
 
 // --- Animations ---
 const fadeInUp = keyframes`
@@ -478,10 +478,10 @@ const AccountBillingSection = ({ leader = null }) => {
 
   useEffect(() => {
     // Try to get user data from localStorage (multiple possible keys)
-    const userData = localStorage.getItem("user_data") || 
-                     localStorage.getItem("leaderData") ||
-                     localStorage.getItem("aspirant_data");
-    
+    const userData = localStorage.getItem("user_data") ||
+      localStorage.getItem("leaderData") ||
+      localStorage.getItem("aspirant_data");
+
     if (userData) {
       try {
         const user = JSON.parse(userData);

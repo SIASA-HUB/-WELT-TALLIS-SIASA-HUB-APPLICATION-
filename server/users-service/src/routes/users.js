@@ -26,7 +26,7 @@ const {
 } = require("../controllers/loginAuthController");
 
 // Import UserModel for the /me route
-const UserModel = require("../models/userModel");
+const { UserModel } = require("../models/userModel");
 
 // Import global auth middleware
 const {
@@ -71,10 +71,16 @@ router.get("/install/count", getInstallCount);
 // PROTECTED ROUTES (Authentication required)
 // ============================================
 
-// Get users (from token)
 router.get("/me", authenticate, async (req, res) => {
   try {
-    const user = await UserModel.findById(req.user.userId);
+    // req.userId is set by the authenticate middleware from the token's userId claim
+    const effectiveUserId = req.userId || req.user?.userId;
+    
+    if (!effectiveUserId) {
+      return res.status(401).json({ success: false, message: "Unauthorized: No user ID in token" });
+    }
+
+    const user = await UserModel.findById(effectiveUserId);
 
     if (!user) {
       return res.status(404).json({
