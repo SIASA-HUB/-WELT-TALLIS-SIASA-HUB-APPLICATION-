@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - Party Logo Removed, Party Name as Text
+// components/leaders/leaderHeader.jsx - Competitors side-by-side with avatar
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Helmet } from "react-helmet-async";
@@ -332,7 +332,20 @@ const ProfileTopRow = styled.div`
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  
+  &::-webkit-scrollbar {
+    height: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #22c55e;
+    border-radius: 10px;
+  }
 `;
 
 const AvatarWrapper = styled.div`
@@ -364,7 +377,89 @@ const VerifiedIcon = styled.div`
   border: 2px solid #000000;
 `;
 
-// Party logo container REMOVED – no longer needed
+// Competitors container that scrolls horizontally inside the same row
+const CompetitorsRowContainer = styled.div`
+  display: flex;
+  gap: 20px;
+  flex-shrink: 0;
+  align-items: center;
+`;
+
+const CompetitorItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: none;
+`;
+
+const CompetitorRing = styled.div`
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 2px;
+  background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" : "rgba(255,255,255,0.2)")};
+  animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
+  position: relative;
+`;
+
+const CompetitorAvatar = styled.div`
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1a1a1a;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .default-avatar {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2a2a2a;
+    svg {
+      width: 24px;
+      height: 24px;
+      color: rgba(255,255,255,0.5);
+    }
+  }
+`;
+
+const CompetitorName = styled.div`
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+`;
+
+const TopBadge = styled.div`
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #22c55e;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  color: white;
+  border: 1.5px solid #000;
+`;
 
 const InfoSection = styled.div`
   margin-top: 8px;
@@ -443,106 +538,6 @@ const Toast = styled.div`
   gap: 8px;
   font-size: 14px;
   animation: ${fadeIn} 0.3s ease;
-`;
-
-// ========== COMPETITORS SECTION – ENLARGED & GREENISH (unchanged) ==========
-const CompetitorsRowContainer = styled.div`
-  margin: 20px 0 20px;
-  width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  
-  &::-webkit-scrollbar {
-    height: 3px;
-  }
-  &::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.1);
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #22c55e;
-    border-radius: 10px;
-  }
-`;
-
-const CompetitorsScroll = styled.div`
-  display: flex;
-  gap: 20px;
-`;
-
-const CompetitorItem = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: none;
-`;
-
-const CompetitorRing = styled.div`
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  padding: 2.5px;
-  background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" : "rgba(255,255,255,0.2)")};
-  animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
-  position: relative;
-`;
-
-const CompetitorAvatar = styled.div`
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #1a1a1a;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .default-avatar {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #2a2a2a;
-    svg {
-      width: 32px;
-      height: 32px;
-      color: rgba(255,255,255,0.5);
-    }
-  }
-`;
-
-const CompetitorName = styled.div`
-  font-size: 13px;
-  font-weight: 500;
-  color: #fff;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-`;
-
-const TopBadge = styled.div`
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: #22c55e;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  color: white;
-  border: 2px solid #000;
 `;
 
 // ==================== Helper Functions ====================
@@ -909,13 +904,10 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                 {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
               </VerifiedIcon>
             </AvatarWrapper>
-            {/* Party Logo Container REMOVED */}
-          </ProfileTopRow>
 
-          {/* Competitors Section */}
-          {competitors.length > 0 && (
-            <CompetitorsRowContainer>
-              <CompetitorsScroll>
+            {/* Competitors placed right after the avatar, side by side */}
+            {competitors.length > 0 && (
+              <CompetitorsRowContainer>
                 {competitors.map((competitor, idx) => {
                   const competitorImg = getLeaderImage(competitor);
                   const isTop = idx === 0;
@@ -930,11 +922,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                                 alt={competitor.name}
                                 onError={(e) => {
                                   e.target.onerror = null;
-                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=80`;
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=60`;
                                 }}
                               />
                             ) : (
-                              <div className="default-avatar"><User size={32} /></div>
+                              <div className="default-avatar"><User size={24} /></div>
                             )}
                           </CompetitorAvatar>
                         </CompetitorRing>
@@ -944,14 +936,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                     </CompetitorItem>
                   );
                 })}
-              </CompetitorsScroll>
-            </CompetitorsRowContainer>
-          )}
+              </CompetitorsRowContainer>
+            )}
+          </ProfileTopRow>
 
           <InfoSection>
             <Name>
               {leader.name}
-              {/* Party name as text badge */}
               <PartyNameText>{partyName}</PartyNameText>
               <VerifyBadge $status={isVerified ? "verified" : "unverified"}>
                 {isVerified ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
