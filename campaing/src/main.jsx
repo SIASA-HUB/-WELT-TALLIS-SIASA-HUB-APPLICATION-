@@ -1,5 +1,5 @@
 import React, { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 // 1. Import the Provider
@@ -32,17 +32,21 @@ registerServiceWorker();
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
-  const root = createRoot(rootElement);
-
-  root.render(
+  const content = (
     <StrictMode>
       <HelmetProvider>
         <AuthProvider>
           <App />
         </AuthProvider>
       </HelmetProvider>
-    </StrictMode>,
+    </StrictMode>
   );
+
+  if (rootElement.hasChildNodes()) {
+    hydrateRoot(rootElement, content);
+  } else {
+    createRoot(rootElement).render(content);
+  }
 
   markAsLoaded();
 }

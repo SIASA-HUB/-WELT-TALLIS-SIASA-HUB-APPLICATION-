@@ -1,10 +1,11 @@
-// TrendingStoriesRow.js - Instagram + WhatsApp Status style
+// TrendingStoriesRow.js - Instagram + WhatsApp Status style using EndorsementDetailModal (Green Theme)
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-import { Sparkles, Flame, ChevronRight, Heart, Play, X, Pause, Eye } from "lucide-react";
+import { Sparkles, Flame, ChevronRight, Heart } from "lucide-react";
 import API from "../../api/config";
 import api from "../../api/api";
+import EndorsementDetailModal from "./EndorsementDetailModal";
 
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 0.8; }
@@ -18,13 +19,13 @@ const shimmer = keyframes`
 `;
 
 const ringPulse = keyframes`
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.4); }
-  70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(255, 59, 59, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 59, 0); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 `;
 
 // ============================================
-// STYLED COMPONENTS - Instagram + WhatsApp Style
+// STYLED COMPONENTS - Instagram + WhatsApp Style (Green Theme)
 // ============================================
 
 const Section = styled.div`
@@ -50,14 +51,14 @@ const LiveIndicator = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 59, 59, 0.12);
+  background: rgba(34, 197, 94, 0.12);
   padding: 4px 12px;
   border-radius: 30px;
 
   .dot {
     width: 6px;
     height: 6px;
-    background: #ff3b3b;
+    background: #22c55e;
     border-radius: 50%;
     animation: ${pulse} 1.5s infinite;
   }
@@ -65,7 +66,7 @@ const LiveIndicator = styled.div`
   span {
     font-size: 10px;
     font-weight: 700;
-    color: #ff3b3b;
+    color: #22c55e;
     letter-spacing: 0.5px;
   }
 `;
@@ -116,9 +117,9 @@ const StoryRing = styled.div`
   background: ${(props) => {
     if (props.$viewed) return "#262626";
     if (props.$trending)
-      return "linear-gradient(135deg, #ff3b3b, #ff5c01, #ff8c42)";
-    if (props.$hot) return "linear-gradient(135deg, #ff2d55, #ff5c01)";
-    return "linear-gradient(135deg, #ff3b3b, #cc0000)";
+      return "linear-gradient(135deg, #22c55e, #16a34a, #15803d)";
+    if (props.$hot) return "linear-gradient(135deg, #4ade80, #22c55e)";
+    return "linear-gradient(135deg, #16a34a, #15803d)";
   }};
   padding: 2.5px;
   position: relative;
@@ -151,7 +152,7 @@ const HotBadge = styled.div`
   bottom: -3px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #ff3b3b, #cc0000);
+  background: linear-gradient(135deg, #22c55e, #15803d);
   border-radius: 12px;
   padding: 2px 10px;
   font-size: 8px;
@@ -181,7 +182,7 @@ const EngagementBadge = styled.div`
   gap: 4px;
   font-size: 0.55rem;
   font-weight: 600;
-  color: #ff8c42;
+  color: #4ade80;
   margin-top: 2px;
 
   svg {
@@ -213,7 +214,7 @@ const SkeletonText = styled.div`
 const SeeAllLink = styled.button`
   background: transparent;
   border: none;
-  color: #ff5c01;
+  color: #22c55e;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
@@ -225,7 +226,7 @@ const SeeAllLink = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background: rgba(255, 92, 1, 0.1);
+    background: rgba(34, 197, 94, 0.1);
   }
 `;
 
@@ -235,277 +236,6 @@ const ErrorMessage = styled.div`
   color: #888;
   font-size: 12px;
 `;
-
-// ============================================
-// STORY PLAYER MODAL (WhatsApp Status Style)
-// ============================================
-
-const StoryModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 100000;
-  display: flex;
-  flex-direction: column;
-`;
-
-const StoryProgressContainer = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 4px;
-  padding: 12px;
-  z-index: 10;
-`;
-
-const StoryProgressBar = styled.div`
-  flex: 1;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-  overflow: hidden;
-`;
-
-const StoryProgressFill = styled.div`
-  height: 100%;
-  background: white;
-  width: ${(props) => props.$width}%;
-  transition: width 0.05s linear;
-`;
-
-const StoryHeader = styled.div`
-  position: absolute;
-  top: 20px;
-  left: 0;
-  right: 0;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 10;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
-`;
-
-const StoryUserAvatar = styled.img`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #ff3b3b;
-`;
-
-const StoryUserInfo = styled.div`
-  flex: 1;
-  
-  .name {
-    font-weight: 700;
-    font-size: 14px;
-    color: white;
-  }
-  
-  .time {
-    font-size: 11px;
-    color: rgba(255,255,255,0.6);
-  }
-`;
-
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 8px;
-`;
-
-const StoryContent = styled.div`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-`;
-
-const StoryText = styled.div`
-  position: absolute;
-  bottom: 100px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-  color: white;
-  font-size: 18px;
-  font-weight: 500;
-`;
-
-const TouchZone = styled.div`
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  z-index: 20;
-`;
-
-const LeftZone = styled(TouchZone)`
-  left: 0;
-`;
-
-const RightZone = styled(TouchZone)`
-  right: 0;
-`;
-
-const StoryFooter = styled.div`
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-  z-index: 10;
-`;
-
-const ViewCount = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
-  margin-bottom: 10px;
-  
-  svg {
-    width: 14px;
-    height: 14px;
-  }
-`;
-
-// ============================================
-// STORY PLAYER COMPONENT
-// ============================================
-
-const StoryPlayer = ({ story, onClose, onNext, onPrev, hasNext, hasPrev }) => {
-  const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const timerRef = useRef(null);
-  const STORY_DURATION = 5000;
-
-  useEffect(() => {
-    if (isPaused) return;
-    
-    const interval = 100;
-    const step = 100 / (STORY_DURATION / interval);
-    
-    timerRef.current = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(timerRef.current);
-          onNext();
-          return 0;
-        }
-        return prev + step;
-      });
-    }, interval);
-    
-    return () => clearInterval(timerRef.current);
-  }, [isPaused, onNext]);
-
-  const handleTouchStart = (e) => {
-    setIsPaused(true);
-  };
-
-  const handleTouchEnd = () => {
-    setIsPaused(false);
-  };
-
-  const handleLeftClick = () => {
-    if (hasPrev) {
-      setProgress(0);
-      onPrev();
-    }
-  };
-
-  const handleRightClick = () => {
-    if (hasNext) {
-      setProgress(0);
-      onNext();
-    }
-  };
-
-  const getMediaUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith("http")) return url;
-    const base = API.UPLOAD_BASE || "http://localhost:5000";
-    return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
-  };
-
-  const mediaUrl = getMediaUrl(story.image_url);
-  const isVideo = story.media_type === "video" || (story.image_url && story.image_url.match(/\.(mp4|webm|mov)$/i));
-  
-  // Get avatar URL (use story image or fallback)
-  const getAvatarUrl = () => {
-    if (story.user_avatar) return getMediaUrl(story.user_avatar);
-    return `https://ui-avatars.com/api/?name=${story.user_name?.charAt(0) || "U"}&background=ff3b3b&color=fff`;
-  };
-
-  return (
-    <StoryModalOverlay>
-      <StoryProgressContainer>
-        <StoryProgressBar>
-          <StoryProgressFill $width={progress} />
-        </StoryProgressBar>
-      </StoryProgressContainer>
-      
-      <StoryHeader>
-        <StoryUserAvatar src={getAvatarUrl()} />
-        <StoryUserInfo>
-          <div className="name">{story.user_name || "Anonymous"}</div>
-          <div className="time">
-            {new Date(story.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </StoryUserInfo>
-        <CloseButton onClick={onClose}>
-          <X size={24} />
-        </CloseButton>
-      </StoryHeader>
-      
-      <LeftZone onClick={handleLeftClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
-      <RightZone onClick={handleRightClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
-      
-      <StoryContent>
-        {mediaUrl ? (
-          isVideo ? (
-            <video src={mediaUrl} autoPlay playsInline />
-          ) : (
-            <img src={mediaUrl} alt="Story" />
-          )
-        ) : (
-          <StoryText>{story.message || "💬 Support message"}</StoryText>
-        )}
-      </StoryContent>
-      
-      <StoryFooter>
-        <ViewCount>
-          <Eye size={14} />
-          <span>{story.views || 0} views</span>
-        </ViewCount>
-      </StoryFooter>
-    </StoryModalOverlay>
-  );
-};
 
 // ============================================
 // HELPER FUNCTIONS
@@ -551,15 +281,12 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     setLoading(true);
     setError(null);
     try {
-      
-
       const responseData = await api.get("/endorsements/recent?limit=100");
 
       let allStories = [];
 
       if (responseData?.success && responseData?.data) {
         allStories = responseData.data;
-        
       } else if (Array.isArray(responseData)) {
         allStories = responseData;
       }
@@ -574,8 +301,8 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
       // Filter: must have image OR meaningful message
       const validStories = allStories.filter((s) => {
         const hasImage = s.image_url;
-        const hasMeaningfulMessage = s.message && 
-          !s.message.includes("📷") && 
+        const hasMeaningfulMessage = s.message &&
+          !s.message.includes("📷") &&
           !s.message.includes("📹") &&
           s.message !== "Support message" &&
           s.message !== "💬 Support message";
@@ -617,7 +344,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     if (story?.image_url) {
       return buildImageUrl(story.image_url);
     }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(story?.user_name || "U")}&background=ff3b3b&color=fff&bold=true&size=80`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(story?.user_name || "U")}&background=22c55e&color=fff&bold=true&size=80`;
   };
 
   const getEngagementLevel = (story) => {
@@ -636,18 +363,10 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     setSelectedStoryIndex(null);
   };
 
-  const handleNextStory = () => {
-    if (selectedStoryIndex < stories.length - 1) {
-      setSelectedStoryIndex(selectedStoryIndex + 1);
-    } else {
-      setSelectedStoryIndex(null);
-    }
-  };
-
-  const handlePrevStory = () => {
-    if (selectedStoryIndex > 0) {
-      setSelectedStoryIndex(selectedStoryIndex - 1);
-    }
+  // This will be called when comments/likes update (optional)
+  const handleCommentsUpdate = () => {
+    // Optionally refresh the list or update counts
+    fetchTrendingStories();
   };
 
   if (loading) {
@@ -656,7 +375,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         <SectionHeader>
           <HeaderLeft>
             <HeaderTitle>
-              <Sparkles size={14} color="#ffcc00" />
+              <Sparkles size={14} color="#22c55e" />
               Trending Stories
             </HeaderTitle>
             <LiveIndicator>
@@ -683,7 +402,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         <SectionHeader>
           <HeaderLeft>
             <HeaderTitle>
-              <Flame size={14} color="#ff3b3b" />
+              <Flame size={14} color="#22c55e" />
               Trending Stories
             </HeaderTitle>
           </HeaderLeft>
@@ -699,7 +418,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         <SectionHeader>
           <HeaderLeft>
             <HeaderTitle>
-              <Flame size={14} color="#ff3b3b" />
+              <Flame size={14} color="#22c55e" />
               Trending Stories
             </HeaderTitle>
           </HeaderLeft>
@@ -715,7 +434,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         <SectionHeader>
           <HeaderLeft>
             <HeaderTitle>
-              <Flame size={14} color="#ff3b3b" />
+              <Flame size={14} color="#22c55e" />
               Trending Stories
             </HeaderTitle>
             <LiveIndicator>
@@ -741,11 +460,11 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
               <StoryItem key={story.id} onClick={() => handleStoryClick(index)}>
                 <StoryRing $viewed={isViewed} $trending={isTrending} $hot={isHot}>
                   <StoryAvatar>
-                    <img 
-                      src={avatarUrl} 
+                    <img
+                      src={avatarUrl}
                       alt={story.user_name || "User"}
                       onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${(story.user_name || "U").charAt(0)}&background=ff3b3b&color=fff`;
+                        e.target.src = `https://ui-avatars.com/api/?name=${(story.user_name || "U").charAt(0)}&background=22c55e&color=fff`;
                       }}
                     />
                     {(isTrending || score > 50) && <HotBadge>🔥 HOT</HotBadge>}
@@ -766,16 +485,15 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
         </StoriesContainer>
       </Section>
 
-      {selectedStoryIndex !== null && stories[selectedStoryIndex] && (
-        <StoryPlayer
-          story={stories[selectedStoryIndex]}
-          onClose={handleClosePlayer}
-          onNext={handleNextStory}
-          onPrev={handlePrevStory}
-          hasNext={selectedStoryIndex < stories.length - 1}
-          hasPrev={selectedStoryIndex > 0}
-        />
-      )}
+
+      <EndorsementDetailModal
+        isOpen={selectedStoryIndex !== null}
+        onClose={handleClosePlayer}
+        endorsements={stories}
+        initialIndex={selectedStoryIndex !== null ? selectedStoryIndex : 0}
+        currentUser={currentUser}
+        onCommentsUpdate={handleCommentsUpdate}
+      />
     </>
   );
 };

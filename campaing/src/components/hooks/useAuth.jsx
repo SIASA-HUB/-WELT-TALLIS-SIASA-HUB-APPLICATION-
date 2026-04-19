@@ -55,20 +55,34 @@ const decodeJWT = (token) => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [leader, setLeader] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLeaderAuthenticated, setIsLeaderAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [csrfToken, setCsrfToken] = useState(null);
   const authCheckDoneRef = useRef(false);
 
-  // OPTIMISTIC AUTH: if token and user_data exist, assume logged in immediately
+  // OPTIMISTIC AUTH: detect sessions from localStorage immediately
   useEffect(() => {
-    const token = getStoredToken();
+    // User Session
+    const userToken = localStorage.getItem("access_token");
     const storedUser = localStorage.getItem("user_data");
-    if (token && storedUser) {
+    if (userToken && storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
         setIsAuthenticated(true);
+      } catch (e) { }
+    }
+
+    // Leader Session
+    const leaderToken = localStorage.getItem("leaderToken");
+    const storedLeader = localStorage.getItem("leaderData");
+    if (leaderToken && storedLeader) {
+      try {
+        const parsed = JSON.parse(storedLeader);
+        setLeader(parsed);
+        setIsLeaderAuthenticated(true);
       } catch (e) { }
     }
   }, []);
@@ -202,15 +216,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async (target = 'all') => {
     try {
-      await api.post("/users/logout").catch(() => { });
+      if (target === 'user' || target === 'all') {
+        await api.post("/users/logout").catch(() => { });
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      if (target === 'leader' || target === 'all') {
+        await api.post("/leaders/logout").catch(() => { });
+        setLeader(null);
+        setIsLeaderAuthenticated(false);
+      }
     } catch (_) { }
-    clearAuthData();
-    setUser(null);
-    setIsAuthenticated(false);
-    setCsrfToken(null);
-    window.location.href = "/login";
+    
+    // surgical clear
+    const { clearAuthData } = await import("../../api/api");
+    clearAuthData(target);
+    
+    if (target === 'all' || (target === 'user' && !isLeaderAuthenticated)) {
+      window.location.href = "/login";
+    } else if (target === 'leader') {
+      window.location.href = "/login-aspirant";
+    }
     return { success: true };
   };
 
@@ -260,7 +288,9 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    leader,
     isAuthenticated,
+    isLeaderAuthenticated,
     isLoading,
     csrfToken,
     login,

@@ -8,7 +8,11 @@ const api = axios.create({
   timeout: 60000,
 });
 
-const getToken = () => {
+const getToken = (url = "") => {
+  // If it's a leader or manifesto specific request, prioritize leaderToken
+  if (url.includes('/leaders/')) {
+    return localStorage.getItem('leaderToken') || localStorage.getItem('access_token');
+  }
   return localStorage.getItem('access_token') || localStorage.getItem('token');
 };
 
@@ -18,10 +22,6 @@ const storeAuthData = (data) => {
   if (token) {
     localStorage.setItem('access_token', token);
     localStorage.setItem('token', token);
-    // Backward compatibility for different segments of the app
-    localStorage.setItem('leaderToken', token);
-    localStorage.setItem('aspirant_token', token);
-
     if (data.expiresIn) {
       localStorage.setItem('token_expiry', (Date.now() + data.expiresIn * 1000).toString());
     }
@@ -29,25 +29,42 @@ const storeAuthData = (data) => {
   if (data.csrfToken) {
     localStorage.setItem('csrf_token', data.csrfToken);
   }
-  const userData = data.user || data.leader || data.data?.leader;
+  const userData = data.user || data.data;
   if (userData) {
     localStorage.setItem('user_data', JSON.stringify(userData));
-    localStorage.setItem('leaderData', JSON.stringify(userData));
-    const leaderId = userData.leader_id || userData.id;
+  }
+};
+
+const storeLeaderAuthData = (data) => {
+  if (!data) return;
+  const token = data.accessToken || data.token;
+  if (token) {
+    localStorage.setItem('leaderToken', token);
+  }
+  const leaderData = data.leader || data.data?.leader || data.data;
+  if (leaderData) {
+    localStorage.setItem('leaderData', JSON.stringify(leaderData));
+    const leaderId = leaderData.leader_id || leaderData.id;
     if (leaderId) localStorage.setItem('currentLeaderId', leaderId);
   }
 };
 
-const clearAuthData = () => {
-  console.warn('[AUTH] Clearing session data');
-  const keys = ['access_token', 'token', 'csrf_token', 'user_data', 'token_expiry',
-    'leaderToken', 'aspirant_token', 'admin_token'];
-  keys.forEach(k => localStorage.removeItem(k));
+const clearAuthData = (target = 'all') => {
+  console.warn(`[AUTH] Clearing ${target} session data`);
+  const userKeys = ['access_token', 'token', 'csrf_token', 'user_data', 'token_expiry'];
+  const leaderKeys = ['leaderToken', 'aspirant_token', 'leaderData', 'currentLeaderId'];
+  
+  if (target === 'user' || target === 'all') {
+    userKeys.forEach(k => localStorage.removeItem(k));
+  }
+  if (target === 'leader' || target === 'all') {
+    leaderKeys.forEach(k => localStorage.removeItem(k));
+  }
 };
 
 // Request interceptor – always send token if present
 api.interceptors.request.use((config) => {
-  const token = getToken();
+  const token = getToken(config.url);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -150,5 +167,5 @@ api.clearCache = () => {
   });
 };
 
-export { getToken, clearAuthData, storeAuthData };
+export { getToken, clearAuthData, storeAuthData, storeLeaderAuthData };
 export default api;

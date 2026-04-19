@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, memo, lazy, Suspense } from "react";
 import styled, { keyframes, css } from "styled-components";
+import { Helmet } from "react-helmet-async";
 import { getAllProducts } from "../components/api";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck } from "lucide-react";
 
@@ -280,7 +281,6 @@ const CardWrapper = styled.div`
   }
 `;
 
-// Fixed FloatWrapper - 
 const FloatWrapperStyled = styled.div`
   animation: ${float} 6s ease-in-out infinite;
   animation-delay: ${({ $delay }) => $delay || "0s"};
@@ -299,7 +299,7 @@ const FloatWrapper = memo(({ delay, children }) => (
   </FloatWrapperStyled>
 ));
 
-// Skeleton Components - Fixed to use styled-components
+// Skeleton Components
 const SkeletonCard = styled.div`
   background: #1e293b;
   border-radius: 16px;
@@ -341,7 +341,6 @@ const SkeletonPrice = styled.div`
   width: 40%;
 `;
 
-// Category Skeleton
 const CategorySkeletonCard = styled.div`
   background: #1e293b;
   border-radius: 16px;
@@ -423,7 +422,6 @@ const categories = [
   { name: "Handheld Flags", slug: "flags", img: "/images/flag.jpg", delay: "1.5s" },
 ];
 
-// Memoized components
 const MemoizedCategoryCard = memo(ProductCategoryCard);
 const MemoizedProductCard = memo(ProductCard);
 
@@ -450,7 +448,6 @@ const Home = () => {
     setProgress(0);
   }, []);
 
-  // Optimized slide timer with cleanup
   useEffect(() => {
     slideIntervalRef.current = setInterval(nextSlide, SLIDE_DURATION);
     progressIntervalRef.current = setInterval(() => {
@@ -463,7 +460,6 @@ const Home = () => {
     };
   }, [nextSlide]);
 
-  // Optimized intersection observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -485,17 +481,15 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Simulate categories loading
   useEffect(() => {
     const timer = setTimeout(() => setCategoriesLoaded(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
-  // Optimized product fetch with caching and timeout
   const getProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const cacheKey = 'siasahub_products_cache';
+      const cacheKey = "siasahub_products_cache";
       const cachedData = sessionStorage.getItem(cacheKey);
       const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
 
@@ -506,7 +500,7 @@ const Home = () => {
       }
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+        setTimeout(() => reject(new Error("Request timeout")), 10000)
       );
 
       const productsPromise = getAllProducts();
@@ -525,9 +519,9 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    const preloadLink = document.createElement('link');
-    preloadLink.rel = 'preload';
-    preloadLink.as = 'image';
+    const preloadLink = document.createElement("link");
+    preloadLink.rel = "preload";
+    preloadLink.as = "image";
     preloadLink.href = carouselData[0].image;
     document.head.appendChild(preloadLink);
 
@@ -540,9 +534,9 @@ const Home = () => {
 
   const categoryList = useMemo(() => {
     if (!categoriesLoaded) {
-      return Array(4).fill().map((_, i) => (
-        <CategoryCardSkeleton key={`cat-skeleton-${i}`} />
-      ));
+      return Array(4)
+        .fill()
+        .map((_, i) => <CategoryCardSkeleton key={`cat-skeleton-${i}`} />);
     }
 
     return categories.map((cat, index) => (
@@ -554,14 +548,22 @@ const Home = () => {
 
   const productList = useMemo(() => {
     if (loading) {
-      return Array(8).fill().map((_, i) => (
-        <ProductCardSkeleton key={`product-skeleton-${i}`} />
-      ));
+      return Array(8)
+        .fill()
+        .map((_, i) => <ProductCardSkeleton key={`product-skeleton-${i}`} />);
     }
 
     if (products.length === 0) {
       return (
-        <div style={{ textAlign: "center", gridColumn: "1/-1", color: "#64748b", fontSize: "18px", padding: "60px" }}>
+        <div
+          style={{
+            textAlign: "center",
+            gridColumn: "1/-1",
+            color: "#64748b",
+            fontSize: "18px",
+            padding: "60px",
+          }}
+        >
           New merchandise arriving soon. Stay tuned!
         </div>
       );
@@ -572,73 +574,136 @@ const Home = () => {
     ));
   }, [products, loading]);
 
+  // Build dynamic SEO content from carousel and categories
+  const currentCarousel = carouselData[currentSlide];
+  const categoriesText = categories.map((c) => c.name).join(", ");
+  const description = `Shop official Kenyan campaign merchandise: ${categoriesText}. ${currentCarousel.party}: "${currentCarousel.title}". Trending political gear, t-shirts, caps, flags, and reflectors. Support your candidate with authentic merch.`;
+  const siteTitle = "SiasaHub Marketplace – Official Kenyan Campaign Merchandise";
+  const siteUrl = "https://siasahub.com/";
+
+  // JSON-LD structured data for the marketplace
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": siteTitle,
+    "description": description,
+    "url": siteUrl,
+    "image": carouselData[0].image,
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "Product",
+            "name": "Campaign Merchandise",
+            "description": categoriesText,
+            "url": siteUrl
+          }
+        }
+      ]
+    }
+  };
+
   return (
-    <Container>
-      <Blob top="-100px" right="-100px" />
-      <Blob top="40%" left="-200px" />
-      <Blob top="70%" right="-100px" />
+    <>
+      <Helmet>
+        <html lang="en" />
+        <title>{siteTitle}</title>
+        <meta name="description" content={description} />
+        <meta name="keywords" content="campaign merchandise, political t-shirts, Kenya election gear, SiasaHub, party merchandise, campaign flags, political caps, reflector jackets, 2027 elections" />
+        <link rel="canonical" href={siteUrl} />
 
-      <CarouselContainer>
-        {carouselData.map((slide, index) => (
-          <Slide key={index} $active={currentSlide === index}>
-            <SlideImage
-              src={slide.image}
-              alt={slide.title}
-              $active={currentSlide === index}
-              loading={index === 0 ? "eager" : "lazy"}
-            />
-            <SlideContent $active={currentSlide === index}>
-              <PartyBadge>
-                <Sparkles size={14} />
-                {slide.party}
-              </PartyBadge>
-              <SlideTitle>{slide.title}</SlideTitle>
-              <SlideSubtitle>{slide.subtitle}</SlideSubtitle>
-            </SlideContent>
-          </Slide>
-        ))}
-        <ProgressTrack>
-          <ProgressBar progress={progress} />
-        </ProgressTrack>
-        <NavButton direction="left" onClick={prevSlide} />
-        <NavButton direction="right" onClick={nextSlide} />
-      </CarouselContainer>
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="SiasaHub – Official Campaign Merchandise Store" />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={carouselData[0].image} />
+        <meta property="og:url" content={siteUrl} />
+        <meta property="og:site_name" content="SiasaHub" />
 
-      <Suspense fallback={<div style={{ height: "400px" }} />}>
-        <RevealSection
-          id="categories"
-          visible={visibleSections.categories}
-          setRef={(el) => (sectionRefs.current[0] = el)}
-        >
-          <Section>
-            <HeaderGroup>
-              <Title>Shop By Category</Title>
-            </HeaderGroup>
-            <CardWrapper>
-              {categoryList}
-            </CardWrapper>
-          </Section>
-        </RevealSection>
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="SiasaHub Marketplace – Kenyan Election Gear" />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={carouselData[0].image} />
 
-        <RevealSection
-          id="trending"
-          visible={visibleSections.trending}
-          setRef={(el) => (sectionRefs.current[1] = el)}
-        >
-          <Section>
-            <HeaderGroup>
+        {/* Additional SEO */}
+        <meta name="robots" content="index, follow" />
+        <meta name="author" content="SiasaHub" />
+        <meta name="geo.region" content="KE" />
 
-              <Title style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
-              </Title>
-            </HeaderGroup>
-            <CardWrapper>
-              {productList}
-            </CardWrapper>
-          </Section>
-        </RevealSection>
-      </Suspense>
-    </Container>
+        {/* JSON-LD Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
+      </Helmet>
+
+      <Container>
+        <Blob top="-100px" right="-100px" />
+        <Blob top="40%" left="-200px" />
+        <Blob top="70%" right="-100px" />
+
+        <CarouselContainer>
+          {carouselData.map((slide, index) => (
+            <Slide key={index} $active={currentSlide === index}>
+              <SlideImage
+                src={slide.image}
+                alt={slide.title}
+                $active={currentSlide === index}
+                loading={index === 0 ? "eager" : "lazy"}
+              />
+              <SlideContent $active={currentSlide === index}>
+                <PartyBadge>
+                  <Sparkles size={14} />
+                  {slide.party}
+                </PartyBadge>
+                <SlideTitle>{slide.title}</SlideTitle>
+                <SlideSubtitle>{slide.subtitle}</SlideSubtitle>
+              </SlideContent>
+            </Slide>
+          ))}
+          <ProgressTrack>
+            <ProgressBar progress={progress} />
+          </ProgressTrack>
+          <NavButton direction="left" onClick={prevSlide} />
+          <NavButton direction="right" onClick={nextSlide} />
+        </CarouselContainer>
+
+        <Suspense fallback={<div style={{ height: "400px" }} />}>
+          <RevealSection
+            id="categories"
+            visible={visibleSections.categories}
+            setRef={(el) => (sectionRefs.current[0] = el)}
+          >
+            <Section>
+              <HeaderGroup>
+                <SectionSubtitle>Official Gear</SectionSubtitle>
+                <Title>Shop By Category</Title>
+              </HeaderGroup>
+              <CardWrapper>{categoryList}</CardWrapper>
+            </Section>
+          </RevealSection>
+
+          <RevealSection
+            id="trending"
+            visible={visibleSections.trending}
+            setRef={(el) => (sectionRefs.current[1] = el)}
+          >
+            <Section>
+              <HeaderGroup>
+                <SectionSubtitle>Hot Right Now</SectionSubtitle>
+                <Title style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
+                </Title>
+              </HeaderGroup>
+              <CardWrapper>{productList}</CardWrapper>
+            </Section>
+          </RevealSection>
+        </Suspense>
+      </Container>
+    </>
   );
 };
 

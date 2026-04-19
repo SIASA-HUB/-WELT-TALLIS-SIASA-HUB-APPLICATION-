@@ -1,5 +1,4 @@
-// 
-
+// App.jsx - Removed all aspirant checks, simplified to user-only authentication
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
@@ -45,14 +44,6 @@ const GlobalStyle = createGlobalStyle`
     box-sizing: border-box;
   }
 
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #000;
-    color: #fff;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 10px; }
   ::-webkit-scrollbar-thumb { background: #e11d48; border-radius: 10px; }
@@ -96,74 +87,51 @@ const ScrollToTop = () => {
 };
 
 // ============================================================
-// AUTHENTICATION HELPERS (NO TOKENS – only user_data)
+// AUTHENTICATION HELPERS (Isolated buckets)
 // ============================================================
-const getUser = () => {
+const getStoredUser = () => {
   try {
     const userData = localStorage.getItem("user_data");
     return userData ? JSON.parse(userData) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 };
 
-
-
-
-
-
-// A user is considered authenticated if user_data exists
-const isAuthenticated = () => {
-  return getUser() !== null;
+const getStoredLeader = () => {
+  try {
+    const leaderData = localStorage.getItem("leaderData");
+    return leaderData ? JSON.parse(leaderData) : null;
+  } catch { return null; }
 };
 
-// Role check based on user_data.role
-const hasRole = (role) => {
-  const user = getUser();
-  return user && user.role === role;
-};
-
-// Aspirant check: either user.role === "aspirant" OR (if your aspirant login sets a flag)
-const isAspirant = () => {
-  const user = getUser();
-  if (user && user.role === "aspirant") return true;
-  // If your backend sets a special field like is_aspirant: true
-  if (user && user.is_aspirant === true) return true;
-  return false;
+const isAspirantAuthenticated = () => {
+  return localStorage.getItem("leaderToken") !== null && getStoredLeader() !== null;
 };
 
 // ============================================================
-// PROTECTED ROUTE COMPONENT (no token checks)
+// PROTECTED ROUTE – Supports both Citizens and Aspirants
 // ============================================================
+import { useAuth } from "./components/hooks/useAuth.jsx";
+
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
-  const [authState, setAuthState] = useState({ isAuthenticated: null, userRole: null });
+  const { isAuthenticated, isLeaderAuthenticated, user, leader, isLoading } = useAuth();
 
-  useEffect(() => {
-    const checkAuth = () => {
-      if (requiredRole === "aspirant") {
-        const authenticated = isAspirant();
-        setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? "aspirant" : null });
-        return;
-      }
-
-      if (requiredRole === "admin" || requiredRole === "marketadmin") {
-        const authenticated = hasRole(requiredRole);
-        setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? requiredRole : null });
-        return;
-      }
-
-      // Default "user" role – any logged‑in user (including aspirants) is allowed
-      const authenticated = isAuthenticated();
-      setAuthState({ isAuthenticated: authenticated, userRole: authenticated ? "user" : null });
-    };
-    checkAuth();
-  }, [requiredRole]);
-
-  if (authState.isAuthenticated === null) {
+  if (isLoading) {
     return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
   }
 
-  if (!authState.isAuthenticated) {
+
+
+
+  // Admin/MarketAdmin check (Checks regular user profile for role)
+  if (requiredRole === "admin" || requiredRole === "marketadmin") {
+    if (!isAuthenticated || user?.role !== requiredRole) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+    return children;
+  }
+
+  // Default: Generic Citizen/User check
+  if (!isAuthenticated && !isLeaderAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -282,7 +250,7 @@ const AppLayout = () => {
             <Route path="/register-aspirant" element={<RegisterAspirant />} />
             <Route path="/login-aspirant" element={<LoginAspirant />} />
             <Route path="/aspirant-dashboard" element={
-              <ProtectedRoute requiredRole="aspirant" redirectTo="/login-aspirant">
+              <ProtectedRoute requiredRole="aspirant">
                 <AspirantDashboard />
               </ProtectedRoute>
             } />

@@ -1,4 +1,4 @@
-// pages/LeadersPage.jsx - Fixed: Only search bar is sticky, trending scrolls with content
+// pages/LeadersPage.jsx - Enhanced SEO with Helmet Async & JSON‑LD
 import React, {
   useState,
   useEffect,
@@ -28,9 +28,6 @@ const LeaderCard = lazy(() => import("./leadersCard"));
 import API from "../../api/config";
 import api from "../../api/api";
 
-// ============================================
-// IMAGE URL BUILDER
-// ============================================
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
@@ -105,7 +102,6 @@ const SearchContainer = styled.div`
   display: flex;
   gap: 12px;
   align-items: center;
-
 `;
 
 const SearchInputWrapper = styled.div`
@@ -255,7 +251,7 @@ const Tray = styled.div`
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 0 10px 0px;
+  padding: 0 0px 0px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 
@@ -485,6 +481,43 @@ const LeadersPage = () => {
     navigate("/register-aspirant");
   };
 
+  // Build dynamic SEO metadata
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const locationTitle = urlCounty
+    ? `${urlWard ? urlWard + ' Ward ' : ''}${urlConstituency ? urlConstituency + ' Constituency ' : ''}${urlCounty} County Aspirants 2027 | SiasaHub`.replace(/\s+/g, ' ').trim()
+    : 'All Aspirants & Candidates 2027 | SiasaHub';
+  const locationDescription = urlCounty
+    ? `Browse 2027 election aspirants in ${urlCounty} County${urlConstituency ? ', ' + urlConstituency + ' Constituency' : ''}${urlWard ? ', ' + urlWard + ' Ward' : ''}. View their manifestos, endorsements, and campaign profiles.`
+    : 'Discover all 2027 Kenyan election aspirants. View their manifestos, endorsements, and campaign profiles on SiasaHub.';
+
+  // JSON-LD structured data for collection page
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": locationTitle,
+    "description": locationDescription,
+    "url": currentUrl,
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": filteredGroups.flatMap((group, groupIdx) =>
+        (group.leaders || []).map((leader, idx) => ({
+          "@type": "ListItem",
+          "position": groupIdx * 100 + idx + 1,
+          "item": {
+            "@type": "Person",
+            "name": leader.name,
+            "jobTitle": leader.position,
+            "affiliation": {
+              "@type": "Organization",
+              "name": leader.party
+            },
+            "url": `${currentUrl}/${leader.slug || leader.leader_id}`
+          }
+        }))
+      )
+    }
+  };
+
   if (loading) {
     return (
       <PageWrapper>
@@ -528,22 +561,36 @@ const LeadersPage = () => {
     );
   }
 
-  const locationTitle = urlCounty
-    ? `${urlWard ? urlWard + ' Ward' : ''} ${urlConstituency ? urlConstituency + ' Constituency' : ''} ${urlCounty} County Aspirants 2027 | Siasahub`.replace(/\s+/g, ' ').trim()
-    : 'All Aspirants & Candidates 2027 | Siasahub';
-  const locationDescription = urlCounty
-    ? `Browse 2027 election aspirants in ${urlCounty} County${urlConstituency ? ', ' + urlConstituency + ' Constituency' : ''}${urlWard ? ', ' + urlWard + ' Ward' : ''}. View their manifestos, endorsements, and campaign profiles.`
-    : 'Discover all 2027 Kenyan election aspirants. View their manifestos, endorsements, and campaign profiles on Siasahub.';
-
   return (
     <PageWrapper>
       <Helmet>
         <title>{locationTitle}</title>
         <meta name="description" content={locationDescription} />
+        <meta name="keywords" content={`2027 elections, Kenyan aspirants, ${urlCounty ? urlCounty + ' county' : ''} ${urlConstituency ? urlConstituency : ''} candidates, manifestos, SiasaHub`} />
+        <link rel="canonical" href={currentUrl} />
+
+        {/* Open Graph / Facebook */}
         <meta property="og:title" content={locationTitle} />
         <meta property="og:description" content={locationDescription} />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Siasahub" />
+        <meta property="og:site_name" content="SiasaHub" />
+        <meta property="og:url" content={currentUrl} />
+        <meta property="og:image" content="https://siasahub.com/og-default.png" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={locationTitle} />
+        <meta name="twitter:description" content={locationDescription} />
+        <meta name="twitter:image" content="https://siasahub.com/og-default.png" />
+
+        {/* Additional SEO */}
+        <meta name="robots" content="index, follow" />
+        <meta name="author" content="SiasaHub" />
+
+        {/* JSON-LD Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
       </Helmet>
 
       <LoadingWrapper>

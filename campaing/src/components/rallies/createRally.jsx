@@ -1,7 +1,7 @@
+// CreateRally.jsx – fixed input visibility (removed padding, white background)
 import React, { useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   Calendar,
   Clock,
@@ -24,7 +24,7 @@ const THEME = {
   secondary: "#006600",
   text: "#0f172a",
   muted: "#64748b",
-  border: "#e2e8f0",
+  border: "#cbd5e1",
   bg: "#f8fafc",
   white: "#ffffff",
 };
@@ -121,13 +121,17 @@ const Label = styled.label`
   gap: 4px;
 `;
 
+// FIXED: Remove padding, add white background, maintain visibility
 const Input = styled.input`
-  padding: 12px 14px;
+  padding: 0;
+  height: 44px;
   border-radius: 12px;
   border: 1px solid ${THEME.border};
-  background: ${THEME.bg};
+  background: ${THEME.white};
   font-size: 14px;
   transition: all 0.2s;
+  padding: 0 12px;   // horizontal padding only (no vertical padding)
+  line-height: 44px;
 
   &:focus {
     outline: none;
@@ -141,10 +145,10 @@ const Input = styled.input`
 `;
 
 const TextArea = styled.textarea`
-  padding: 12px 14px;
+  padding: 12px;    // Keep some padding for text area usability (user didn't complain)
   border-radius: 12px;
   border: 1px solid ${THEME.border};
-  background: ${THEME.bg};
+  background: ${THEME.white};
   font-size: 14px;
   min-height: 100px;
   resize: vertical;
@@ -158,12 +162,14 @@ const TextArea = styled.textarea`
 `;
 
 const Select = styled.select`
-  padding: 12px 14px;
+  padding: 0;
+  height: 44px;
   border-radius: 12px;
   border: 1px solid ${THEME.border};
-  background: ${THEME.bg};
+  background: ${THEME.white};
   font-size: 14px;
   cursor: pointer;
+  padding: 0 12px;
 
   &:focus {
     outline: none;
@@ -489,7 +495,7 @@ const CreateRally = () => {
       console.error("Error creating rally:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to create rally. Please try again.",
+        "Failed to create rally. Please try again.",
       );
     } finally {
       setLoading(false);

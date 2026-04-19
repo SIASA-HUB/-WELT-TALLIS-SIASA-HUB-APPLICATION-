@@ -5,10 +5,10 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import api from "../../../api/api";
 
-// ---  Styled Componen ---
+// --- Styled Components ---
 const Container = styled.div`
   background: white;
-  border-radius: 10px;
+  padding:   10px  0px;
   border: 1px solid #e2e8f0;
 `;
 
@@ -48,6 +48,12 @@ const Input = styled.input`
   border: 1.5px solid #e2e8f0;
   border-radius: 8px;
   font-size: 14px;
+  color: #1e293b; /* dark text for visibility */
+  background: white;
+  
+  &::placeholder {
+    color: #94a3b8;
+  }
   
   &:focus {
     border-color: #1e3c72;
@@ -63,6 +69,12 @@ const TextArea = styled.textarea`
   font-size: 13px;
   min-height: 70px;
   margin-top: 6px;
+  color: #1e293b; /* dark text for visibility */
+  background: white;
+  
+  &::placeholder {
+    color: #94a3b8;
+  }
   
   &:focus {
     border-color: #1e3c72;
@@ -138,6 +150,7 @@ const ModeToggle = styled.div`
     align-items: center;
     justify-content: center;
     gap: 6px;
+    color: #1e293b;
     
     &.active {
       background: #1e3c72;
@@ -386,7 +399,7 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
         </div>
       ) : (
         <TwoColumn>
-          <FormSection style={{ padding: "20px" }}>
+          <FormSection style={{ padding: "10px" }}>
             <form onSubmit={handleSubmit}>
               <InputWrapper>
                 <label>Vision Statement</label>

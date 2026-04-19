@@ -38,14 +38,14 @@ const PageWrapper = styled.div`
   justify-content: center;
   align-items: flex-start;
   font-family: "Inter", sans-serif;
-  padding: 10px 10px;
+
 `;
 
 const FormCard = styled.div`
   background: white;
   width: 100%;
   max-width: 900px;
-  border-radius: 24px;
+
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
@@ -56,7 +56,7 @@ const FormCard = styled.div`
 
 const Header = styled.div`
   background: #1e3c72;
-  padding: 30px 40px;
+  padding: 10px 10px;
   color: white;
   text-align: center;
   display: flex;
@@ -104,7 +104,7 @@ const NavButton = styled.button`
 `;
 
 const Section = styled.div`
-  padding: 25px 30px;
+  padding: 25px 10px;
   flex: 1;
   overflow-y: auto;
   max-height: 80vh;
@@ -494,7 +494,7 @@ const RegisterAspirant = () => {
           isLoading: false,
           autoClose: 3000,
         });
-        
+
         setTimeout(() => {
           navigate("/login-aspirant");
         }, 2000);
@@ -508,15 +508,15 @@ const RegisterAspirant = () => {
       }
     } catch (err) {
       console.error("Registration error:", err);
-      
+
       let errorMessage = "Registration failed. Please try again.";
-      
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       toast.update(toastId, {
         render: errorMessage,
         type: "error",
@@ -534,14 +534,14 @@ const RegisterAspirant = () => {
       <FormCard>
         <Header>
           <NavButton type="button" onClick={() => navigate("/leaders")}>
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={8} /> Back
           </NavButton>
           <div className="header-content">
             <h2>Aspirant Registration</h2>
-            <p>Join the movement. Lead with vision.</p>
+            <p>Lead with vision.</p>
           </div>
           <NavButton type="button" onClick={() => navigate("/login-aspirant")}>
-            <LogIn size={16} /> Login
+            <LogIn size={8} /> Login
           </NavButton>
         </Header>
 

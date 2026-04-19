@@ -18,7 +18,7 @@ const CardContainer = styled.div`
   position: relative;
   width: 230px;
   height: 350px;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   background: #000;
@@ -96,7 +96,7 @@ const TopBar = styled.div`
 `;
 
 const PartyBadge = styled.div`
-  background: #dc2626;
+  background: #1efd0eff;
   color: white;
   padding: 4px 8px;
   border-radius: 6px;
@@ -170,16 +170,16 @@ const SmallViewButton = styled.div`
 `;
 
 const PositionBadge = styled.div`
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  color: #dc2626;
+
+  backdrop-filter: blur(20px);
+  color: #ffffffff;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  border: 1px solid rgba(220, 38, 38, 0.3);
+
 `;
 
 const StatsRow = styled.div`
@@ -206,7 +206,7 @@ const buildImageUrl = (imageUrl) => {
   }
 
   // Gateway handles /uploads prefix
-  const baseUrl = API.IMAGES; 
+  const baseUrl = API.IMAGES;
   if (imageUrl.startsWith("/")) {
     return `${baseUrl}${imageUrl}`;
   }
@@ -264,7 +264,7 @@ const LeaderCard = ({ leader }) => {
   const displayPosition = getDisplayPosition();
 
   const handleImageError = () => {
-    
+
     setImageError(true);
   };
 

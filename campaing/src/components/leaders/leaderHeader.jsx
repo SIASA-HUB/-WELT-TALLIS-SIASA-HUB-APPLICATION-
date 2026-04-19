@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - Competitors side-by-side with avatar
+// components/leaders/leaderHeader.jsx - Enhanced SEO with Helmet Async (No scrollbar line)
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Helmet } from "react-helmet-async";
@@ -67,7 +67,6 @@ const BRANDS = {
   copy: "#10b981",
 };
 
-// --- Party Logos Database (kept for reference but not used for display)
 const PARTY_LOGOS = {
   UDA: "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
   "United Democratic Alliance": "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
@@ -334,18 +333,7 @@ const ProfileTopRow = styled.div`
   margin-bottom: 20px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-width: thin;
-  
-  &::-webkit-scrollbar {
-    height: 3px;
-  }
-  &::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.1);
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #22c55e;
-    border-radius: 10px;
-  }
+  /* Removed scrollbar styling – no visible line */
 `;
 
 const AvatarWrapper = styled.div`
@@ -377,7 +365,6 @@ const VerifiedIcon = styled.div`
   border: 2px solid #000000;
 `;
 
-// Competitors container that scrolls horizontally inside the same row
 const CompetitorsRowContainer = styled.div`
   display: flex;
   gap: 20px;
@@ -543,14 +530,21 @@ const Toast = styled.div`
 // ==================== Helper Functions ====================
 
 const getLoggedInUserId = () => {
-  const userData = localStorage.getItem("user_data");
-  if (userData) {
-    try {
+  try {
+    const userData = localStorage.getItem("user_data");
+    const leaderData = localStorage.getItem("leaderData");
+    
+    if (userData) {
       const user = JSON.parse(userData);
-      return user.user_id || null;
-    } catch (e) {
-      return null;
+      return user.user_id || user.id || null;
     }
+    
+    if (leaderData) {
+      const leader = JSON.parse(leaderData);
+      return leader.leader_id || leader.id || null;
+    }
+  } catch (e) {
+    return null;
   }
   return null;
 };
@@ -831,29 +825,64 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const displayPosition = formattedPosition + (getLocationText() ? ` - ${getLocationText()}` : "");
   const getFallbackAvatar = () => `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
 
-  const pageTitle = `${leader.name} – ${displayPosition} | Manifesto & Endorsements | SiasaHub`;
-  const pageDescription = `Support ${leader.name} for ${displayPosition}. View manifesto, endorsements, and campaign promises. ${partyName} aspirant ${leader.county ? `in ${leader.county}` : ""}. Get involved today!`;
+  // Enhanced SEO metadata
+  const pageTitle = `${leader.name} – ${displayPosition} | ${partyName} Manifesto & Endorsements | SiasaHub 2027`;
+  const pageDescription = `Support ${leader.name} (${partyName}) for ${displayPosition} in the 2027 Kenyan elections. View manifesto, campaign promises, endorsements, and trending stories. Get involved today!`;
   const pageImage = leaderImageUrl || getFallbackAvatar();
   const pageUrl = canonicalUrl;
+
+  // JSON-LD structured data for the leader (Person/Organization)
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": leader.name,
+    "description": pageDescription,
+    "image": pageImage,
+    "url": pageUrl,
+    "jobTitle": displayPosition,
+    "affiliation": {
+      "@type": "Organization",
+      "name": partyName
+    },
+    "sameAs": leader.website ? [leader.website] : [],
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": getLocationText() || leader.county || leader.constituency,
+      "addressCountry": "KE"
+    }
+  };
 
   return (
     <>
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
+        <meta name="keywords" content={`${leader.name}, ${partyName}, ${displayPosition}, Kenyan elections 2027, manifesto, endorsements, campaign promises, SiasaHub, ${leader.county || ""}, ${leader.constituency || ""}`} />
         <link rel="canonical" href={pageUrl} />
+
+        <meta property="og:type" content="profile" />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDescription} />
         <meta property="og:image" content={pageImage} />
         <meta property="og:url" content={pageUrl} />
-        <meta property="og:type" content="profile" />
+        <meta property="og:site_name" content="SiasaHub" />
         <meta property="profile:first_name" content={leader.name.split(" ")[0]} />
         <meta property="profile:last_name" content={leader.name.split(" ").slice(1).join(" ") || ""} />
+
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDescription} />
         <meta name="twitter:image" content={pageImage} />
         {isVerified && <meta name="twitter:label1" value="Verified Aspirant" />}
+
+        <meta name="robots" content="index, follow" />
+        <meta name="author" content={leader.name} />
+        <meta name="geo.region" content="KE" />
+        {leader.county && <meta name="geo.placename" content={leader.county} />}
+
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
       </Helmet>
 
       <PageContainer>
@@ -905,7 +934,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               </VerifiedIcon>
             </AvatarWrapper>
 
-            {/* Competitors placed right after the avatar, side by side */}
             {competitors.length > 0 && (
               <CompetitorsRowContainer>
                 {competitors.map((competitor, idx) => {

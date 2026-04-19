@@ -1,17 +1,13 @@
 import React, { useState, useEffect, memo } from "react";
+import { Helmet } from "react-helmet-async";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronRight,
-  Eye,
-  Heart,
-  MessageCircle,
-  Clock,
+  TrendingUp,
   MapPin,
+  AlertCircle,
   Sparkles,
-  Flame,
-  Zap,
-  AlertCircle
 } from "lucide-react";
 import api from "../../../api/api";
 import API from "../../../api/config";
@@ -23,34 +19,55 @@ const pulse = keyframes`
   100% { opacity: 0.6; }
 `;
 
-const glow = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-`;
-
 const shimmer = keyframes`
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 `;
 
-// HELPER: Build image 
+// HELPER: Build image URL
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null") return null;
-
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
-
-  // Clean the path
   const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-
   return `${API.IMAGES}${cleanPath}`;
+};
+
+
+const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {
+  // If no data, generate random upward trend
+  const points = data && data.length > 0 ? data : [10, 15, 22, 30, 35, 42, 48];
+  const maxVal = Math.max(...points);
+  const minVal = Math.min(...points);
+  const range = maxVal - minVal || 1;
+
+  const step = width / (points.length - 1);
+  const pathPoints = points.map((val, idx) => {
+    const x = idx * step;
+    const y = height - ((val - minVal) / range) * height;
+    return `${x},${y}`;
+  }).join(" ");
+
+  const areaPoints = `0,${height} ${pathPoints} ${width},${height}`;
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
+      <defs>
+        <linearGradient id="sparkGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill="url(#sparkGradient)" stroke="none" />
+      <polyline points={pathPoints} fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 };
 
 // --- STYLED COMPONENTS ---
 const Section = styled.div`
-  padding: 16px 12px;
+  padding: 12px 12px;
   background: #000;
 `;
 
@@ -58,19 +75,17 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
 
   h2 {
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #94a3b8;
+    letter-spacing: 0.5px;
+    color: #e4e4e7;
     display: flex;
     align-items: center;
     gap: 6px;
-    opacity: 0.8;
+    margin: 0;
   }
 
   .badge {
@@ -85,24 +100,11 @@ const Header = styled.div`
     gap: 3px;
   }
 
-  .trending-badge {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 8px;
-    font-weight: 600;
-    color: #f8fafc;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
   .location-badge {
     background: rgba(34, 197, 94, 0.2);
     padding: 2px 8px;
     border-radius: 12px;
-    font-size: 7px;
+    font-size: 8px;
     font-weight: 600;
     color: #22c55e;
     display: flex;
@@ -114,7 +116,7 @@ const Header = styled.div`
 const ManifestosContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 `;
 
 const LoadingState = styled.div`
@@ -126,15 +128,15 @@ const LoadingState = styled.div`
 const SkeletonRow = styled.div`
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
+  border-radius: 0px;
   animation: ${pulse} 1.5s infinite;
   gap: 12px;
 
   .skeleton-avatar {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
     background-size: 200% 100%;
@@ -146,17 +148,17 @@ const SkeletonRow = styled.div`
   }
 
   .skeleton-name {
-    width: 60%;
+    width: 50%;
     height: 10px;
     background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
     background-size: 200% 100%;
     animation: ${shimmer} 1.5s infinite;
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .skeleton-title {
-    width: 80%;
+    width: 70%;
     height: 8px;
     background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
     background-size: 200% 100%;
@@ -167,24 +169,17 @@ const SkeletonRow = styled.div`
 
 const ManifestoCard = styled.div`
   background: ${(props) =>
-    props.$isLocal ? "linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(34, 197, 94, 0.01))" : "rgba(255, 255, 255, 0.01)"};
+    props.$isLocal ? "rgba(34, 197, 94, 0.04)" : "rgba(255, 255, 255, 0.01)"};
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid ${(props) => (props.$isLocal ? "rgba(34, 197, 94, 0.2)" : "rgba(255,255,255,0.03)")};
-  position: relative;
-  overflow: hidden;
+  border: 1px solid ${(props) => (props.$isLocal ? "rgba(34, 197, 94, 0.15)" : "rgba(255,255,255,0.03)")};
 
   &:hover {
-    transform: none;
     background: ${(props) =>
     props.$isLocal ? "rgba(34, 197, 94, 0.08)" : "rgba(255, 255, 255, 0.03)"};
-    border-color: ${(props) => (props.$isLocal ? "#22c55e" : "rgba(255,255,255,0.1)")};
-    
-    &::before {
-      left: 100%;
-    }
+    border-color: ${(props) => (props.$isLocal ? "#22c55e" : "rgba(255,255,255,0.08)")};
     
     .action-icon {
       color: #22c55e;
@@ -193,24 +188,23 @@ const ManifestoCard = styled.div`
   }
 `;
 
-const CardHeader = styled.div`
+const CardContent = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
 `;
 
 const RankBadge = styled.div`
   font-size: 10px;
   font-weight: 700;
-  color: ${(props) => (props.$top3 ? "#f8fafc" : "rgba(255,255,255,0.15)")};
+  color: ${(props) => (props.$top3 ? "#22c55e" : "rgba(255,255,255,0.2)")};
   min-width: 20px;
-  font-family: inherit;
+  font-family: monospace;
 `;
 
 const Avatar = styled.div`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #111;
   display: flex;
@@ -218,64 +212,25 @@ const Avatar = styled.div`
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
-  position: relative;
   border: 1px solid rgba(255,255,255,0.1);
-
-  .card-avatar {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    padding: 2px;
-    background: linear-gradient(135deg, #22c55e, transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  }
-
-  ${ManifestoCard}:hover &::after {
-    opacity: 1;
-  }
 `;
 
-const LiveBadge = styled.div`
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background: #22c55e;
-  border-radius: 50%;
-  width: 10px;
-  height: 10px;
-  border: 2px solid #000;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
-`;
-
-const Content = styled.div`
+const Info = styled.div`
   flex: 1;
   min-width: 0;
 `;
 
 const LeaderName = styled.div`
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #71717a;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -285,17 +240,8 @@ const LeaderName = styled.div`
     color: #22c55e;
     background: rgba(34, 197, 94, 0.1);
     padding: 2px 6px;
-    border-radius: 8px;
-    font-size: 7px;
-    font-weight: 600;
-  }
-
-  .position {
-    color: #e11d48;
-    background: rgba(225, 29, 72, 0.1);
-    padding: 2px 6px;
-    border-radius: 8px;
-    font-size: 7px;
+    border-radius: 10px;
+    font-size: 8px;
     font-weight: 600;
   }
 
@@ -303,79 +249,94 @@ const LeaderName = styled.div`
     color: #22c55e;
     background: rgba(34, 197, 94, 0.2);
     padding: 2px 6px;
-    border-radius: 8px;
-    font-size: 6px;
+    border-radius: 10px;
+    font-size: 7px;
     font-weight: 700;
-    text-transform: uppercase;
   }
 `;
 
-const ManifestoText = styled.h4`
+const ManifestoText = styled.div`
   font-size: 12px;
   font-weight: 500;
-  color: #e4e4e7;
-  margin: 0 0 4px 0;
+  color: #f4f4f6;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
-const StatsRow = styled.div`
+const TrendWrapper = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-`;
-
-const Stat = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
   
-  svg {
-    width: 12px;
-    height: 12px;
+  .trend-icon {
+    width: 14px;
+    height: 14px;
+    color: #22c55e;
   }
-`;
-
-const HotIndicator = styled.div`
-  background: rgba(34, 197, 94, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 7px;
-  font-weight: 600;
-  color: #22c55e;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 6px;
-  border: 1px solid rgba(34, 197, 94, 0.2);
 `;
 
 const ActionIcon = styled.div`
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.15);
   transition: all 0.2s ease;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-left: 4px;
 `;
 
 const EmptyState = styled.div`
   text-align: center;
-  padding: 40px 20px;
+  padding: 30px 20px;
   color: #71717a;
-  svg { margin-bottom: 12px; opacity: 0.5; }
+  svg { margin-bottom: 10px; opacity: 0.5; }
   p { font-size: 11px; margin: 0; }
-  .sub { font-size: 9px; margin-top: 6px; color: #22c55e; }
+  .sub { font-size: 9px; margin-top: 4px; color: #22c55e; }
 `;
+
+const SeeAllLink = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  
+  button {
+    background: none;
+    border: none;
+    color: #22c55e;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    
+    &:hover {
+      opacity: 1;
+    }
+  }
+`;
+
+// Generate random upward trend data
+const generateSparkData = () => {
+  let val = 20 + Math.random() * 20;
+  const points = [];
+  for (let i = 0; i < 5; i++) {
+    val += Math.random() * 8 + 1; // always rising
+    val = Math.min(80, val);
+    points.push(Math.floor(val));
+  }
+  return points;
+};
 
 const TrendingManifestos = ({ userId, currentUser }) => {
   const [manifestos, setManifestos] = useState([]);
@@ -391,21 +352,17 @@ const TrendingManifestos = ({ userId, currentUser }) => {
         setError(null);
         const finalUserId = userId || currentUser?.user_id || localStorage.getItem("user_id");
 
-        // Try personalized first if user is logged in
         let url = finalUserId
-          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=15`
-          : `/leaders/manifestos/trending?limit=30`; // Fetch more for randomization
+          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=20`
+          : `/leaders/manifestos/trending?limit=20`;
 
         await api.getWithCache(url, (data) => {
           if (data.success && data.data) {
             let fetchedData = data.data || [];
-
-            // Randomize for guests or to keep it fresh
-            if (!finalUserId || fetchedData.length > 5) {
-              fetchedData = [...fetchedData].sort(() => 0.5 - Math.random());
-            }
-
-            setManifestos(fetchedData.slice(0, 15));
+            // Shuffle and take first 5
+            const shuffled = [...fetchedData].sort(() => 0.5 - Math.random());
+            const topFive = shuffled.slice(0, 5);
+            setManifestos(topFive);
             if (data.meta?.user_location) setUserLocation(data.meta.user_location);
           }
         });
@@ -423,7 +380,7 @@ const TrendingManifestos = ({ userId, currentUser }) => {
     const preferredImage = manifestoImage || imageUrl;
     const builtUrl = buildImageUrl(preferredImage);
     if (builtUrl) return builtUrl;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leaderName?.charAt(0) || "C")}&background=22c55e&color=fff&size=80&bold=true&length=2`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(leaderName?.charAt(0) || "C")}&background=22c55e&color=fff&size=64&bold=true&length=1`;
   };
 
   const isLocalLeader = (manifesto) => {
@@ -436,44 +393,46 @@ const TrendingManifestos = ({ userId, currentUser }) => {
 
   const getDisplayText = (manifesto) => {
     if (manifesto.main_agenda && manifesto.main_agenda.length > 10) {
-      return manifesto.main_agenda.substring(0, 100);
+      return manifesto.main_agenda.substring(0, 80);
     }
     if (manifesto.agenda_items) {
       try {
         const items = JSON.parse(manifesto.agenda_items);
         if (Array.isArray(items) && items.length > 0) {
-          const firstItem = items[0];
-          return firstItem.title || firstItem.description || "Policy Agenda";
+          return items[0].title || items[0].description || "Policy Agenda";
         }
       } catch (e) {
         return manifesto.agenda_items;
       }
     }
-    return "📜New Policy Agenda Announced";
+    return "📜 New Policy Agenda";
   };
 
-  const getRandomStats = () => ({
-    views: Math.floor(Math.random() * 5000) + 100,
-    likes: Math.floor(Math.random() * 500) + 10,
-    comments: Math.floor(Math.random() * 100) + 5,
-  });
-
-  // FIX: Use slug for navigation, fallback to leader_id if slug missing
   const handleCardClick = (leaderSlug, leaderId) => {
     if (leaderSlug) {
       navigate(`/leaders/${leaderSlug}`);
     } else if (leaderId) {
       navigate(`/leaders/${leaderId}`);
-    } else {
-      console.warn("No slug or leader_id available");
     }
   };
+
+  const handleViewAll = () => {
+    navigate("/manifestos");
+  };
+
+  // SEO: dynamic meta for this section (optional)
+  const sectionTitle = "Trending Manifestos | SiasaHub";
+  const sectionDescription = "Explore the latest and most popular political manifestos from aspirants across Kenya. See who is rising in the polls.";
 
   if (loading) {
     return (
       <Section>
+        <Helmet>
+          <title>{sectionTitle}</title>
+          <meta name="description" content={sectionDescription} />
+        </Helmet>
         <Header>
-          <h2>MANIFESTO HIGHLIGHTS</h2>
+          <h2>📈 TRENDING MANIFESTOS</h2>
           <span className="badge">LOADING</span>
         </Header>
         <LoadingState>
@@ -494,8 +453,11 @@ const TrendingManifestos = ({ userId, currentUser }) => {
   if (error) {
     return (
       <Section>
-        <Header><h2>MANIFESTO HIGHLIGHTS</h2></Header>
-        <EmptyState><AlertCircle size={24} /><p>{error}</p></EmptyState>
+        <Helmet>
+          <title>{sectionTitle}</title>
+        </Helmet>
+        <Header><h2>📈 TRENDING MANIFESTOS</h2></Header>
+        <EmptyState><AlertCircle size={20} /><p>{error}</p></EmptyState>
       </Section>
     );
   }
@@ -503,19 +465,33 @@ const TrendingManifestos = ({ userId, currentUser }) => {
   if (!manifestos.length) {
     return (
       <Section>
-        <Header><h2>MANIFESTO HIGHLIGHTS</h2></Header>
-        <EmptyState><p>No manifesto highlights yet</p><p className="sub">Check back soon</p></EmptyState>
+        <Helmet>
+          <title>{sectionTitle}</title>
+        </Helmet>
+        <Header><h2>📈 TRENDING MANIFESTOS</h2></Header>
+        <EmptyState>
+          <Sparkles size={20} />
+          <p>No trending manifestos yet</p>
+          <p className="sub">Check back soon</p>
+        </EmptyState>
       </Section>
     );
   }
 
   return (
     <Section>
+      <Helmet>
+        <title>{sectionTitle}</title>
+        <meta name="description" content={sectionDescription} />
+      </Helmet>
       <Header>
-        <h2>MANIFESTO HIGHLIGHTS</h2>
+        <h2>📈 TRENDING MANIFESTOS</h2>
         <div style={{ display: "flex", gap: "6px" }}>
-          {userLocation?.county && <span className="location-badge"><MapPin size={8} /> {userLocation.ward || userLocation.constituency || userLocation.county}</span>}
-          <span className="trending-badge">FEED</span>
+          {userLocation?.county && (
+            <span className="location-badge">
+              <MapPin size={8} /> {userLocation.ward || userLocation.constituency || userLocation.county}
+            </span>
+          )}
           <span className="badge">TOP {manifestos.length}</span>
         </div>
       </Header>
@@ -524,12 +500,7 @@ const TrendingManifestos = ({ userId, currentUser }) => {
         {manifestos.map((m, i) => {
           const local = isLocalLeader(m);
           const displayText = getDisplayText(m);
-          const imageUrl = m.leader_image;
-          const stats = getRandomStats();
-          const isHot = i < 3;
-          const timeAgo = i === 0 ? "2 min ago" : i === 1 ? "1 hour ago" : i === 2 ? "3 hours ago" : `${i + 5} hours ago`;
-
-          // Use leader_slug if available, otherwise fallback to leader_id
+          const sparkData = generateSparkData();
           const leaderSlug = m.leader_slug || m.slug;
           const leaderId = m.leader_id;
 
@@ -539,46 +510,44 @@ const TrendingManifestos = ({ userId, currentUser }) => {
               $isLocal={local}
               onClick={() => handleCardClick(leaderSlug, leaderId)}
             >
-              <CardHeader>
+              <CardContent>
                 <RankBadge $top3={i < 3}>
                   {String(i + 1).padStart(2, '0')}
                 </RankBadge>
                 <Avatar>
-                  <div className="card-avatar">
-                    <img
-                      src={getAvatarUrl(m.leader_name, m.leader_image, m.cover_image || m.image)}
-                      alt={m.leader_name}
-                      onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.leader_name?.charAt(0) || "C")}&background=22c55e&color=fff&size=80&bold=true&length=2`;
-                      }}
-                    />
-                  </div>
-                  {isHot && <LiveBadge />}
+                  <img
+                    src={getAvatarUrl(m.leader_name, m.leader_image, m.cover_image || m.image)}
+                    alt={m.leader_name}
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.leader_name?.charAt(0) || "C")}&background=22c55e&color=fff&size=64&bold=true&length=1`;
+                    }}
+                  />
                 </Avatar>
-                <Content>
+                <Info>
                   <LeaderName>
                     {m.leader_name || "Candidate"}
-                    {m.leader_position && <span className="position">{m.leader_position}</span>}
                     {m.leader_party && <span className="party">{m.leader_party}</span>}
                     {local && <span className="local-tag">YOUR AREA</span>}
-                    {isHot && <HotIndicator>FEATURED</HotIndicator>}
                   </LeaderName>
                   <ManifestoText>{displayText}</ManifestoText>
-                  <StatsRow>
-                    <Stat><Eye size={10} /> {stats.views.toLocaleString()}</Stat>
-                    <Stat><Heart size={10} /> {stats.likes.toLocaleString()}</Stat>
-                    <Stat><MessageCircle size={10} /> {stats.comments}</Stat>
-                    <Stat><Clock size={10} /> {timeAgo}</Stat>
-                  </StatsRow>
-                </Content>
+                </Info>
+                <TrendWrapper>
+                  <TrendingUp className="trend-icon" />
+                  <Sparkline data={sparkData} width={36} height={16} color="#22c55e" />
+                </TrendWrapper>
                 <ActionIcon className="action-icon">
-                  <ChevronRight size={16} />
+                  <ChevronRight size={14} />
                 </ActionIcon>
-              </CardHeader>
+              </CardContent>
             </ManifestoCard>
           );
         })}
       </ManifestosContainer>
+      <SeeAllLink>
+        <button onClick={handleViewAll}>
+          View all manifestos <ChevronRight size={10} />
+        </button>
+      </SeeAllLink>
     </Section>
   );
 };

@@ -302,9 +302,9 @@ const LoginAspirant = () => {
       console.log("📥 Login response:", response);
 
       if (response.success) {
-        // Use the centralized storeAuthData helper from api.js
-        const { storeAuthData } = await import("../../api/api");
-        storeAuthData(response.data);
+        // Use the segregated storeLeaderAuthData helper from api.js
+        const { storeLeaderAuthData } = await import("../../api/api");
+        storeLeaderAuthData(response.data);
 
         setSuccessMessage(`Welcome back! Redirecting...`);
 
