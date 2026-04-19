@@ -1,6 +1,7 @@
-// components/leaders/leaderHeader.jsx - Competitors aside the logo (side by side)
+// components/leaders/leaderHeader.jsx - Party Logo Removed, Party Name as Text
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
+import { Helmet } from "react-helmet-async";
 import {
   ArrowLeft,
   Share2,
@@ -46,9 +47,9 @@ const fadeOutDown = keyframes`
 `;
 
 const ringGlow = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-  70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 `;
 
 const slideInRight = keyframes`
@@ -66,7 +67,7 @@ const BRANDS = {
   copy: "#10b981",
 };
 
-// --- Party Logos Database ---
+// --- Party Logos Database (kept for reference but not used for display)
 const PARTY_LOGOS = {
   UDA: "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
   "United Democratic Alliance": "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
@@ -145,17 +146,7 @@ const IconButton = styled.button`
   justify-content: center;
   cursor: pointer;
   color: #000;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-
-  &:hover {
-    background: #f0f0f0;
-    transform: scale(1.02);
-  }
-
-  svg {
-    stroke-width: 2.5;
-  }
+  transition: none;
 `;
 
 const SideActions = styled.div`
@@ -191,7 +182,7 @@ const VerifiedBadge = styled.div`
     justify-content: center;
     background: ${(props) => (props.$verified ? "#10b981" : "rgba(107, 114, 128, 0.8)")};
     backdrop-filter: blur(10px);
-    transition: all 0.2s;
+    transition: none;
   }
 
   .verified-text {
@@ -225,7 +216,7 @@ const BoostButton = styled.button`
     justify-content: center;
     background: #dc2626;
     backdrop-filter: blur(10px);
-    transition: all 0.2s;
+    transition: none;
     color: white;
   }
 
@@ -233,11 +224,6 @@ const BoostButton = styled.button`
     font-size: 8px;
     font-weight: 500;
     color: #dc2626;
-  }
-
-  &:hover .boost-icon {
-    background: #b91c1c;
-    transform: scale(1.05);
   }
 `;
 
@@ -261,7 +247,7 @@ const ShareButton = styled.button`
     justify-content: center;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
-    transition: all 0.2s;
+    transition: none;
     color: white;
   }
 
@@ -269,11 +255,6 @@ const ShareButton = styled.button`
     font-size: 8px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.7);
-  }
-
-  &:hover .share-icon {
-    background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.05);
   }
 `;
 
@@ -303,7 +284,7 @@ const ShareIconRow = styled.button`
   border-radius: 10px;
   color: white;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: none;
   width: 100%;
   font-size: 13px;
   font-weight: 500;
@@ -311,11 +292,6 @@ const ShareIconRow = styled.button`
   svg {
     width: 18px;
     height: 18px;
-  }
-
-  &:hover {
-    background: ${(props) => props.$bg || "rgba(255,255,255,0.1)"};
-    transform: translateX(2px);
   }
 `;
 
@@ -388,163 +364,7 @@ const VerifiedIcon = styled.div`
   border: 2px solid #000000;
 `;
 
-const PartyLogoContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-`;
-
-const PartyCircle = styled.div`
-  width: 50px;
-  height: 50px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-`;
-
-const PartyLogoImg = styled.img`
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  border-radius: 50%;
-`;
-
-const PartyName = styled.span`
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  text-align: center;
-`;
-
-// ========== COMPETITORS SECTION – NOW SIDE BY SIDE WITH LOGO ==========
-const CompetitorsWrapper = styled.div`
-  flex: 1;
-  min-width: 0; /* prevents overflow */
-  overflow-x: auto;
-  scrollbar-width: thin;
-  margin-left: auto;
-  
-  &::-webkit-scrollbar {
-    height: 2px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.1);
-    border-radius: 10px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: #e11d48;
-    border-radius: 10px;
-  }
-`;
-
-const CompetitorsHeading = styled.div`
-  font-size: 9px;
-  font-weight: 600;
-  color: #e11d48;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  
-  svg {
-    width: 10px;
-    height: 10px;
-  }
-`;
-
-const CompetitorsScroll = styled.div`
-  display: flex;
-  gap: 12px;
-`;
-
-const CompetitorItem = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.2s;
-  
-  &:hover {
-    transform: translateY(-2px);
-  }
-`;
-
-const CompetitorRing = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  padding: 1px;
-  background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #f59e0b, #ea580c)" : "rgba(255,255,255,0.2)")};
-  animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
-`;
-
-const CompetitorAvatar = styled.div`
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-
-  overflow: hidden;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .default-avatar {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #2a2a2a;
-    svg {
-      width: 20px;
-      height: 20px;
-      color: rgba(255,255,255,0.4);
-    }
-  }
-`;
-
-const CompetitorName = styled.div`
-  font-size: 8px;
-  font-weight: 500;
-  color: #fff;
-  max-width: 50px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-`;
-
-const TopBadge = styled.div`
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  background: #f59e0b;
-  border-radius: 50%;
-  width: 12px;
-  height: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 6px;
-  font-weight: bold;
-  color: white;
-`;
+// Party logo container REMOVED – no longer needed
 
 const InfoSection = styled.div`
   margin-top: 8px;
@@ -560,6 +380,18 @@ const Name = styled.h1`
   gap: 8px;
   flex-wrap: wrap;
   letter-spacing: -0.2px;
+`;
+
+const PartyNameText = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
 `;
 
 const VerifyBadge = styled.span`
@@ -611,6 +443,106 @@ const Toast = styled.div`
   gap: 8px;
   font-size: 14px;
   animation: ${fadeIn} 0.3s ease;
+`;
+
+// ========== COMPETITORS SECTION – ENLARGED & GREENISH (unchanged) ==========
+const CompetitorsRowContainer = styled.div`
+  margin: 20px 0 20px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  
+  &::-webkit-scrollbar {
+    height: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #22c55e;
+    border-radius: 10px;
+  }
+`;
+
+const CompetitorsScroll = styled.div`
+  display: flex;
+  gap: 20px;
+`;
+
+const CompetitorItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: none;
+`;
+
+const CompetitorRing = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  padding: 2.5px;
+  background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" : "rgba(255,255,255,0.2)")};
+  animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
+  position: relative;
+`;
+
+const CompetitorAvatar = styled.div`
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1a1a1a;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .default-avatar {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2a2a2a;
+    svg {
+      width: 32px;
+      height: 32px;
+      color: rgba(255,255,255,0.5);
+    }
+  }
+`;
+
+const CompetitorName = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+`;
+
+const TopBadge = styled.div`
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #22c55e;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  border: 2px solid #000;
 `;
 
 // ==================== Helper Functions ====================
@@ -700,7 +632,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     setCurrentUserId(getLoggedInUserId());
   }, []);
 
-  // Track time spent on profile
   useEffect(() => {
     if (!leader?.leader_id) return;
     startTimeRef.current = Date.now();
@@ -716,7 +647,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     };
   }, [leader?.leader_id, currentUserId]);
 
-  // Track profile view (once)
   useEffect(() => {
     if (leader?.leader_id && !viewTracked) {
       trackProfileView(leader.leader_id, currentUserId);
@@ -724,7 +654,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     }
   }, [leader?.leader_id, currentUserId, viewTracked]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -735,7 +664,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Scroll handling for side actions visibility
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -778,7 +706,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     if (leader?.leader_id) fetchBoostedStories();
   }, [leader?.leader_id, fetchBoostedStories]);
 
-  // Competitors fetching
   const fetchCompetitors = useCallback(async () => {
     if (!leader?.leader_id) return;
 
@@ -823,7 +750,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           }
           return sameLocation;
         })
-        .slice(0, 8); // limit to 8 for horizontal space
+        .slice(0, 8);
 
       setCompetitors(competitorsList);
     } catch (error) {
@@ -897,7 +824,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const leaderImageUrl = getLeaderImage(leader);
   const coverImage = leaderImageUrl || "https://images.unsplash.com/photo-1570126688035-1e6adbd61053?auto=format&fit=crop&q=80&w=1400";
   const partyName = leader?.party || leader?.political_party || "Independent";
-  const partyLogo = getPartyLogo(partyName);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
   const runningFor = leader?.vying_for || leader?.position || "Candidate";
   const formattedPosition = normalizePosition(runningFor);
@@ -910,66 +836,85 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const displayPosition = formattedPosition + (getLocationText() ? ` - ${getLocationText()}` : "");
   const getFallbackAvatar = () => `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
 
+  const pageTitle = `${leader.name} – ${displayPosition} | Manifesto & Endorsements | SiasaHub`;
+  const pageDescription = `Support ${leader.name} for ${displayPosition}. View manifesto, endorsements, and campaign promises. ${partyName} aspirant ${leader.county ? `in ${leader.county}` : ""}. Get involved today!`;
+  const pageImage = leaderImageUrl || getFallbackAvatar();
+  const pageUrl = canonicalUrl;
+
   return (
-    <PageContainer>
-      <HeroSection>
-        <CoverImage $image={coverImage} />
-        <TopNav>
-          <IconButton onClick={onBack}>
-            <ArrowLeft size={20} />
-          </IconButton>
-        </TopNav>
-      </HeroSection>
+    <>
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <link rel="canonical" href={pageUrl} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:image" content={pageImage} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:type" content="profile" />
+        <meta property="profile:first_name" content={leader.name.split(" ")[0]} />
+        <meta property="profile:last_name" content={leader.name.split(" ").slice(1).join(" ") || ""} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
+        <meta name="twitter:image" content={pageImage} />
+        {isVerified && <meta name="twitter:label1" value="Verified Aspirant" />}
+      </Helmet>
 
-      <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
-        <div style={{ position: "relative" }} ref={dropdownRef}>
-          <ShareButton onClick={() => setShowShareDropdown(!showShareDropdown)}>
-            <div className="share-icon"><Share2 size={18} /></div>
-            <div className="share-text">Share</div>
-          </ShareButton>
-          {showShareDropdown && (
-            <ShareDropdown>
-              <ShareIconRow onClick={shareToTwitter} $bg="#000000"><Twitter size={18} /> Twitter</ShareIconRow>
-              <ShareIconRow onClick={shareToWhatsApp} $bg="#25D366"><MessageCircle size={18} /> WhatsApp</ShareIconRow>
-              <ShareIconRow onClick={shareToFacebook} $bg="#1877F2"><Facebook size={18} /> Facebook</ShareIconRow>
-              <ShareIconRow onClick={shareToLinkedIn} $bg="#0077B5"><Linkedin size={18} /> LinkedIn</ShareIconRow>
-              <ShareIconRow onClick={handleCopyLink} $bg="#10b981"><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
-            </ShareDropdown>
-          )}
-        </div>
-        <BoostButton onClick={() => setShowBoostModal(true)}>
-          <div className="boost-icon"><TrendingUp size={18} /></div>
-          <div className="boost-text">Boost</div>
-        </BoostButton>
-        <VerifiedBadge $verified={isVerified}>
-          <div className="verified-icon">{isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}</div>
-          <div className="verified-text">{isVerified ? "Verified" : "Pending"}</div>
-        </VerifiedBadge>
-      </SideActions>
+      <PageContainer>
+        <HeroSection>
+          <CoverImage $image={coverImage} />
+          <TopNav>
+            <IconButton onClick={onBack}>
+              <ArrowLeft size={20} />
+            </IconButton>
+          </TopNav>
+        </HeroSection>
 
-      <AddStoryButton onClick={handleAddStory} $visible={addButtonVisible}>
-        <Plus size={22} color="white" />
-      </AddStoryButton>
+        <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
+          <div style={{ position: "relative" }} ref={dropdownRef}>
+            <ShareButton onClick={() => setShowShareDropdown(!showShareDropdown)}>
+              <div className="share-icon"><Share2 size={18} /></div>
+              <div className="share-text">Share</div>
+            </ShareButton>
+            {showShareDropdown && (
+              <ShareDropdown>
+                <ShareIconRow onClick={shareToTwitter}><Twitter size={18} /> Twitter</ShareIconRow>
+                <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={18} /> WhatsApp</ShareIconRow>
+                <ShareIconRow onClick={shareToFacebook}><Facebook size={18} /> Facebook</ShareIconRow>
+                <ShareIconRow onClick={shareToLinkedIn}><Linkedin size={18} /> LinkedIn</ShareIconRow>
+                <ShareIconRow onClick={handleCopyLink}><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
+              </ShareDropdown>
+            )}
+          </div>
+          <BoostButton onClick={() => setShowBoostModal(true)}>
+            <div className="boost-icon"><TrendingUp size={18} /></div>
+            <div className="boost-text">Boost</div>
+          </BoostButton>
+          <VerifiedBadge $verified={isVerified}>
+            <div className="verified-icon">{isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}</div>
+            <div className="verified-text">{isVerified ? "Verified" : "Pending"}</div>
+          </VerifiedBadge>
+        </SideActions>
 
-      <ProfileCard>
-        <ProfileTopRow>
-          <AvatarWrapper>
-            <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
-            <VerifiedIcon $verified={isVerified}>
-              {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
-            </VerifiedIcon>
-          </AvatarWrapper>
-          <PartyLogoContainer>
-            <PartyCircle>{partyLogo ? <PartyLogoImg src={partyLogo} alt={partyName} /> : <Flag size={20} color="#f59e0b" />}</PartyCircle>
-            <PartyName>{partyName}</PartyName>
-          </PartyLogoContainer>
+        <AddStoryButton onClick={handleAddStory} $visible={addButtonVisible}>
+          <Plus size={22} color="white" />
+        </AddStoryButton>
 
-          {/* Competitors now appear here – to the right of the party logo */}
+        <ProfileCard>
+          <ProfileTopRow>
+            <AvatarWrapper>
+              <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
+              <VerifiedIcon $verified={isVerified}>
+                {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
+              </VerifiedIcon>
+            </AvatarWrapper>
+            {/* Party Logo Container REMOVED */}
+          </ProfileTopRow>
+
+          {/* Competitors Section */}
           {competitors.length > 0 && (
-            <CompetitorsWrapper>
-              <CompetitorsHeading>
-                <Flag size={10} /> Competitors
-              </CompetitorsHeading>
+            <CompetitorsRowContainer>
               <CompetitorsScroll>
                 {competitors.map((competitor, idx) => {
                   const competitorImg = getLeaderImage(competitor);
@@ -980,9 +925,16 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                         <CompetitorRing $isTop={isTop}>
                           <CompetitorAvatar>
                             {competitorImg ? (
-                              <img src={competitorImg} alt={competitor.name} onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=56`; }} />
+                              <img
+                                src={competitorImg}
+                                alt={competitor.name}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=80`;
+                                }}
+                              />
                             ) : (
-                              <div className="default-avatar"><User size={20} /></div>
+                              <div className="default-avatar"><User size={32} /></div>
                             )}
                           </CompetitorAvatar>
                         </CompetitorRing>
@@ -993,45 +945,47 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                   );
                 })}
               </CompetitorsScroll>
-            </CompetitorsWrapper>
+            </CompetitorsRowContainer>
           )}
-        </ProfileTopRow>
 
-        <InfoSection>
-          <Name>
-            {leader.name}
-            <VerifyBadge $status={isVerified ? "verified" : "unverified"}>
-              {isVerified ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
-              {isVerified ? "Verified" : "Unverified"}
-            </VerifyBadge>
-          </Name>
-          <PositionText>{displayPosition}</PositionText>
-        </InfoSection>
-      </ProfileCard>
+          <InfoSection>
+            <Name>
+              {leader.name}
+              {/* Party name as text badge */}
+              <PartyNameText>{partyName}</PartyNameText>
+              <VerifyBadge $status={isVerified ? "verified" : "unverified"}>
+                {isVerified ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
+                {isVerified ? "Verified" : "Unverified"}
+              </VerifyBadge>
+            </Name>
+            <PositionText>{displayPosition}</PositionText>
+          </InfoSection>
+        </ProfileCard>
 
-      <ContentArea>
-        {boostedStories && boostedStories.length > 0 && (
-          <>
-            <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-            <Divider />
-          </>
+        <ContentArea>
+          {boostedStories && boostedStories.length > 0 && (
+            <>
+              <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
+              <Divider />
+            </>
+          )}
+          <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
+        </ContentArea>
+
+        <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
+        <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
+          setToastMessage("Story posted successfully!");
+          setTimeout(() => setToastMessage(null), 3000);
+          fetchBoostedStories();
+        }} />
+
+        {toastMessage && (
+          <Toast>
+            <Sparkles size={14} /> {toastMessage}
+          </Toast>
         )}
-        <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-      </ContentArea>
-
-      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
-      <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
-        setToastMessage("Story posted successfully!");
-        setTimeout(() => setToastMessage(null), 3000);
-        fetchBoostedStories();
-      }} />
-
-      {toastMessage && (
-        <Toast>
-          <Sparkles size={14} /> {toastMessage}
-        </Toast>
-      )}
-    </PageContainer>
+      </PageContainer>
+    </>
   );
 });
 

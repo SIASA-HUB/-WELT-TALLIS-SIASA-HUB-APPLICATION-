@@ -29,7 +29,7 @@ const AspirantDashboard = lazy(() => import("./components/leaders/dashboard/aspi
 const AdminPanel = lazy(() => import("./components/marketplace/admin/adminPanel"));
 const UsersAdmin = lazy(() => import("./components/adminPage/adminUsers"));
 const AdminDashboard = lazy(() => import("./components/adminPage/AdminDashboard"));
-const ProfilePage = lazy(() => import("./components/wallet/WalletPage"));
+const ProfilePage = lazy(() => import("./components/Wallet/WalletPage"));
 const LeadersPage = lazy(() => import("./components/leaders/leadersPage"));
 const LeaderListingPage = lazy(() => import("./components/leaders/LeaderListingPage"));
 const MarketplacePage = lazy(() => import("./components/marketplace/marketPage"));

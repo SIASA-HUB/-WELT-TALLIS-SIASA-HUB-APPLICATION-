@@ -17,7 +17,7 @@ import walletApi from "./apiConfig";
 import userApi from "./userApiConfig";
 
 // Components
-import Header from "./wallet";
+import Header from "./Wallet";
 
 const ProfileWrapper = styled.div`
   background: #000000;

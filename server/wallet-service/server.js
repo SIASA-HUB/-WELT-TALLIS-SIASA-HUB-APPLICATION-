@@ -148,7 +148,7 @@ app.use((err, req, res, next) => {
 // ============================================
 // START SERVER
 // ============================================
-const PORT = process.env.PORT || 8005;
+const PORT = process.env.PORT || 8008;
 const HOST = process.env.HOST || "0.0.0.0";
 
 const startServer = async () => {
