@@ -22,6 +22,7 @@ import {
 // API Configuration
 import api from "../../api/api";
 
+
 // Animations
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
