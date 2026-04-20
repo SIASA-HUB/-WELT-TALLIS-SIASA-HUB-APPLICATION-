@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8009/api/v1}
+        VITE_IMAGE_BASE_URL: ${VITE_IMAGE_BASE_URL:-http://localhost:8009}
         VITE_APP_ENV: ${VITE_APP_ENV:-production}
     container_name: siasa-hub-frontend
     restart: unless-stopped

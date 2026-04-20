@@ -3,15 +3,12 @@
  */
 
 // Detect environment
-const isProduction = process.env.NODE_ENV === 'production';
-// For development, use localhost
-const BASE_URL = isProduction 
-  ? '/api/v1'  // Relative path in production
-  : "http://localhost:8009/api/v1";
+const isProduction = import.meta.env.PROD;
 
-const IMAGE_BASE_URL = isProduction
-  ? ''  
-  : "http://localhost:8009";
+// For development/production, use environment variables if provided
+const BASE_URL = import.meta.env.VITE_API_URL || (isProduction ? '/api/v1' : 'http://localhost:8009/api/v1');
+
+const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || (isProduction ? '' : 'http://localhost:8009');
 
 const API = {
   // Base endpoints

@@ -8,8 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "analyze": "vite build --mode analyze",
-    "postbuild": "react-snap"
+    "analyze": "vite build --mode analyze"
   },
   "reactSnap": {
     "source": "dist",
