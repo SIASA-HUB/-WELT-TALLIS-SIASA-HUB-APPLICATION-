@@ -19,8 +19,6 @@ import {
   MapPin
 } from "lucide-react";
 
-
-
 // API Configuration
 import api from "../../api/api";
 
