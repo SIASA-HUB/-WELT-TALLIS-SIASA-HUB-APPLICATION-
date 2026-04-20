@@ -4,31 +4,55 @@
     <!-- Homepage -->
     <url>
         <loc>https://siasahub.co.ke/</loc>
-        <lastmod>2026-04-15T06:59:58+00:00</lastmod>
+        <lastmod>2026-04-20</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
 
-    <!-- Core Pages -->
+    <!-- Leaders & Aspirants -->
     <url>
         <loc>https://siasahub.co.ke/leaders</loc>
-        <lastmod>2026-04-17</lastmod>
+        <lastmod>2026-04-20</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.9</priority>
     </url>
 
-    <url>
-        <loc>https://siasahub.co.ke/profile</loc>
-        <lastmod>2026-04-17</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.8</priority>
-    </url>
-
+    <!-- Marketplace / Shop -->
     <url>
         <loc>https://siasahub.co.ke/marketplace</loc>
-        <lastmod>2026-04-17</lastmod>
+        <lastmod>2026-04-20</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.9</priority>
+    </url>
+
+    <!-- Authentication & Registration -->
+    <url>
+        <loc>https://siasahub.co.ke/login</loc>
+        <lastmod>2026-04-20</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://siasahub.co.ke/register</loc>
+        <lastmod>2026-04-20</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://siasahub.co.ke/register-aspirant</loc>
+        <lastmod>2026-04-20</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
+    <!-- Support & Profile -->
+    <url>
+        <loc>https://siasahub.co.ke/profile</loc>
+        <lastmod>2026-04-20</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
     </url>
 
 </urlset>

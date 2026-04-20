@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import TrendingManifestos from "./manifestos/TredingManifestos";
+import SEO from "../../utils/SEO";
 
 const LeaderCard = lazy(() => import("./leadersCard"));
 
@@ -563,35 +564,16 @@ const LeadersPage = () => {
 
   return (
     <PageWrapper>
-      <Helmet>
-        <title>{locationTitle}</title>
-        <meta name="description" content={locationDescription} />
+      <SEO
+        title={locationTitle}
+        description={locationDescription}
+        canonical={currentUrl}
+        jsonLd={jsonLd}
+      >
         <meta name="keywords" content={`2027 elections, Kenyan aspirants, ${urlCounty ? urlCounty + ' county' : ''} ${urlConstituency ? urlConstituency : ''} candidates, manifestos, SiasaHub`} />
-        <link rel="canonical" href={currentUrl} />
-
-        {/* Open Graph / Facebook */}
-        <meta property="og:title" content={locationTitle} />
-        <meta property="og:description" content={locationDescription} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="SiasaHub" />
-        <meta property="og:url" content={currentUrl} />
-        <meta property="og:image" content="https://siasahub.com/og-default.png" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={locationTitle} />
-        <meta name="twitter:description" content={locationDescription} />
-        <meta name="twitter:image" content="https://siasahub.com/og-default.png" />
-
-        {/* Additional SEO */}
         <meta name="robots" content="index, follow" />
         <meta name="author" content="SiasaHub" />
-
-        {/* JSON-LD Structured Data */}
-        <script type="application/ld+json">
-          {JSON.stringify(jsonLd)}
-        </script>
-      </Helmet>
+      </SEO>
 
       <LoadingWrapper>
         <LoadingBar ref={loadingBarRef} color="#000" height={2} />

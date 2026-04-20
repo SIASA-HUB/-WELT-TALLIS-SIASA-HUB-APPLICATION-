@@ -1,6 +1,7 @@
 import React, { Suspense, memo, lazy, useEffect, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import theme from "../../utils/theme";
+import SEO from "../../utils/SEO";
 
 // 1. LAZY LOAD TRENDING
 const TrendingSection = lazy(() => import("../treading/treading"));
@@ -189,6 +190,11 @@ const SiasaApp = () => {
 
   return (
     <ErrorBoundary>
+      <SEO 
+        title="Home"
+        description="SiasaHub is Kenya's leading digital campaign agency and political command center. Explore candidate manifestos, track election campaigns, and engage with voters for the 2027 General Election."
+        canonical="/"
+      />
       <HomePageWrapper>
         <MainContent>
           <Suspense fallback={<LoadingFallback />}>

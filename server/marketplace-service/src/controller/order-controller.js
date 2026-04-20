@@ -2,6 +2,9 @@
 
 const { safeQuery, safeQueryOne } = require("../configurations/db");
 const Logger = require("../utils/logger/logger");
+const { sendEmail } = require("../../../global/index").utils;
+
+const SITE_URL = process.env.SITE_URL || "https://siasahub.co.ke";
 
 const generateOrderNumber = () => {
   return "SH-ORD-" + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -69,8 +72,74 @@ const enrichOrders = async (orders) => {
   return enriched;
 };
 
-// ========== MAIN CONTROLLER FUNCTIONS ==========
+// Helper: send order confirmation email with leader suggestions
+const sendOrderConfirmationEmail = async (order) => {
+  try {
+    if (!order.customer_email) return;
 
+    // Fetch featured leaders for the email template
+    const featuredLeaders = await safeQuery(
+      `SELECT name, slug, position FROM leaders WHERE status = 'active' ORDER BY endorsement_count DESC LIMIT 3`
+    );
+
+    const leaderLinks = featuredLeaders.map(l =>
+      `<li style="margin-bottom: 10px;">
+        <a href="${SITE_URL}/leader/${l.slug}" style="color: #e11d48; text-decoration: none; font-weight: 600;">
+          ${l.name}
+        </a> - ${l.position || 'Aspirant'}
+      </li>`
+    ).join('');
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #f0f0f0; border-radius: 16px; color: #1a1a2e;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #e11d48; margin-bottom: 8px;">Order Confirmed!</h1>
+          <p style="font-size: 16px; color: #64748b;">Thank you for shopping with Siasa Hub.</p>
+        </div>
+
+        <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
+          <h3 style="margin-top: 0;">Order Summary</h3>
+          <p style="margin: 4px 0;">Order Number: <strong>${order.order_number}</strong></p>
+          <p style="margin: 4px 0;">Total Amount: <strong>KES ${Number(order.total_amount).toLocaleString()}</strong></p>
+          <p style="margin: 4px 0;">Delivery Address: ${order.address}</p>
+        </div>
+
+        <div style="border-top: 2px solid #f1f5f9; padding-top: 30px;">
+          <h3 style="color: #1e293b;">Be an Informed Citizen!</h3>
+          <p style="line-height: 1.6; color: #475569;">While we prepare your order, take a moment to explore the manifestos of these featured leaders and shape our future:</p>
+          
+          <ul style="list-style: none; padding: 0;">
+            ${leaderLinks}
+          </ul>
+
+          <div style="text-align: center; margin-top: 32px;">
+            <a href="${SITE_URL}/leaders" style="background: #e11d48; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 700; display: inline-block;">
+              Explore All Manifestos
+            </a>
+          </div>
+        </div>
+
+        <p style="margin-top: 40px; font-size: 13px; color: #94a3b8; text-align: center;">
+          If you have any questions, please reply to this email.<br>
+          © 2026 Siasa Hub Digital Campaign Agency.
+        </p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: order.customer_email,
+      subject: `Hooray! Order ${order.order_number} Received`,
+      text: `Hi ${order.customer_name}, thank you for your order! View your order at ${SITE_URL}/marketplace and explore manifestos at ${SITE_URL}/leaders`,
+      html
+    });
+
+    Logger.info(`Confirmation email sent to ${order.customer_email} for order ${order.order_number}`);
+  } catch (error) {
+    Logger.error("Failed to send order confirmation email:", error);
+  }
+};
+
+// ========== MAIN CONTROLLER FUNCTIONS ==========
 const placeOrder = async (req, res) => {
   try {
     const { userId, guestName, guestEmail, guestPhone, address, totalAmount, items } = req.body;
@@ -91,14 +160,27 @@ const placeOrder = async (req, res) => {
       ]
     );
 
+
+
+    //  Clear the user's cart after order is placed
+    if (userId) {
+      await safeQuery(`DELETE FROM cart WHERE user_id = ?`, [userId]);
+    }
+
     const newOrder = await safeQueryOne(`SELECT * FROM orders WHERE id = ?`, [result.insertId]);
     const enrichedOrder = await enrichOrder(newOrder);
+
+    // Send confirmation email (async)
+    sendOrderConfirmationEmail(enrichedOrder).catch(err => Logger.error("Email trigger error:", err));
+
     res.json({ success: true, message: "Order placed successfully", data: enrichedOrder });
   } catch (error) {
     Logger.error("Error placing order:", error);
     res.status(500).json({ success: false, message: "Error placing order: " + error.message });
   }
 };
+
+
 
 const getOrderById = async (req, res) => {
   try {
@@ -250,6 +332,10 @@ const directOrder = async (req, res) => {
     );
     const newOrder = await safeQueryOne(`SELECT * FROM orders WHERE id = ?`, [result.insertId]);
     const enriched = await enrichOrder(newOrder);
+
+    // Send confirmation email (async)
+    sendOrderConfirmationEmail(enriched).catch(err => Logger.error("Email trigger error:", err));
+
     res.json({ success: true, message: 'Order placed successfully', data: enriched });
   } catch (error) {
     Logger.error('Direct order error:', error);

@@ -243,6 +243,7 @@ const TrendingSection = () => {
             <MemoizedTrendingManifestos
               limit={6}
               onEmpty={handleManifestosEmpty}
+              currentUser={memoizedCurrentUser}
             />
           </SectionWrapper>
         )}

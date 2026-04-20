@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import SEO from "../../../utils/SEO";
 import styled from "styled-components";
-import Button from "../components/Button";
 import { ShoppingCart, Share2, ArrowLeft } from "lucide-react";
 import { Spinner } from "react-bootstrap";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import api from "../../../api/api";
 import API from "../../../api/config";
 import { useAuth } from "@/components/hooks/useAuth";
+import { addToCart as addToCartApi } from "../components/api";
 
 const Container = styled.div`
   display: flex;
@@ -194,15 +195,16 @@ const ButtonWrapper = styled.div`
   }
 `;
 
+// FIXED: Changed to solid red background for better visibility
 const AddToCartBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 10px 20px;
-  background: white;
-  color: #e11d48;
-  border: 2px solid #e11d48;
+  background: #e11d48;
+  color: white;
+  border: none;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
@@ -211,10 +213,14 @@ const AddToCartBtn = styled.button`
   flex: 1;
   
   &:hover { 
-    background: #e11d48;
-    color: white;
+    background: #be123c;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
   
   svg {
@@ -333,7 +339,6 @@ const ErrorLink = styled(Link)`
   }
 `;
 
-// Simple star rating component
 const StarRating = ({ value }) => (
   <div style={{ display: "flex", color: "#fbbf24", gap: "3px" }}>
     {[...Array(5)].map((_, i) => (
@@ -351,24 +356,21 @@ const ProductDetails = () => {
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [buttonLoading, setButtonLoading] = useState(false);
 
-  // Fetch product — try /slug/:slug first, fall back to /:id for numeric IDs
   const fetchProduct = async () => {
     setLoading(true);
     try {
       let res;
       if (slug && isNaN(slug)) {
-        // Slug-based lookup
         res = await api.get(`/products/slug/${slug}`);
       } else {
-        // Numeric ID lookup (backwards compat)
         res = await api.get(`/products/${slug}`);
       }
 
       const productData = res?.data;
       if (productData) {
         setProduct(productData);
-        // Parse sizes if stored as JSON string
         const sizes = typeof productData.sizes === "string"
           ? productData.sizes.split(",").map(s => s.trim()).filter(Boolean)
           : (productData.sizes || []);
@@ -381,18 +383,72 @@ const ProductDetails = () => {
     }
   };
 
-  const addToCart = () => {
-    const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-    const existingIdx = guestCart.findIndex(item => item.product?.id === product?.id);
+  // Helper to check if user is logged in (from localStorage as fallback)
+  const checkAuth = () => {
+    const token = localStorage.getItem("access_token");
+    const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
+    const userId = userData?.user_id;
 
-    if (existingIdx > -1) {
-      guestCart[existingIdx].quantity += 1;
-    } else {
-      guestCart.push({ product, quantity: 1, selectedSize });
+    if (!isAuthenticated && !token && !userId) {
+      alert("You are not logged in. Please log in to continue.");
+      return false;
+    }
+    return true;
+  };
+
+  const addToCart = async () => {
+    if (!product) return;
+
+    // Check if user is logged in
+    if (!checkAuth()) return;
+
+    // Validate size selection
+    if (!selectedSize && product.sizes && product.sizes.length > 0) {
+      alert("Please select a size before adding to cart.");
+      return;
     }
 
-    localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-    navigate("/marketplace");
+    setButtonLoading(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      await addToCartApi(token, {
+        productId: product._id || product.id,
+        quantity: 1,
+        size: selectedSize,
+      });
+
+      // Show success message and redirect
+      alert("Item added to cart successfully!");
+      navigate("/marketplace");
+    } catch (err) {
+      console.error("Cart Add Error:", err);
+      alert(err.message || "Failed to add to cart. Please try again.");
+    } finally {
+      setButtonLoading(false);
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (!checkAuth()) return;
+
+    if (!selectedSize && product?.sizes && product.sizes.length > 0) {
+      alert("Please select a size before buying.");
+      return;
+    }
+
+    // Add to cart first, then go to checkout
+    addToCartApi(localStorage.getItem("access_token"), {
+      productId: product._id || product.id,
+      quantity: 1,
+      size: selectedSize,
+    })
+      .then(() => {
+        navigate("/checkout");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Failed to process. Please try again.");
+      });
   };
 
   const handleShare = () => {
@@ -409,7 +465,6 @@ const ProductDetails = () => {
     if (slug) fetchProduct();
   }, [slug]);
 
-  // SEO values
   const APP_URL = "https://siasahub.co.ke";
   const productUrl = `${APP_URL}/product/${product?.slug || slug}`;
   const productImage = product?.image
@@ -421,34 +476,41 @@ const ProductDetails = () => {
 
   const parsedSizes = product
     ? (typeof product.sizes === "string"
-        ? product.sizes.split(",").map(s => s.trim()).filter(Boolean)
-        : (product.sizes || []))
+      ? product.sizes.split(",").map(s => s.trim()).filter(Boolean)
+      : (product.sizes || []))
     : ["S", "M", "L", "XL"];
 
   return (
     <Container>
-      {/* Dynamic SEO meta tags */}
-      <Helmet>
-        <title>{product ? `${product.name} — KSH ${Number(price).toLocaleString()} | Siasahub Store` : "Product | Siasahub Store"}</title>
-        <meta name="description" content={product?.description || `Buy ${product?.name} at the best price on Siasahub Store.`} />
-        <link rel="canonical" href={productUrl} />
-
-        {/* Open Graph - WhatsApp, Facebook */}
-        <meta property="og:type" content="product" />
-        <meta property="og:title" content={product ? `${product.name} — KSH ${Number(price).toLocaleString()}` : "Siasahub Store"} />
-        <meta property="og:description" content={product?.description || `Buy ${product?.name} on Siasahub Campaign Store`} />
-        <meta property="og:image" content={productImage} />
-        <meta property="og:url" content={productUrl} />
-        <meta property="og:site_name" content="Siasahub" />
+      <SEO
+        title={product ? `${product.name} — KSH ${Number(price).toLocaleString()} | Campaign Shop` : "Marketplace"}
+        description={product?.description || `Buy ${product?.name} at the best price on Siasahub Store.`}
+        canonical={productUrl}
+        ogImage={productImage}
+        ogType="product"
+        jsonLd={product ? {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": product.name,
+          "image": productImage,
+          "description": product.description,
+          "sku": product.slug || product.id,
+          "offers": {
+            "@type": "Offer",
+            "url": productUrl,
+            "priceCurrency": "KES",
+            "price": price,
+            "availability": "https://schema.org/InStock"
+          },
+          "brand": {
+            "@type": "Brand",
+            "name": "SiasaHub"
+          }
+        } : null}
+      >
         <meta property="product:price:amount" content={price} />
         <meta property="product:price:currency" content="KES" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={product?.name || "Siasahub Store"} />
-        <meta name="twitter:description" content={product?.description || "Campaign merchandise store"} />
-        <meta name="twitter:image" content={productImage} />
-      </Helmet>
+      </SEO>
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
@@ -474,13 +536,11 @@ const ProductDetails = () => {
           </ImageWrapper>
 
           <Details>
-            {/* Back Button */}
             <BackButton to="/marketplace">
               <ArrowLeft size={14} />
               Back to Shop
             </BackButton>
 
-            {/* Breadcrumb for SEO */}
             <Breadcrumb>
               <a href="/">Home</a><span>/</span>
               <a href="/marketplace">Shop</a><span>/</span>
@@ -530,14 +590,11 @@ const ProductDetails = () => {
             )}
 
             <ButtonWrapper>
-              <AddToCartBtn onClick={addToCart}>
-                <ShoppingCart size={16} />
-                Add to Cart
+              <AddToCartBtn onClick={addToCart} disabled={buttonLoading}>
+                <ShoppingCart size={18} />
+                {buttonLoading ? "Adding..." : "Add to Cart"}
               </AddToCartBtn>
-              <BuyNowBtn onClick={() => {
-                localStorage.setItem("guest_cart", JSON.stringify([{ product, quantity: 1, selectedSize }]));
-                navigate("/marketplace");
-              }}>
+              <BuyNowBtn onClick={handleBuyNow}>
                 Buy Now
               </BuyNowBtn>
             </ButtonWrapper>

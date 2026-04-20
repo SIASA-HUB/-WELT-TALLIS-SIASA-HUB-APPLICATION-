@@ -8,6 +8,7 @@ import {
 import { Spinner, Form } from "react-bootstrap";
 import { getAllProducts } from "../components/api";
 import { useLocation } from "react-router-dom";
+import SEO from "../../../utils/SEO";
 
 const Container = styled.div`
   padding: 40px 30px;
@@ -222,6 +223,11 @@ const ShopListing = () => {
 
   return (
     <Container>
+      <SEO 
+        title="Campaign Shop"
+        description="Official SiasaHub campaign merchandise and promotional items. Buy branded t-shirts, half-coats, and caps to support your candidate for the 2027 General Election."
+        canonical="/marketplace/shop"
+      />
       <MainContent style={{ paddingRight: 0 }}>
         <ShopHeader>
           <Title>Shop Our Collection</Title>

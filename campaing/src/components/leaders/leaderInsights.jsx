@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { BookOpen, Info } from "lucide-react";
-import { Helmet } from "react-helmet-async";
+import SEO from "../../utils/SEO";
 import axios from "axios";
 import theme from "../../utils/theme.jsx";
 import AppLoadingBar from "../../utils/LoadingBar.jsx";
@@ -183,7 +183,7 @@ const BioText = styled.p`
 const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
   const { id: urlId, slug: urlSlug } = useParams();
   const navigate = useNavigate();
-  
+
   // Store the actual leader_id from the API response
   const [actualLeaderId, setActualLeaderId] = useState(null);
   const activeSlug = urlSlug;
@@ -213,7 +213,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
           endpoint = `/leaders/${identifier}`;
         }
 
-        
+
         const responseData = await api.get(endpoint);
 
         if (responseData?.success) {
@@ -221,7 +221,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
 
           setLeader(leaderData);
           setActualLeaderId(leaderData.leader_id);
-          
+
         } else {
           setError("Leader not found");
         }
@@ -297,23 +297,34 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
     ? `https://siasahub.co.ke/aspirants/${leader.slug}`
     : `https://siasahub.co.ke/leaders/${actualLeaderId || ''}`;
 
+  const jsonLd = leader ? {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": leader.name,
+    "jobTitle": leader.position_running_for || leader.position || "Candidate",
+    "affiliation": {
+      "@type": "Organization",
+      "name": leader.party || "Independent"
+    },
+    "description": leader.bio || seoDescription,
+    "image": seoImage,
+    "url": seoUrl,
+    "workLocation": {
+      "@type": "Place",
+      "name": `${leader.ward ? leader.ward + ', ' : ''}${leader.constituency ? leader.constituency + ', ' : ''}${leader.county || 'Kenya'}`
+    }
+  } : null;
+
   return (
     <PageContainer>
-      <Helmet>
-        <title>{seoTitle}</title>
-        <meta name="description" content={seoDescription} />
-        <link rel="canonical" href={seoUrl} />
-        <meta property="og:title" content={seoTitle} />
-        <meta property="og:description" content={seoDescription} />
-        <meta property="og:image" content={seoImage} />
-        <meta property="og:url" content={seoUrl} />
-        <meta property="og:type" content="profile" />
-        <meta property="og:site_name" content="Siasahub" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={seoTitle} />
-        <meta name="twitter:description" content={seoDescription} />
-        <meta name="twitter:image" content={seoImage} />
-      </Helmet>
+      <SEO
+        title={leader ? `${leader.name} Profile` : "Aspirant Profile"}
+        description={seoDescription}
+        canonical={seoUrl}
+        ogImage={seoImage}
+        ogType="profile"
+        jsonLd={jsonLd}
+      />
 
       <LoadingWrapper>
         <AppLoadingBar
@@ -377,7 +388,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
         </Suspense>
       </ContentContainer>
 
-  
+
       {leader && <LeaderFooter leader={leader} />}
     </PageContainer>
   );

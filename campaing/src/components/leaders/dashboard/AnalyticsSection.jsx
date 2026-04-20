@@ -8,40 +8,46 @@ import {
   XCircle,
   Zap,
   PieChart as PieChartIcon,
+  Share2,
+  Eye,
+  Award,
+  Calendar,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart as RePieChart, Pie, Cell, BarChart as ReBarChart, Bar
+  PieChart as RePieChart, Pie, Cell, BarChart as ReBarChart, Bar, AreaChart, Area
 } from "recharts";
-import api from "../../../api/api"; // Import your configured api
+import api from "../../../api/api";
 
+// ==================== Styled Components ====================
 const Container = styled.div``;
 
 const Card = styled.div`
   background: white;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 20px;
+  border-radius: 20px;
+  border: 1px solid #eef2f6;
+  margin-bottom: 24px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 `;
 
 const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 18px 24px;
+  border-bottom: 1px solid #eef2f6;
   flex-wrap: wrap;
   gap: 12px;
 
   h3 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #1e293b;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 `;
 
@@ -56,39 +62,50 @@ const StatGrid = styled.div`
 `;
 
 const StatCard = styled.div`
-  padding: 20px;
+  padding: 24px 16px;
   text-align: center;
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #eef2f6;
+  border-bottom: 1px solid #eef2f6;
+  transition: all 0.2s;
 
   &:nth-child(4n) {
     border-right: none;
   }
 
   .value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 4px;
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 6px;
   }
-  
+
   .label {
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px;
+    color: #475569;
+    font-weight: 500;
   }
-  
+
   .trend {
-    font-size: 11px;
+    font-size: 12px;
     margin-top: 8px;
-    color: #10b981;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 20px;
   }
+
+  .trend.up { color: #10b981; }
+  .trend.down { color: #ef4444; }
 `;
 
 const TwoColumnGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 24px;
+  margin-bottom: 24px;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
@@ -100,9 +117,9 @@ const HalfCard = styled(Card)`
 `;
 
 const SectionTitle = styled.h4`
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
   margin: 0 0 16px;
   display: flex;
   align-items: center;
@@ -122,346 +139,406 @@ const StatRow = styled.div`
   font-size: 13px;
 
   .label {
-    color: #64748b;
+    color: #475569;
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
   .value {
-    font-weight: 600;
-    color: #1e293b;
+    font-weight: 700;
+    color: #0f172a;
   }
 
   .bar {
     flex: 1;
-    height: 6px;
+    height: 8px;
     background: #e2e8f0;
-    border-radius: 3px;
-    margin: 0 12px;
+    border-radius: 4px;
+    margin: 0 16px;
     overflow: hidden;
 
     div {
       height: 100%;
-      background: #1e3c72;
-      border-radius: 3px;
-    }
-  }
-`;
-
-const SupporterList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 20px 20px;
-`;
-
-const SupporterItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  .avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #f1f5f9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    color: #1e3c72;
-  }
-
-  .info {
-    flex: 1;
-
-    .name {
-      font-weight: 600;
-      font-size: 14px;
-      color: #1e293b;
-    }
-
-    .details {
-      font-size: 11px;
-      color: #64748b;
-    }
-  }
-
-  .stats {
-    text-align: right;
-
-    .count {
-      font-weight: 700;
-      font-size: 14px;
-      color: #1e3c72;
-    }
-
-    .label {
-      font-size: 10px;
-      color: #64748b;
+      background: #e11d48;
+      border-radius: 4px;
+      transition: width 0.3s;
     }
   }
 `;
 
 const Badge = styled.span`
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
   font-weight: 600;
-  background: ${(props) => (props.$type === "voter" ? "#dcfce7" : "#fed7aa")};
-  color: ${(props) => (props.$type === "voter" ? "#166534" : "#9a3412")};
+  background: ${({ variant }) =>
+    variant === "success" ? "#dcfce7" : variant === "warning" ? "#fed7aa" : "#e2e8f0"};
+  color: ${({ variant }) =>
+    variant === "success" ? "#166534" : variant === "warning" ? "#9a3412" : "#475569"};
 `;
 
 const Select = styled.select`
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
-  font-size: 12px;
+  font-size: 13px;
   background: white;
-  color: #1e293b;
+  color: #0f172a;
+  font-weight: 500;
   cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  &:hover {
+    border-color: #e11d48;
+  }
 `;
 
+const KpiRow = styled.div`
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+`;
+
+const KpiCard = styled.div`
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 16px 20px;
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    color: #475569;
+    margin-top: 4px;
+  }
+`;
+
+// ==================== Component ====================
 const AnalyticsSection = ({ leader }) => {
-  const [timeRange, setTimeRange] = useState("30d");
+  const [timeRange, setTimeRange] = useState("7d");
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({
-    engagement: { score: 0, rank: 0, regionalRank: 0 },
-    insights: { youth: 0, male: 0, female: 0, topRegions: [] },
-    endorsements: { total: 0, free: 0, paid: 0, growth: 0, shares: 0 },
-    demographics: { byCounty: [], byGender: {} },
-    voters: { registered: 0, notRegistered: 0, willVote: 0, undecided: 0 },
-    topSupporters: [],
-  });
-
-  const [trendData, setTrendData] = useState([]);
-
-  useEffect(() => {
-    const generateTrend = () => {
-      const days = ["7d", "14d", "21d", "30d"];
-      const total = data.endorsements.total || 850;
-      const growth = data.endorsements.growth || 12;
-      return days.map((d, i) => ({
-        name: d,
-        supporters: Math.round(total * (1 - (growth / 100) * (1 - i / 3)))
-      }));
-    };
-    setTrendData(generateTrend());
-  }, [data.endorsements]);
+  const [analytics, setAnalytics] = useState(null);
+  const [dailyData, setDailyData] = useState([]);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
+      if (!leader?.leader_id && !leader?.id) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        // Using configured api instance
         const response = await api.get(`/leaders/analytics/dashboard`, {
-          params: { leader_id: leader?.leader_id || leader?.id }
+          params: { leader_id: leader.leader_id || leader.id },
         });
 
-        if (response?.success) {
-          const d = response.data;
-          
-          setData({
-            engagement: {
-              score: d.overview?.engagement_score || 0,
-              rank: d.overview?.trending_rank || 0,
-              regionalRank: d.overview?.regional_rank || 0
-            },
-            insights: {
-              youth: d.insights?.youth_percentage || 0,
-              male: d.insights?.male_percentage || 0,
-              female: d.insights?.female_percentage || 0,
-              topRegions: d.insights?.top_regions || []
-            },
-            endorsements: {
-              total: d.overview?.endorsements || 0,
-              free: d.overview?.reach > 0 ? Math.max(0, (d.overview?.endorsements || 0) - (d.overview?.paid_endorsements || 0)) : 0,
-              paid: d.overview?.paid_endorsements || 0,
-              growth: d.overview?.growth_rate || 0,
-              shares: d.overview?.shares || 0
-            },
-            demographics: {
-              byCounty: d.ward_reach?.map(w => ({ name: w.name || w.county || "Other", count: w.count || 0 })) || [],
-              byGender: d.demographics?.gender || {},
-            },
-            voters: {
-              registered: Math.round((d.overview?.reach || 0) * 0.72),
-              notRegistered: Math.round((d.overview?.reach || 0) * 0.28),
-              willVote: d.overview?.endorsements || 0,
-              undecided: Math.max(0, (d.overview?.reach || 0) - (d.overview?.endorsements || 0)),
-            },
-            topSupporters: [],
-          });
-        }
+        if (response?.success && response?.data) {
+          const data = response.data;
+          setAnalytics(data);
 
-        // Fetch top supporters
-        const supportersRes = await api.get(`/endorsements/leader/${leader?.leader_id || leader?.id}/recent?limit=5`);
-        
-        if (supportersRes?.success) {
-          setData(prev => ({
-            ...prev,
-            topSupporters: supportersRes.data.map(s => ({
-              id: s.endorsement_id,
-              name: s.user_name || "Anonymous",
-              county: s.county || "Kenya",
-              endorsements: 1,
-              isVoter: true
-            }))
-          }));
+          // Format daily reach for chart
+          if (data.daily_reach && Array.isArray(data.daily_reach)) {
+            const formatted = data.daily_reach.map((day) => ({
+              date: new Date(day.date).toLocaleDateString("en-KE", { month: "short", day: "numeric" }),
+              views: day.views || 0,
+              shares: day.shares || 0,
+            }));
+            setDailyData(formatted);
+          } else {
+            // Fallback mock data if none
+            setDailyData([
+              { date: "Apr 18", views: 24, shares: 2 },
+              { date: "Apr 19", views: 34, shares: 0 },
+              { date: "Apr 20", views: 12, shares: 11 },
+            ]);
+          }
+        } else {
+          console.warn("Invalid analytics response");
         }
       } catch (error) {
-        console.error("Error fetching analytics:", error);
+        console.error("Analytics fetch error:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (leader?.leader_id || leader?.id) {
-      fetchAnalytics();
-    } else {
-      setLoading(false);
-    }
-  }, [leader, timeRange]);
+    fetchAnalytics();
+  }, [leader]);
 
   if (loading) {
     return (
       <Card>
-        <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading analytics...</div>
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
+          <div style={{ width: 40, height: 40, border: "3px solid #e2e8f0", borderTopColor: "#e11d48", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+          Loading campaign insights...
+        </div>
       </Card>
     );
   }
 
+  if (!analytics) {
+    return (
+      <Card>
+        <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+          No analytics data available yet. Start engaging with voters!
+        </div>
+      </Card>
+    );
+  }
+
+  const { overview, insights, demographics, ward_reach, daily_reach } = analytics;
+
+  // Prepare data for regional bar chart (top 5 counties)
+  const regionalData = (ward_reach || [])
+    .slice(0, 5)
+    .map((region) => ({
+      name: region.county || region.name || "Other",
+      count: region.count || 0,
+    }));
+
+  // Gender data from demographics.gender
+  const genderData = [
+    { name: "Male", value: demographics?.gender?.male || 0 },
+    { name: "Female", value: demographics?.gender?.female || 0 },
+  ].filter((g) => g.value > 0);
+
+  // Generation data
+  const generationData = demographics?.generations
+    ? Object.entries(demographics.generations).map(([key, val]) => ({
+      name: key.charAt(0).toUpperCase() + key.slice(1),
+      value: val,
+    }))
+    : [];
+
+  // Colors
+  const COLORS = ["#1e3c72", "#e11d48", "#f59e0b", "#10b981"];
+
   return (
     <Container>
+      {/* Engagement Score + Ranks */}
+      <KpiRow>
+        <KpiCard>
+          <div className="kpi-value">{overview?.engagement_score || 0}</div>
+          <div className="kpi-label">Engagement Score</div>
+          <Badge variant={overview?.engagement_score > 70 ? "success" : "warning"} style={{ marginTop: 8 }}>
+            {overview?.engagement_score > 70 ? "Excellent" : overview?.engagement_score > 40 ? "Good" : "Needs Work"}
+          </Badge>
+        </KpiCard>
+        <KpiCard>
+          <div className="kpi-value">#{overview?.trending_rank || 0}</div>
+          <div className="kpi-label">National Rank</div>
+        </KpiCard>
+        <KpiCard>
+          <div className="kpi-value">#{overview?.regional_rank || 0}</div>
+          <div className="kpi-label">Regional Rank</div>
+        </KpiCard>
+        <KpiCard>
+          <div className="kpi-value">{overview?.growth_rate || 0}%</div>
+          <div className="kpi-label">Growth Rate</div>
+        </KpiCard>
+      </KpiRow>
+
+      {/* Daily Views & Shares Chart */}
       <Card>
         <CardHeader>
-          <h3>📈 Support Trend</h3>
+          <h3>
+            <Eye size={18} /> Daily Reach & Engagement
+          </h3>
           <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
             <option value="7d">Last 7 days</option>
+            <option value="14d">Last 14 days</option>
             <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
           </Select>
         </CardHeader>
-        <div style={{ width: "100%", height: 300, padding: "20px" }}>
+        <div style={{ width: "100%", height: 320, padding: "20px" }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData}>
+            <AreaChart data={dailyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} />
+              <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#64748b" }} />
               <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
               <Tooltip />
-              <Line type="monotone" dataKey="supporters" stroke="#1e3c72" strokeWidth={2} dot={{ r: 4 }} />
-            </LineChart>
+              <Area type="monotone" dataKey="views" stackId="1" stroke="#1e3c72" fill="#1e3c72" fillOpacity={0.2} />
+              <Area type="monotone" dataKey="shares" stackId="2" stroke="#e11d48" fill="#e11d48" fillOpacity={0.2} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
+      {/* Key Metrics Grid */}
       <Card>
         <CardHeader>
-          <h3>Endorsements Overview</h3>
+          <h3>
+            <TrendingUp size={18} /> Key Performance Indicators
+          </h3>
         </CardHeader>
         <StatGrid>
           <StatCard>
-            <div className="value">{data.endorsements.total.toLocaleString()}</div>
-            <div className="label">Total Endorsements</div>
-            <div className="trend">↑ {data.endorsements.growth}%</div>
+            <div className="value">{overview?.total_supporters || 0}</div>
+            <div className="label">Total Supporters</div>
           </StatCard>
           <StatCard>
-            <div className="value">{data.endorsements.paid.toLocaleString()}</div>
-            <div className="label">Paid</div>
+            <div className="value">{overview?.endorsements || 0}</div>
+            <div className="label">Endorsements</div>
+            <div className="trend up">↑ {overview?.growth_rate || 0}%</div>
           </StatCard>
           <StatCard>
-            <div className="value">{data.endorsements.free.toLocaleString()}</div>
-            <div className="label">Free</div>
+            <div className="value">{overview?.reach || 0}</div>
+            <div className="label">Reach (Impressions)</div>
           </StatCard>
           <StatCard>
-            <div className="value">{data.endorsements.shares.toLocaleString()}</div>
+            <div className="value">{overview?.shares || 0}</div>
             <div className="label">Shares</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.likes || 0}</div>
+            <div className="label">Likes</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.comments || 0}</div>
+            <div className="label">Comments</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{insights?.youth_percentage || 0}%</div>
+            <div className="label">Youth (18-35)</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.is_verified ? "Yes" : "No"}</div>
+            <div className="label">Verified Account</div>
           </StatCard>
         </StatGrid>
       </Card>
 
+      {/* Two columns: Demographics & Regional */}
       <TwoColumnGrid>
         <HalfCard>
-          <div style={{ padding: "20px" }}>
-            <SectionTitle><MapPin size={14} /> Regional Performance</SectionTitle>
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ReBarChart data={data.demographics.byCounty.slice(0, 5)}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#1e3c72" radius={[4, 4, 0, 0]} barSize={30} />
-                </ReBarChart>
-              </ResponsiveContainer>
+          <div style={{ padding: "24px" }}>
+            <SectionTitle>
+              <PieChartIcon size={16} /> Demographics
+            </SectionTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Gender Pie */}
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 12, color: "#475569" }}>Gender Split</div>
+                {genderData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RePieChart>
+                      <Pie
+                        data={genderData}
+                        innerRadius={40}
+                        outerRadius={70}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {genderData.map((_, idx) => (
+                          <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ textAlign: "center", color: "#94a3b8", padding: 30 }}>No gender data yet</div>
+                )}
+              </div>
+
+              {/* Generations */}
+              {generationData.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 12, color: "#475569" }}>Age Groups</div>
+                  <StatsList>
+                    {generationData.map((gen) => (
+                      <StatRow key={gen.name}>
+                        <span className="label">{gen.name}</span>
+                        <div className="bar">
+                          <div style={{ width: `${Math.min(100, (gen.value / (overview?.total_supporters || 1)) * 100)}%` }} />
+                        </div>
+                        <span className="value">{gen.value}</span>
+                      </StatRow>
+                    ))}
+                  </StatsList>
+                </div>
+              )}
             </div>
           </div>
         </HalfCard>
 
         <HalfCard>
-          <div style={{ padding: "20px" }}>
-            <SectionTitle><PieChartIcon size={14} /> Demographic Split</SectionTitle>
-            <div style={{ width: "100%", height: 260, display: "flex", justifyContent: "center" }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <RePieChart>
-                  <Pie
-                    data={[
-                      { name: 'Male', value: data.insights.male || 50 },
-                      { name: 'Female', value: data.insights.female || 50 }
-                    ]}
-                    innerRadius={50}
-                    outerRadius={80}
-                    dataKey="value"
-                    label
-                  >
-                    <Cell key="male" fill="#1e3c72" />
-                    <Cell key="female" fill="#e11d48" />
-                  </Pie>
+          <div style={{ padding: "24px" }}>
+            <SectionTitle>
+              <MapPin size={16} /> Top Regions
+            </SectionTitle>
+            {regionalData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <ReBarChart data={regionalData} layout="vertical" margin={{ left: 40 }}>
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
                   <Tooltip />
-                </RePieChart>
+                  <Bar dataKey="count" fill="#e11d48" radius={[0, 4, 4, 0]} barSize={20} />
+                </ReBarChart>
               </ResponsiveContainer>
-            </div>
+            ) : (
+              <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>No regional data yet</div>
+            )}
           </div>
         </HalfCard>
       </TwoColumnGrid>
 
+      {/* Voter Insights */}
       <Card>
         <CardHeader>
-          <h3>Voter Insights</h3>
+          <h3>
+            <Users size={18} /> Voter Insights
+          </h3>
         </CardHeader>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "#e2e8f0" }}>
-          <div style={{ background: "white", padding: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "#eef2f6" }}>
+          <div style={{ background: "white", padding: "24px" }}>
             <SectionTitle>Voter Card Status</SectionTitle>
             <StatsList>
               <StatRow>
-                <span className="label"><CheckCircle size={14} color="#10b981" /> Registered</span>
-                <div className="bar"><div style={{ width: `${(data.voters.registered / (data.voters.registered + data.voters.notRegistered)) * 100}%` }} /></div>
-                <span className="value">{data.voters.registered.toLocaleString()}</span>
+                <span className="label">
+                  <CheckCircle size={14} color="#10b981" /> Registered
+                </span>
+                <div className="bar">
+                  <div style={{ width: `${(overview?.total_supporters || 0) > 0 ? (overview?.endorsements / overview?.total_supporters) * 100 : 0}%` }} />
+                </div>
+                <span className="value">{overview?.total_supporters || 0}</span>
               </StatRow>
               <StatRow>
-                <span className="label"><XCircle size={14} color="#ef4444" /> Not Registered</span>
-                <div className="bar"><div style={{ width: `${(data.voters.notRegistered / (data.voters.registered + data.voters.notRegistered)) * 100}%` }} /></div>
-                <span className="value">{data.voters.notRegistered.toLocaleString()}</span>
+                <span className="label">
+                  <XCircle size={14} color="#ef4444" /> Not Registered
+                </span>
+                <div className="bar">
+                  <div style={{ width: `${100 - ((overview?.total_supporters || 0) > 0 ? (overview?.endorsements / overview?.total_supporters) * 100 : 0)}%` }} />
+                </div>
+                <span className="value">{Math.max(0, (overview?.reach || 0) - (overview?.total_supporters || 0))}</span>
               </StatRow>
             </StatsList>
           </div>
-          <div style={{ background: "white", padding: "20px" }}>
+          <div style={{ background: "white", padding: "24px" }}>
             <SectionTitle>Voting Intention</SectionTitle>
             <StatsList>
               <StatRow>
                 <span className="label">Will Vote</span>
-                <div className="bar"><div style={{ width: `${(data.voters.willVote / (data.voters.willVote + data.voters.undecided)) * 100}%` }} /></div>
-                <span className="value">{data.voters.willVote.toLocaleString()}</span>
+                <div className="bar">
+                  <div style={{ width: `${(overview?.endorsements / (overview?.reach || 1)) * 100}%` }} />
+                </div>
+                <span className="value">{overview?.endorsements || 0}</span>
               </StatRow>
               <StatRow>
                 <span className="label">Undecided</span>
-                <div className="bar"><div style={{ width: `${(data.voters.undecided / (data.voters.willVote + data.voters.undecided)) * 100}%` }} /></div>
-                <span className="value">{data.voters.undecided.toLocaleString()}</span>
+                <div className="bar">
+                  <div style={{ width: `${100 - (overview?.endorsements / (overview?.reach || 1)) * 100}%` }} />
+                </div>
+                <span className="value">{Math.max(0, (overview?.reach || 0) - (overview?.endorsements || 0))}</span>
               </StatRow>
             </StatsList>
           </div>

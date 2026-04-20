@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import TextInput from "../components/TextInput";
 import Button from "../components/Button";
-import { addToCart, deleteFromCart, getCart, placeOrder } from "../components/api";
+import { getCart, addToCart, updateCartItem, removeFromCart, placeOrder } from "../components/api"; // adjust path as needed
 import { useNavigate } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
-import { Trash2, ShoppingCart, ArrowLeft, Minus, Plus, Truck, CreditCard, MapPin, Phone, Mail } from "lucide-react";
+import { Trash2, ShoppingCart, ArrowLeft, Minus, Plus, Truck, CreditCard, MapPin } from "lucide-react";
 import { useAuth } from "@/components/hooks/useAuth";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
+// ======================== STYLED COMPONENTS ========================
 const Container = styled.div`
   padding: 40px 30px;
   min-height: 100vh;
@@ -50,8 +53,7 @@ const BackButton = styled.button`
   cursor: pointer;
   transition: all 0.2s;
   width: fit-content;
-  
-  &:hover { 
+  &:hover {
     background: #f8fafc;
     color: #e11d48;
     transform: translateX(-2px);
@@ -170,7 +172,6 @@ const CounterBtn = styled.div`
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  
   &:hover {
     color: #e11d48;
   }
@@ -269,7 +270,6 @@ const DeleteIcon = styled(Trash2)`
   transition: all 0.2s;
   width: 18px;
   height: 18px;
-  
   &:hover {
     color: #e11d48;
     transform: scale(1.1);
@@ -290,22 +290,15 @@ const InputLabel = styled.label`
   letter-spacing: 0.5px;
 `;
 
+// ======================== COMPONENT ========================
 const Cart = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(false);
-  const [products, setProducts] = useState([]);
+  const [cartItems, setCartItems] = useState([]);
   const [buttonLoad, setButtonLoad] = useState(false);
-
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
-    return null;
-  }
-
-  const isSessionValid = isAuthenticated || !!getCookie("user_info");
+  const [summary, setSummary] = useState({ subtotal: 0, shipping: 0, total: 0 });
 
   const [deliveryDetails, setDeliveryDetails] = useState({
     firstName: "",
@@ -315,174 +308,187 @@ const Cart = () => {
     completeAddress: "",
   });
 
-  const getProducts = async () => {
-    if (!isAuthenticated) {
-      const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      setProducts(guestCart);
-      return;
+  // Pre-fill from user data when available
+  useEffect(() => {
+    if (user) {
+      setDeliveryDetails({
+        firstName: user?.real_name?.split(" ")[0] || "",
+        lastName: user?.real_name?.split(" ")[1] || "",
+        emailAddress: user?.email || "",
+        phoneNumber: user?.phone || "",
+        completeAddress: user?.address || "",
+      });
     }
+  }, [user]);
+
+  // Fetch cart – no token needed, api interceptor adds it
+  const fetchCart = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await getCart(token);
-      const cartItems = res.data.data || [];
-      const formattedData = cartItems.map(item => ({
-        product: item.product,
-        quantity: item.quantity,
-        _id: item._id
-      }));
-      setProducts(formattedData);
+      const response = await getCart();
+      // The response is already the data from your API: { success, data, summary }
+      // (assuming the api instance unwraps axios.data)
+      if (response?.success === true && Array.isArray(response.data)) {
+        setCartItems(response.data);
+        setSummary(response.summary || { subtotal: 0, shipping: 0, total: 0 });
+      } else if (Array.isArray(response)) {
+        // fallback if response is directly the array
+        setCartItems(response);
+      } else {
+        console.warn("Unexpected cart response:", response);
+        setCartItems([]);
+      }
     } catch (error) {
       console.error("Error fetching cart:", error);
+      toast.error("Could not load cart. Please try again.");
+      setCartItems([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const addCart = async (product) => {
-    if (!isAuthenticated) {
-      const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
-      if (existingItemIndex > -1) {
-        guestCart[existingItemIndex].quantity += 1;
+  const addItem = async (item) => {
+    try {
+      await addToCart(null, { productId: item.product_id, quantity: 1 });
+      toast.success("Item quantity increased");
+      setReload(!reload);
+    } catch (err) {
+      toast.error(err.message || "Failed to add item");
+    }
+  };
+
+  const updateItem = async (item, newQuantity, type = "update") => {
+    if (newQuantity <= 0) type = "full";
+    try {
+      if (type === "full" || newQuantity <= 0) {
+        await removeFromCart(null, item.id);
+        toast.success("Item removed");
       } else {
-        guestCart.push({ product, quantity: 1 });
+        await updateCartItem(null, item.id, newQuantity);
+        toast.success("Quantity updated");
       }
-      localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-      setReload(!reload);
-      return;
-    }
-
-    const token = localStorage.getItem("access_token");
-    try {
-      await addToCart(token, { productId: product._id, quantity: 1 });
       setReload(!reload);
     } catch (err) {
-      alert(err.message || "Failed to add to cart");
+      toast.error(err.message || "Failed to update cart");
     }
   };
 
-  const removeCart = async (product, quantity, type) => {
-    if (!isAuthenticated) {
-      let guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      const existingItemIndex = guestCart.findIndex(item => item.product._id === product._id);
-
-      if (existingItemIndex > -1) {
-        if (type === "full" || quantity <= 0) {
-          guestCart = guestCart.filter(item => item.product._id !== product._id);
-        } else {
-          guestCart[existingItemIndex].quantity = quantity;
-        }
-      }
-      localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-      setReload(!reload);
-      return;
-    }
-
-    const token = localStorage.getItem("access_token");
-    let qnt = quantity > 0 ? 1 : null;
-    if (type === "full") qnt = null;
-    try {
-      await deleteFromCart(token, {
-        productId: product._id,
-        quantity: qnt,
-      });
-      setReload(!reload);
-    } catch (err) {
-      alert(err.message || "Failed to remove from cart");
-    }
-  };
-
-  const getPrice = (product) => {
-    if (!product) return 0;
-    if (product.price && typeof product.price === 'object') {
-      return parseFloat(product.price.org) || parseFloat(product.price.mrp) || 0;
-    }
-    return parseFloat(product.price) || 0;
-  };
+  const getPrice = (item) => parseFloat(item.price) || 0;
 
   const calculateSubtotal = () => {
-    return products.reduce((total, item) => {
-      const price = getPrice(item?.product);
-      const qty = parseInt(item.quantity || 0);
-      return total + (price * qty);
-    }, 0);
+    return cartItems.reduce((total, item) => total + (getPrice(item) * (item.quantity || 0)), 0);
   };
 
   useEffect(() => {
-    getProducts();
-  }, [reload, isAuthenticated]);
+    fetchCart();
+  }, [reload]);
 
-  const PlaceOrder = async () => {
+
+
+
+  const placeOrderHandler = async () => {
+    if (
+      !deliveryDetails.firstName ||
+      !deliveryDetails.lastName ||
+      !deliveryDetails.completeAddress ||
+      !deliveryDetails.phoneNumber ||
+      !deliveryDetails.emailAddress
+    ) {
+      toast.error("Please fill in all delivery details");
+      return;
+    }
+
     setButtonLoad(true);
     try {
-      const isDeliveryDetailsFilled =
-        deliveryDetails.firstName &&
-        deliveryDetails.lastName &&
-        deliveryDetails.completeAddress &&
-        deliveryDetails.phoneNumber &&
-        deliveryDetails.emailAddress;
-
-      if (!isDeliveryDetailsFilled) {
-        alert("Please fill in all required delivery details.");
-        setButtonLoad(false);
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please log in to place order");
         return;
       }
 
-      const token = localStorage.getItem("access_token");
-      const totalAmount = calculateSubtotal().toFixed(2);
+      // ✅ Get userId from multiple sources
+      const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
+      const userId = user?.user_id || user?.id || userData?.user_id || null;
+
+      console.log("User from auth:", user);
+      console.log("User from localStorage:", userData);
+      console.log("Final userId being sent:", userId);
+
+      const totalAmount = summary.total || calculateSubtotal();
 
       const orderDetails = {
-        userId: user?._id || null,
+        userId: userId,  // Now correctly includes USR-cb90a8db-afc9
         guestName: `${deliveryDetails.firstName} ${deliveryDetails.lastName}`,
         guestEmail: deliveryDetails.emailAddress,
         guestPhone: deliveryDetails.phoneNumber,
         address: deliveryDetails.completeAddress,
         totalAmount,
-        payment_method: 'cod',
-        items: products.map(p => ({
-          productId: p.product._id || p.product.id,
-          name: p.product.title || p.product.name,
-          quantity: p.quantity,
-          price: getPrice(p.product)
+        payment_method: "cod",
+        items: cartItems.map((item) => ({
+          productId: item.product_id,
+          name: item.name,
+          quantity: item.quantity,
+          price: getPrice(item),
         })),
       };
 
+      console.log("Placing order with details:", orderDetails);
       await placeOrder(token, orderDetails);
-      alert("Order placed successfully!");
-      localStorage.removeItem("guest_cart");
+      toast.success("Order placed successfully!");
+      setCartItems([]);
       setReload(!reload);
       navigate("/marketplace");
     } catch (error) {
       console.error("Order error:", error);
-      alert("Failed to place order. Please try again.");
+      toast.error(error.response?.data?.message || "Failed to place order. Please try again.");
     } finally {
       setButtonLoad(false);
     }
   };
 
+
   const clearCart = () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
-      if (!isAuthenticated) {
-        localStorage.removeItem("guest_cart");
-        setReload(!reload);
-      } else {
-        products.forEach(item => {
-          removeCart(item.product, 0, "full");
-        });
-      }
+      cartItems.forEach((item) => updateItem(item, 0, "full"));
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <Container>
+        <ToastContainer position="top-right" autoClose={3000} />
+        <EmptyCart>
+          <ShoppingCart size={64} color="#cbd5e1" />
+          <EmptyTitle>Please log in</EmptyTitle>
+          <EmptyText>You need to be logged in to view your cart.</EmptyText>
+          <Button
+            text="Go to Login"
+            onClick={() => navigate("/login")}
+            style={{ background: "#e11d48", border: "none" }}
+          />
+        </EmptyCart>
+      </Container>
+    );
+  }
+
   return (
     <Container>
+      <ToastContainer position="top-right" autoClose={3000} />
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
           <Spinner animation="border" style={{ color: "#e11d48", width: "40px", height: "40px" }} />
         </div>
       ) : (
         <Section>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
             <Title>
               <ShoppingCart size={28} /> Shopping Cart
             </Title>
@@ -492,23 +498,47 @@ const Cart = () => {
             </BackButton>
           </div>
 
-          {products.length === 0 ? (
+          {cartItems.length === 0 ? (
             <EmptyCart>
               <ShoppingCart size={64} color="#cbd5e1" />
               <EmptyTitle>Your cart is empty</EmptyTitle>
-              <EmptyText>Looks like you haven't added any items to your cart yet.</EmptyText>
-              <Button text="Browse Products" onClick={() => navigate("/marketplace")} style={{ background: "#e11d48", border: "none", padding: "10px 24px" }} />
+              <EmptyText>
+                Looks like you haven't added any items to your cart yet.
+              </EmptyText>
+              <Button
+                text="Browse Products"
+                onClick={() => navigate("/marketplace")}
+                style={{ background: "#e11d48", border: "none", padding: "10px 24px" }}
+              />
             </EmptyCart>
           ) : (
             <Wrapper>
               <Left>
                 <Card>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "16px",
+                    }}
+                  >
                     <SectionTitle>
                       <ShoppingCart size={16} />
-                      Cart Items ({products.reduce((acc, i) => acc + i.quantity, 0)})
+                      Cart Items (
+                      {cartItems.reduce((acc, i) => acc + (i.quantity || 0), 0)})
                     </SectionTitle>
-                    <button onClick={clearCart} style={{ background: "none", border: "none", color: "#e11d48", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}>
+                    <button
+                      onClick={clearCart}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#e11d48",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                      }}
+                    >
                       Clear Cart
                     </button>
                   </div>
@@ -521,36 +551,44 @@ const Cart = () => {
                     <div></div>
                   </ItemHeader>
 
-                  {products?.map((item) => (
-                    <CartItemRow key={item?.product?._id}>
+                  {cartItems.map((item) => (
+                    <CartItemRow key={item.id}>
                       <ProductInfo>
-                        <ProductImage src={item?.product?.img || item?.product?.image || "https://via.placeholder.com/80"} />
+                        <ProductImage
+                          src={item.image || "https://via.placeholder.com/80"}
+                          alt={item.name}
+                        />
                         <ProductDetails>
-                          <ProductTitle>{item?.product?.title || item?.product?.name}</ProductTitle>
-                          <ProductSub>{item?.product?.category || "Premium Collection"}</ProductSub>
+                          <ProductTitle>{item.name}</ProductTitle>
+                          <ProductSub>{item.category || "Premium Collection"}</ProductSub>
                         </ProductDetails>
                       </ProductInfo>
 
-                      <Price>KES {getPrice(item?.product).toLocaleString()}</Price>
+                      <Price>KES {getPrice(item).toLocaleString()}</Price>
 
                       <Counter>
-                        <CounterBtn onClick={() => removeCart(item?.product, item?.quantity - 1)}>
+                        <CounterBtn
+                          onClick={() => updateItem(item, (item.quantity || 0) - 1)}
+                        >
                           <Minus size={14} />
                         </CounterBtn>
-                        <span style={{ minWidth: "24px", textAlign: "center" }}>{item?.quantity}</span>
-                        <CounterBtn onClick={() => addCart(item?.product)}>
+                        <span style={{ minWidth: "24px", textAlign: "center" }}>
+                          {item.quantity || 0}
+                        </span>
+                        <CounterBtn onClick={() => addItem(item)}>
                           <Plus size={14} />
                         </CounterBtn>
                       </Counter>
 
-                      <Price>KES {(item.quantity * getPrice(item?.product)).toLocaleString()}</Price>
+                      <Price>
+                        KES {((item.quantity || 0) * getPrice(item)).toLocaleString()}
+                      </Price>
 
-                      <DeleteIcon onClick={() => removeCart(item?.product, 0, "full")} />
+                      <DeleteIcon onClick={() => updateItem(item, 0, "full")} />
                     </CartItemRow>
                   ))}
                 </Card>
 
-                {/* Delivery Information - Single Clean Card */}
                 <Card>
                   <SectionTitle>
                     <MapPin size={16} />
@@ -564,7 +602,9 @@ const Cart = () => {
                         <TextInput
                           placeholder="Enter first name"
                           value={deliveryDetails.firstName}
-                          handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, firstName: e.target.value })}
+                          handelChange={(e) =>
+                            setDeliveryDetails({ ...deliveryDetails, firstName: e.target.value })
+                          }
                         />
                       </InputWrapper>
                       <InputWrapper>
@@ -572,7 +612,9 @@ const Cart = () => {
                         <TextInput
                           placeholder="Enter last name"
                           value={deliveryDetails.lastName}
-                          handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, lastName: e.target.value })}
+                          handelChange={(e) =>
+                            setDeliveryDetails({ ...deliveryDetails, lastName: e.target.value })
+                          }
                         />
                       </InputWrapper>
                     </FormRow>
@@ -581,7 +623,9 @@ const Cart = () => {
                       <InputLabel>Email Address</InputLabel>
                       <TextInput
                         value={deliveryDetails.emailAddress}
-                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, emailAddress: e.target.value })}
+                        handelChange={(e) =>
+                          setDeliveryDetails({ ...deliveryDetails, emailAddress: e.target.value })
+                        }
                         placeholder="Enter email address"
                       />
                     </InputWrapper>
@@ -590,7 +634,9 @@ const Cart = () => {
                       <InputLabel>Phone Number</InputLabel>
                       <TextInput
                         value={deliveryDetails.phoneNumber}
-                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, phoneNumber: e.target.value })}
+                        handelChange={(e) =>
+                          setDeliveryDetails({ ...deliveryDetails, phoneNumber: e.target.value })
+                        }
                         placeholder="Enter phone number"
                       />
                     </InputWrapper>
@@ -600,7 +646,9 @@ const Cart = () => {
                       <TextInput
                         textArea
                         rows="3"
-                        handelChange={(e) => setDeliveryDetails({ ...deliveryDetails, completeAddress: e.target.value })}
+                        handelChange={(e) =>
+                          setDeliveryDetails({ ...deliveryDetails, completeAddress: e.target.value })
+                        }
                         value={deliveryDetails.completeAddress}
                         placeholder="Enter your full shipping address"
                       />
@@ -614,35 +662,53 @@ const Cart = () => {
                   <SummaryTitle>Order Summary</SummaryTitle>
 
                   <SummaryRow>
-                    <span>Subtotal ({products.reduce((acc, i) => acc + i.quantity, 0)} items)</span>
-                    <span>KES {calculateSubtotal().toLocaleString()}</span>
+                    <span>
+                      Subtotal (
+                      {cartItems.reduce((acc, i) => acc + (i.quantity || 0), 0)} items)
+                    </span>
+                    <span>
+                      KES {summary.subtotal?.toLocaleString() || calculateSubtotal().toLocaleString()}
+                    </span>
                   </SummaryRow>
 
                   <SummaryRow>
                     <span>Shipping</span>
-                    <span style={{ color: "#22c55e", fontWeight: "600" }}>Free in  Nairobi only</span>
+                    <span style={{ color: "#22c55e", fontWeight: "600" }}>
+                      Free in Nairobi only
+                    </span>
                   </SummaryRow>
-
 
                   <Divider />
 
                   <SummaryRow total>
                     <span>Total</span>
-                    <span>KES {calculateSubtotal().toLocaleString()}</span>
+                    <span>
+                      KES {summary.total?.toLocaleString() || calculateSubtotal().toLocaleString()}
+                    </span>
                   </SummaryRow>
 
                   <Button
                     text={buttonLoad ? "Processing..." : "Place Order"}
                     isLoading={buttonLoad}
                     isDisabled={buttonLoad}
-                    onClick={PlaceOrder}
+                    onClick={placeOrderHandler}
                     full
                     style={{ background: "#e11d48", border: "none", fontWeight: "600", padding: "12px" }}
                   />
 
-                  <div style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#94a3b8",
+                      textAlign: "center",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <Truck size={12} />
-                    Powered  By  welt tallis  siasahub division
+                    Powered by Welt Tallis SiasaHub Division
                     <CreditCard size={12} />
                     Secure payment
                   </div>

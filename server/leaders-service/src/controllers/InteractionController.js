@@ -44,7 +44,7 @@ const handleInteraction = asyncHandler(async (req, res) => {
 
       resultMessage = action === "like" ? "Liked" : "Unliked";
     } 
-    else if (interactionType === "view") {
+    else if (interactionType === "view" || interactionType === "info_view") {
       // Record view
       await safeQuery(
         `INSERT INTO leader_views (leader_id, user_id, ip_address, session_id, viewed_at) 
@@ -131,7 +131,11 @@ const handleInteraction = asyncHandler(async (req, res) => {
     };
 
     // Clear cache for this leader
-    await redis.del(`leader:${leaderId}`);
+    try {
+      await redis.del(`leader:${leaderId}`);
+    } catch (e) {
+      Logger.warn(`Failed to clear cache for leader ${leaderId}: ${e.message}`);
+    }
 
     res.status(200).json({
       success: true,
@@ -175,7 +179,7 @@ const postComment = asyncHandler(async (req, res) => {
 
     // Update comment count in leaders table
     await safeQuery(
-      `UPDATE leaders SET comments = comments + 1 WHERE leader_id = ?`,
+      `UPDATE leaders SET comments_count = comments_count + 1 WHERE leader_id = ?`,
       [leaderId]
     );
 

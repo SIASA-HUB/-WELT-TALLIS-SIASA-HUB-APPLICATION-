@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import AppLoadingBar from "../../../utils/LoadingBar";
 import api from "../../../api/api";
+import SEO from "../../../utils/SEO";
 import { useAuth } from "../../hooks/useAuth";
 
 const KENYA = {
@@ -524,6 +525,11 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
 
   return (
     <Page>
+      <SEO
+        title={leaderName ? `${leaderName}'s Vision & Manifesto` : "Leader Manifesto"}
+        description={manifesto?.main_agenda || `Read the official election manifesto for ${leaderName}. Explore their key pledges and development agenda.`}
+        canonical={leaderId ? `/leaders/manifestos/${leaderId}` : undefined}
+      />
       <FixedHeader>
         <button onClick={onBack}>
           <ArrowLeft size={22} />

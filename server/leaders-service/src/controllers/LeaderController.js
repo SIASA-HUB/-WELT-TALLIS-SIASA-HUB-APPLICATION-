@@ -1092,10 +1092,10 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
     `, [leaderId]);
 
     const dailyShares = await safeQuery(`
-      SELECT DATE(created_at) as date, COUNT(*) as shares
+      SELECT DATE(shared_at) as date, COUNT(*) as shares
       FROM leader_shares
-      WHERE leader_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-      GROUP BY DATE(created_at)
+      WHERE leader_id = ? AND shared_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      GROUP BY DATE(shared_at)
       ORDER BY date ASC
     `, [leaderId]);
 
@@ -1107,7 +1107,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
         (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') as endorsements,
         (SELECT COUNT(*) FROM leader_followers WHERE leader_id = l.leader_id) as followers,
         (SELECT COUNT(*) FROM leader_likes WHERE leader_id = l.leader_id) as likes,
-        (SELECT COUNT(*) FROM leader_comments WHERE leader_id = l.leader_id) as comments
+        (SELECT COUNT(*) FROM leader_comments WHERE leader_id = l.leader_id) as comments_count
       FROM leaders l WHERE l.leader_id = ?
     `, [leaderId]);
 
@@ -1115,7 +1115,7 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
     const engagementScore =
       (stats?.endorsements || 0) * 3 +
       (stats?.likes || 0) * 2 +
-      (stats?.comments || 0) * 2 +
+      (stats?.comments_count || 0) * 2 +
       (stats?.total_shares || 0) * 4;
 
     // 5. Calculate Global Trending Rank
@@ -1226,7 +1226,10 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
           reach: (stats?.total_views || 0) + (stats?.total_shares || 0) * 5,
           is_verified: leader.verification === 1,
           trial_active: isFreeTrial,
-          growth_rate: growthRate
+          growth_rate: growthRate,
+          shares: stats?.total_shares || 0,
+          likes: stats?.likes || 0,
+          comments: stats?.comments_count || 0
         },
         insights: {
           youth_percentage: Math.round((youthCount / totalDemographicCount) * 100),

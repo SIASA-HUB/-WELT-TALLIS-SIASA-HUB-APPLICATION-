@@ -76,6 +76,7 @@ if (workbox) {
       '/profile',
       '/marketplace',
       '/index.html',
+      '/offline.html',
     ];
     
     event.waitUntil(
@@ -83,6 +84,15 @@ if (workbox) {
         return cache.addAll(criticalAssets);
       })
     );
+  });
+
+  // ========== OFFLINE FALLBACK ==========
+  workbox.routing.setCatchHandler(async ({ event }) => {
+    // The catch handler is called when any of the other routes fail to generate a response.
+    if (event.request.mode === 'navigate') {
+      return (await caches.match('/offline.html')) || Response.error();
+    }
+    return Response.error();
   });
 
   // Handle navigation requests with a Network-First strategy but fallback to cache

@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Activity,
 } from "lucide-react";
-import axios from "axios";
+import api from "../../../api/api";
 import {
   AreaChart,
   Area,
@@ -78,9 +78,9 @@ const Container = styled.div`
 `;
 
 const WelcomeBanner = styled.div`
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #0d1e40 100%);
   color: white;
-  padding: 32px;
+  padding: 32px 40px;
   border-radius: 24px;
   margin-bottom: 32px;
   display: flex;
@@ -164,16 +164,18 @@ const StatGrid = styled.div`
 
 const StatCard = styled.div`
   background: white;
-  padding: 20px;
+  padding: 24px;
   border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    border-color: rgba(30, 60, 114, 0.1);
   }
 
   .stat-icon {
@@ -227,8 +229,14 @@ const MainContentGrid = styled.div`
 const ActivityCard = styled.div`
   background: white;
   border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.6);
   overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  }
 `;
 
 const CardHeader = styled.div`
@@ -422,17 +430,17 @@ const DashboardOverview = ({ leader }) => {
     setLoading(true);
     try {
       // 1. Fetch from the NEW unified analytics endpoint
-      const dashboardRes = await axios.get(`${API.LEADERS}/analytics/dashboard`, {
+      const dashboardRes = await api.get(`/leaders/analytics/dashboard`, {
         params: { leader_id: leader.leader_id }
       });
 
-      if (dashboardRes.data.success) {
-        const d = dashboardRes.data.data;
+      if (dashboardRes?.success) {
+        const d = dashboardRes.data;
         setProfileViews(d.overview.reach || 0);
         setStats(prev => ({
           ...prev,
           endorsement_count: d.overview.endorsements || 0,
-          unique_supporters: d.overview.followers || 0,
+          unique_supporters: d.overview.total_supporters || 0,
           total_shares: d.overview.shares || 0,
         }));
         setAnalyticsData(d.daily_reach || []);
@@ -443,13 +451,13 @@ const DashboardOverview = ({ leader }) => {
         setGrowthRate(d.overview.growth_rate || 0);
       }
 
-      // 2. Fetch recent endorsements (KEEPING EXISTING)
-      const endorsementsRes = await axios.get(
-        `${ENDORSEMENT_API_URL}/endorsements/leader/${leader.leader_id}/recent?limit=10`,
+      // 2. Fetch recent endorsements
+      const endorsementsRes = await api.get(
+        `/endorsements/leader/${leader.leader_id}/recent?limit=10`
       );
 
-      if (endorsementsRes.data.success) {
-        setRecentEndorsements(endorsementsRes.data.data || []);
+      if (endorsementsRes?.success) {
+        setRecentEndorsements(endorsementsRes.data || []);
       }
 
     } catch (error) {
@@ -481,9 +489,9 @@ const DashboardOverview = ({ leader }) => {
 
   const getAvatarUrl = (item) => {
     if (item?.image_url) {
-      return item.image_url.startsWith("http")
+      return item.image_url.startsWith("http") || item.image_url.startsWith("data:")
         ? item.image_url
-        : `${ENDORSEMENT_API_URL}${item.image_url}`;
+        : `${API.BASE.replace('/api/v1', '')}${item.image_url}`;
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(
       item?.user_name || "Supporter",

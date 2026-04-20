@@ -68,51 +68,21 @@ export const getHotProducts = async (limit = 10) => {
 // CART
 // ============================================
 
-export const getCart = async (token) => {
-  return await api.get("/cart", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export const getCart = async () => {
+  return await api.get("/cart");
 };
-
-
-// Add this function to your API file
-export const deleteFromCart = async (token, { productId, quantity = null }) => {
-  try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    };
-    
-    const endpoint = quantity === null 
-      ? `/cart/remove/${productId}`  // Remove entire item
-      : `/cart/update/${productId}`; // Update quantity
-      
-    const response = await axios.post(
-      endpoint,
-      { quantity },
-      config
-    );
-    
-    return response.data;
-  } catch (error) {
-    console.error("Error updating cart:", error);
-    throw error.response?.data || error.message;
-  }
-};
-
 
 export const addToCart = async (token, data) => {
-  return await api.post("/cart/add", data, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Backend expects productId, quantity
+  return await api.post("/cart", data);
 };
 
-export const removeFromCart = async (token, data) => {
-  return await api.post("/cart/remove", data, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export const updateCartItem = async (token, recordId, quantity) => {
+  return await api.put(`/cart/${recordId}`, { quantity });
+};
+
+export const removeFromCart = async (token, recordId) => {
+  return await api.delete(`/cart/${recordId}`);
 };
 
 // ============================================

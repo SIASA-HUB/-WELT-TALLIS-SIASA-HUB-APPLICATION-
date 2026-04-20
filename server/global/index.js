@@ -22,6 +22,7 @@ const rateLimiter = require("./rateLimit/index");
 const logger = require("./logger/logger");
 const mpesa = require("./mpesa/index");
 const { getKenyaTimeISO, getKenyaTimeFormatted } = require("./utils/timeStamps");
+const { sendEmail } = require("./utils/emailHelper");
 
 // === STARTUP GUARD: enforce strong JWT secrets ===
 const WEAK_SECRETS = new Set([
@@ -247,6 +248,7 @@ module.exports = {
   utils: {
     getKenyaTimeISO,
     getKenyaTimeFormatted,
+    sendEmail,
   },
 
   // --- Input Sanitization ---

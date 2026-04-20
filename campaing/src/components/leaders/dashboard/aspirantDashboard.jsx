@@ -326,7 +326,7 @@ const AspirantDashboard = () => {
       fetchManifestoStatus(leaderId);
       fetchSupporterCount(leaderId);
     } catch (error) {
-      console.error("Error parsing leader data:", error);
+
       navigate("/login-aspirant");
     } finally {
       setLoading(false);
@@ -335,23 +335,23 @@ const AspirantDashboard = () => {
 
   const fetchRallyCount = async (leaderId) => {
     try {
-      // Using centralized API - the interceptor handles response.data extraction
+
       const response = await api.get(`/rallies/leader/${leaderId}/count`);
-      // api interceptor already returns response.data, so response is the data object
+      // api interceptor 
       if (response?.success) {
         setRallyCount(response.count || 0);
       } else {
         setRallyCount(0);
       }
     } catch (error) {
-      console.error("Error fetching rally count:", error);
+
       setRallyCount(0);
     }
   };
 
   const fetchManifestoStatus = async (leaderId) => {
     try {
-      // Using centralized API for manifestos
+      // manifestos
       const response = await api.get(`/leaders/manifestos/leader/${leaderId}`);
       if (response?.success && response?.data) {
         setManifestoStatus("completed");
@@ -367,10 +367,10 @@ const AspirantDashboard = () => {
 
   const fetchSupporterCount = async (leaderId) => {
     try {
-      // Using centralized API for endorsements
-      const response = await api.get(`/endorsements/leader/${leaderId}/count`);
-      if (response?.success) {
-        setSupporterCount(response.count || 0);
+
+      const response = await api.get(`/endorsements/leader/${leaderId}/stats`);
+      if (response?.success && response?.data) {
+        setSupporterCount(response.data.total_endorsements || 0);
       } else {
         setSupporterCount(0);
       }
@@ -486,8 +486,8 @@ const AspirantDashboard = () => {
               {manifestoStatus === "completed" ? "Update Manifesto" : "Create Manifesto"}
             </div>
             <div className="description">
-              {manifestoStatus === "completed" 
-                ? "Share your vision and campaign promises" 
+              {manifestoStatus === "completed"
+                ? "Share your vision and campaign promises"
                 : "Tell voters what you stand for"}
             </div>
           </ActionContent>

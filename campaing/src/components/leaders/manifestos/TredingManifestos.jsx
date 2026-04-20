@@ -338,7 +338,7 @@ const generateSparkData = () => {
   return points;
 };
 
-const TrendingManifestos = ({ userId, currentUser }) => {
+const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
   const [manifestos, setManifestos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -346,6 +346,23 @@ const TrendingManifestos = ({ userId, currentUser }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchGeneralTrending = async () => {
+      try {
+        await api.getWithCache(`/leaders/manifestos/trending?limit=${limit * 2}`, (data) => {
+          if (data.success && data.data && data.data.length > 0) {
+            const shuffled = [...data.data].sort(() => 0.5 - Math.random());
+            setManifestos(shuffled.slice(0, limit));
+          } else {
+            if (onEmpty) onEmpty();
+            setManifestos([]);
+          }
+        });
+      } catch (e) {
+        console.error("Fallback error:", e);
+        if (onEmpty) onEmpty();
+      }
+    };
+
     const fetchManifestos = async () => {
       try {
         setLoading(true);
@@ -353,28 +370,35 @@ const TrendingManifestos = ({ userId, currentUser }) => {
         const finalUserId = userId || currentUser?.user_id || localStorage.getItem("user_id");
 
         let url = finalUserId
-          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=20`
-          : `/leaders/manifestos/trending?limit=20`;
+          ? `/leaders/manifestos/personalized?user_id=${finalUserId}&limit=${limit * 3}`
+          : `/leaders/manifestos/trending?limit=${limit * 3}`;
 
         await api.getWithCache(url, (data) => {
-          if (data.success && data.data) {
-            let fetchedData = data.data || [];
-            // Shuffle and take first 5
+          const fetchedData = data.data || [];
+          if (data.success && fetchedData.length > 0) {
+            // Shuffle and take requested limit
             const shuffled = [...fetchedData].sort(() => 0.5 - Math.random());
-            const topFive = shuffled.slice(0, 5);
-            setManifestos(topFive);
+            const sliced = shuffled.slice(0, limit);
+            setManifestos(sliced);
             if (data.meta?.user_location) setUserLocation(data.meta.user_location);
+          } else if (finalUserId) {
+            // If personalized was tried and was empty, fallback to general trending
+            fetchGeneralTrending();
+          } else {
+            if (onEmpty) onEmpty();
+            setManifestos([]);
           }
         });
       } catch (err) {
         console.error("Error:", err);
         setError("Failed to connect");
+        // Don't call onEmpty yet, let the user see the error state first
       } finally {
         setLoading(false);
       }
     };
     fetchManifestos();
-  }, [userId, currentUser]);
+  }, [userId, currentUser, limit, onEmpty]);
 
   const getAvatarUrl = (leaderName, imageUrl, manifestoImage) => {
     const preferredImage = manifestoImage || imageUrl;
