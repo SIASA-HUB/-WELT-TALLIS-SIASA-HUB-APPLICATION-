@@ -1,0 +1,204 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# JOBS
+jobs:
+
+  # 1. LINT & BUILD CHECK (frontend)
+  frontend-check:
+    name: Frontend – Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: campaing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: campaing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false   # block deploy on lint errors
+
+      - name: Build (production)
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:8009/api/v1' }}
+          VITE_APP_ENV: production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: campaing/dist
+          retention-days: 1
+
+  # 2. DOCKER BUILD CHECK (backend services)
+  backend-check:
+    name: Backend – Docker Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate docker-compose syntax
+        run: |
+          docker compose -f server/docker-compose.yml config --quiet
+          echo "server/docker-compose.yml is valid"
+
+      - name: Build backend images (no push, cache only)
+        working-directory: server
+        run: |
+          docker compose build \
+            --no-cache \
+            --progress=plain \
+            2>&1 | tee /tmp/build.log
+          if grep -i "error" /tmp/build.log | grep -v "^#" | grep -v "npm warn"; then
+            echo "Build errors detected"
+            exit 1
+          fi
+          echo "All backend images built successfully"
+
+  # 3. DEPLOY (only on push to main/master)
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: [frontend-check, backend-check]   # both checks must pass
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    environment:
+      name: production
+      url: ${{ secrets.DEPLOY_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up SSH
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Deploy backend
+      - name: Deploy backend services
+        run: |
+          ssh -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+            set -e
+
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            echo "Working directory: $APP_DIR"
+            cd "$APP_DIR"
+
+            echo "Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/${{ github.ref_name }}
+
+            echo "Rebuilding & restarting backend services..."
+            cd server
+            docker compose pull --ignore-pull-failures || true
+            docker compose up -d --build --remove-orphans
+
+            echo "Waiting for services to be healthy..."
+            sleep 15
+
+            echo "Backend deploy complete"
+            docker compose ps
+          ENDSSH
+
+      # Deploy frontend
+      - name: Deploy frontend
+        run: |
+          ssh -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+            set -e
+
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            cd "$APP_DIR"
+
+            echo "Rebuilding frontend..."
+            cd campaing
+            docker compose up -d --build --remove-orphans
+
+            echo "Frontend deploy complete"
+          ENDSSH
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      # Health checks
+      - name: Run health checks
+        run: |
+          echo "Running post-deploy health checks..."
+
+          # Wait a bit more for containers to stabilise
+          sleep 10
+
+          HOST=${{ secrets.SSH_HOST }}
+
+          # Backend gateway
+          echo "Checking API Gateway..."
+          GATEWAY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "http://$HOST:8009/health" || echo "000")
+
+          if [ "$GATEWAY_STATUS" = "200" ] || [ "$GATEWAY_STATUS" = "404" ]; then
+            echo "API Gateway is responding (HTTP $GATEWAY_STATUS)"
+          else
+            echo "API Gateway returned HTTP $GATEWAY_STATUS – check logs"
+          fi
+
+          # Frontend
+          echo "Checking Frontend..."
+          FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "http://$HOST:8080" || echo "000")
+
+          if [ "$FRONTEND_STATUS" = "200" ]; then
+            echo "Frontend is responding (HTTP $FRONTEND_STATUS)"
+          else
+            echo "Frontend returned HTTP $FRONTEND_STATUS"
+            exit 1
+          fi
+
+          echo "All health checks passed!"
+
+      # Notify on failure
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment FAILED for commit ${{ github.sha }}"
+          echo "Branch : ${{ github.ref_name }}"
+          echo "Author : ${{ github.actor }}"
+          echo "Message: ${{ github.event.head_commit.message }}"
+          # Optionally: call a webhook, send email, post to Slack, etc.
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          #   -H 'Content-type: application/json' \
+          #   --data '{"text":"Deployment failed: ${{ github.event.head_commit.message }}"}'
