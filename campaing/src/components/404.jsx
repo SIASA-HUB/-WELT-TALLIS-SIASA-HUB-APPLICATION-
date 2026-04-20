@@ -4,6 +4,8 @@ import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { Home, ArrowLeft, Compass } from "lucide-react";
 
+
+
 const float = keyframes`
   0% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
@@ -146,14 +148,14 @@ const NotFound = () => {
         <LogoWrapper>
           <img src="/image/siasa.png" alt="SiasaHub" />
         </LogoWrapper>
-        
+
         <ErrorCode>404</ErrorCode>
         <Title>Oops! Page not found</Title>
         <Message>
           The page you're looking for doesn't exist or has been moved.<br />
           Let's get you back on track.
         </Message>
-        
+
         <ButtonGroup>
           <Button $primary onClick={() => navigate("/")}>
             <Home size={16} /> Home
@@ -165,7 +167,7 @@ const NotFound = () => {
             <Compass size={16} /> Explore
           </Button>
         </ButtonGroup>
-        
+
         <DecorativeLine />
       </Content>
     </Container>
