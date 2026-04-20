@@ -91,7 +91,7 @@ jobs:
 
     environment:
       name: production
-      url: ${{ secrets.DEPLOY_URL }}
+      url: ${{ vars.DEPLOY_URL }}
 
     steps:
       - name: Checkout code
