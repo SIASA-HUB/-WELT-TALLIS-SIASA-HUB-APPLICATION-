@@ -1,5 +1,7 @@
 // controllers/leaderController.js - Clean Version
 
+const fs = require("fs");
+const path = require("path");
 const Logger = require("../utils/logger/logger");
 const LeaderModel = require("../models/LeadersModel");
 const {
@@ -21,6 +23,8 @@ const {
   QUEUES,
   publishMessage,
 } = require("../Qeues/rabbit");
+
+const { saveToLocalDisk } = require("../utils/images/imageProcessing");
 
 const memoryCache = new Map();
 
@@ -57,54 +61,22 @@ const startLeaderWorkers = async () => {
     consumeMessages(QUEUES.LEADER_IMAGE_UPLOAD, async (msg) => {
       const { leaderId, imageBuffer, imageMeta, now } = msg;
       try {
-        const fs = require("fs");
-        const path = require("path");
-        const sharp = require("sharp");
+        const buffer = Buffer.from(imageBuffer, "base64");
         const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
-
-        if (!fs.existsSync(UPLOAD_DIR)) {
-          fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-        }
-
         const leaderDir = path.join(UPLOAD_DIR, leaderId);
+        
         if (!fs.existsSync(leaderDir)) {
           fs.mkdirSync(leaderDir, { recursive: true });
         }
 
-        const buffer = Buffer.from(imageBuffer, "base64");
-        const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+        const result = await saveToLocalDisk(buffer, leaderId, 0, leaderDir);
 
-        const originalFileName = `${baseName}_original.webp`;
-        const thumbFileName = `${baseName}_thumb.webp`;
-        const mediumFileName = `${baseName}_medium.webp`;
-        const largeFileName = `${baseName}_large.webp`;
+        const imageUrl = result.url;
+        const thumbnailUrl = result.versions.thumbnail;
+        const mediumUrl = result.versions.medium;
+        const socialUrl = result.versions.social;
+        const baseName = path.basename(result.url, "_original.webp");
 
-        await sharp(buffer)
-          .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 85 })
-          .toFile(path.join(leaderDir, originalFileName));
-
-        await sharp(buffer)
-          .resize(800, 800, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 85 })
-          .toFile(path.join(leaderDir, largeFileName));
-
-        await sharp(buffer)
-          .resize(400, 400, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 80 })
-          .toFile(path.join(leaderDir, mediumFileName));
-
-        await sharp(buffer)
-          .resize(150, 150, { fit: "cover", position: "attention" })
-          .webp({ quality: 75 })
-          .toFile(path.join(leaderDir, thumbFileName));
-
-        const imageUrl = `/uploads/leaders/${leaderId}/${originalFileName}`;
-        const thumbnailUrl = `/uploads/leaders/${leaderId}/${thumbFileName}`;
-        const mediumUrl = `/uploads/leaders/${leaderId}/${mediumFileName}`;
-        const socialUrl = `/uploads/leaders/${leaderId}/${largeFileName}`;
-
-        const metadata = await sharp(buffer).metadata();
         const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
         await safeQuery(
@@ -115,8 +87,8 @@ const startLeaderWorkers = async () => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             imageId, leaderId, imageUrl, `${leaderId}/${baseName}`,
-            1, 0, metadata.width || null, metadata.height || null,
-            "webp", imageMeta.size || null, thumbnailUrl, mediumUrl, socialUrl, now
+            1, 0, result.width || null, result.height || null,
+            "webp", result.bytes || imageMeta.size || null, thumbnailUrl, mediumUrl, socialUrl, now
           ]
         );
 
@@ -321,57 +293,17 @@ const registerAspirant = asyncHandler(async (req, res) => {
     const now = getKenyaTimeISO();
     const password_hash = await bcrypt.hash(password, 10);
 
-    // === IMAGE PROCESSING ===
-    // Process the image immediately (or send to queue)
-    const fs = require("fs");
-    const path = require("path");
-    const sharp = require("sharp");
-
-    const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    const processedImages = req.body.processedImages || [];
+    if (processedImages.length === 0) {
+      return res.status(400).json({ success: false, message: "Profile image processing failed" });
     }
 
-    const leaderDir = path.join(UPLOAD_DIR, leaderId);
-    if (!fs.existsSync(leaderDir)) {
-      fs.mkdirSync(leaderDir, { recursive: true });
-    }
-
-    const buffer = imageFile.buffer;
-    const baseName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-
-    const originalFileName = `${baseName}_original.webp`;
-    const thumbFileName = `${baseName}_thumb.webp`;
-    const mediumFileName = `${baseName}_medium.webp`;
-    const largeFileName = `${baseName}_large.webp`;
-
-    // Generate different sizes
-    await sharp(buffer)
-      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toFile(path.join(leaderDir, originalFileName));
-
-    await sharp(buffer)
-      .resize(800, 800, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toFile(path.join(leaderDir, largeFileName));
-
-    await sharp(buffer)
-      .resize(400, 400, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toFile(path.join(leaderDir, mediumFileName));
-
-    await sharp(buffer)
-      .resize(150, 150, { fit: "cover", position: "attention" })
-      .webp({ quality: 75 })
-      .toFile(path.join(leaderDir, thumbFileName));
-
-    const imageUrl = `/uploads/leaders/${leaderId}/${originalFileName}`;
-    const thumbnailUrl = `/uploads/leaders/${leaderId}/${thumbFileName}`;
-    const mediumUrl = `/uploads/leaders/${leaderId}/${mediumFileName}`;
-    const socialUrl = `/uploads/leaders/${leaderId}/${largeFileName}`;
-
-    const metadata = await sharp(buffer).metadata();
+    const result = processedImages[0];
+    const imageUrl = result.url;
+    const thumbnailUrl = result.versions.thumbnail;
+    const mediumUrl = result.versions.medium;
+    const socialUrl = result.versions.social;
+    const baseName = path.basename(result.url, "_original.webp");
 
     // === INSERT LEADER ===
     await safeQuery(
@@ -397,8 +329,8 @@ const registerAspirant = asyncHandler(async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         imageId, leaderId, imageUrl, `${leaderId}/${baseName}`,
-        1, 0, metadata.width || null, metadata.height || null,
-        "webp", imageFile.size || null, thumbnailUrl, mediumUrl, socialUrl, now
+        1, 0, result.width || null, result.height || null,
+        "webp", result.bytes || imageFile.size || null, thumbnailUrl, mediumUrl, socialUrl, now
       ]
     );
 
@@ -694,9 +626,35 @@ const updateLeader = asyncHandler(async (req, res) => {
     const existingLeader = await LeaderModel.getById(leaderId);
     if (!existingLeader) return res.status(404).json({ success: false, message: "Leader not found" });
 
+    // Handle image updates if processed
+    const processedImages = req.body.processedImages || [];
+    if (processedImages.length > 0) {
+      const mainImage = processedImages[0];
+      req.body.image_url = mainImage.url;
+      
+      // Update or insert primary image in leader_images
+      const baseName = path.basename(mainImage.url, "_original.webp");
+      const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+      
+      await safeQuery(`UPDATE leader_images SET is_primary = 0 WHERE leader_id = ?`, [leaderId]);
+      await safeQuery(
+        `INSERT INTO leader_images (
+          image_id, leader_id, image_url, public_id,
+          is_primary, sort_order, width, height, format, bytes,
+          thumbnail_url, medium_url, social_url, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          imageId, leaderId, mainImage.url, `${leaderId}/${baseName}`,
+          1, 0, mainImage.width || null, mainImage.height || null,
+          "webp", mainImage.bytes || null, mainImage.versions.thumbnail, 
+          mainImage.versions.medium, mainImage.versions.social,
+        ]
+      );
+    }
+
     await LeaderModel.update(leaderId, req.body);
     publishMessage(QUEUES.LEADER_CACHE_CLEAR, { leaderId, county: existingLeader.county }).catch(() => { });
-    res.status(200).json({ success: true, message: "Leader updated successfully" });
+    res.status(200).json({ success: true, message: "Leader updated successfully", image_url: req.body.image_url });
   } catch (error) {
     Logger.error("Update leader error:", error);
     res.status(500).json({ success: false, message: "Error updating leader" });

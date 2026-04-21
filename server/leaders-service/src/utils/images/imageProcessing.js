@@ -24,7 +24,8 @@ const ensureDirectoryExists = async (dirPath) => {
 
 // Process and save images to local disk with Sharp
 const processAndSaveImages = async (req, res, next) => {
-  if (!req.files || req.files.length === 0) {
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) {
     return next();
   }
 
@@ -32,18 +33,14 @@ const processAndSaveImages = async (req, res, next) => {
     const leaderId = req.body.leader_id || req.params.leaderId || `temp_${Date.now()}`;
     const baseUploadDir = getUploadDir();
     
-    // Ensure base uploads directory exists
     await ensureDirectoryExists(baseUploadDir);
-    
     const uploadDir = path.join(baseUploadDir, leaderId);
-    
-    // Ensure leader-specific directory exists
     await ensureDirectoryExists(uploadDir);
 
     const processedImages = [];
 
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const result = await saveToLocalDisk(file.buffer, leaderId, i, uploadDir);
       processedImages.push(result);
     }

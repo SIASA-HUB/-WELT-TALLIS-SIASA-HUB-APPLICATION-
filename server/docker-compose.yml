@@ -60,6 +60,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
+    volumes:
+      - ./leaders-service/uploads:/usr/src/app/leaders-service/uploads
 
   rally-service:
     build:
@@ -75,6 +77,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - ./rally-service/uploads:/usr/src/app/rally-service/uploads
 
   endorsement-service:
     build:
@@ -90,6 +94,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - ./endorsement-service/uploads:/usr/src/app/endorsement-service/uploads
 
   marketplace-service:
     build:
@@ -105,6 +111,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - ./marketplace-service/uploads:/usr/src/app/marketplace-service/uploads
 
   redis:
     image: redis:alpine
