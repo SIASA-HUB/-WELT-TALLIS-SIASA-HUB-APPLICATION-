@@ -276,40 +276,32 @@ const SuccessToast = styled.div`
   }
 `;
 
-
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
 
-  // Already a full URL
+  // Already absolute URL
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
 
-  // Get base URL
-  let baseUrl = API.UPLOAD_BASE || API.IMAGES || '';
-  
-  // Remove /api/v1 if present
-  if (baseUrl && baseUrl.includes("/api/v1")) {
+  // Try to get base URL from config
+  let baseUrl = API.UPLOAD_BASE || API.IMAGES || API.BASE_URL || API.BASE;
+
+  // In production, fall back to current origin (frontend domain)
+  if (!baseUrl && typeof window !== "undefined") {
+    baseUrl = window.location.origin;
+  }
+
+  // If still no base URL, return null (will trigger fallback)
+  if (!baseUrl) return null;
+
+  // Remove /api/v1 if present (static files are usually served from root)
+  if (baseUrl.includes("/api/v1")) {
     baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
-  
-  // Remove trailing slash from baseUrl
-  if (baseUrl) {
-    baseUrl = baseUrl.replace(/\/$/, "");
-  }
-  
-  // Clean up image path - remove leading slash
-  let cleanPath = imageUrl;
-  if (cleanPath.startsWith("/")) {
-    cleanPath = cleanPath.substring(1);
-  }
-  
-  // If no baseUrl (production with relative paths)
-  if (!baseUrl) {
-    return `/${cleanPath}`;
-  }
-  
-  // Return with single slash
+
+  baseUrl = baseUrl.replace(/\/$/, "");
+  let cleanPath = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
   return `${baseUrl}/${cleanPath}`;
 };
 
@@ -371,7 +363,7 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
 
     try {
       const path = `/endorsements/leader/${leaderId}/recent?limit=100`;
-      
+
       const responseData = await api.get(path);
 
       if (responseData.success) {
@@ -480,9 +472,9 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
     if (media_type === "video" && imageSrc) {
       return (
         <>
-          <StoryImage 
-            src={imageSrc} 
-            alt={user_name || "Video"} 
+          <StoryImage
+            src={imageSrc}
+            alt={user_name || "Video"}
             onError={(e) => {
               console.warn(`Failed to load video thumbnail: ${imageSrc}`);
               e.target.style.display = "none";

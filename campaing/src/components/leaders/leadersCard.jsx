@@ -197,17 +197,20 @@ const StatsRow = styled.div`
 `;
 
 
-// Inside LeaderCard.jsx
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "") return null;
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
 
-  let baseUrl = API.IMAGES || API.BASE;
+
+  let baseUrl = API.IMAGES;
+  if (!baseUrl && typeof window !== "undefined") {
+    baseUrl = window.location.origin;
+  }
   if (!baseUrl) return null;
 
-  // Remove /api/v1 if present (like LeadersPage does)
+
   if (baseUrl.includes("/api/v1")) {
     baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
@@ -216,7 +219,6 @@ const buildImageUrl = (imageUrl) => {
   const imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
   return `${baseUrl}${imagePath}`;
 };
-
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
