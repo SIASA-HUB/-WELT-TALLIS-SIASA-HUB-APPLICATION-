@@ -6,12 +6,12 @@
 const isProduction = import.meta.env.PROD;
 
 // For development/production, use environment variables if provided
-const BASE_URL = import.meta.env.VITE_API_URL || (isProduction ? '/api/v1' : 'http://localhost:8009/api/v1');
+const BASE_URL = import.meta.env.VITE_API_URL || (isProduction ? '/api/v1' : 'https://siasahub.co.ke/api/v1');
 
-const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || (isProduction ? '' : 'http://localhost:8009');
+const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || (isProduction ? '' : 'https://siasahub.co.ke');
 
 const API = {
-  // Base endpoints
+
   BASE: BASE_URL,
   UPLOAD_BASE: IMAGE_BASE_URL,
 
