@@ -9,6 +9,7 @@ import {
   addToCart,
 } from "../api/index";
 import API from "../../../../api/config";
+import { buildImageUrl } from "../../../../utils/imageUtils";
 
 const Card = styled.div`
   width: 280px;
@@ -206,19 +207,19 @@ const ProductCard = ({ product }) => {
       const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
       const currentId = product?.id || product?._id;
       const existingItemIndex = guestCart.findIndex(item => (item.product?.id || item.product?._id) === currentId);
-      
+
       if (existingItemIndex > -1) {
         guestCart[existingItemIndex].quantity += 1;
       } else {
         guestCart.push({ product, quantity: 1 });
       }
-      
+
       localStorage.setItem("guest_cart", JSON.stringify(guestCart));
       alert("Added to cart as guest!");
       navigate("/marketplace/cart");
       return;
     }
-    
+
     try {
       const productId = product?.id || product?._id;
       await addToCart(getAuthToken(), { productId, quantity: 1 });
@@ -232,11 +233,11 @@ const ProductCard = ({ product }) => {
   // Build the correct navigation URL using slug (SEO) or fall back to ID
   const productId = product?.id || product?._id;
   const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${productId}`;
-  
+
   // Build the full image URL using centralized utility
-  const imgUrl = buildImageUrl(product?.img || product?.image || product?.image_url) || 
+  const imgUrl = buildImageUrl(product?.img || product?.image || product?.image_url) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || product?.name || 'P')}&background=e11d48&color=fff&size=400&bold=true`;
-  
+
   // Handle image error - try fallback or placeholder
   const handleImageError = (e) => {
     if (!imageError) {
@@ -248,8 +249,8 @@ const ProductCard = ({ product }) => {
   return (
     <Card onClick={() => navigate(productUrl)}>
       <ImageContainer>
-        <Image 
-          src={imgUrl} 
+        <Image
+          src={imgUrl}
           alt={product?.title || product?.name || "Product"}
           loading="lazy"
           width="280"
@@ -268,7 +269,7 @@ const ProductCard = ({ product }) => {
           <span>{product?.rating || "4.0"}</span>
         </Badge>
       </ImageContainer>
-      
+
       <Content>
         <Category>{product?.category || "Essential"}</Category>
         <ProductName>{product?.title || product?.name}</ProductName>

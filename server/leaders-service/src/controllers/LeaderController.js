@@ -1274,7 +1274,13 @@ const getCompetitors = asyncHandler(async (req, res) => {
         l.leader_id, l.name, l.party, l.position, l.position_running_for, 
         l.county, l.constituency, l.ward,
         l.verification,
-        COALESCE(l.image_url, li.image_url) as image_url
+        COALESCE(l.image_url, li.image_url) as image_url,
+        (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as views,
+        (
+          (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) +
+          (SELECT COUNT(*) FROM leader_shares WHERE leader_id = l.leader_id) * 5 +
+          (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') * 10
+        ) as boost_score
       FROM leaders l
       LEFT JOIN leader_images li ON l.leader_id = li.leader_id AND li.is_primary = 1
       WHERE l.leader_id != ? AND l.status = 'active'

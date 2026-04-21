@@ -6,7 +6,7 @@ import { ShoppingCart, Share2, ArrowLeft } from "lucide-react";
 import { Spinner } from "react-bootstrap";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import api from "../../../api/api";
-import API from "../../../api/config";
+import { buildImageUrl } from "../../../utils/imageUtils";
 import { useAuth } from "@/components/hooks/useAuth";
 import { addToCart as addToCartApi } from "../components/api";
 
@@ -467,9 +467,7 @@ const ProductDetails = () => {
 
   const APP_URL = "https://siasahub.co.ke";
   const productUrl = `${APP_URL}/product/${product?.slug || slug}`;
-  const productImage = product?.image
-    ? (product.image.startsWith("http") ? product.image : `${API.IMAGES}${product.image}`)
-    : `${APP_URL}/og-default.png`;
+  const productImage = buildImageUrl(product?.image) || `${APP_URL}/og-default.png`;
   const price = product?.price || 0;
   const mrp = product?.mrp || 0;
   const discountPct = mrp > price && price > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;

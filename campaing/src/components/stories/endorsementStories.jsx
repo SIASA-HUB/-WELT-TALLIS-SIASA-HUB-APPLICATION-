@@ -1,4 +1,4 @@
-// components/endorsements/EndorsementStories.jsx 
+// components/endorsements/EndorsementStories.jsx
 
 import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
@@ -15,10 +15,272 @@ import theme from "../../utils/theme";
 import AddStoryModal from "./addStoryModal";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 import { buildImageUrl } from "../../utils/imageUtils";
+import api from "../../api/api"; // ← ADD THIS IMPORT
 
+// ========== ANIMATIONS ==========
+const ringGlow = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 92, 1, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0); }
+`;
+
+const shimmer = keyframes`
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+`;
+
+// ========== STYLED COMPONENTS ==========
+const StoriesSection = styled.div`
+  background: ${theme.colors?.dark || "#0a0a0a"};
+  padding: 16px 0;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+`;
+
+const StoriesContainer = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+`;
+
+const StoriesHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+`;
+
+const StoriesTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const RefreshButton = styled.button`
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: ${theme.colors?.primary || "#ff5c01"};
+    background: rgba(255, 92, 1, 0.1);
+  }
+`;
+
+const StoriesScroll = styled.div`
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 0 12px;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+`;
+
+const StoryItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 80px;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+  }
+`;
+
+const StoryRing = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  padding: 2px;
+  background: ${(props) =>
+    props.$isAdd
+      ? "transparent"
+      : props.$hasReplies
+        ? "linear-gradient(135deg, #10b981, #34d399)"
+        : `linear-gradient(135deg, ${theme.colors?.primary || "#ff5c01"}, #f59e0b)`};
+  animation: ${(props) => (props.$isAdd ? "none" : ringGlow)} 2.8s infinite
+    ease-in-out;
+`;
+
+const StoryAvatar = styled.div`
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  border: ${(props) =>
+    props.$isAdd ? `2px dashed ${theme.colors?.primary || "#ff5c01"}` : "none"};
+`;
+
+const StoryImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const VideoPlayIcon = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    color: white;
+    margin-left: 2px;
+  }
+`;
+
+const TextStoryPreview = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e3c72, #2a4a8a);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  padding: 12px;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+`;
+
+const StoryName = styled.div`
+  font-size: 11px;
+  font-weight: 500;
+  color: #f1f5f9;
+  text-align: center;
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ReplyBadge = styled.div`
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: #10b981;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0a0a0a;
+
+  svg {
+    width: 10px;
+    height: 10px;
+    color: white;
+  }
+`;
+
+const MediaTypeBadge = styled.div`
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0a0a0a;
+  font-size: 8px;
+`;
+
+const LoadingShimmer = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.5s infinite;
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+
+  svg {
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+`;
+
+const SuccessToast = styled.div`
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  z-index: 1000;
+  animation: fadeInUp 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 20px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+`;
+
+// ========== HELPER FUNCTIONS ==========
 const isAutoGeneratedMessage = (message, mediaType) => {
   if (!message) return true;
-
   const autoMessages = [
     "📷 Photo",
     "📹 Video",
@@ -27,31 +289,24 @@ const isAutoGeneratedMessage = (message, mediaType) => {
     "Photo",
     "Video",
   ];
-
   if (
     (mediaType === "image" || mediaType === "video") &&
     autoMessages.includes(message.trim())
   ) {
     return true;
   }
-
   return false;
 };
 
 const getDisplayMessage = (story) => {
   const { message, media_type } = story;
-
   if (message && !isAutoGeneratedMessage(message, media_type)) {
     return message;
   }
-
   return null;
 };
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
-
+// ========== MAIN COMPONENT ==========
 const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
@@ -68,22 +323,17 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     setError(null);
-
     try {
       const path = `/endorsements/leader/${leaderId}/recent?limit=100`;
-
       const responseData = await api.get(path);
-
       if (responseData.success) {
         setEndorsements(responseData.data || []);
       } else {
         setError(responseData.message || "Failed to load stories");
         setEndorsements([]);
       }
-
     } catch (error) {
       console.error("❌ Error fetching endorsements:", error);
       setError(error.response?.data?.message || "Failed to load stories");
@@ -115,49 +365,33 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
   }, [replies]);
 
   const handleAddStoryClick = () => setShowAddModal(true);
-
   const handleStoryClick = (index) => {
     setSelectedIndex(index);
     setShowStoryModal(true);
   };
-
   const handleReply = (storyId, reply) => {
     setReplies((prev) => ({
       ...prev,
       [storyId]: [reply, ...(prev[storyId] || [])],
     }));
   };
-
-  const hasReplies = (storyId) => {
-    return (replies[storyId]?.length || 0) > 0;
-  };
-
-  const handleRefresh = () => {
-    fetchEndorsements();
-  };
-
+  const hasReplies = (storyId) => (replies[storyId]?.length || 0) > 0;
+  const handleRefresh = () => fetchEndorsements();
   const handleStoryPosted = () => {
     setSuccessMessage("Story posted successfully!");
     setShowSuccess(true);
     fetchEndorsements();
-    setTimeout(() => {
-      setShowSuccess(false);
-    }, 3000);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
-
   const getMediaIcon = (mediaType) => {
     if (mediaType === "video") return "🎬";
     if (mediaType === "image") return "📷";
     return "💬";
   };
 
-  // FIXED: Better error handling for images
   const getStoryPreview = (story) => {
     const { media_type, image_url, user_name, message } = story;
-
     const imageSrc = buildImageUrl(image_url);
-
-    // Image story
     if (media_type === "image" && imageSrc) {
       return (
         <StoryImage
@@ -166,11 +400,11 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
           onError={(e) => {
             console.warn(`Failed to load image: ${imageSrc}`);
             e.target.style.display = "none";
-            // Show fallback text in parent
             if (e.target.parentElement) {
-              const fallback = document.createElement('div');
-              fallback.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1e3c72;color:white;font-size:24px;';
-              fallback.innerText = '📷';
+              const fallback = document.createElement("div");
+              fallback.style.cssText =
+                "width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1e3c72;color:white;font-size:24px;";
+              fallback.innerText = "📷";
               e.target.parentElement.appendChild(fallback);
               e.target.remove();
             }
@@ -178,8 +412,6 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
         />
       );
     }
-
-    // Video story
     if (media_type === "video" && imageSrc) {
       return (
         <>
@@ -197,22 +429,19 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
         </>
       );
     }
-
-    // Text story
     const displayMessage = getDisplayMessage(story);
     if (displayMessage) {
       return (
         <TextStoryPreview>
-          {displayMessage.length > 60 ? displayMessage.substring(0, 60) + "..." : displayMessage}
+          {displayMessage.length > 60
+            ? displayMessage.substring(0, 60) + "..."
+            : displayMessage}
         </TextStoryPreview>
       );
     }
-
-    // Fallback
     return <TextStoryPreview>💬 Support</TextStoryPreview>;
   };
 
-  // Filter valid endorsements (has image OR real message)
   const validEndorsements = endorsements.filter((e) => {
     if (e.image_url) return true;
     const hasRealMessage =
@@ -226,10 +455,7 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
         <StoriesContainer>
           <StoriesHeader>
             <StoriesTitle>
-              <TrendingUp
-                size={14}
-                color={theme.colors?.primary || "#ff5c01"}
-              />
+              <TrendingUp size={14} color={theme.colors?.primary || "#ff5c01"} />
               STORIES
             </StoriesTitle>
             <RefreshButton onClick={handleRefresh} title="Refresh stories">
@@ -238,7 +464,6 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
           </StoriesHeader>
 
           <StoriesScroll>
-            {/* Add Story Button */}
             <StoryItem onClick={handleAddStoryClick}>
               <StoryRing $isAdd>
                 <StoryAvatar $isAdd>
@@ -273,7 +498,6 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
                 const hasRepliesCount = hasReplies(supporter.id);
                 const latestReply = replies[supporter.id]?.[0];
                 const mediaType = supporter.media_type || "text";
-
                 return (
                   <StoryItem
                     key={supporter.id}
@@ -287,9 +511,7 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
                             <MessageCircle size={10} />
                           </ReplyBadge>
                         )}
-                        <MediaTypeBadge>
-                          {getMediaIcon(mediaType)}
-                        </MediaTypeBadge>
+                        <MediaTypeBadge>{getMediaIcon(mediaType)}</MediaTypeBadge>
                       </StoryAvatar>
                     </StoryRing>
                     <StoryName>

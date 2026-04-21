@@ -95,13 +95,7 @@ const ViewAllBtn = styled.button`
   font-size: 11px; cursor: pointer; &:hover { color: white; }
 `;
 
-// Image URL builder
-const buildImageUrl = (url) => {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const base = API.IMAGES;
-  return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
-};
+import { buildImageUrl } from "../../utils/imageUtils";
 
 const GlobalBoostedStories = ({ onStoryClick }) => {
   const [stories, setStories] = useState([]);
