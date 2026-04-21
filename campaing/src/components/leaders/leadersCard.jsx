@@ -196,24 +196,26 @@ const StatsRow = styled.div`
   }
 `;
 
-// Helper function to build full image URL via Gateway (Port 8009)
+
+// Inside LeaderCard.jsx
 const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "") return null;
-
-  // If it's already a full URL
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
     return imageUrl;
   }
 
-  // Gateway handles /uploads prefix
-  const baseUrl = API.IMAGES;
-  if (imageUrl.startsWith("/")) {
-    return `${baseUrl}${imageUrl}`;
+  let baseUrl = API.IMAGES || API.BASE;
+  if (!baseUrl) return null;
+
+  // Remove /api/v1 if present (like LeadersPage does)
+  if (baseUrl.includes("/api/v1")) {
+    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
   }
 
-  return `${baseUrl}/${imageUrl}`;
+  baseUrl = baseUrl.replace(/\/$/, "");
+  const imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  return `${baseUrl}${imagePath}`;
 };
-
 
 const LeaderCard = ({ leader }) => {
   const navigate = useNavigate();
