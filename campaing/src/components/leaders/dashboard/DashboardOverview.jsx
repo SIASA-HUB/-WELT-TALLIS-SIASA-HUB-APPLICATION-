@@ -35,7 +35,7 @@ import {
   Legend,
 } from "recharts";
 import CompetitorsSection from "./CompetitorsSection";
-import API from "../../../api/config";
+import { buildImageUrl, getAvatarFallback } from "../../../utils/imageUtils";
 
 const COLORS = ["#1e3c72", "#10b981", "#ea580c", "#dc2626", "#6366f1"];
 
@@ -401,6 +401,106 @@ const LoadingCard = styled.div`
   }
 `;
 
+const IntelligenceSection = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+  
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const RecommendationCard = styled.div`
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  
+  .rec-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    h3 { margin: 0; font-size: 1.1rem; color: #1e293b; }
+  }
+`;
+
+const ActionItem = styled.div`
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: ${props => props.$type === 'urgent' ? '#fff1f2' : '#f8fafc'};
+  border-left: 4px solid ${props => props.$type === 'urgent' ? '#ef4444' : '#3b82f6'};
+  border-radius: 8px;
+  margin-bottom: 12px;
+  
+  .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${props => props.$type === 'urgent' ? '#ef4444' : '#3b82f6'};
+    flex-shrink: 0;
+  }
+  
+  .text {
+    h4 { margin: 0; font-size: 0.9rem; color: #1e293b; }
+    p { margin: 4px 0 0; font-size: 0.8rem; color: #64748b; }
+  }
+`;
+
+const WardStatusCard = styled.div`
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+`;
+
+const StatusBox = styled.div`
+  text-align: center;
+  padding: 16px;
+  border-radius: 16px;
+  background: ${props => {
+    if (props.$type === 'winning') return '#dcfce7';
+    if (props.$type === 'losing') return '#fee2e2';
+    return '#f1f5f9';
+  }};
+  
+  .count {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: ${props => {
+      if (props.$type === 'winning') return '#166534';
+      if (props.$type === 'losing') return '#991b1b';
+      return '#475569';
+    }};
+  }
+  
+  .label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: ${props => {
+      if (props.$type === 'winning') return '#166534';
+      if (props.$type === 'losing') return '#991b1b';
+      return '#64748b';
+    }};
+    margin-top: 4px;
+  }
+`;
+
 const DashboardOverview = ({ leader }) => {
   const [stats, setStats] = useState({
     endorsement_count: 0,
@@ -429,7 +529,6 @@ const DashboardOverview = ({ leader }) => {
 
     setLoading(true);
     try {
-      // 1. Fetch from the NEW unified analytics endpoint
       const dashboardRes = await api.get(`/leaders/analytics/dashboard`, {
         params: { leader_id: leader.leader_id }
       });
@@ -442,6 +541,8 @@ const DashboardOverview = ({ leader }) => {
           endorsement_count: d.overview.endorsements || 0,
           unique_supporters: d.overview.total_supporters || 0,
           total_shares: d.overview.shares || 0,
+          free_endorsements: d.overview.free_endorsements || 0,
+          paid_endorsements: d.overview.paid_endorsements || 0,
         }));
         setAnalyticsData(d.daily_reach || []);
         setTrialActive(d.overview.trial_active);
@@ -449,9 +550,9 @@ const DashboardOverview = ({ leader }) => {
         setDemographics(d.demographics || { gender: {}, generations: {} });
         setWardReach(d.ward_reach || []);
         setGrowthRate(d.overview.growth_rate || 0);
+        setTrendingScore(d.overview.boost_score || 0);
       }
 
-      // 2. Fetch recent endorsements
       const endorsementsRes = await api.get(
         `/endorsements/leader/${leader.leader_id}/recent?limit=10`
       );
@@ -471,6 +572,12 @@ const DashboardOverview = ({ leader }) => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  const getAvatarUrl = (item) => {
+    const raw = item?.image_url || item?.image;
+    if (raw) return buildImageUrl(raw);
+    return getAvatarFallback(item?.user_name || "Supporter");
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -487,23 +594,16 @@ const DashboardOverview = ({ leader }) => {
     return date.toLocaleDateString();
   };
 
-  const getAvatarUrl = (item) => {
-    if (item?.image_url) {
-      return item.image_url.startsWith("http") || item.image_url.startsWith("data:")
-        ? item.image_url
-        : `${API.BASE.replace('/api/v1', '')}${item.image_url}`;
-    }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      item?.user_name || "Supporter",
-    )}&background=1e3c72&color=fff&size=80&bold=true`;
-  };
-
   const totalEngagement =
     stats.total_likes + stats.total_comments + stats.total_boosts + stats.total_shares;
   const engagementRate =
     stats.unique_supporters > 0
       ? ((totalEngagement / stats.unique_supporters) * 100).toFixed(1)
       : 0;
+
+  const winningWards = wardReach.filter(w => w.count > (profileViews / (wardReach.length || 1)) * 1.5);
+  const moderateWards = wardReach.filter(w => w.count <= (profileViews / (wardReach.length || 1)) * 1.5 && w.count > (profileViews / (wardReach.length || 1)) * 0.5);
+  const losingWards = wardReach.filter(w => w.count <= (profileViews / (wardReach.length || 1)) * 0.5);
 
   if (loading) {
     return (
@@ -551,7 +651,7 @@ const DashboardOverview = ({ leader }) => {
             {stats.unique_supporters.toLocaleString() || 0}
           </div>
           <div className="stat-label">Unique Supporters</div>
-          <div className="stat-trend">
+          <div className="stat-trend" $trend="up">
             <TrendingUp size={12} />+{stats.endorsement_count || 0} total
           </div>
         </StatCard>
@@ -561,7 +661,7 @@ const DashboardOverview = ({ leader }) => {
             <Eye size={24} color="#16a34a" />
           </div>
           <div className="stat-value">{profileViews.toLocaleString() || 0}</div>
-          <div className="stat-label">Profile Views</div>
+          <div className="stat-label">Profile Reach</div>
         </StatCard>
 
         <StatCard $trend="up">
@@ -569,12 +669,12 @@ const DashboardOverview = ({ leader }) => {
             <Heart size={24} color="#ea580c" />
           </div>
           <div className="stat-value">
-            {totalEngagement.toLocaleString() || 0}
+            {stats.total_shares.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Total Engagement</div>
-          <div className="stat-trend">
+          <div className="stat-label">Total Shares</div>
+          <div className="stat-trend" $trend="up">
             <Zap size={12} />
-            {engagementRate}% rate
+            {growthRate}% cycle
           </div>
         </StatCard>
 
@@ -590,20 +690,18 @@ const DashboardOverview = ({ leader }) => {
       </StatGrid>
 
       <MainContentGrid>
-        {/* Campaign Analytics Chart */}
         <ActivityCard style={{ gridColumn: "1 / -1" }}>
           <CardHeader>
             <h3>
               <TrendingUp size={18} />
-              Daily Reach (Views & Shares)
+              Campaign Momentum (14-Day View)
             </h3>
             <div style={{ display: 'flex', gap: '8px' }}>
               {growthRate !== 0 && (
                 <div className="badge" style={{ background: growthRate > 0 ? '#dcfce7' : '#fee2e2', color: growthRate > 0 ? '#166534' : '#991b1b' }}>
-                  {growthRate > 0 ? '+' : ''}{growthRate}% Growth
+                  {growthRate > 0 ? '+' : ''}{growthRate}% Weekly Growth
                 </div>
               )}
-              {trialActive && <div className="badge">Trial Active</div>}
             </div>
           </CardHeader>
           <div style={{ padding: "24px", height: "300px" }}>
@@ -638,35 +736,85 @@ const DashboardOverview = ({ leader }) => {
                   fill="url(#colorViews)"
                   strokeWidth={3}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="shares"
-                  stroke="#10b981"
-                  fillOpacity={0.1}
-                  fill="#10b981"
-                  strokeWidth={2}
-                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </ActivityCard>
 
-        {/* Demographics & Reach Section */}
+        <IntelligenceSection style={{ gridColumn: '1/-1' }}>
+          <RecommendationCard>
+            <div className="rec-header">
+              <Zap size={20} color="#ea580c" />
+              <h3>Recommended Actions</h3>
+            </div>
+            
+            {losingWards.length > 0 && (
+              <ActionItem $type="urgent">
+                <div className="icon"><AlertTriangle size={18} /></div>
+                <div className="text">
+                  <h4>Boost Presence in {losingWards[0]?.ward}</h4>
+                  <p>Reach is 50% below average. Opponents are gaining ground here.</p>
+                </div>
+              </ActionItem>
+            )}
+            
+            <ActionItem $type="info">
+              <div className="icon"><Target size={18} /></div>
+              <div className="text">
+                <h4>Leverage {winningWards[0]?.ward || 'High Reach'} Success</h4>
+                <p>Your content is viral here. Post a video manifesto to convert views to votes.</p>
+              </div>
+            </ActionItem>
+
+            <ActionItem $type="info">
+              <div className="icon"><Users size={18} /></div>
+              <div className="text">
+                <h4>Engage Young Voters</h4>
+                <p>Demographics show high Gen-Z interest. Consider more visual story updates.</p>
+              </div>
+            </ActionItem>
+          </RecommendationCard>
+
+          <WardStatusCard>
+            <div className="rec-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <MapPin size={20} color="#1e3c72" />
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Regional Standing</h3>
+            </div>
+            <div className="status-grid">
+              <StatusBox $type="winning">
+                <div className="count">{winningWards.length}</div>
+                <div className="label">Winning</div>
+              </StatusBox>
+              <StatusBox $type="moderate">
+                <div className="count">{moderateWards.length}</div>
+                <div className="label">Moderate</div>
+              </StatusBox>
+              <StatusBox $type="losing">
+                <div className="count">{losingWards.length}</div>
+                <div className="label">Losing</div>
+              </StatusBox>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '16px', lineHeight: '1.4' }}>
+              We classify your standing based on Reach density per ward compared to your regional average profile visibility.
+            </p>
+          </WardStatusCard>
+        </IntelligenceSection>
+
         <ActivityCard>
           <CardHeader>
-            <h3><Users size={18} /> Audience Demographics</h3>
+            <h3><Users size={18} /> Audience Insights</h3>
           </CardHeader>
-          <div style={{ padding: "24px", display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ height: '200px' }}>
-              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Gender Distribution</p>
+          <div style={{ padding: "24px" }}>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Gender Distribution</p>
+            <div style={{ height: '180px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={Object.entries(demographics.gender).map(([name, value]) => ({ name, value }))}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={45}
+                    outerRadius={65}
                     paddingAngle={5}
                     dataKey="value"
                   >
@@ -675,23 +823,8 @@ const DashboardOverview = ({ leader }) => {
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
                 </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={{ height: '200px' }}>
-              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Generational Reach</p>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={Object.entries(demographics.generations).map(([name, value]) => ({ name, value }))}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-                  <Tooltip cursor={{ fill: 'transparent' }} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {Object.entries(demographics.generations).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -702,43 +835,26 @@ const DashboardOverview = ({ leader }) => {
             <h3><Target size={18} /> Top Performing Wards</h3>
           </CardHeader>
           <div style={{ padding: "0 24px 24px 24px" }}>
-            {wardReach.length === 0 ? (
-              <EmptyState style={{ padding: '40px 0' }}>
-                <Activity size={24} />
-                <p>No location data yet</p>
-              </EmptyState>
-            ) : (
-              wardReach.map((ward, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '16px 0',
-                  borderBottom: i === wardReach.length - 1 ? 'none' : '1px solid #f1f5f9'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      background: '#f8fafc',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      color: '#1e3c72'
-                    }}>#{i + 1}</div>
-                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{ward.ward}</span>
-                  </div>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>{ward.count} views</span>
+            {wardReach.slice(0, 5).map((ward, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 0',
+                borderBottom: i === 4 ? 'none' : '1px solid #f1f5f9'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e3c72' }}>#{i + 1}</div>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>{ward.ward}</span>
                 </div>
-              ))
-            )}
+                <div style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
+                  {ward.count} views
+                </div>
+              </div>
+            ))}
           </div>
         </ActivityCard>
 
-        {/* Recent Activity */}
         <ActivityCard>
           <CardHeader>
             <h3>

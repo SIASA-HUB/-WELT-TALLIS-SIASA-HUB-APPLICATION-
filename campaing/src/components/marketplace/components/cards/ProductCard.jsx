@@ -233,39 +233,9 @@ const ProductCard = ({ product }) => {
   const productId = product?.id || product?._id;
   const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${productId}`;
   
-  // Build the full image URL using your API config
-  const getImageUrl = () => {
-    const raw = product?.img || product?.image || product?.image_url;
-    
-    // If no image path provided, return placeholder
-    if (!raw) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || product?.name || 'P')}&background=e11d48&color=fff&size=400&bold=true`;
-    }
-    
-    // If it's already a full URL (starts with http:// or https://)
-    if (raw.startsWith('http://') || raw.startsWith('https://')) {
-      return raw;
-    }
-    
-    // Use your API's IMAGE_BASE_URL from config
-    const imageBaseUrl = API.IMAGES || API.UPLOAD_BASE || "http://localhost:8009";
-    
-    // If it's a relative path starting with /uploads or /images
-    if (raw.startsWith('/uploads') || raw.startsWith('/images') || raw.startsWith('/static')) {
-      return `${imageBaseUrl}${raw}`;
-    }
-    
-    // If it's a relative path without leading slash
-    if (raw.startsWith('uploads/') || raw.startsWith('images/')) {
-      return `${imageBaseUrl}/${raw}`;
-    }
-    
-    // Default: treat as relative path
-    const cleanPath = raw.startsWith('/') ? raw : `/${raw}`;
-    return `${imageBaseUrl}${cleanPath}`;
-  };
-  
-  const imgUrl = getImageUrl();
+  // Build the full image URL using centralized utility
+  const imgUrl = buildImageUrl(product?.img || product?.image || product?.image_url) || 
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(product?.title || product?.name || 'P')}&background=e11d48&color=fff&size=400&bold=true`;
   
   // Handle image error - try fallback or placeholder
   const handleImageError = (e) => {

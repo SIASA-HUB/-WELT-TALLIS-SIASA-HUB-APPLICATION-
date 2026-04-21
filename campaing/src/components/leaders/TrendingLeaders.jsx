@@ -167,32 +167,7 @@ const Party = styled.div`
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 `;
 
-// Helper: Build correct image URL without double slashes
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
-
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-
-  let baseUrl = API.IMAGES || API.BASE || '';
-  if (baseUrl && baseUrl.includes("/api/v1")) {
-    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
-  }
-  if (baseUrl) {
-    baseUrl = baseUrl.replace(/\/$/, "");
-  }
-
-  let cleanPath = imageUrl;
-  if (cleanPath.startsWith("/")) {
-    cleanPath = cleanPath.substring(1);
-  }
-
-  if (!baseUrl) {
-    return `/${cleanPath}`;
-  }
-  return `${baseUrl}/${cleanPath}`;
-};
+import { buildImageUrl } from "../../utils/imageUtils";
 
 const TrendingLeaders = () => {
   const navigate = useNavigate();

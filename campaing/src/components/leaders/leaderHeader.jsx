@@ -549,16 +549,7 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-const buildImageUrl = (url) => {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-
-  let baseUrl = API?.IMAGES || API?.BASE || process.env.REACT_APP_API_URL || "http://localhost:5000";
-  if (baseUrl.includes("/api/v1")) baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
-  baseUrl = baseUrl.replace(/\/$/, "");
-  let imagePath = url.startsWith("/") ? url : `/${url}`;
-  return `${baseUrl}${imagePath}`;
-};
+import { buildImageUrl, getAvatarFallback } from "../../utils/imageUtils";
 
 const getLeaderImage = (leader) => {
   if (!leader) return null;

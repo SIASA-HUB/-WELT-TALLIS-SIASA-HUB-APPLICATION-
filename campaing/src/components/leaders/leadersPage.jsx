@@ -29,27 +29,11 @@ const LeaderCard = lazy(() => import("./leadersCard"));
 import API from "../../api/config";
 import api from "../../api/api";
 
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-  let baseUrl = API.IMAGES || API.BASE;
-  if (!baseUrl) return null;
-  if (baseUrl.includes("/api/v1")) {
-    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
-  }
-  baseUrl = baseUrl.replace(/\/$/, "");
-  let imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  return `${baseUrl}${imagePath}`;
-};
+import { buildImageUrl, getAvatarFallback } from "../../utils/imageUtils";
 
 const getLeaderAvatar = (leader) => {
   const imageUrl = leader.image || leader.profile_image || leader.avatar || leader.image_url;
-  const builtUrl = buildImageUrl(imageUrl);
-  if (builtUrl) return builtUrl;
-  const name = leader.name || leader.full_name || "Leader";
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.charAt(0))}&background=000&color=fff&size=80&bold=true&length=1`;
+  return buildImageUrl(imageUrl) || getAvatarFallback(leader.name || leader.full_name || "Leader");
 };
 
 // ============================================

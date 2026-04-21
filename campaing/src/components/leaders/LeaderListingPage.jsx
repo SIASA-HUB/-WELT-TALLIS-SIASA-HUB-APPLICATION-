@@ -9,6 +9,8 @@ import styled, { keyframes } from "styled-components";
 import { Users, MapPin, Briefcase, ChevronRight, Search, Filter } from "lucide-react";
 import api from "../../api/api";
 
+import { buildImageUrl } from "../../utils/imageUtils";
+
 // ─── Animations ─────────────────────────────────────────────────────────────
 const fadeUp = keyframes`from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); }`;
 const shimmer = keyframes`0% { background-position: -200% 0; } 100% { background-position: 200% 0; }`;
@@ -443,11 +445,7 @@ const LeaderListingPage = () => {
             {filtered.map((leader) => {
               const leaderSlug = leader.slug || leader.leader_id;
               const profileUrl = `/leader/${leaderSlug}`;
-              const avatarSrc = leader.image_url?.startsWith('http') 
-                ? leader.image_url 
-                : (leader.image_url || leader.image) 
-                  ? `${API.IMAGES}${leader.image_url || leader.image}` 
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name || "L")}&background=e11d48&color=fff&size=200`;
+              const avatarSrc = buildImageUrl(leader.image_url || leader.image) || `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name || "L")}&background=e11d48&color=fff&size=200`;
 
               return (
                 <LeaderCard key={leader.leader_id || leader.id} to={profileUrl}>

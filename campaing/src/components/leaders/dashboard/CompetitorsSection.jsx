@@ -1,4 +1,4 @@
-// components/leaders/CompetitorsSection.jsx - Top Supporters Version
+// components/leaders/CompetitorsSection.jsx - Competitor Intelligence Dashboard
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import { 
@@ -6,40 +6,30 @@ import {
   ShieldCheck, 
   MapPin, 
   Crown, 
-  Star, 
-  Heart, 
-  Medal, 
-  Award,
-  Mail,
-  ThumbsUp,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle,
+  Target,
+  Zap,
+  ArrowRight,
+  TrendingDown,
+  Activity,
+  BarChart2
 } from "lucide-react";
-import axios from "axios";
-import API from "../../../api/config";
+import api from "../../../api/api";
+import { buildImageUrl, getAvatarFallback } from "../../../utils/imageUtils";
 
 const fadeInUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const glowGold = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 const Container = styled.div`
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: #ffffff;
   border-radius: 24px;
   padding: 24px;
   margin: 20px 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 `;
 
 const SectionHeader = styled.div`
@@ -47,345 +37,354 @@ const SectionHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
 
-  h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: white;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    
-    svg {
-      color: #fbbf24;
+  .title-group {
+    h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    p {
+      margin: 4px 0 0;
+      font-size: 0.85rem;
+      color: #64748b;
     }
   }
 
   .badge {
-    background: rgba(245, 158, 11, 0.2);
+    background: #f1f5f9;
     padding: 6px 12px;
     border-radius: 30px;
     font-size: 0.75rem;
-    color: #fbbf24;
-    font-weight: 600;
+    color: #475569;
+    font-weight: 700;
   }
 `;
 
-const SupportersGrid = styled.div`
+const CompetitorGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+`;
+
+const IntelligenceCard = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+  animation: ${fadeInUp} 0.4s ease-out;
+
+  &:hover {
+    border-color: #1e3c72;
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const CompetitorInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  img, .fallback {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    object-fit: cover;
+    border: 2px solid white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+  
+  .fallback {
+    background: #1e3c72;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+  }
+
+  .details {
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    p {
+      margin: 2px 0 0;
+      font-size: 0.75rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+  }
+`;
+
+const ComparisonStats = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
 `;
 
-const SupporterCard = styled.div`
-  background: ${props => {
-    if (props.$rank === 1) return 'linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))';
-    if (props.$rank === 2) return 'linear-gradient(135deg, rgba(156, 163, 175, 0.15), rgba(156, 163, 175, 0.05))';
-    if (props.$rank === 3) return 'linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05))';
-    return 'rgba(255, 255, 255, 0.03)';
-  }};
-  border: 1px solid ${props => {
-    if (props.$rank === 1) return 'rgba(234, 179, 8, 0.3)';
-    if (props.$rank === 2) return 'rgba(156, 163, 175, 0.3)';
-    if (props.$rank === 3) return 'rgba(205, 127, 50, 0.3)';
-    return 'rgba(255, 255, 255, 0.08)';
-  }};
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.3s ease;
-  animation: ${fadeInUp} 0.4s ease-out;
-  animation-delay: ${props => props.$delay}s;
-
-  &:hover {
-    transform: translateX(4px);
-    border-color: ${props => {
-      if (props.$rank === 1) return 'rgba(234, 179, 8, 0.6)';
-      return 'rgba(255, 255, 255, 0.2)';
-    }};
-    background: ${props => {
-      if (props.$rank === 1) return 'linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.08))';
-      return 'rgba(255, 255, 255, 0.06)';
-    }};
-  }
-`;
-
-const RankBadge = styled.div`
-  width: 50px;
-  text-align: center;
-  flex-shrink: 0;
-
-  .rank-number {
-    font-size: 1.5rem;
-    font-weight: 800;
-    background: ${props => {
-      if (props.$rank === 1) return 'linear-gradient(135deg, #fbbf24, #f59e0b)';
-      if (props.$rank === 2) return 'linear-gradient(135deg, #9ca3af, #6b7280)';
-      if (props.$rank === 3) return 'linear-gradient(135deg, #cd7f32, #b87333)';
-      return 'linear-gradient(135deg, #475569, #334155)';
-    }};
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .rank-icon {
-    width: 32px;
-    height: 32px;
-    margin: 0 auto;
-  }
-`;
-
-const Avatar = styled.div`
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
-  box-shadow: ${props => props.$rank === 1 ? '0 0 20px rgba(234, 179, 8, 0.4)' : 'none'};
-  animation: ${props => props.$rank === 1 ? glowGold : 'none'} 2s infinite;
-`;
-
-const Info = styled.div`
-  flex: 1;
-  min-width: 0;
-
-  .name {
-    font-weight: 700;
-    font-size: 1rem;
-    color: white;
+const StatRow = styled.div`
+  .label-group {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
     margin-bottom: 4px;
-  }
-
-  .email {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.6);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 6px;
     
-    svg {
-      width: 12px;
-      height: 12px;
+    .diff {
+      color: ${props => props.$losing ? '#dc2626' : '#16a34a'};
     }
   }
 
-  .location {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.5);
+  .bar-container {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
     display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-`;
-
-const Stats = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
-
-  .score {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: #fbbf24;
   }
 
-  .interactions {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.5);
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  .your-bar {
+    height: 100%;
+    background: #1e3c72;
+    width: ${props => props.$yourPercent}%;
+    transition: width 1s ease-out;
   }
 
-  .verified-badge {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    font-weight: 600;
-  }
-`;
-
-const LoadingState = styled.div`
-  text-align: center;
-  padding: 40px;
-  color: rgba(255, 255, 255, 0.5);
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 40px;
-  color: rgba(255, 255, 255, 0.5);
-  
-  svg {
-    margin-bottom: 12px;
+  .opp-bar {
+    height: 100%;
+    background: #94a3b8;
+    width: ${props => props.$oppPercent}%;
+    transition: width 1s ease-out;
     opacity: 0.5;
   }
 `;
 
+const ThreatBadge = styled.div`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 30px;
+  background: ${props => {
+    if (props.$level === 'High') return '#fee2e2';
+    if (props.$level === 'Medium') return '#fef3c7';
+    return '#dcfce7';
+  }};
+  color: ${props => {
+    if (props.$level === 'High') return '#991b1b';
+    if (props.$level === 'Medium') return '#92400e';
+    return '#166534';
+  }};
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const InsightCard = styled.div`
+  background: ${props => props.$type === 'warning' ? '#fff7ed' : '#f0f9ff'};
+  border: 1px solid ${props => props.$type === 'warning' ? '#ffedd5' : '#e0f2fe'};
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  .icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${props => props.$type === 'warning' ? '#ea580c' : '#0369a1'};
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #334155;
+    line-height: 1.4;
+  }
+`;
+
 const CompetitorsSection = ({ leader }) => {
-  const [supporters, setSupporters] = useState([]);
+  const [competitors, setCompetitors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [totalSupporters, setTotalSupporters] = useState(0);
 
   useEffect(() => {
-    const fetchTopSupporters = async () => {
+    const fetchCompetitorsData = async () => {
       const leaderId = leader?.leader_id || leader?.id;
-      if (!leaderId) {
-        setLoading(false);
-        return;
-      }
+      if (!leaderId) return;
 
       try {
-        const res = await axios.get(`${API.LEADERS}/${leaderId}/top-supporters`, {
-          params: { limit: 10 }
+        const res = await api.get(`/leaders`, {
+          params: { 
+            position_running_for: leader.position,
+            county: leader.county,
+            limit: 5
+          }
         });
         
-        if (res.data.success) {
-          setSupporters(res.data.data || []);
-          setTotalSupporters(res.data.total || 0);
+        if (res.success) {
+          // Filter out the current leader
+          const filtered = (Array.isArray(res.data) ? res.data : (res.data.leaders || []))
+            .filter(c => c.leader_id !== leaderId)
+            .slice(0, 3);
+          setCompetitors(filtered);
         }
       } catch (err) {
-        console.error("Error fetching top supporters:", err);
+        console.error("Error fetching competitors:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTopSupporters();
+    fetchCompetitorsData();
   }, [leader]);
 
-  const getRankIcon = (rank) => {
-    if (rank === 1) return <Crown size={28} fill="#fbbf24" color="#fbbf24" />;
-    if (rank === 2) return <Medal size={28} color="#9ca3af" />;
-    if (rank === 3) return <Medal size={28} color="#cd7f32" />;
-    return <Award size={24} color="#475569" />;
+  const calculateThreatLevel = (comp) => {
+    const yourScore = (leader.boost_score || 0) * 10 + (leader.views || 0);
+    const compScore = (comp.boost_score || 0) * 10 + (comp.views || 0);
+    
+    if (compScore > yourScore * 1.5) return "Critical";
+    if (compScore > yourScore) return "High";
+    if (compScore > yourScore * 0.7) return "Medium";
+    return "Low";
   };
 
-  const getInitials = (name) => {
-    if (!name) return "U";
-    return name.charAt(0).toUpperCase();
+  const calculatePercent = (val1, val2) => {
+    const total = val1 + val2;
+    if (total === 0) return 50;
+    return (val1 / total) * 100;
   };
 
-  const formatScore = (score) => {
-    if (score >= 1000) return `${(score / 1000).toFixed(1)}K`;
-    return score.toString();
-  };
-
-  if (loading) {
-    return (
-      <Container>
-        <LoadingState>
-          <TrendingUp size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-          <div>Loading top supporters...</div>
-        </LoadingState>
-      </Container>
-    );
-  }
-
-  if (supporters.length === 0) {
-    return (
-      <Container>
-        <EmptyState>
-          <Heart size={40} />
-          <div>No supporters yet. Be the first to support!</div>
-        </EmptyState>
-      </Container>
-    );
-  }
+  if (loading) return <Container>Loading intelligence data...</Container>;
 
   return (
     <Container>
       <SectionHeader>
-        <h3>
-          <Crown size={20} fill="#fbbf24" />
-          Top Supporters
-        </h3>
+        <div className="title-group">
+          <h3>
+            <BarChart2 size={22} color="#1e3c72" />
+            Competitor Intelligence
+          </h3>
+          <p>Real-time head-to-head analysis with your top opponents</p>
+        </div>
         <div className="badge">
-          {totalSupporters} Total Supporters
+          {competitors.length} Active Competitors detected
         </div>
       </SectionHeader>
 
-      <SupportersGrid>
-        {supporters.map((supporter, index) => (
-          <SupporterCard 
-            key={supporter.user_id || index} 
-            $rank={index + 1}
-            $delay={index * 0.05}
-          >
-            <RankBadge $rank={index + 1}>
-              {index < 3 ? (
-                <div className="rank-icon">{getRankIcon(index + 1)}</div>
-              ) : (
-                <div className="rank-number">#{index + 1}</div>
-              )}
-            </RankBadge>
+      <CompetitorGrid>
+        {competitors.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', gridColumn: '1/-1' }}>
+            <Target size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+            <p>No active competitors found in {leader.county}</p>
+          </div>
+        ) : (
+          competitors.map((comp) => {
+            const threat = calculateThreatLevel(comp);
+            const reachGap = (comp.views || 0) - (leader.views || 0);
+            
+            return (
+              <IntelligenceCard key={comp.leader_id}>
+                <ThreatBadge $level={threat}>
+                  {threat === 'Critical' || threat === 'High' ? <AlertTriangle size={12} /> : <Zap size={12} />}
+                  {threat} Threat
+                </ThreatBadge>
 
-            <Avatar $rank={index + 1}>
-              {supporter.avatar_url ? (
-                <img src={supporter.avatar_url} alt={supporter.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                getInitials(supporter.name || supporter.email)
-              )}
-            </Avatar>
+                <CompetitorInfo>
+                  <img 
+                    src={buildImageUrl(comp.image_url || comp.image) || getAvatarFallback(comp.name)} 
+                    alt={comp.name} 
+                  />
+                  <div className="details">
+                    <h4>{comp.name}</h4>
+                    <p>{comp.party || 'Independent'} • {comp.position}</p>
+                  </div>
+                </CompetitorInfo>
 
-            <Info>
-              <div className="name">
-                {supporter.name || "Anonymous Supporter"}
-                {index === 0 && <Star size={14} fill="#fbbf24" color="#fbbf24" />}
-              </div>
-              {supporter.email && (
-                <div className="email">
-                  <Mail size={12} />
-                  {supporter.email}
-                </div>
-              )}
-              {supporter.location && (
-                <div className="location">
-                  <MapPin size={12} />
-                  {supporter.location}
-                </div>
-              )}
-            </Info>
+                <ComparisonStats>
+                  <StatRow 
+                    $yourPercent={calculatePercent(leader.views || 0, comp.views || 0)}
+                    $oppPercent={calculatePercent(comp.views || 0, leader.views || 0)}
+                    $losing={reachGap > 0}
+                  >
+                    <div className="label-group">
+                      <span>Reach Visibility</span>
+                      <span className="diff">{reachGap > 0 ? `+${reachGap.toLocaleString()}` : reachGap.toLocaleString()} Views</span>
+                    </div>
+                    <div className="bar-container">
+                      <div className="your-bar" />
+                    </div>
+                    <div className="bar-container" style={{ marginTop: '2px', background: 'transparent' }}>
+                      <div className="opp-bar" />
+                    </div>
+                  </StatRow>
 
-            <Stats>
-              <div className="score">
-                {formatScore(supporter.interaction_score)}
-              </div>
-              <div className="interactions">
-                <ThumbsUp size={10} />
-                {supporter.total_interactions} interactions
-              </div>
-              {supporter.is_verified === 1 && (
-                <div className="verified-badge">
-                  <ShieldCheck size={10} style={{ display: 'inline', marginRight: 2 }} />
-                  Verified
+                  <StatRow 
+                    $yourPercent={calculatePercent(leader.boost_score || 0, comp.boost_score || 0)}
+                    $oppPercent={calculatePercent(comp.boost_score || 0, leader.boost_score || 0)}
+                    $losing={(comp.boost_score || 0) > (leader.boost_score || 0)}
+                  >
+                    <div className="label-group">
+                      <span>Boost Strength</span>
+                      <span className="diff">{(comp.boost_score || 0) > (leader.boost_score || 0) ? 'Trailing' : 'Leading'}</span>
+                    </div>
+                    <div className="bar-container">
+                      <div className="your-bar" />
+                    </div>
+                    <div className="bar-container" style={{ marginTop: '2px', background: 'transparent' }}>
+                      <div className="opp-bar" />
+                    </div>
+                  </StatRow>
+                </ComparisonStats>
+
+                {threat === 'High' || threat === 'Critical' ? (
+                  <InsightCard $type="warning">
+                    <div className="icon-box"><TrendingUp size={16} /></div>
+                    <p>Opponent gaining momentum. Increase endorsements in {leader.ward || 'your area'} to maintain lead.</p>
+                  </InsightCard>
+                ) : (
+                  <InsightCard $type="info">
+                    <div className="icon-box"><Activity size={16} /></div>
+                    <p>Your campaign has 15% better engagement. Maintain current strategy.</p>
+                  </InsightCard>
+                )}
+                
+                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button style={{ 
+                    background: 'none', border: 'none', color: '#1e3c72', 
+                    fontSize: '0.75rem', fontWeight: '700', 
+                    display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' 
+                  }}>
+                    VIEW PROFILE <ArrowRight size={14} />
+                  </button>
                 </div>
-              )}
-            </Stats>
-          </SupporterCard>
-        ))}
-      </SupportersGrid>
+              </IntelligenceCard>
+            );
+          })
+        )}
+      </CompetitorGrid>
     </Container>
   );
 };

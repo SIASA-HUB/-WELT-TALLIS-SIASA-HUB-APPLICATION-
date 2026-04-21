@@ -10,29 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import api from "../../../api/api";
-import API from "../../../api/config";
-
-// --- ANIMATIONS ---
-const pulse = keyframes`
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-`;
-
-const shimmer = keyframes`
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-`;
-
-// HELPER: Build image URL
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl || imageUrl === "null") return null;
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-  const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  return `${API.IMAGES}${cleanPath}`;
-};
+import { buildImageUrl } from "../../../utils/imageUtils";
 
 
 const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {

@@ -232,8 +232,8 @@ const getLeaderById = asyncHandler(async (req, res) => {
     const boosts = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [safeLeaderId]);
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [safeLeaderId]);
 
-    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
-    const formatImageUrl = (url) => url ? (url.startsWith('http') ? url : `${imageBaseUrl}${url}`) : null;
+    // Return relative paths — the API gateway and frontend handle full URL construction
+    const formatImageUrl = (url) => url || null;
 
     const responseData = {
       success: true,
@@ -597,8 +597,8 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
     const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leader.leader_id]);
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [leader.leader_id]);
 
-    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
-    const formatImageUrl = (url) => url ? (url.startsWith('http') ? url : `${imageBaseUrl}${url}`) : null;
+    // Return relative paths — the API gateway and frontend handle full URL construction
+    const formatImageUrl = (url) => url || null;
 
     const responseData = {
       success: true,
@@ -764,16 +764,8 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       [limit]
     );
 
-    // Get image base URL
-    const imageBaseUrl = process.env.IMAGE_BASE_URL || `http://localhost:${process.env.PORT || 8006}`;
-
-    // Helper to format image URLs
-    const formatImageUrl = (url) => {
-      if (!url) return null;
-      if (url.startsWith('http://') || url.startsWith('https://')) return url;
-      if (url.startsWith('data:')) return url;
-      return `${imageBaseUrl}${url.startsWith('/') ? url : `/${url}`}`;
-    };
+    // Return relative paths — the API gateway and frontend handle full URL construction
+    const formatImageUrl = (url) => url || null;
 
     // Format leaders with proper image URLs
     const formattedLeaders = leaders.map(leader => {
