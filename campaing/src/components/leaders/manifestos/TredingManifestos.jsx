@@ -13,6 +13,19 @@ import api from "../../../api/api";
 import { buildImageUrl } from "../../../utils/imageUtils";
 
 
+
+const pulse = keyframes`
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+`;
+
+
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
+
 const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {
   // If no data, generate random upward trend
   const points = data && data.length > 0 ? data : [10, 15, 22, 30, 35, 42, 48];
