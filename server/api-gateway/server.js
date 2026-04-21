@@ -172,12 +172,12 @@ const createProxy = (targetUrl) => {
 // ============================================
 
 // Proxy uploads to their respective services
-app.use("/uploads/leaders", createProxy(SERVICES.leaders));
-app.use("/uploads/endorsements", createProxy(SERVICES.endorsement));
-app.use("/uploads/marketplace", createProxy(SERVICES.marketplace));
-app.use("/uploads/rallies", createProxy(SERVICES.rallies));
-app.use("/uploads/users", createProxy(SERVICES.users));
-app.use("/uploads/products", createProxy(SERVICES.marketplace));
+app.use(["/api/v1/uploads/leaders", "/uploads/leaders"], createProxy(SERVICES.leaders));
+app.use(["/api/v1/uploads/endorsements", "/uploads/endorsements"], createProxy(SERVICES.endorsement));
+app.use(["/api/v1/uploads/marketplace", "/uploads/marketplace"], createProxy(SERVICES.marketplace));
+app.use(["/api/v1/uploads/rallies", "/uploads/rallies"], createProxy(SERVICES.rallies));
+app.use(["/api/v1/uploads/users", "/uploads/users"], createProxy(SERVICES.users));
+app.use(["/api/v1/uploads/products", "/uploads/products"], createProxy(SERVICES.marketplace));
 
 
 // ============================================
