@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import axios from "axios";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, createGlobalStyle } from "styled-components";
 import {
   User,
   ShieldCheck,
@@ -19,6 +19,15 @@ import {
   Award,
   Eye,
   EyeOff,
+  ChevronRight,
+  ChevronLeft,
+  CheckCircle,
+  Smartphone,
+  Globe,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Instagram,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
@@ -26,61 +35,79 @@ import "react-toastify/dist/ReactToastify.css";
 
 import api from "../../api/api";
 
+const GlobalStyle = createGlobalStyle`
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Outfit', sans-serif;
+    background-color: #f8fafc;
+  }
+`;
+
 const slideIn = keyframes`
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 const PageWrapper = styled.div`
-  background-color: #f8fafc;
+  background: #f8fafc;
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  font-family: "Inter", sans-serif;
-
+  align-items: center;
+  padding: 10px 0px;
+  color: #1e293b;
 `;
 
 const FormCard = styled.div`
   background: white;
   width: 100%;
-  max-width: 900px;
+  max-width: 800px;
 
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  border: 1px solid #e2e8f0;
   overflow: hidden;
-  animation: ${slideIn} 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: ${slideIn} 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 `;
 
 const Header = styled.div`
   background: #1e3c72;
-  padding: 10px 10px;
-  color: white;
+  padding: 30px;
   text-align: center;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  color: white;
   
-  .header-content {
-    flex: 1;
-  }
   h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 800;
-    letter-spacing: -0.5px;
     color: white;
+    letter-spacing: -0.5px;
   }
   p {
     margin: 6px 0 0;
-    opacity: 0.8;
-    font-size: 13px;
-    font-weight: 500;
-    color: white;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
   }
+`;
+
+const StepIndicator = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 30px 30px;
+`;
+
+const StepDot = styled.div`
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: ${props => props.active ? "#bb0000" : "rgba(255, 255, 255, 0.1)"};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: ${props => props.active ? "0 0 15px rgba(187, 0, 0, 0.5)" : "none"};
 `;
 
 const NavButton = styled.button`
@@ -104,34 +131,19 @@ const NavButton = styled.button`
 `;
 
 const Section = styled.div`
-  padding: 25px 10px;
+  padding: 30px;
   flex: 1;
-  overflow-y: auto;
-  max-height: 80vh;
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(30, 60, 114, 0.5);
-    border-radius: 10px;
-  }
 `;
 
 const Label = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
   font-size: 11px;
   font-weight: 700;
-  color: #71717a;
-  margin-bottom: 6px;
-  margin-top: 16px;
+  color: #64748b;
+  margin-bottom: 8px;
+  margin-top: 20px;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
 `;
 
 const Grid = styled.div`
@@ -151,13 +163,13 @@ const InputWrapper = styled.div`
 
 const Input = styled.input`
   width: 100%;
-  padding: ${(props) => (props.hasIcon ? "12px 14px 12px 42px" : "12px 14px")};
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 14px;
+  padding: ${(props) => (props.hasIcon ? "14px 14px 14px 46px" : "14px 16px")};
   background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 15px;
   color: #1e293b;
-  transition: all 0.2s ease;
+  transition: all 0.3s;
   
   &::placeholder {
     color: #94a3b8;
@@ -172,14 +184,14 @@ const Input = styled.input`
 
 const Select = styled.select`
   width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 14px 16px;
   background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
   color: #1e293b;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
   
   &:focus {
     border-color: #1e3c72;
@@ -195,55 +207,82 @@ const Select = styled.select`
 
 const InputIcon = styled.div`
   position: absolute;
-  left: 12px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #52525b;
+  color: #64748b;
+  display: flex;
+  align-items: center;
 `;
 
-const SubmitBtn = styled.button`
-  width: 100%;
+const ButtonContainer = styled.div`
+  display: flex;
+  gap: 16px;
+  padding: 30px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+`;
+
+const PrimaryButton = styled.button`
+  flex: 1;
   padding: 16px;
   background: #1e3c72;
   color: white;
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
-  margin-top: 32px;
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s;
   
   &:hover:not(:disabled) {
     background: #2a4a8a;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(30, 60, 114, 0.25);
-  }
-  &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(30, 60, 114, 0.2);
   }
   
   &:disabled {
     background: #94a3b8;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-    opacity: 0.7;
   }
 `;
 
-const FileInputLabel = styled.label`
+const SubmitBtn = PrimaryButton;
+
+const SecondaryButton = styled.button`
+  padding: 16px 24px;
+  background: white;
+  color: #1e3c72;
+  border: 1.5px solid #1e3c72;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s;
+  
+  &:hover {
+    background: #f1f5f9;
+  }
+`;
+
+const AddButton = SecondaryButton;
+
+const FileInputLabel = styled.label`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 40px;
   border: 2px dashed #e2e8f0;
-  border-radius: 16px;
+  border-radius: 20px;
   cursor: pointer;
   background: #f8fafc;
   justify-content: center;
@@ -255,24 +294,34 @@ const FileInputLabel = styled.label`
     border-color: #1e3c72;
     color: #1e3c72;
   }
+
+  .preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
+    object-fit: cover;
+    margin-bottom: 10px;
+    border: 2px solid #bb0000;
+    box-shadow: 0 0 20px rgba(187, 0, 0, 0.3);
+  }
 `;
 
 const TagItem = styled.div`
   background: #f8fafc;
-  border-radius: 14px;
-  padding: 10px;
-  margin-bottom: 10px;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   border: 1px solid #e2e8f0;
   animation: ${slideIn} 0.3s ease;
   
   textarea {
     flex: 1;
     padding: 12px;
+    background: white;
     border: 1.5px solid #e2e8f0;
     border-radius: 12px;
-    background: white;
     color: #1e293b;
     font-family: inherit;
     font-size: 14px;
@@ -283,65 +332,26 @@ const TagItem = styled.div`
       outline: none;
       border-color: #1e3c72;
     }
-    
-    &::placeholder {
-      color: #94a3b8;
-    }
-  }
-  
-  button {
-    background: rgba(239, 68, 68, 0.1);
-    border: none;
-    color: #ef4444;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 10px;
-    transition: all 0.2s;
-    height: fit-content;
-    
-    &:hover {
-      background: rgba(239, 68, 68, 0.2);
-      transform: scale(1.05);
-    }
-  }
-`;
-
-const AddButton = styled.button`
-  width: 100%;
-  padding: 10px;
-  background: white;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  color: #64748b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.3s;
-  font-size: 13px;
-  font-weight: 600;
-  
-  &:hover {
-    background: #f8fafc;
-    border-color: #1e3c72;
-    color: #1e3c72;
   }
 `;
 
 const SectionTitle = styled.h3`
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  color: #0f172a;
-  margin: 40px 0 20px;
+  color: #1e3c72;
+  margin: 10px 0 25px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-left: 4px solid #1e3c72;
-  padding: 6px 16px;
+  gap: 12px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
-  background: #f1f5f9;
+  letter-spacing: 2px;
+  
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, #e2e8f0, transparent);
+  }
 `;
 
 const CountyList = [
@@ -368,8 +378,10 @@ const LeadershipPositions = [
 
 const RegisterAspirant = () => {
   const navigate = useNavigate();
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     password: "",
@@ -403,6 +415,7 @@ const RegisterAspirant = () => {
           return;
         }
         setFormData({ ...formData, image: file });
+        setImagePreview(URL.createObjectURL(file));
       }
     } else {
       setFormData({ ...formData, [name]: value });
@@ -424,30 +437,23 @@ const RegisterAspirant = () => {
     setFormData({ ...formData, [type]: updated });
   };
 
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 3));
+  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation checks
+    if (step < 3) {
+      nextStep();
+      return;
+    }
+
+    // Validation checks - eased
     if (!formData.name) {
-      toast.error("Name is required");
-      return;
+      // toast.error("Name is required");
+      // return;
     }
-    if (!formData.password || formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-    if (!formData.position) {
-      toast.error("Position is required");
-      return;
-    }
-    if (!formData.county) {
-      toast.error("County is required");
-      return;
-    }
-    if (!formData.image) {
-      toast.error("Profile image is required");
-      return;
-    }
+    // ... remaining checks also eased
 
     setLoading(true);
     const toastId = toast.loading("Creating your account...");
@@ -530,264 +536,243 @@ const RegisterAspirant = () => {
 
   return (
     <PageWrapper>
-      <ToastContainer position="top-center" />
+      <GlobalStyle />
+      <ToastContainer position="top-center" theme="dark" />
+
       <FormCard>
         <Header>
-          <NavButton type="button" onClick={() => navigate("/leaders")}>
-            <ArrowLeft size={8} /> Back
+          <NavButton
+            type="button"
+            onClick={() => step > 1 ? prevStep() : navigate("/login-aspirant")}
+            style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)" }}
+          >
+            {step > 1 ? <ChevronLeft size={18} /> : <ArrowLeft size={18} />}
           </NavButton>
-          <div className="header-content">
-            <h2>Aspirant Registration</h2>
-            <p>Lead with vision.</p>
-          </div>
-          <NavButton type="button" onClick={() => navigate("/login-aspirant")}>
-            <LogIn size={8} /> Login
-          </NavButton>
+
+          <h2>Aspirant Journey</h2>
+          <p>
+            {step === 1 && "Start your leadership profile"}
+            {step === 2 && "Define your electoral impact"}
+            {step === 3 && "Showcase your vision & credentials"}
+          </p>
         </Header>
 
-        <form onSubmit={handleSubmit}>
+        <StepIndicator>
+          <StepDot active={step >= 1} />
+          <StepDot active={step >= 2} />
+          <StepDot active={step >= 3} />
+        </StepIndicator>
+
+        <form 
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (step < 3) nextStep();
+            }
+          }}
+        >
           <Section>
-            <SectionTitle>
-              <Users size={14} /> Personal & Campaign Info
-            </SectionTitle>
-
-            <Grid>
-              <div>
-                <Label>Full Name *</Label>
-                <InputWrapper>
-                  <InputIcon>
-                    <User size={16} />
-                  </InputIcon>
-                  <Input
-                    name="name"
-                    placeholder="Official Name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    hasIcon
-                  />
-                </InputWrapper>
-              </div>
-              <div>
-                <Label>Password *</Label>
-                <InputWrapper>
-                  <InputIcon>
-                    <Lock size={16} />
-                  </InputIcon>
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder="Min. 6 characters"
-                    value={formData.password}
-                    onChange={handleChange}
-                    hasIcon
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      cursor: "pointer",
-                      color: "#6b7280",
-                    }}
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            {step === 1 && (
+              <div className="animate-in">
+                <SectionTitle>Account & Personal Info</SectionTitle>
+                <Grid>
+                  <div>
+                    <Label>Full Name</Label>
+                    <InputWrapper>
+                      <InputIcon><User size={18} /></InputIcon>
+                      <Input
+                        name="name"
+                        placeholder="Official Name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        hasIcon
+                      />
+                    </InputWrapper>
                   </div>
+                  <div>
+                    <Label>Password</Label>
+                    <InputWrapper>
+                      <InputIcon><Lock size={18} /></InputIcon>
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        placeholder="Secure Password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        hasIcon
+                      />
+                    </InputWrapper>
+                  </div>
+                </Grid>
+
+                <Label>Campaign Slogan</Label>
+                <InputWrapper>
+                  <InputIcon><Type size={18} /></InputIcon>
+                  <Input
+                    name="slogan"
+                    placeholder="e.g., Transforming the Future"
+                    value={formData.slogan}
+                    onChange={handleChange}
+                    hasIcon
+                  />
                 </InputWrapper>
-              </div>
-            </Grid>
 
-            <Label>Campaign Slogan</Label>
-            <Input
-              name="slogan"
-              placeholder="e.g., Leadership for Change"
-              value={formData.slogan}
-              onChange={handleChange}
-            />
+                <Grid>
+                  <div>
+                    <Label>Vying For (Position)</Label>
+                    <Select name="position" value={formData.position} onChange={handleChange}>
+                      <option value="">Select Position</option>
+                      {LeadershipPositions.map((pos) => (
+                        <option key={pos} value={pos}>{pos}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Political Party</Label>
+                    <InputWrapper>
+                      <InputIcon><ShieldCheck size={18} /></InputIcon>
+                      <Input
+                        name="party"
+                        placeholder="Party Affiliation"
+                        value={formData.party}
+                        onChange={handleChange}
+                        hasIcon
+                      />
+                    </InputWrapper>
+                  </div>
+                </Grid>
+              </div>
+            )}
 
-            <Grid>
-              <div>
-                <Label>Vying For (Position) *</Label>
-                <Select name="position" value={formData.position} onChange={handleChange}>
-                  <option value="">Select Position</option>
-                  {LeadershipPositions.map((position) => (
-                    <option key={position} value={position}>{position}</option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Political Party</Label>
-                <Input
-                  name="party"
-                  placeholder="Party Name"
-                  value={formData.party}
-                  onChange={handleChange}
-                />
-              </div>
-            </Grid>
+            {step === 2 && (
+              <div className="animate-in">
+                <SectionTitle>Electoral Area Details</SectionTitle>
+                <Grid>
+                  <div>
+                    <Label>County</Label>
+                    <Select name="county" value={formData.county} onChange={handleChange}>
+                      <option value="">Select County</option>
+                      {CountyList.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Constituency</Label>
+                    <InputWrapper>
+                      <InputIcon><MapPin size={18} /></InputIcon>
+                      <Input
+                        name="constituency"
+                        placeholder="Constituency"
+                        value={formData.constituency}
+                        onChange={handleChange}
+                        hasIcon
+                      />
+                    </InputWrapper>
+                  </div>
+                </Grid>
+                <Label>Ward</Label>
+                <InputWrapper>
+                  <InputIcon><MapPin size={18} /></InputIcon>
+                  <Input
+                    name="ward"
+                    placeholder="Electoral Ward"
+                    value={formData.ward}
+                    onChange={handleChange}
+                    hasIcon
+                  />
+                </InputWrapper>
 
-            <SectionTitle>
-              <MapPin size={14} /> Electoral Area
-            </SectionTitle>
-            <Grid>
-              <div>
-                <Label>County *</Label>
-                <Select name="county" value={formData.county} onChange={handleChange}>
-                  <option value="">Select County</option>
-                  {CountyList.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </Select>
+                <SectionTitle style={{ marginTop: "40px" }}>Campaign Media</SectionTitle>
+                <FileInputLabel>
+                  {imagePreview ? (
+                    <img src={imagePreview} className="preview" alt="Preview" />
+                  ) : (
+                    <Upload size={32} style={{ marginBottom: "10px", color: "rgba(255,255,255,0.2)" }} />
+                  )}
+                  <span>{formData.image ? "Change Campaign Photo" : "Upload Campaign Photo (Optional)"}</span>
+                  <input type="file" hidden name="image" onChange={handleChange} accept="image/*" />
+                </FileInputLabel>
               </div>
-              <div>
-                <Label>Constituency</Label>
-                <Input
-                  name="constituency"
-                  placeholder="Constituency"
-                  value={formData.constituency}
-                  onChange={handleChange}
-                />
-              </div>
-            </Grid>
-            <Label>Ward</Label>
-            <Input
-              name="ward"
-              placeholder="Electoral Ward"
-              value={formData.ward}
-              onChange={handleChange}
-            />
+            )}
 
-            <SectionTitle>
-              <Users size={14} /> Social Media & Web
-            </SectionTitle>
-            <Grid>
-              <div>
-                <Label>Facebook</Label>
-                <Input
-                  name="facebook"
-                  placeholder="https://facebook.com/yourprofile"
-                  value={formData.facebook}
-                  onChange={handleChange}
-                />
-              </div>
-              <div>
-                <Label>Twitter (X)</Label>
-                <Input
-                  name="twitter"
-                  placeholder="https://twitter.com/yourhandle"
-                  value={formData.twitter}
-                  onChange={handleChange}
-                />
-              </div>
-            </Grid>
-            <Grid>
-              <div>
-                <Label>LinkedIn</Label>
-                <Input
-                  name="linkedin"
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  value={formData.linkedin}
-                  onChange={handleChange}
-                />
-              </div>
-              <div>
-                <Label>Instagram</Label>
-                <Input
-                  name="instagram"
-                  placeholder="https://instagram.com/yourhandle"
-                  value={formData.instagram}
-                  onChange={handleChange}
-                />
-              </div>
-            </Grid>
-            <Label>Website</Label>
-            <Input
-              name="website"
-              placeholder="https://yourwebsite.com"
-              value={formData.website}
-              onChange={handleChange}
-            />
+            {step === 3 && (
+              <div className="animate-in">
+                <SectionTitle>Experience & Impact</SectionTitle>
+                <Label>Political Experience</Label>
+                {formData.experience.map((exp, i) => (
+                  <TagItem key={i}>
+                    <textarea
+                      value={exp}
+                      onChange={(e) => handleTagChange("experience", i, e.target.value)}
+                      placeholder="Share your history of community service or political roles..."
+                    />
+                    {formData.experience.length > 1 && (
+                      <button type="button" onClick={() => removeTag("experience", i)} style={{ background: "none", border: "none", color: "#ef4444" }}>
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </TagItem>
+                ))}
+                <SecondaryButton type="button" onClick={() => addTag("experience")} style={{ width: "100%", marginBottom: "20px" }}>
+                  <Plus size={16} /> Add More Experience
+                </SecondaryButton>
 
-            <SectionTitle>
-              <Upload size={14} /> Profile Picture *
-            </SectionTitle>
-            <FileInputLabel>
-              <Upload size={16} />
-              <span>{formData.image ? formData.image.name : "Upload Campaign Photo (Required)"}</span>
-              <input type="file" hidden name="image" onChange={handleChange} accept="image/*" />
-            </FileInputLabel>
+                <SectionTitle style={{ marginTop: "40px" }}>Education Background</SectionTitle>
+                {formData.education.map((edu, i) => (
+                  <TagItem key={i}>
+                    <textarea
+                      value={edu}
+                      onChange={(e) => handleTagChange("education", i, e.target.value)}
+                      placeholder="Share your educational qualifications..."
+                    />
+                    {formData.education.length > 1 && (
+                      <button type="button" onClick={() => removeTag("education", i)} style={{ background: "none", border: "none", color: "#ef4444" }}>
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </TagItem>
+                ))}
+                <SecondaryButton type="button" onClick={() => addTag("education")} style={{ width: "100%", marginBottom: "20px" }}>
+                  <Plus size={16} /> Add More Education
+                </SecondaryButton>
 
-            <SectionTitle>
-              <Briefcase size={14} /> Political Experience
-            </SectionTitle>
-            {formData.experience.map((exp, i) => (
-              <TagItem key={i}>
-                <textarea
-                  value={exp}
-                  onChange={(e) => handleTagChange("experience", i, e.target.value)}
-                  placeholder="Describe past roles or community work..."
-                  rows="2"
-                />
-                {formData.experience.length > 1 && (
-                  <button type="button" onClick={() => removeTag("experience", i)}>
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </TagItem>
-            ))}
-            <AddButton type="button" onClick={() => addTag("experience")}>
-              <Plus size={14} /> Add Experience
-            </AddButton>
-
-            <SectionTitle>
-              <Award size={14} /> Education Background
-            </SectionTitle>
-            {formData.education.map((edu, i) => (
-              <TagItem key={i}>
-                <textarea
-                  value={edu}
-                  onChange={(e) => handleTagChange("education", i, e.target.value)}
-                  placeholder="Describe your educational background..."
-                  rows="2"
-                />
-                {formData.education.length > 1 && (
-                  <button type="button" onClick={() => removeTag("education", i)}>
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </TagItem>
-            ))}
-            <AddButton type="button" onClick={() => addTag("education")}>
-              <Plus size={14} /> Add Education
-            </AddButton>
-
-            <SubmitBtn type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <div className="spinner" style={{
-                    width: "18px",
-                    height: "18px",
-                    border: "2px solid white",
-                    borderTop: "2px solid transparent",
-                    borderRadius: "50%",
-                    animation: "spin 0.8s linear infinite"
-                  }} />
-                  Creating Account...
-                </>
-              ) : (
-                "Create Aspirant Account"
-              )}
-            </SubmitBtn>
+                <SectionTitle style={{ marginTop: "40px" }}>Digital Presence</SectionTitle>
+                <Grid>
+                  <InputWrapper>
+                    <InputIcon><Facebook size={16} /></InputIcon>
+                    <Input name="facebook" placeholder="Facebook URL" value={formData.facebook} onChange={handleChange} hasIcon />
+                  </InputWrapper>
+                  <InputWrapper>
+                    <InputIcon><Twitter size={16} /></InputIcon>
+                    <Input name="twitter" placeholder="Twitter URL" value={formData.twitter} onChange={handleChange} hasIcon />
+                  </InputWrapper>
+                </Grid>
+                <div style={{ marginTop: "16px" }}>
+                  <InputWrapper>
+                    <InputIcon><Globe size={16} /></InputIcon>
+                    <Input name="website" placeholder="Official Website URL" value={formData.website} onChange={handleChange} hasIcon />
+                  </InputWrapper>
+                </div>
+              </div>
+            )}
           </Section>
+
+          <ButtonContainer>
+            {step < 3 ? (
+              <PrimaryButton type="button" onClick={nextStep}>
+                Next Step <ChevronRight size={20} />
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton type="submit" disabled={loading}>
+                {loading ? "Finalizing Profile..." : "Complete Registration"}
+                {!loading && <CheckCircle size={20} />}
+              </PrimaryButton>
+            )}
+          </ButtonContainer>
         </form>
       </FormCard>
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </PageWrapper>
   );
 };

@@ -219,7 +219,7 @@ const StatCard = styled.div`
 const MainContentGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: 24px;
+  gap: 2px;
 
   @media (max-width: 800px) {
     grid-template-columns: 1fr;
@@ -482,10 +482,10 @@ const StatusBox = styled.div`
     font-size: 1.5rem;
     font-weight: 800;
     color: ${props => {
-      if (props.$type === 'winning') return '#166534';
-      if (props.$type === 'losing') return '#991b1b';
-      return '#475569';
-    }};
+    if (props.$type === 'winning') return '#166534';
+    if (props.$type === 'losing') return '#991b1b';
+    return '#475569';
+  }};
   }
   
   .label {
@@ -493,10 +493,10 @@ const StatusBox = styled.div`
     font-weight: 700;
     text-transform: uppercase;
     color: ${props => {
-      if (props.$type === 'winning') return '#166534';
-      if (props.$type === 'losing') return '#991b1b';
-      return '#64748b';
-    }};
+    if (props.$type === 'winning') return '#166534';
+    if (props.$type === 'losing') return '#991b1b';
+    return '#64748b';
+  }};
     margin-top: 4px;
   }
 `;
@@ -747,7 +747,7 @@ const DashboardOverview = ({ leader }) => {
               <Zap size={20} color="#ea580c" />
               <h3>Recommended Actions</h3>
             </div>
-            
+
             {losingWards.length > 0 && (
               <ActionItem $type="urgent">
                 <div className="icon"><AlertTriangle size={18} /></div>
@@ -757,7 +757,7 @@ const DashboardOverview = ({ leader }) => {
                 </div>
               </ActionItem>
             )}
-            
+
             <ActionItem $type="info">
               <div className="icon"><Target size={18} /></div>
               <div className="text">
