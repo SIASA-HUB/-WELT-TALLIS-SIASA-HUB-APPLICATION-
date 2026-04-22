@@ -10,29 +10,12 @@ import API from '../api/config';
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
   
-  // If it's already a full URL (http, https) or a data URI
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("data:")) {
     return imageUrl;
   }
 
-  // Get base URL from config
-  let baseUrl = API.IMAGES || API.UPLOAD_BASE;
-  
-  // If no base URL is defined in config, fall back to current window origin
-  if (!baseUrl && typeof window !== "undefined") {
-    baseUrl = window.location.origin;
-  }
-  
-  if (!baseUrl) return null;
-
-  // Clean up the base URL
-  // Strip trailing slashes and /api/v1 if accidentally included
-  baseUrl = baseUrl.replace(/\/$/, "");
-  if (baseUrl.endsWith("/api/v1")) {
-    baseUrl = baseUrl.substring(0, baseUrl.length - 7);
-  }
-  
-  // Clean up the image path (ensure it starts with a single slash)
+  // Strip /api/v1 from the API base URL to get the static file root
+  const baseUrl = (API.BASE_URL || "https://siasahub.co.ke").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
   const imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
   
   return `${baseUrl}${imagePath}`;
