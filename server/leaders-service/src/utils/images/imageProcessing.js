@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require("uuid");
 // Get the upload directory path (inside leaders-service)
 const getUploadDir = () => {
   // This will point to: /c/ballot/server/leaders-service/uploads/leaders
-  return path.join(__dirname, "../../uploads/leaders");
+  return path.join(__dirname, "../../../uploads/leaders");
 };
 
 // Ensure upload directories exist (creates if not exists)

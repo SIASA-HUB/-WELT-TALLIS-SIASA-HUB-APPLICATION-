@@ -105,6 +105,7 @@ async function startServer() {
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
   } catch (err) {
+    console.error(" Fatal error during server startup:", err);
     process.exit(1);
   }
 }

@@ -42,13 +42,13 @@ if (!fs.existsSync(leadersUploadDir)) {
  * This handles /uploads/leaders (direct) AND /api/v1/uploads/leaders (via Gateway)
  */
 app.use(
-  ['/api/v1/uploads/leaders', '/uploads/leaders', '/uploads'],
+  "/uploads",
   express.static(uploadsDir, {
     setHeaders: (res) => {
-      res.set('Access-Control-Allow-Origin', '*');
-      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-    }
-  })
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  }),
 );
 
 // Log static file requests for debugging
