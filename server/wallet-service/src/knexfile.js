@@ -12,8 +12,8 @@ module.exports = {
       database: process.env.DB_NAME || "ballot",
     },
     migrations: {
-      directory: path.join(__dirname, "src", "migrations"),
-      tableName: "knex_migrations",
+      directory: path.join(__dirname, "migrations"),
+      tableName: "knex_migrations_wallet",
     },
   },
 
@@ -27,8 +27,8 @@ module.exports = {
       database: process.env.DB_NAME,
     },
     migrations: {
-      directory: path.join(__dirname, "src", "migrations"),
-      tableName: "knex_migrations_endorsement",
+      directory: path.join(__dirname, "migrations"),
+      tableName: "knex_migrations_wallet",
     },
   },
 };

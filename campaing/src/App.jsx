@@ -113,24 +113,20 @@ const isAspirantAuthenticated = () => {
 import { useAuth } from "./components/hooks/useAuth.jsx";
 
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
-  const { isAuthenticated, isLeaderAuthenticated, user, leader, isLoading } = useAuth();
+  const { isAuthenticated, isLeaderAuthenticated, user, hasRole, isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
   }
 
-
-
-
-  // Admin/MarketAdmin check (Checks regular user profile for role)
-  if (requiredRole === "admin" || requiredRole === "marketadmin") {
-    if (!isAuthenticated || user?.role !== requiredRole) {
+  // Use the hasRole helper which supports hierarchy (CEO > SuperAdmin > Admin)
+  if (requiredRole) {
+    if (!hasRole(requiredRole) && !isLeaderAuthenticated) {
       return <Navigate to="/unauthorized" replace />;
     }
-    return children;
   }
 
-  // Default: Generic Citizen/User check
+  // Default authentication check
   if (!isAuthenticated && !isLeaderAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
@@ -210,7 +206,7 @@ const AppLayout = () => {
 
             {/* ===== MARKETPLACE ADMIN ROUTES ===== */}
             <Route path="/marketplace-admin" element={
-              <ProtectedRoute requiredRole="marketadmin" redirectTo="/login">
+              <ProtectedRoute requiredRole="market_admin" redirectTo="/login">
                 <AdminPanel />
               </ProtectedRoute>
             } />

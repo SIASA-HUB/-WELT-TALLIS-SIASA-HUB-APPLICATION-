@@ -14,17 +14,27 @@ import {
   AtSign,
 } from "lucide-react";
 
-// ✅ FIX: Use walletApi instead of main api
+
 import walletApi from "./ApiConfig";
 
 const Container = styled.div`
-  padding: 40px 24px;
-  background: #000;
+  padding: 12px 24px;
+  background: #000000;
   color: white;
-  max-width: 400px;
+  max-width: 440px;
   margin: 0 auto;
-  font-family: -apple-system, Inter, sans-serif;
-  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 40%);
+    pointer-events: none;
+  }
 `;
 
 const TopBar = styled.div`
@@ -48,7 +58,7 @@ const Brand = styled.div`
 `;
 
 const BrandText = styled.span`
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #10b981;
   letter-spacing: 0.5px;
@@ -71,29 +81,47 @@ const MiniLabel = styled.div`
   gap: 4px;
 `;
 
-const PointsDisplay = styled.h1`
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: -2px;
-  line-height: 1;
+const PointsDisplay = styled.div`
+  margin-top: 40px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 32px;
 
-  .points {
-    font-size: 3rem;
-    font-weight: 700;
-    letter-spacing: -2px;
+  .main-val {
+    .p-lab {
+      font-size: 10px;
+      font-weight: 700;
+      color: #10b981;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .p-val {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      span {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.3);
+        margin-left: 6px;
+      }
+    }
   }
 
-  .pts-label {
-    font-size: 12px;
-    letter-spacing: 1px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
+  .secure-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #10b981;
   }
 `;
 
@@ -542,8 +570,13 @@ const WalletPage = () => {
           <Wallet size={10} /> Available Balance
         </MiniLabel>
         <PointsDisplay>
-          <span className="points">{balance.toLocaleString()}</span>
-          <span className="pts-label">pts</span>
+          <div className="main-val">
+            <div className="p-lab">Verified Balance</div>
+            <div className="p-val">{balance.toLocaleString()} <span>pts</span></div>
+          </div>
+          <div className="secure-icon">
+            <Fingerprint size={28} />
+          </div>
         </PointsDisplay>
       </BalanceWrapper>
 

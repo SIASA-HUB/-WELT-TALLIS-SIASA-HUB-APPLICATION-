@@ -214,7 +214,7 @@ const createEndorsement = [
     }
 
     try {
-      // Daily limit check
+      // Daily limit check - set to 20 as requested
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const dailyCount = await safeQuery(
@@ -222,10 +222,10 @@ const createEndorsement = [
         [finalUserId, todayStart]
       );
       const endorsementsToday = dailyCount[0]?.count || 0;
-      if (endorsementsToday >= 100) {
+      if (endorsementsToday >= 20) {
         return res.status(429).json({
           success: false,
-          message: `Daily limit reached. You can only make 100 endorsements per day.`
+          message: `Daily limit reached. You can only make 20 endorsement stories per day.`
         });
       }
 

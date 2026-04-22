@@ -63,7 +63,15 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
-// Role-based Authorization
+// Role-based Authorization Hierarchy
+const ROLE_HIERARCHY = {
+  user: 1,
+  admin: 2,
+  market_admin: 3,
+  super_admin: 4,
+  ceo: 5,
+};
+
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -73,7 +81,17 @@ const authorize = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user.role || "user";
+    const userLevel = ROLE_HIERARCHY[userRole] || 1;
+
+    // Check if user has ANY of the required roles OR a higher role in the hierarchy
+    const hasPermission = roles.some((requiredRole) => {
+      const requiredLevel = ROLE_HIERARCHY[requiredRole] || 1;
+      return userLevel >= requiredLevel;
+    });
+
+    if (!hasPermission) {
+      Logger.warn(`[AUTH] Access denied for user ${req.user.userId}. Role: ${userRole}, Required: ${roles.join(", ")}`);
       return res.status(403).json({
         success: false,
         message: "You don't have permission to access this resource",

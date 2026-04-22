@@ -229,11 +229,11 @@ export const AuthProvider = ({ children }) => {
         setIsLeaderAuthenticated(false);
       }
     } catch (_) { }
-    
+
     // surgical clear
     const { clearAuthData } = await import("../../api/api");
     clearAuthData(target);
-    
+
     if (target === 'all' || (target === 'user' && !isLeaderAuthenticated)) {
       window.location.href = "/login";
     } else if (target === 'leader') {
@@ -270,7 +270,13 @@ export const AuthProvider = ({ children }) => {
 
   // Role helpers
   const getUserRole = () => user?.role || "user";
+
+
   const hasRole = (requiredRole) => {
+    // Special case: admin can act as market_admin
+    if (requiredRole === 'market_admin' && getUserRole() === 'admin') {
+      return true;
+    }
     const roleHierarchy = { user: 1, admin: 2, market_admin: 3, super_admin: 4, ceo: 5 };
     const userLevel = roleHierarchy[getUserRole()] || 0;
     const requiredLevel = roleHierarchy[requiredRole] || 0;

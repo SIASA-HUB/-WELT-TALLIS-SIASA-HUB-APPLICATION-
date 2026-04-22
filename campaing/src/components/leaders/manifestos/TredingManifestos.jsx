@@ -407,19 +407,35 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
   };
 
   const getDisplayText = (manifesto) => {
-    if (manifesto.main_agenda && manifesto.main_agenda.length > 10) {
+    // 1. Check main_agenda first
+    if (typeof manifesto.main_agenda === "string" && manifesto.main_agenda.length > 10) {
       return manifesto.main_agenda.substring(0, 80);
     }
+
+    // 2. Try parsing agenda_items
     if (manifesto.agenda_items) {
       try {
-        const items = JSON.parse(manifesto.agenda_items);
+        const items = typeof manifesto.agenda_items === "string" 
+          ? JSON.parse(manifesto.agenda_items) 
+          : manifesto.agenda_items;
+
         if (Array.isArray(items) && items.length > 0) {
-          return items[0].title || items[0].description || "Policy Agenda";
+          const firstItem = items[0];
+          return typeof firstItem === "string" 
+            ? firstItem 
+            : (firstItem.title || firstItem.description || "Policy Agenda");
         }
+        
+        if (typeof items === "object" && items !== null) {
+          return items.title || items.description || "📜 View Policy";
+        }
+        
+        if (typeof items === "string") return items;
       } catch (e) {
-        return manifesto.agenda_items;
+        console.warn("Manifesto parse error", e);
       }
     }
+    
     return "📜 New Policy Agenda";
   };
 

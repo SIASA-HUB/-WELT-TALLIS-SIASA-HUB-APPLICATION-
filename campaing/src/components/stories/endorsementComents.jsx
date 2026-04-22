@@ -76,7 +76,7 @@ const CommentTime = styled.span`
 `;
 
 const CommentText = styled.div`
-  font-size: 0.85rem;
+  font-size: 1.2rem;
   color: rgba(255, 255, 255, 0.9);
   line-height: 1.4;
   word-break: break-word;

@@ -1,33 +1,26 @@
 // RegisterAspirant.jsx - Complete Version with All Leadership Positions
+// FIXED: Properly detects success from backend response
+// NO auto-registration - ONLY manual button click submits
 
 import React, { useState } from "react";
-import axios from "axios";
 import styled, { keyframes, createGlobalStyle } from "styled-components";
 import {
   User,
   ShieldCheck,
   MapPin,
   Lock,
-  Briefcase,
-  Users,
   Upload,
   Plus,
   Trash2,
   ArrowLeft,
   LogIn,
   Type,
-  Award,
-  Eye,
-  EyeOff,
   ChevronRight,
   ChevronLeft,
   CheckCircle,
-  Smartphone,
   Globe,
   Facebook,
   Twitter,
-  Linkedin,
-  Instagram,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
@@ -64,7 +57,6 @@ const FormCard = styled.div`
   background: white;
   width: 100%;
   max-width: 800px;
-
   border: 1px solid #e2e8f0;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -79,6 +71,9 @@ const Header = styled.div`
   text-align: center;
   position: relative;
   color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   
   h2 {
     margin: 0;
@@ -86,11 +81,29 @@ const Header = styled.div`
     font-weight: 800;
     color: white;
     letter-spacing: -0.5px;
+    flex: 1;
+    text-align: center;
   }
-  p {
-    margin: 6px 0 0;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 14px;
+`;
+
+const NavButton = styled.button`
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+  z-index: 2;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
   }
 `;
 
@@ -108,26 +121,6 @@ const StepDot = styled.div`
   background: ${props => props.active ? "#bb0000" : "rgba(255, 255, 255, 0.1)"};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: ${props => props.active ? "0 0 15px rgba(187, 0, 0, 0.5)" : "none"};
-`;
-
-const NavButton = styled.button`
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-1px);
-  }
 `;
 
 const Section = styled.div`
@@ -198,11 +191,6 @@ const Select = styled.select`
     outline: none;
     box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.05);
   }
-  
-  option {
-    background: white;
-    color: #1e293b;
-  }
 `;
 
 const InputIcon = styled.div`
@@ -251,8 +239,6 @@ const PrimaryButton = styled.button`
   }
 `;
 
-const SubmitBtn = PrimaryButton;
-
 const SecondaryButton = styled.button`
   padding: 16px 24px;
   background: white;
@@ -272,8 +258,6 @@ const SecondaryButton = styled.button`
     background: #f1f5f9;
   }
 `;
-
-const AddButton = SecondaryButton;
 
 const FileInputLabel = styled.label`
   display: flex;
@@ -326,7 +310,6 @@ const TagItem = styled.div`
     font-family: inherit;
     font-size: 14px;
     resize: none;
-    transition: all 0.2s;
     
     &:focus {
       outline: none;
@@ -365,10 +348,9 @@ const CountyList = [
   "Kisumu", "Homa Bay", "Migori", "Kisii", "Nyamira", "Nairobi",
 ];
 
-// Complete list of all leadership positions
 const LeadershipPositions = [
   "President",
-  "Deputy President",     // Added Deputy President
+  "Deputy President",
   "Governor",
   "Senator",
   "Member of Parliament (MP)",
@@ -437,65 +419,100 @@ const RegisterAspirant = () => {
     setFormData({ ...formData, [type]: updated });
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 3));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    setStep(prev => Math.min(prev + 1, 3));
+  };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const prevStep = () => {
+    setStep(prev => Math.max(prev - 1, 1));
+  };
 
-    if (step < 3) {
-      nextStep();
+  const handleFinalSubmit = async () => {
+    if (loading) return;
+
+    // Validation
+    if (!formData.name || !formData.name.trim()) {
+      toast.error("Full name is required");
       return;
     }
-
-    // Validation checks - eased
-    if (!formData.name) {
-      // toast.error("Name is required");
-      // return;
+    if (!formData.password || formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
     }
-    // ... remaining checks also eased
+    if (!formData.position) {
+      toast.error("Please select the position you are vying for");
+      return;
+    }
+    if (!formData.county) {
+      toast.error("Please select your county");
+      return;
+    }
 
     setLoading(true);
     const toastId = toast.loading("Creating your account...");
 
     try {
       const submitData = new FormData();
-      submitData.append("name", formData.name);
+      submitData.append("name", formData.name.trim());
       submitData.append("password", formData.password);
-      if (formData.party) submitData.append("party", formData.party);
-      if (formData.slogan) submitData.append("slogan", formData.slogan);
+      if (formData.party) submitData.append("party", formData.party.trim());
+      if (formData.slogan) submitData.append("slogan", formData.slogan.trim());
       submitData.append("position", formData.position);
       submitData.append("county", formData.county);
-      if (formData.constituency) submitData.append("constituency", formData.constituency);
-      if (formData.ward) submitData.append("ward", formData.ward);
+      if (formData.constituency) submitData.append("constituency", formData.constituency.trim());
+      if (formData.ward) submitData.append("ward", formData.ward.trim());
       if (formData.image) submitData.append("image", formData.image);
 
-      const validExperience = formData.experience.filter((exp) => exp.trim());
-      const validEducation = formData.education.filter((edu) => edu.trim());
+      const validExperience = formData.experience.filter((exp) => exp && exp.trim());
+      const validEducation = formData.education.filter((edu) => edu && edu.trim());
 
-      if (validExperience.length > 0) {
+      if (validExperience.length) {
         submitData.append("experience", JSON.stringify(validExperience));
       }
-      if (validEducation.length > 0) {
+      if (validEducation.length) {
         submitData.append("education", JSON.stringify(validEducation));
       }
 
-      if (formData.facebook) submitData.append("facebook", formData.facebook);
-      if (formData.twitter) submitData.append("twitter", formData.twitter);
-      if (formData.linkedin) submitData.append("linkedin", formData.linkedin);
-      if (formData.instagram) submitData.append("instagram", formData.instagram);
-      if (formData.website) submitData.append("website", formData.website);
+      if (formData.facebook) submitData.append("facebook", formData.facebook.trim());
+      if (formData.twitter) submitData.append("twitter", formData.twitter.trim());
+      if (formData.linkedin) submitData.append("linkedin", formData.linkedin.trim());
+      if (formData.instagram) submitData.append("instagram", formData.instagram.trim());
+      if (formData.website) submitData.append("website", formData.website.trim());
 
       const response = await api.post("/leaders/register", submitData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000
       });
 
+      // ========== IMPROVED RESPONSE HANDLING ==========
       console.log("Full response:", response);
 
-      if (response && response.success === true) {
+      // Extract safely (prevents undefined crashes)
+      let resData = response?.data ?? response;
+
+      // If nested axios/data wrapping exists
+      if (resData?.data && typeof resData.data === "object" && !Array.isArray(resData.data)) {
+        resData = resData.data;
+      }
+
+      console.log("Processed response data:", resData);
+
+      // Normalize success check (STRICT + SAFE)
+      const isSuccess =
+        resData?.success === true ||
+        resData?.status === "success" ||
+        response?.data?.success === true ||
+        response?.data?.status === "success";
+
+      // Get message safely
+      const successMessage =
+        resData?.message ||
+        response?.data?.message ||
+        "Registration successful! Please login.";
+
+      if (isSuccess) {
         toast.update(toastId, {
-          render: response.message || "Registration successful! Please login.",
+          render: successMessage,
           type: "success",
           isLoading: false,
           autoClose: 3000,
@@ -505,24 +522,33 @@ const RegisterAspirant = () => {
           navigate("/login-aspirant");
         }, 2000);
       } else {
+        // Failure case
+        const errorMsg =
+          resData?.message ||
+          response?.data?.message ||
+          resData?.error ||
+          response?.data?.error ||
+          "Registration failed. Please try again.";
+
         toast.update(toastId, {
-          render: response?.message || "Registration failed. Please try again.",
+          render: errorMsg,
           type: "error",
           isLoading: false,
           autoClose: 4000,
         });
       }
+
+
     } catch (err) {
       console.error("Registration error:", err);
-
       let errorMessage = "Registration failed. Please try again.";
-
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
       } else if (err.message) {
         errorMessage = err.message;
       }
-
       toast.update(toastId, {
         render: errorMessage,
         type: "error",
@@ -544,17 +570,17 @@ const RegisterAspirant = () => {
           <NavButton
             type="button"
             onClick={() => step > 1 ? prevStep() : navigate("/login-aspirant")}
-            style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)" }}
           >
             {step > 1 ? <ChevronLeft size={18} /> : <ArrowLeft size={18} />}
+            {step > 1 ? "Back" : "Login"}
           </NavButton>
 
           <h2>Aspirant Journey</h2>
-          <p>
-            {step === 1 && "Start your leadership profile"}
-            {step === 2 && "Define your electoral impact"}
-            {step === 3 && "Showcase your vision & credentials"}
-          </p>
+
+          <NavButton type="button" onClick={() => navigate("/login-aspirant")}>
+            <LogIn size={18} />
+            Login
+          </NavButton>
         </Header>
 
         <StepIndicator>
@@ -563,22 +589,14 @@ const RegisterAspirant = () => {
           <StepDot active={step >= 3} />
         </StepIndicator>
 
-        <form 
-          onSubmit={handleSubmit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              if (step < 3) nextStep();
-            }
-          }}
-        >
+        <div>
           <Section>
             {step === 1 && (
-              <div className="animate-in">
+              <div>
                 <SectionTitle>Account & Personal Info</SectionTitle>
                 <Grid>
                   <div>
-                    <Label>Full Name</Label>
+                    <Label>Full Name *</Label>
                     <InputWrapper>
                       <InputIcon><User size={18} /></InputIcon>
                       <Input
@@ -587,20 +605,22 @@ const RegisterAspirant = () => {
                         value={formData.name}
                         onChange={handleChange}
                         hasIcon
+                        required
                       />
                     </InputWrapper>
                   </div>
                   <div>
-                    <Label>Password</Label>
+                    <Label>Password *</Label>
                     <InputWrapper>
                       <InputIcon><Lock size={18} /></InputIcon>
                       <Input
                         type={showPassword ? "text" : "password"}
                         name="password"
-                        placeholder="Secure Password"
+                        placeholder="Secure Password (min 6 chars)"
                         value={formData.password}
                         onChange={handleChange}
                         hasIcon
+                        required
                       />
                     </InputWrapper>
                   </div>
@@ -620,8 +640,8 @@ const RegisterAspirant = () => {
 
                 <Grid>
                   <div>
-                    <Label>Vying For (Position)</Label>
-                    <Select name="position" value={formData.position} onChange={handleChange}>
+                    <Label>Vying For (Position) *</Label>
+                    <Select name="position" value={formData.position} onChange={handleChange} required>
                       <option value="">Select Position</option>
                       {LeadershipPositions.map((pos) => (
                         <option key={pos} value={pos}>{pos}</option>
@@ -646,12 +666,12 @@ const RegisterAspirant = () => {
             )}
 
             {step === 2 && (
-              <div className="animate-in">
+              <div>
                 <SectionTitle>Electoral Area Details</SectionTitle>
                 <Grid>
                   <div>
-                    <Label>County</Label>
-                    <Select name="county" value={formData.county} onChange={handleChange}>
+                    <Label>County *</Label>
+                    <Select name="county" value={formData.county} onChange={handleChange} required>
                       <option value="">Select County</option>
                       {CountyList.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -694,11 +714,14 @@ const RegisterAspirant = () => {
                   <span>{formData.image ? "Change Campaign Photo" : "Upload Campaign Photo (Optional)"}</span>
                   <input type="file" hidden name="image" onChange={handleChange} accept="image/*" />
                 </FileInputLabel>
+                <p style={{ fontSize: "12px", color: "#64748b", marginTop: "8px", textAlign: "center" }}>
+                  Photo preview is local – actual upload happens only when you click "Complete Registration"
+                </p>
               </div>
             )}
 
             {step === 3 && (
-              <div className="animate-in">
+              <div>
                 <SectionTitle>Experience & Impact</SectionTitle>
                 <Label>Political Experience</Label>
                 {formData.experience.map((exp, i) => (
@@ -709,7 +732,7 @@ const RegisterAspirant = () => {
                       placeholder="Share your history of community service or political roles..."
                     />
                     {formData.experience.length > 1 && (
-                      <button type="button" onClick={() => removeTag("experience", i)} style={{ background: "none", border: "none", color: "#ef4444" }}>
+                      <button type="button" onClick={() => removeTag("experience", i)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>
                         <Trash2 size={18} />
                       </button>
                     )}
@@ -728,7 +751,7 @@ const RegisterAspirant = () => {
                       placeholder="Share your educational qualifications..."
                     />
                     {formData.education.length > 1 && (
-                      <button type="button" onClick={() => removeTag("education", i)} style={{ background: "none", border: "none", color: "#ef4444" }}>
+                      <button type="button" onClick={() => removeTag("education", i)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>
                         <Trash2 size={18} />
                       </button>
                     )}
@@ -765,13 +788,17 @@ const RegisterAspirant = () => {
                 Next Step <ChevronRight size={20} />
               </PrimaryButton>
             ) : (
-              <PrimaryButton type="submit" disabled={loading}>
+              <PrimaryButton
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={loading}
+              >
                 {loading ? "Finalizing Profile..." : "Complete Registration"}
                 {!loading && <CheckCircle size={20} />}
               </PrimaryButton>
             )}
           </ButtonContainer>
-        </form>
+        </div>
       </FormCard>
     </PageWrapper>
   );
