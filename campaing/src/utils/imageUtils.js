@@ -9,15 +9,20 @@ import API from '../api/config';
  */
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
-  
+
   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("data:")) {
     return imageUrl;
   }
 
-  // Strip /api/v1 from the API base URL to get the static file root
-  const baseUrl = (API.BASE_URL || "https://siasahub.co.ke").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+  let baseUrl = API.IMAGES || API.UPLOAD_BASE;
+  if (!baseUrl && typeof window !== "undefined") {
+    baseUrl = window.location.origin; // fallback: same domain
+  }
+  if (!baseUrl) return null;
+
+  baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
   const imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  
+
   return `${baseUrl}${imagePath}`;
 };
 
