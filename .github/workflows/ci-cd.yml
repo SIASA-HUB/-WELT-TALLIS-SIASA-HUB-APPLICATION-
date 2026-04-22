@@ -25,7 +25,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create frontend .env for CI
-        working-directory: campaing
         run: echo "${{ secrets.FRONTEND_ENV }}" > .env
 
       - name: Setup Node.js
@@ -44,9 +43,6 @@ jobs:
 
       - name: Build (production)
         run: npm run build
-        env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_APP_ENV: production
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -114,13 +110,10 @@ jobs:
           ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Write .env files on server
+      - name: Write backend .env on server
         run: |
           ssh -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "printf '%s' '${{ secrets.SERVER_ENV }}' > ${{ secrets.DEPLOY_PATH }}/server/.env"
-
-          ssh -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "printf '%s' '${{ secrets.FRONTEND_ENV }}' > ${{ secrets.DEPLOY_PATH }}/campaing/.env"
 
       - name: Deploy backend services
         run: |
