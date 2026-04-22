@@ -41,7 +41,7 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net", "http://localhost:*", "https://*.ballot.com"],
+        "img-src": ["*", "data:"],
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" },

@@ -120,7 +120,7 @@ router.delete("/manifestos/agenda/:agendaId", verifyAspirantToken, deleteAgendaI
 router.get("/manifestos/leader/:leaderId", getManifestoByLeaderId);
 router.get("/manifestos/:manifestoId/stats", getManifestoStats);
 router.get("/manifestos/:manifestoId/user-votes", optionalAuth, getManifestoUserVotes);
-router.post("/manifestos/:manifestoId/vote", authenticate, voteOnManifesto);
+router.post("/manifestos/:manifestoId/vote", optionalAuth, voteOnManifesto);
 router.post("/manifestos/:manifestoId/view", optionalAuth, trackManifestoView);
 router.post("/manifestos/:manifestoId/share", optionalAuth, trackShare);
 router.post("/manifestos/:manifestoId/read-time", optionalAuth, trackReadTime);

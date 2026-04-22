@@ -185,13 +185,11 @@ const getManifestoStats = asyncHandler(async (req, res) => {
 
 // ===== UNIFIED VOTE ON AGENDA ITEM =====
 const voteManifestoAgenda = asyncHandler(async (req, res) => {
-  const { agenda_id, user_id, vote_type = "approve" } = req.body;
+  const { agenda_id, vote_type = "approve" } = req.body;
+  const user_id = req.user?.user_id || req.body.user_id;
 
-  if (!agenda_id) {
-    return res.status(400).json({ success: false, message: "agenda_id is required" });
-  }
-  if (!user_id || user_id === "guest") {
-    return res.status(401).json({ success: false, message: "Please log in to vote" });
+  if (!agenda_id || !user_id) {
+    return res.status(400).json({ success: false, message: "agenda_id and user_id are required" });
   }
 
   try {
@@ -222,11 +220,13 @@ const voteManifestoAgenda = asyncHandler(async (req, res) => {
       data: {
         manifesto_id: agenda.manifesto_id,
         agenda_id,
-        votes_count: result.votes_count || 0,
-        approve_count: result.approve_count || 0,
-        reject_count: result.reject_count || 0,
-        total_votes: result.total_votes || 0,
-        vote_type,
+        stats: {
+          votes_count: result.votes_count || 0,
+          approve_count: result.approve_count || 0,
+          reject_count: result.reject_count || 0,
+          total_votes: result.total_votes || 0,
+          vote_type,
+        }
       },
     });
   } catch (error) {
@@ -238,7 +238,8 @@ const voteManifestoAgenda = asyncHandler(async (req, res) => {
 // ===== OLD voteOnManifesto (kept for backward compat) =====
 const voteOnManifesto = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
-  const { agenda_item_id, user_id, vote_type = "approve" } = req.body;
+  const { agenda_item_id, vote_type = "approve" } = req.body;
+  const user_id = req.user?.user_id || req.body.user_id;
 
   if (!agenda_item_id || !user_id) {
     return res.status(400).json({ success: false, message: "agenda_item_id and user_id are required" });
@@ -265,10 +266,12 @@ const voteOnManifesto = asyncHandler(async (req, res) => {
       data: {
         manifestoId,
         agenda_item_id,
-        votes_count: result.votes_count || 0,
-        approve_count: result.approve_count || 0,
-        reject_count: result.reject_count || 0,
-        total_votes: result.total_votes || 0,
+        stats: {
+          votes_count: result.votes_count || 0,
+          approve_count: result.approve_count || 0,
+          reject_count: result.reject_count || 0,
+          total_votes: result.total_votes || 0,
+        }
       }
     });
   } catch (error) {

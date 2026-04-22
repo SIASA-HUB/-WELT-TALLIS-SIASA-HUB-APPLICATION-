@@ -14,7 +14,7 @@ const createRateLimiter = ({ windowMs, max, message }) =>
     handler: (req, res, _next, options) => {
       res.status(429).json(options.message);
     },
-    skip: (req) => req.method === "OPTIONS", 
+    skip: (req) => req.method === "OPTIONS",
   });
 
 // ============================================================
@@ -31,7 +31,7 @@ const apiLimiter = createRateLimiter({
 /** Auth endpoints — 15 req / 15 min (prevent brute force) */
 const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: 45,
   message: "Too many login attempts. Try again in 15 minutes.",
 });
 

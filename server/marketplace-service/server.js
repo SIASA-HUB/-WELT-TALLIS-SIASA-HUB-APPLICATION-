@@ -86,7 +86,7 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        "img-src": ["*", "data:"],
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -98,7 +98,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ============ STATIC FILES ============
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+  }
+}));
 
 // ============ TEST ROUTE ============
 app.get("/ping", (req, res) => {

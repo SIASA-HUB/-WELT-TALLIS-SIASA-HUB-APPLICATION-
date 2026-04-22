@@ -1142,6 +1142,21 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
       ? (((currentWeekViews.count - prevWeekViews.count) / prevWeekViews.count) * 100).toFixed(1)
       : 100;
 
+    // 9. MANIFESTO ANALYTICS (NEW)
+    const manifestoStats = await safeQueryOne(`
+      SELECT 
+        COALESCE(SUM(ma.views_count), 0) as manifesto_views,
+        COALESCE(SUM(ma.reads_count), 0) as manifesto_reads,
+        COALESCE(SUM(ma.shares_count), 0) as manifesto_shares,
+        COALESCE((SELECT SUM(votes_count) FROM manifesto_agendas WHERE manifesto_id IN (SELECT manifesto_id FROM manifestos WHERE leader_id = l.leader_id)), 0) as manifesto_votes,
+        (SELECT AVG(read_time) FROM manifesto_views WHERE manifesto_id IN (SELECT manifesto_id FROM manifestos WHERE leader_id = l.leader_id) AND read_time > 0) as manifesto_avg_read_time
+      FROM manifestos m
+      LEFT JOIN manifesto_analytics ma ON m.manifesto_id = ma.manifesto_id
+      JOIN leaders l ON m.leader_id = l.leader_id
+      WHERE l.leader_id = ?
+      GROUP BY l.leader_id
+    `, [leaderId]);
+
     // Trial Calculation
     const createdAt = new Date(leader.created_at);
     const thirtyDaysAgo = new Date();
@@ -1179,7 +1194,14 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
           growth_rate: growthRate,
           shares: stats?.total_shares || 0,
           likes: stats?.likes || 0,
-          comments: stats?.comments_count || 0
+          comments: stats?.comments_count || 0,
+          manifesto_engagement: {
+            views: manifestoStats?.manifesto_views || 0,
+            reads: manifestoStats?.manifesto_reads || 0,
+            avg_read_time: Math.round(manifestoStats?.manifesto_avg_read_time || 0),
+            total_votes: manifestoStats?.manifesto_votes || 0,
+            shares: manifestoStats?.manifesto_shares || 0
+          }
         },
         insights: {
           youth_percentage: Math.round((youthCount / totalDemographicCount) * 100),

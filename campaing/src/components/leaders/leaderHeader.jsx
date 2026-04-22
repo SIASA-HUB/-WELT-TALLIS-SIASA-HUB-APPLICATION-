@@ -499,15 +499,11 @@ const PositionText = styled.div`
 
 const ContentArea = styled.div`
   margin-top: 24px;
-  padding: 0 20px;
+
   padding-bottom: 100px;
 `;
 
-const Divider = styled.div`
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 16px 0;
-`;
+
 
 const Toast = styled.div`
   position: fixed;
@@ -533,12 +529,12 @@ const getLoggedInUserId = () => {
   try {
     const userData = localStorage.getItem("user_data");
     const leaderData = localStorage.getItem("leaderData");
-    
+
     if (userData) {
       const user = JSON.parse(userData);
       return user.user_id || user.id || null;
     }
-    
+
     if (leaderData) {
       const leader = JSON.parse(leaderData);
       return leader.leader_id || leader.id || null;
@@ -549,7 +545,34 @@ const getLoggedInUserId = () => {
   return null;
 };
 
-import { buildImageUrl, getAvatarFallback } from "../../utils/imageUtils";
+const buildImageUrl = (imageUrl) => {
+  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
+
+  // Already absolute URL
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+    return imageUrl;
+  }
+
+  // Try to get base URL from config
+  let baseUrl = API.UPLOAD_BASE || API.IMAGES || API.BASE_URL || API.BASE;
+
+
+  if (!baseUrl && typeof window !== "undefined") {
+    baseUrl = window.location.origin;
+  }
+
+
+  if (!baseUrl) return null;
+
+
+  if (baseUrl.includes("/api/v1")) {
+    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
+  }
+
+  baseUrl = baseUrl.replace(/\/$/, "");
+  let cleanPath = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
+  return `${baseUrl}/${cleanPath}`;
+};
 
 const getLeaderImage = (leader) => {
   if (!leader) return null;

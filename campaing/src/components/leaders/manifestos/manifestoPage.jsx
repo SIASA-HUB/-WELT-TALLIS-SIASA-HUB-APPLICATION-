@@ -1,5 +1,5 @@
 // manifestoPage.jsx - Fixed stats display only, keeping your sleek design
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   ArrowLeft,
@@ -63,7 +63,7 @@ const FixedHeader = styled.header`
 const ManifestoContainer = styled.div`
   max-width: 700px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 1px;
 `;
 
 const MagazineHeader = styled.div`
@@ -251,7 +251,17 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
   const [error, setError] = useState(null);
   const [voting, setVoting] = useState({});
 
-  const userId = user?.user_id || user?.id || "guest";
+  const userId = useMemo(() => {
+    if (user?.user_id || user?.id) return user.user_id || user.id;
+    
+    let anonId = localStorage.getItem("siasa_anon_id");
+    if (!anonId) {
+      anonId = `anon_${Math.random().toString(36).substring(2, 11)}_${Date.now().toString(36)}`;
+      localStorage.setItem("siasa_anon_id", anonId);
+    }
+    return anonId;
+  }, [user]);
+
   const readStartRef = useRef(Date.now());
   const manifestoIdRef = useRef(null);
 
@@ -284,7 +294,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         metadata: { deviceId: userId, source: "manifesto_page" },
       });
     } catch (err) {
-      console.error("Error tracking view:", err);
+
     }
   };
 
@@ -331,10 +341,15 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
 
           const manifestoId = manifestoData.manifesto_id || manifestoData.id;
           if (manifestoId) {
+            // Track specifically that a manifesto was viewed
+            api.post(`/leaders/manifestos/${manifestoId}/view`, {
+              user_id: userId
+            }).catch(() => {});
+
             try {
               const statsResponse = await api.get(`/leaders/manifestos/${manifestoId}/stats`);
 
-              // FIX: The stats are in data.agenda_stats array
+              //  stats are in data.agenda_stats array
               if (statsResponse && statsResponse.success && statsResponse.data?.agenda_stats) {
                 const statsMap = {};
                 statsResponse.data.agenda_stats.forEach(stat => {
@@ -459,7 +474,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         );
       }
     } catch (err) {
-      console.error("Error voting:", err);
+
       // Revert on failure
       setUserVotes((prev) => ({ ...prev, [voteKey]: previousVote }));
       fetchManifesto(); // Refresh data
@@ -530,12 +545,6 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
         description={manifesto?.main_agenda || `Read the official election manifesto for ${leaderName}. Explore their key pledges and development agenda.`}
         canonical={leaderId ? `/leaders/manifestos/${leaderId}` : undefined}
       />
-      <FixedHeader>
-        <button onClick={onBack}>
-          <ArrowLeft size={22} />
-        </button>
-        <Share2 size={18} />
-      </FixedHeader>
 
       <ManifestoContainer>
         <MagazineHeader>

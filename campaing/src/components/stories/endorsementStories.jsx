@@ -15,7 +15,7 @@ import theme from "../../utils/theme";
 import AddStoryModal from "./addStoryModal";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 import { buildImageUrl } from "../../utils/imageUtils";
-import api from "../../api/api"; // ← ADD THIS IMPORT
+import api from "../../api/api";
 
 // ========== ANIMATIONS ==========
 const ringGlow = keyframes`
@@ -32,7 +32,7 @@ const shimmer = keyframes`
 // ========== STYLED COMPONENTS ==========
 const StoriesSection = styled.div`
   background: ${theme.colors?.dark || "#0a0a0a"};
-  padding: 16px 0;
+  padding: 10px 0;
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
 `;
 
@@ -491,7 +491,7 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
             ) : validEndorsements.length === 0 ? (
               <EmptyState>
                 <MessageCircle size={32} />
-                <p>No stories yet. Be the first to support!</p>
+                <p>No stories .</p>
               </EmptyState>
             ) : (
               validEndorsements.map((supporter, index) => {

@@ -417,6 +417,33 @@ const AnalyticsSection = ({ leader }) => {
         </StatGrid>
       </Card>
 
+      {/* Manifesto Engagement Section (NEW) */}
+      <Card>
+        <CardHeader>
+          <h3>
+            <Zap size={18} /> Manifesto Engagement
+          </h3>
+        </CardHeader>
+        <StatGrid>
+          <StatCard>
+            <div className="value">{overview?.manifesto_engagement?.views || 0}</div>
+            <div className="label">Manifesto Starts</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.manifesto_engagement?.reads || 0}</div>
+            <div className="label">Full Reads</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.manifesto_engagement?.avg_read_time || 0}s</div>
+            <div className="label">Avg. Read Time</div>
+          </StatCard>
+          <StatCard>
+            <div className="value">{overview?.manifesto_engagement?.total_votes || 0}</div>
+            <div className="label">Total Votes</div>
+          </StatCard>
+        </StatGrid>
+      </Card>
+
       {/* Two columns: Demographics & Regional */}
       <TwoColumnGrid>
         <HalfCard>
