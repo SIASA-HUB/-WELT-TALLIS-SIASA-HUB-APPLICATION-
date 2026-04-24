@@ -218,12 +218,12 @@ const Navbar = ({ currentUser, onLogout }) => {
   return (
     <Nav>
       <NavbarContainer>
-        <NavLogo onClick={() => navigate("/marketplace")}>
+        <NavLogo onClick={() => navigate("/marketplace/shop")}>
           <Logo src={LogoImg} />
         </NavLogo>
 
         <NavItems>
-          <Navlink to="/marketplace">Home</Navlink>
+          <Navlink to="/marketplace/shop">Home</Navlink>
           <Navlink to="/marketplace/shop">Shop</Navlink>
           <Navlink to="/marketplace/cart">Cart</Navlink>
         </NavItems>
@@ -244,7 +244,6 @@ const Navbar = ({ currentUser, onLogout }) => {
               <AvatarCircle onClick={() => navigate("/marketplace/profile")}>
                 {userImage ? <AvatarImg src={userImage} /> : userInitial}
               </AvatarCircle>
-              <TextButton onClick={handleLogout}>Logout</TextButton>
             </div>
           )}
         </ButtonContainer>
@@ -262,13 +261,12 @@ const Navbar = ({ currentUser, onLogout }) => {
         </Mobileicons>
 
         <MobileMenu $isOpen={isOpen}>
-          <Navlink to="/marketplace" onClick={() => setIsOpen(false)}>Home</Navlink>
+          <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Home</Navlink>
           <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Shop</Navlink>
           <Navlink to="/marketplace/cart" onClick={() => setIsOpen(false)}>Cart</Navlink>
           {isLoggedIn ? (
             <>
               <Navlink to="/marketplace/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
-              <TextButton onClick={() => { handleLogout(); setIsOpen(false); }}>Logout</TextButton>
             </>
           ) : null}
 

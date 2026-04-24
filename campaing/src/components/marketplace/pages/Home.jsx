@@ -679,7 +679,7 @@ const Home = () => {
           >
             <Section>
               <HeaderGroup>
-                <SectionSubtitle>Official Gear</SectionSubtitle>
+
                 <Title>Shop By Category</Title>
               </HeaderGroup>
               <CardWrapper>{categoryList}</CardWrapper>
@@ -693,7 +693,7 @@ const Home = () => {
           >
             <Section>
               <HeaderGroup>
-                <SectionSubtitle>Hot Right Now</SectionSubtitle>
+
                 <Title style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <ShieldCheck size={28} color="#e11d48" /> Trending Merchandise
                 </Title>

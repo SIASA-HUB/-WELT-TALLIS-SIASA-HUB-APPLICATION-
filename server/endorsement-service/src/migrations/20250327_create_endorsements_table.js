@@ -171,7 +171,7 @@ exports.up = async function (knex) {
         unique_users = VALUES(unique_users),
         unique_leaders = VALUES(unique_leaders),
         level_breakdown = VALUES(level_breakdown);
-    END
+    END;
   `);
 
   // 10. Insert default leader settings

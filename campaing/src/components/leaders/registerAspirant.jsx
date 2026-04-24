@@ -485,29 +485,23 @@ const RegisterAspirant = () => {
       });
 
       // ========== IMPROVED RESPONSE HANDLING ==========
-      console.log("Full response:", response);
-
       // Extract safely (prevents undefined crashes)
-      let resData = response?.data ?? response;
-
-      // If nested axios/data wrapping exists
-      if (resData?.data && typeof resData.data === "object" && !Array.isArray(resData.data)) {
-        resData = resData.data;
-      }
+      // NOTE: Our interceptor in api.js returns response.data directly.
+      const resData = response;
 
       console.log("Processed response data:", resData);
 
       // Normalize success check (STRICT + SAFE)
-      const isSuccess =
-        resData?.success === true ||
+      // Check both top-level and nested success flags
+      const isSuccess = 
+        resData?.success === true || 
         resData?.status === "success" ||
-        response?.data?.success === true ||
-        response?.data?.status === "success";
+        resData?.data?.success === true;
 
       // Get message safely
       const successMessage =
         resData?.message ||
-        response?.data?.message ||
+        resData?.data?.message ||
         "Registration successful! Please login.";
 
       if (isSuccess) {

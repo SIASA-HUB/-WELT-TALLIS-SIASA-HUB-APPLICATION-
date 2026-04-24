@@ -8,6 +8,7 @@ import {
 import {
   addToCart,
 } from "../api/index";
+import { toast } from "react-toastify";
 import API from "../../../../api/config";
 import { buildImageUrl } from "../../../../utils/imageUtils";
 
@@ -215,18 +216,17 @@ const ProductCard = ({ product }) => {
       }
 
       localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-      alert("Added to cart as guest!");
-      navigate("/marketplace/cart");
+      toast.success("🛒 Added to cart!");
       return;
     }
 
     try {
       const productId = product?.id || product?._id;
       await addToCart(getAuthToken(), { productId, quantity: 1 });
-      navigate("/marketplace/cart");
+      toast.success("🛒 Added to cart!");
     } catch (err) {
       console.error(err);
-      alert("Failed to add to cart");
+      toast.error("Failed to add to cart");
     }
   };
 

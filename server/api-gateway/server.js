@@ -115,8 +115,8 @@ const createProxy = (targetUrl) => {
     target: targetUrl,
     changeOrigin: true,
     selfHandleResponse: false,
-    proxyTimeout: 30000,
-    timeout: 30000,
+    proxyTimeout: 120000,
+    timeout: 120000,
     on: {
       proxyReq: (proxyReq, req) => {
         // ─── CRITICAL PATH FIX ───────────────────────────────────────────────

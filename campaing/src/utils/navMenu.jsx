@@ -111,7 +111,7 @@ const NavMenu = () => {
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/leaders", label: "Aspirants", icon: UserCheck },
-    { path: "/marketplace", label: "Store", icon: ShoppingBag },
+    { path: "/marketplace/shop", label: "Store", icon: ShoppingBag },
     { path: "/profile", label: "Profile", icon: User },
   ];
 

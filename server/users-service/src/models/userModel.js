@@ -769,17 +769,17 @@ class UserModel {
 
   static getGenerationLabel(bracket) {
     const mapping = {
-      "18-25": "Gen Z",
-      "26-35": "Millennial",
-      "36-45": "Gen X",
-      "46-55": "Gen X",
-      "56+": "Boomer",
+      "18-30": "Gen Z",
+      "31-40": "Millennial",
+      "41-50": "Gen X",
+      "51-60": "Gen X",
+      "61+": "Boomer",
     };
     return mapping[bracket] || "Unknown";
   }
 
   static isValidAgeBracket(bracket) {
-    const validBrackets = ["18-25", "26-35", "36-45", "46-55", "56+"];
+    const validBrackets = ["18-30", "31-40", "41-50", "51-60", "61+"];
     return validBrackets.includes(bracket);
   }
 

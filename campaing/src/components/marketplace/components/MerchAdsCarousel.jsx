@@ -187,12 +187,12 @@ const ViewAllButton = styled.div`
 // FIXED: Improved image URL builder with better path handling
 const buildImageUrl = (url) => {
   if (!url || url === "null") return null;
-  
+
   // If it's already a complete URL
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  
+
   const gatewayBase = API?.IMAGES || "http://localhost:8009";
   const path = url.startsWith("/") ? url : `/${url}`;
   return `${gatewayBase}${path}`;
@@ -227,7 +227,7 @@ const getProductImage = (product) => {
 const DEFAULT_PLACEHOLDER = "https://placehold.co/600x600/1e293b/ffffff?text=No+Image";
 const FALLBACK_PLACEHOLDER = "https://placehold.co/600x600/f0f0f0/999999?text=Image+Not+Found";
 
-const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8 }) => {
+const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imageErrors, setImageErrors] = useState({});
@@ -236,14 +236,33 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8 }) => {
     let mounted = true;
     setLoading(true);
     try {
+      // Try fetching featured products first
       await api.getWithCache(`/products?featured=true&limit=${limit}`, (data) => {
-        if (mounted && data?.success) {
-          setProducts(data.data || []);
+        if (!mounted) return;
+
+        // Handle both direct array and {success, data} formats
+        const productsList = Array.isArray(data) ? data : (data?.data || []);
+
+        if (productsList.length > 0) {
+          setProducts(productsList);
           setLoading(false);
+        } else {
+          // If featured is empty, try regular products as fallback
+          api.getWithCache(`/products?limit=${limit}`, (fallbackData) => {
+            if (!mounted) return;
+            const fallbackList = Array.isArray(fallbackData) ? fallbackData : (fallbackData?.data || []);
+            if (fallbackList.length > 0) {
+              setProducts(fallbackList);
+            } else if (onEmpty) {
+              onEmpty();
+            }
+            setLoading(false);
+          });
         }
       });
     } catch (error) {
       console.error("Error fetching ads:", error);
+      if (mounted && onEmpty) onEmpty();
     } finally {
       if (mounted) setLoading(false);
     }
@@ -267,13 +286,13 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8 }) => {
     if (imageErrors[product._id]) {
       return FALLBACK_PLACEHOLDER;
     }
-    
+
     // Try to get product image
     const imageUrl = getProductImage(product);
     if (imageUrl) {
       return imageUrl;
     }
-    
+
     // Return default placeholder if no image
     return DEFAULT_PLACEHOLDER;
   };
@@ -317,12 +336,12 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8 }) => {
 
         <GridContainer>
           {products.slice(0, limit).map((product) => (
-            <ProductCard 
-              key={product._id} 
+            <ProductCard
+              key={product._id}
               onClick={() => window.location.href = `/marketplace/shop/${product._id}`}
             >
               <ImageWrapper>
-                <ProductImage 
+                <ProductImage
                   src={getDisplayImage(product)}
                   alt={product.name || "Product image"}
                   onError={(e) => {

@@ -5,6 +5,7 @@ import SEO from "../../utils/SEO";
 
 // 1. LAZY LOAD TRENDING
 const TrendingSection = lazy(() => import("../treading/treading"));
+import OnboardingGuide from "./OnboardingGuide";
 
 const progressMove = keyframes`
   0% { width: 0%; }
@@ -172,8 +173,8 @@ const SiasaApp = () => {
       setIsLoading(false);
     }, 500);
 
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: "instant" });
+    // Scroll to top smoothly
+    window.scrollTo({ top: 0, behavior: "smooth" });
 
     // Signal to index.html that React is ready
     if (window.markAsLoaded) {
@@ -197,6 +198,7 @@ const SiasaApp = () => {
       />
       <HomePageWrapper>
         <MainContent>
+          <OnboardingGuide />
           <Suspense fallback={<LoadingFallback />}>
             <TrendingSection />
           </Suspense>

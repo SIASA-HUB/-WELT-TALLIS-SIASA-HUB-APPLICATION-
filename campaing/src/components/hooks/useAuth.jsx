@@ -273,13 +273,29 @@ export const AuthProvider = ({ children }) => {
 
 
   const hasRole = (requiredRole) => {
-    // Special case: admin can act as market_admin
-    if (requiredRole === 'market_admin' && getUserRole() === 'admin') {
+    if (!requiredRole) return true;
+    
+    // Normalize roles to lowercase for case-insensitive comparison
+    const currentUserRole = (getUserRole() || "user").toLowerCase();
+    const normalizedRequiredRole = requiredRole.toLowerCase();
+
+    // Special case: admin can act as market_admin (maintained for legacy but hierarchy handles it now)
+    if (normalizedRequiredRole === 'market_admin' && currentUserRole === 'admin') {
       return true;
     }
-    const roleHierarchy = { user: 1, admin: 2, market_admin: 3, super_admin: 4, ceo: 5 };
-    const userLevel = roleHierarchy[getUserRole()] || 0;
-    const requiredLevel = roleHierarchy[requiredRole] || 0;
+
+    // UPDATED HIERARCHY: admin (3) is now higher than market_admin (2)
+    const roleHierarchy = { 
+      user: 1, 
+      market_admin: 2, 
+      admin: 3, 
+      super_admin: 4, 
+      ceo: 5 
+    };
+
+    const userLevel = roleHierarchy[currentUserRole] || 0;
+    const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
+    
     return userLevel >= requiredLevel;
   };
   const isAdmin = () => hasRole("admin");

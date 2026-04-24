@@ -66,8 +66,8 @@ const optionalAuth = async (req, res, next) => {
 // Role-based Authorization Hierarchy
 const ROLE_HIERARCHY = {
   user: 1,
-  admin: 2,
-  market_admin: 3,
+  market_admin: 2,
+  admin: 3,
   super_admin: 4,
   ceo: 5,
 };
@@ -81,12 +81,13 @@ const authorize = (...roles) => {
       });
     }
 
-    const userRole = req.user.role || "user";
+    const userRole = (req.user.role || "user").toLowerCase();
     const userLevel = ROLE_HIERARCHY[userRole] || 1;
 
     // Check if user has ANY of the required roles OR a higher role in the hierarchy
     const hasPermission = roles.some((requiredRole) => {
-      const requiredLevel = ROLE_HIERARCHY[requiredRole] || 1;
+      const normalizedRequiredRole = requiredRole.toLowerCase();
+      const requiredLevel = ROLE_HIERARCHY[normalizedRequiredRole] || 1;
       return userLevel >= requiredLevel;
     });
 

@@ -78,7 +78,7 @@ const Header = styled.div`
 `;
 
 const Section = styled.div`
-  padding: 32px;
+  padding: 20px 32px;
 `;
 
 const Label = styled.label`
@@ -173,6 +173,20 @@ const PasswordToggle = styled.button`
 const SubmitBtn = styled.button`
   width: 100%;
   padding: 16px;
+  background: #1e3c72;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.3s ease;
+  margin-top: 24px;
+
   &:hover {
     background: #2a4a8a;
     transform: translateY(-2px);
@@ -486,11 +500,11 @@ const RegistrationPage = () => {
                   onChange={handleChange}
                 >
                   <option value="">Select</option>
-                  <option value="18-25">🌟 18-25 (Gen Z)</option>
-                  <option value="26-35">💪 26-35 (Millennial)</option>
-                  <option value="36-45">📊 36-45 (Gen X)</option>
-                  <option value="46-55">🏆 46-55</option>
-                  <option value="56+">👑 56+</option>
+                  <option value="18-30">🌟 18-30 (Gen Z)</option>
+                  <option value="31-40">💪 31-40 (Millennial)</option>
+                  <option value="41-50">📊 41-50 (Gen X)</option>
+                  <option value="51-60">🏆 51-60</option>
+                  <option value="61+">👑 61+</option>
                 </Select>
               </div>
             </Grid>

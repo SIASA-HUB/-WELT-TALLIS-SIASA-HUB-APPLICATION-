@@ -295,7 +295,7 @@ const LoginAspirant = () => {
       console.log("📤 Sending login request:", { name: formData.name });
 
       const response = await api.post("/leaders/login", {
-        name: formData.name.trim(),
+        name: formData.name.trim().replace(/\s+/g, ' '),
         password: formData.password,
       });
 

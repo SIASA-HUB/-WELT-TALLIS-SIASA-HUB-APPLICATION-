@@ -99,7 +99,7 @@ const PageContainer = styled.div`
 
 const HeroSection = styled.div`
   position: relative;
-  height: 380px;
+  height: 450px;
   width: 100%;
   overflow: hidden;
   background: #0a0a0a;
@@ -155,8 +155,8 @@ const SideActions = styled.div`
   flex-direction: column;
   gap: 12px;
   z-index: 100;
-  animation: ${slideInRight} 0.3s ease-out;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  animation: ${slideInRight} 0.2s ease-out;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   opacity: ${(props) => (props.$visible ? 1 : 0)};
   transform: ${(props) => (props.$visible ? "translateX(0)" : "translateX(20px)")};
   pointer-events: ${(props) => (props.$visible ? "auto" : "none")};
@@ -785,42 +785,89 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     ? `${window.location.origin}/leader/${leader.slug}`
     : (typeof window !== "undefined" ? window.location.href : "");
 
+  // Get the leader's image URL for sharing (with proper absolute URL)
+  const getShareImageUrl = () => {
+    const imageUrl = getLeaderImage(leader);
+    if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+      return imageUrl;
+    }
+    // Fallback to a default image if none available
+    return 'https://siasahub.com/default-leader-share-image.jpg';
+  };
+
+  const shareImageUrl = getShareImageUrl();
   const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
 
+  // Enhanced share functions with image attachment
   const shareToTwitter = async () => {
     await trackShare(leader?.leader_id, currentUserId, "twitter");
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    // Twitter/X requires the image to be specified via 'media' parameter or via OG tags.
+    // Since OG tags are already present, we just share the URL.
+    // For better preview, we encode the image URL as well.
+    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`;
+    window.open(twitterIntentUrl, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToWhatsApp = async () => {
     await trackShare(leader?.leader_id, currentUserId, "whatsapp");
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + "\n" + canonicalUrl)}`, "_blank");
+    // WhatsApp allows sending an image along with text and URL
+    // Format: Image + text + URL - putting image first for better attachment visibility
+    const whatsappText = `📷 ${shareImageUrl}\n\n${shareText}\n\nView Profile: ${canonicalUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToFacebook = async () => {
     await trackShare(leader?.leader_id, currentUserId, "facebook");
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    // Facebook shares the URL, which will pull OG image and metadata
+    // We also add a parameter to ensure the image is displayed.
+    const facebookIntentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}&picture=${encodeURIComponent(shareImageUrl)}`;
+    window.open(facebookIntentUrl, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToLinkedIn = async () => {
     await trackShare(leader?.leader_id, currentUserId, "linkedin");
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}&title=${encodeURIComponent(shareText)}`, "_blank");
+    // LinkedIn shares the URL with OG tags. We can also add a summary with image.
+    const linkedInIntentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}`;
+    window.open(linkedInIntentUrl, "_blank");
     setShowShareDropdown(false);
   };
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(canonicalUrl);
+      // Create rich text with image for clipboard
+      const htmlContent = `<div><img src="${shareImageUrl}" width="400" /><br/><strong>${leader.name}</strong><br/>${shareText}<br/><a href="${canonicalUrl}">${canonicalUrl}</a></div>`;
+      const textContent = `📷 ${shareImageUrl}\n\n${shareText}\n\n${canonicalUrl}`;
+
+      // Use Clipboard API with both text and HTML for rich preview
+      if (navigator.clipboard && window.ClipboardItem) {
+        const clipboardItem = new ClipboardItem({
+          'text/plain': new Blob([textContent], { type: 'text/plain' }),
+          'text/html': new Blob([htmlContent], { type: 'text/html' })
+        });
+        await navigator.clipboard.write([clipboardItem]);
+      } else {
+        // Fallback for older browsers
+        await navigator.clipboard.writeText(textContent);
+      }
+
       await trackShare(leader?.leader_id, currentUserId, "copy_link");
       setCopied(true);
-      setToastMessage("Link copied to clipboard!");
+      setToastMessage("Link with image copied to clipboard!");
       setTimeout(() => { setCopied(false); setToastMessage(null); }, 2000);
       setShowShareDropdown(false);
     } catch (err) {
       console.error("Failed to copy:", err);
+      // Fallback to just URL if rich copy fails
+      try {
+        await navigator.clipboard.writeText(canonicalUrl);
+        setToastMessage("Link copied (image not supported in your browser)");
+        setTimeout(() => setToastMessage(null), 2000);
+      } catch (fallbackErr) {
+        console.error("Fallback copy failed:", fallbackErr);
+      }
     }
   };
 
@@ -880,6 +927,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDescription} />
         <meta property="og:image" content={pageImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={`${leader.name} - ${displayPosition}`} />
         <meta property="og:url" content={pageUrl} />
         <meta property="og:site_name" content="SiasaHub" />
         <meta property="profile:first_name" content={leader.name.split(" ")[0]} />
@@ -913,7 +963,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
         <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
           <div style={{ position: "relative" }} ref={dropdownRef}>
-            <ShareButton onClick={() => setShowShareDropdown(!showShareDropdown)}>
+            <ShareButton onMouseDown={(e) => { e.stopPropagation(); setShowShareDropdown(!showShareDropdown); }}>
               <div className="share-icon"><Share2 size={18} /></div>
               <div className="share-text">Share</div>
             </ShareButton>
@@ -927,7 +977,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               </ShareDropdown>
             )}
           </div>
-          <BoostButton onClick={() => setShowBoostModal(true)}>
+          <BoostButton onMouseDown={() => setShowBoostModal(true)}>
             <div className="boost-icon"><TrendingUp size={18} /></div>
             <div className="boost-text">Boost</div>
           </BoostButton>
@@ -937,7 +987,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           </VerifiedBadge>
         </SideActions>
 
-        <AddStoryButton onClick={handleAddStory} $visible={addButtonVisible}>
+        <AddStoryButton onMouseDown={handleAddStory} $visible={addButtonVisible}>
           <Plus size={22} color="white" />
         </AddStoryButton>
 

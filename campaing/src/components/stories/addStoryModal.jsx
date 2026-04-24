@@ -480,9 +480,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     const path = "/endorsements/create";
 
     try {
-      const responseData = await api.post(path, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const responseData = await api.post(path, formData);
 
       if (responseData?.success) {
         setSuccess("Story posted successfully!");

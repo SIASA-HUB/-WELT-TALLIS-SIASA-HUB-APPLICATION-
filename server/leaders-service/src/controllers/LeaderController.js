@@ -64,7 +64,7 @@ const startLeaderWorkers = async () => {
         const buffer = Buffer.from(imageBuffer, "base64");
         const UPLOAD_DIR = path.join(__dirname, "../../uploads/leaders");
         const leaderDir = path.join(UPLOAD_DIR, leaderId);
-        
+
         if (!fs.existsSync(leaderDir)) {
           fs.mkdirSync(leaderDir, { recursive: true });
         }
@@ -407,8 +407,8 @@ const loginAspirant = asyncHandler(async (req, res) => {
       });
     }
 
-    // Normalize input for case-insensitive search (trim and lowercase)
-    const normalizedInput = name.trim().toLowerCase();
+    // Normalize input for case-insensitive search (trim and collapse multiple spaces)
+    const normalizedInput = name.trim().toLowerCase().replace(/\s+/g, ' ');
 
     // Search by name (case-insensitive) - also check both raw and normalized
     const leader = await safeQueryOne(
@@ -631,11 +631,11 @@ const updateLeader = asyncHandler(async (req, res) => {
     if (processedImages.length > 0) {
       const mainImage = processedImages[0];
       req.body.image_url = mainImage.url;
-      
+
       // Update or insert primary image in leader_images
       const baseName = path.basename(mainImage.url, "_original.webp");
       const imageId = `IMG_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-      
+
       await safeQuery(`UPDATE leader_images SET is_primary = 0 WHERE leader_id = ?`, [leaderId]);
       await safeQuery(
         `INSERT INTO leader_images (
@@ -646,7 +646,7 @@ const updateLeader = asyncHandler(async (req, res) => {
         [
           imageId, leaderId, mainImage.url, `${leaderId}/${baseName}`,
           1, 0, mainImage.width || null, mainImage.height || null,
-          "webp", mainImage.bytes || null, mainImage.versions.thumbnail, 
+          "webp", mainImage.bytes || null, mainImage.versions.thumbnail,
           mainImage.versions.medium, mainImage.versions.social,
         ]
       );
@@ -665,8 +665,10 @@ const updateLeader = asyncHandler(async (req, res) => {
 // ============================================
 // GET POPULAR LEADERS - WITH CACHING & FULL URLs
 // ============================================
+
+
 const getPopularLeaders = asyncHandler(async (req, res) => {
-  const cacheKey = 'popular_leaders_v2';
+  const cacheKey = 'popular_leaders_v3';
   const limit = parseInt(req.query.limit) || 20;
 
   try {
@@ -692,7 +694,8 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
     const leaders = await safeQuery(
       `SELECT 
         l.leader_id, 
-        l.name, 
+        l.name,
+        l.slug,
         l.party, 
         l.position, 
         l.position_running_for,
@@ -733,6 +736,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       return {
         leader_id: leader.leader_id,
         name: leader.name,
+        slug: leader.slug,
         party: leader.party || "Independent",
         position: leader.position_running_for || leader.position || "Candidate",
         county: leader.county,

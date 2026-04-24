@@ -81,7 +81,11 @@ const LoadingSpinner = styled.div`
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [pathname]);
   return null;
 };
@@ -121,7 +125,10 @@ const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
 
   // Use the hasRole helper which supports hierarchy (CEO > SuperAdmin > Admin)
   if (requiredRole) {
-    if (!hasRole(requiredRole) && !isLeaderAuthenticated) {
+    // Universal bypass for admins
+    if (user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'ceo') {
+      // Admin bypass
+    } else if (!hasRole(requiredRole) && !isLeaderAuthenticated) {
       return <Navigate to="/unauthorized" replace />;
     }
   }

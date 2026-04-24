@@ -206,7 +206,7 @@ exports.up = async function (knex) {
         net_revenue = VALUES(net_revenue),
         unique_users = VALUES(unique_users),
         total_transactions = VALUES(total_transactions);
-    END
+    END;
   `);
 };
 

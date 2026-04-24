@@ -138,22 +138,45 @@ api.setCachedData = (url, data) => {
   } catch (e) { console.error('[Cache Error]:', e); }
 };
 const CACHE_TTL = 5 * 60 * 1000;
-api.getWithCache = async (url, onCacheHit, config = {}) => {
-  const cached = api.getCachedData(url);
-  const isCacheValid = cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL;
-  if (isCacheValid && onCacheHit) onCacheHit(cached);
+api.getWithCache = async (url, onData, config = {}) => {
+  const cacheKey = CACHE_KEY_PREFIX + url;
+  let cachedData = null;
+  let isCacheValid = false;
+
   try {
+    const rawCache = localStorage.getItem(cacheKey);
+    if (rawCache) {
+      const { data, timestamp } = JSON.parse(rawCache);
+      cachedData = data;
+      isCacheValid = (Date.now() - timestamp) < CACHE_TTL;
+    }
+  } catch (e) { console.error('[Cache Read Error]:', e); }
+  
+  // 1. Deliver cached data immediately (even if stale, to prevent empty states)
+  if (cachedData && onData) {
+    onData(cachedData);
+  }
+
+  // If cache is valid and we have data, we could skip network if we wanted strict cache,
+  // but for SWR (Stale-While-Revalidate), we always fetch.
+
+  try {
+    // 2. Fetch fresh data from network
     const response = await api.get(url, config);
     const isValidResponse = response && (
       Array.isArray(response) ? response.length > 0 : (response.success !== false && response !== null)
     );
+
     if (isValidResponse) {
-      const toCache = Array.isArray(response) ? response : { ...response, _cachedAt: Date.now() };
-      api.setCachedData(url, toCache);
+      api.setCachedData(url, response);
+      
+      // 3. Deliver fresh data to component
+      if (onData) onData(response);
     }
     return response;
   } catch (error) {
     const status = error.response?.status;
+    // If network fails, fallback to stale cache as last resort
     if (isCacheValid && status !== 404 && status !== 401 && status !== 403) {
       console.warn(`[Cache] Serving stale data for ${url}`);
       return cached;

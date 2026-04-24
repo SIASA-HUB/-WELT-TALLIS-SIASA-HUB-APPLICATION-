@@ -193,6 +193,16 @@ const getWalletBalance = asyncHandler(async (req, res) => {
     return res.json({ success: true, data: wallet });
   } catch (error) {
     Logger.error("Error fetching wallet balance:", error);
+    
+    // Defensive: if table is missing, return 0 balance instead of crashing
+    if (error.message.includes("doesn't exist")) {
+      return res.json({ 
+        success: true, 
+        data: { user_id, balance: 0, total_deposited: 0, total_bonus: 0, updated_at: new Date().toISOString() },
+        message: "Wallet system initializing..."
+      });
+    }
+    
     res.status(500).json({ success: false, message: "Failed to fetch wallet balance" });
   }
 });
@@ -781,6 +791,23 @@ const getUserStats = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     Logger.error("Error fetching user wallet stats:", error);
+    
+    // Defensive fallback
+    if (error.message.includes("doesn't exist")) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          balance: 0,
+          total_deposited: 0,
+          total_spent: 0,
+          total_bonus: 0,
+          transaction_count: 0,
+          currency: "Points",
+          is_new_user: true
+        }
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch wallet statistics",

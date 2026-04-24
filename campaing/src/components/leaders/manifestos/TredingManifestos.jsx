@@ -33,11 +33,12 @@ const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {
   const minVal = Math.min(...points);
   const range = maxVal - minVal || 1;
 
-  const step = width / (points.length - 1);
+  const step = width / (points.length > 1 ? points.length - 1 : 1);
   const pathPoints = points.map((val, idx) => {
     const x = idx * step;
-    const y = height - ((val - minVal) / range) * height;
-    return `${x},${y}`;
+    const cleanVal = isNaN(val) ? minVal : val;
+    const y = height - ((cleanVal - minVal) / range) * height;
+    return `${isNaN(x) ? 0 : x},${isNaN(y) ? 0 : y}`;
   }).join(" ");
 
   const areaPoints = `0,${height} ${pathPoints} ${width},${height}`;
@@ -340,7 +341,7 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
     const fetchGeneralTrending = async () => {
       try {
         await api.getWithCache(`/leaders/manifestos/trending?limit=${limit * 2}`, (data) => {
-          if (data.success && data.data && data.data.length > 0) {
+          if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
             const shuffled = [...data.data].sort(() => 0.5 - Math.random());
             setManifestos(shuffled.slice(0, limit));
           } else {
@@ -365,7 +366,9 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
           : `/leaders/manifestos/trending?limit=${limit * 3}`;
 
         await api.getWithCache(url, (data) => {
-          const fetchedData = data.data || [];
+          if (!data) return;
+          const fetchedData = Array.isArray(data.data) ? data.data : [];
+          
           if (data.success && fetchedData.length > 0) {
             // Shuffle and take requested limit
             const shuffled = [...fetchedData].sort(() => 0.5 - Math.random());
@@ -441,9 +444,9 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
 
   const handleCardClick = (leaderSlug, leaderId) => {
     if (leaderSlug) {
-      navigate(`/leaders/${leaderSlug}`);
+      navigate(`/leader/${leaderSlug}`);
     } else if (leaderId) {
-      navigate(`/leaders/${leaderId}`);
+      navigate(`/leader/${leaderId}`);
     }
   };
 

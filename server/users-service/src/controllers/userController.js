@@ -225,7 +225,7 @@ const createUser = asyncHandler(async (req, res) => {
   if (!UserModel.isValidAgeBracket(age_bracket)) {
     return res.status(400).json({
       success: false,
-      message: "Invalid age bracket. Must be: 18-25, 26-35, 36-45, 46-55, 56+",
+      message: "Invalid age bracket. Must be: 18-30, 31-40, 41-50, 51-60, 61+",
     });
   }
 
@@ -785,7 +785,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
     const ageStats = await safeQuery(
       `SELECT age_bracket, COUNT(*) as count, ROUND((COUNT(*) / ?) * 100, 2) as percentage
        FROM users WHERE age_bracket IS NOT NULL GROUP BY age_bracket
-       ORDER BY FIELD(age_bracket, '18-25', '26-35', '36-45', '46-55', '56+')`,
+       ORDER BY FIELD(age_bracket, '18-30', '31-40', '41-50', '51-60', '61+')`,
       [totalUsers],
     );
 

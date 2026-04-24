@@ -13,7 +13,7 @@ const redis = new Redis({
     const delay = Math.min(times * 200, 2000);
     return delay;
   },
-  maxRetriesPerRequest: 0, // Fail fast if disconnected
+  maxRetriesPerRequest: null, // Allow retryStrategy to handle reconnections
   enableOfflineQueue: false, // Critical: don't queue commands when redis is down
   connectTimeout: 5000,
 });
