@@ -811,18 +811,16 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const shareToWhatsApp = async () => {
     await trackShare(leader?.leader_id, currentUserId, "whatsapp");
-    // WhatsApp allows sending an image along with text and URL
-    // Format: Image + text + URL - putting image first for better attachment visibility
-    const whatsappText = `📷 ${shareImageUrl}\n\n${shareText}\n\nView Profile: ${canonicalUrl}`;
+    // Remove the raw image URL from the text and let WhatsApp generate a preview from the canonical link
+    const whatsappText = `${shareText}\n\nView Profile: ${canonicalUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToFacebook = async () => {
     await trackShare(leader?.leader_id, currentUserId, "facebook");
-    // Facebook shares the URL, which will pull OG image and metadata
-    // We also add a parameter to ensure the image is displayed.
-    const facebookIntentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}&picture=${encodeURIComponent(shareImageUrl)}`;
+    // Facebook relies on the URL to pull Open Graph metadata (including the image)
+    const facebookIntentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`;
     window.open(facebookIntentUrl, "_blank");
     setShowShareDropdown(false);
   };
@@ -837,9 +835,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const handleCopyLink = async () => {
     try {
-      // Create rich text with image for clipboard
-      const htmlContent = `<div><img src="${shareImageUrl}" width="400" /><br/><strong>${leader.name}</strong><br/>${shareText}<br/><a href="${canonicalUrl}">${canonicalUrl}</a></div>`;
-      const textContent = `📷 ${shareImageUrl}\n\n${shareText}\n\n${canonicalUrl}`;
+      // Create rich text for clipboard without the raw image URL to keep it clean
+      const htmlContent = `<div><img src="${shareImageUrl}" width="400" style="border-radius:12px; margin-bottom:10px;" /><br/><strong>${leader.name}</strong><br/>${shareText}<br/><a href="${canonicalUrl}">${canonicalUrl}</a></div>`;
+      const textContent = `${shareText}\n\n${canonicalUrl}`;
 
       // Use Clipboard API with both text and HTML for rich preview
       if (navigator.clipboard && window.ClipboardItem) {
