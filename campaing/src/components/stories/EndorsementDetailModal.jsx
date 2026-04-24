@@ -578,7 +578,7 @@ const EndorsementDetailModal = ({
     if (!storyId) return;
     setCommentsLoading((prev) => ({ ...prev, [storyId]: true }));
     try {
-      const response = await api.get(`/endorsements/${storyId}/comments`);
+      const response = await api.get(`/endorsements/${storyId}/comments?t=${Date.now()}`);
       let comments = [];
       if (response.data?.data?.comments) {
         comments = response.data.data.comments;

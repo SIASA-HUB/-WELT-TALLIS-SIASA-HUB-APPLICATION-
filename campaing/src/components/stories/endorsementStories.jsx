@@ -326,7 +326,8 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      const path = `/endorsements/leader/${leaderId}/recent?limit=100`;
+      // Use a timestamp to bust any browser or CDN cache for instant updates
+      const path = `/endorsements/leader/${leaderId}/recent?limit=100&t=${Date.now()}`;
       const responseData = await api.get(path);
       if (responseData.success) {
         setEndorsements(responseData.data || []);
@@ -380,6 +381,8 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
   const handleStoryPosted = () => {
     setSuccessMessage("Story posted successfully!");
     setShowSuccess(true);
+    // Force clear local cache to ensure fresh data
+    if (api.clearCache) api.clearCache();
     fetchEndorsements();
     setTimeout(() => setShowSuccess(false), 3000);
   };

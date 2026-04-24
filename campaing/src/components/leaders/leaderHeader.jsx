@@ -700,7 +700,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const fetchBoostedStories = useCallback(async () => {
     if (!leader?.leader_id) return;
     try {
-      const response = await api.get(`/endorsements/leader/${leader.leader_id}/boosted?limit=15`);
+      const response = await api.get(`/endorsements/leader/${leader.leader_id}/boosted?limit=15&t=${Date.now()}`);
       if (response.data?.success && response.data?.data) setBoostedStories(response.data.data);
     } catch (error) {
       console.error("Error fetching boosted stories:", error);

@@ -281,7 +281,7 @@ const TrendingStoriesRow = ({ currentUser, limit = 50 }) => {
     setLoading(true);
     setError(null);
     try {
-      const responseData = await api.get("/endorsements/recent?limit=100");
+      const responseData = await api.get(`/endorsements/recent?limit=100&t=${Date.now()}`);
 
       let allStories = [];
 
