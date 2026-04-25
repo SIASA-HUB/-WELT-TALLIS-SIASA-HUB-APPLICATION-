@@ -6,6 +6,7 @@ import { Sparkles, Flame, ChevronRight, Heart } from "lucide-react";
 import API from "../../api/config";
 import api from "../../api/api";
 import EndorsementDetailModal from "./EndorsementDetailModal";
+import { buildImageUrl } from "../../utils/imageUtils";
 
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 0.8; }
@@ -241,18 +242,7 @@ const ErrorMessage = styled.div`
 // HELPER FUNCTIONS
 // ============================================
 
-// Helper function to build image URL via Gateway
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl) return null;
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-  const baseUrl = API.UPLOAD_BASE || "http://localhost:5000";
-  if (imageUrl.startsWith("/")) {
-    return `${baseUrl}${imageUrl}`;
-  }
-  return `${baseUrl}/${imageUrl}`;
-};
+// Trending stories logic
 
 const calculateTrendingScore = (story) => {
   const likes = story.likes || 0;

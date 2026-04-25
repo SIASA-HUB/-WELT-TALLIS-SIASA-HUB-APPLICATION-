@@ -10,8 +10,17 @@ import API from '../api/config';
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
 
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("data:")) {
-    return imageUrl;
+  let processedUrl = imageUrl;
+  
+  // Fix for production: replace localhost with production domain if detected
+  if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
+    processedUrl = processedUrl.replace(/http:\/\/localhost:8006/g, 'https://siasahub.co.ke');
+  } else if (typeof processedUrl === 'string' && processedUrl.includes('localhost:5000')) {
+    processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
+  }
+
+  if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
+    return processedUrl;
   }
 
   let baseUrl = API.IMAGES || API.UPLOAD_BASE;
@@ -21,7 +30,7 @@ export const buildImageUrl = (imageUrl) => {
   if (!baseUrl) return null;
 
   baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
-  const imagePath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  const imagePath = processedUrl.startsWith("/") ? processedUrl : `/${processedUrl}`;
 
   return `${baseUrl}${imagePath}`;
 };

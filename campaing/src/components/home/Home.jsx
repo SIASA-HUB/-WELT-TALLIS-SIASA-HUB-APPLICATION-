@@ -191,7 +191,7 @@ const SiasaApp = () => {
 
   return (
     <ErrorBoundary>
-      <SEO 
+      <SEO
         title="Home"
         description="SiasaHub is Kenya's leading digital campaign agency and political command center. Explore candidate manifestos, track election campaigns, and engage with voters for the 2027 General Election."
         canonical="/"
@@ -199,9 +199,11 @@ const SiasaApp = () => {
       <HomePageWrapper>
         <MainContent>
           <OnboardingGuide />
+
           <Suspense fallback={<LoadingFallback />}>
             <TrendingSection />
           </Suspense>
+
         </MainContent>
       </HomePageWrapper>
     </ErrorBoundary>

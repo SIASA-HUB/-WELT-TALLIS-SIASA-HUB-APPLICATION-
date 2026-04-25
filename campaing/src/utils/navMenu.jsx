@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, memo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { Home, UserCheck, ShoppingBag, User } from "lucide-react";
+import { Home, UserCheck, ShoppingBag, User, LayoutDashboard, Settings } from "lucide-react";
+import { useAuth } from "../components/hooks/useAuth";
 
 import AppLoadingBar from "./LoadingBar";
 
@@ -108,11 +109,24 @@ const NavMenu = () => {
     }
   }, [location.pathname]);
 
+  const { user, isLeaderAuthenticated, isAdmin, isMarketAdmin } = useAuth();
+  
+  // Dynamic navigation items based on role
+  const getProfileItem = () => {
+    if (isLeaderAuthenticated) {
+      return { path: "/aspirant-dashboard", label: "Dashboard", icon: LayoutDashboard };
+    }
+    if (isAdmin() || isMarketAdmin()) {
+      return { path: "/marketplace-admin", label: "Admin", icon: Settings };
+    }
+    return { path: "/profile", label: "Profile", icon: User };
+  };
+
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/leaders", label: "Aspirants", icon: UserCheck },
     { path: "/marketplace/shop", label: "Store", icon: ShoppingBag },
-    { path: "/profile", label: "Profile", icon: User },
+    getProfileItem(),
   ];
 
   return (

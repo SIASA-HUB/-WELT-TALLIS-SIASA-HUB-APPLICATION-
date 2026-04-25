@@ -68,6 +68,11 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // CRITICAL: When sending FormData (file uploads), remove the default
+  // Content-Type so the browser auto-sets multipart/form-data with boundary
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 }, (error) => Promise.reject(error));
 
@@ -103,11 +108,15 @@ api.interceptors.response.use(
         const status = refreshError.response?.status;
         if (status === 401 || status === 403) {
           console.warn('[AUTH] Refresh token invalid or expired. Logging out.');
-          clearAuthData();
+          
+          // Determine target to clear based on the failed request URL
+          const isLeaderRequest = originalRequest.url.includes('/leaders/');
+          const target = isLeaderRequest ? 'leader' : 'user';
+          
+          clearAuthData(target);
           
           // Redirect to login only if not already there
-          const isAspirant = window.location.pathname.startsWith('/aspirant');
-          const loginPath = isAspirant ? '/login-aspirant' : '/login';
+          const loginPath = isLeaderRequest ? '/login-aspirant' : '/login';
           if (!window.location.pathname.includes(loginPath)) {
             window.location.href = loginPath;
           }

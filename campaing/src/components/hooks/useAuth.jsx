@@ -131,58 +131,83 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const checkAuthStatus = useCallback(async () => {
-    if (authCheckDoneRef.current) return;
+  const fetchLeader = useCallback(async () => {
+    const token = localStorage.getItem("leaderToken");
+    if (!token) return null;
     try {
-      const token = getStoredToken();
-      if (!token) {
-        setIsLoading(false);
-        authCheckDoneRef.current = true;
-        return;
-      }
-
-      // Try to fetch fresh user data
-      const userData = await fetchUser();
-      if (userData) {
-        await fetchCsrfToken();
-        setIsLoading(false);
-        authCheckDoneRef.current = true;
-        return;
-      }
-
-      // If fetchUser failed but we still have token, try to refresh
-      const refreshResponse = await api.post("/users/refresh").catch(() => null);
-      if (refreshResponse?.success && refreshResponse?.accessToken) {
-        console.log("[AUTH] Refresh successful in checkAuthStatus");
-        const newToken = refreshResponse.accessToken;
-        storeAuthData(refreshResponse); // Use helper for consistency
-
-        // Retry fetch user after refresh
-        const newUser = await fetchUser();
-        if (newUser) {
-          setIsAuthenticated(true);
-          setUser(newUser);
-        }
+      const response = await api.get("/leaders/profile/me");
+      if (response?.success && response?.data) {
+        setLeader(response.data);
+        setIsLeaderAuthenticated(true);
+        localStorage.setItem("leaderData", JSON.stringify(response.data));
+        return response.data;
       } else {
-        // Refresh failed (401 or other)
-        const token = getStoredToken();
-        if (token && isTokenExpired(token)) {
-          console.warn("[AUTH] Session expired and refresh failed. Clearing.");
-          clearAuthData();
-          setUser(null);
-          setIsAuthenticated(false);
-        } else {
-          console.log("[AUTH] Refresh failed but token still valid (optimistic fallback)");
-        }
+        setIsLeaderAuthenticated(false);
+        return null;
       }
     } catch (error) {
+      console.warn("Leader auth check failed", error.message);
+      return null;
+    }
+  }, []);
+
+  const checkAuthStatus = useCallback(async (force = false) => {
+    if (authCheckDoneRef.current && !force) return;
+    try {
+      const token = getStoredToken();
+      const leaderToken = localStorage.getItem("leaderToken");
+
+      if (!token && !leaderToken) {
+        setIsLoading(false);
+        authCheckDoneRef.current = true;
+        return;
+      }
+
+      // Try to fetch fresh user data if token exists
+      if (token) {
+        const userData = await fetchUser();
+        if (userData) {
+          await fetchCsrfToken();
+          // Do not return early; we might also have a leader session to check
+        } else {
+          // If fetchUser failed but we still have token, try to refresh
+          const refreshResponse = await api.post("/users/refresh").catch(() => null);
+          if (refreshResponse?.success && refreshResponse?.accessToken) {
+            console.log("[AUTH] Refresh successful in checkAuthStatus");
+            const newToken = refreshResponse.accessToken;
+            localStorage.setItem("access_token", newToken);
+            localStorage.setItem("token", newToken);
+            
+            const newUser = await fetchUser();
+            if (newUser) {
+              setIsAuthenticated(true);
+              setUser(newUser);
+            }
+          } else {
+            // Refresh failed
+            if (token && isTokenExpired(token)) {
+              console.warn("[AUTH] Session expired and refresh failed.");
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("token");
+              setUser(null);
+              setIsAuthenticated(false);
+            }
+          }
+        }
+      }
+
+      // Try to fetch fresh leader data if leaderToken exists
+      if (leaderToken) {
+        await fetchLeader();
+      }
+
+    } catch (error) {
       console.error("Auth check error:", error);
-      // On any unexpected error, keep existing user (don't log out)
     } finally {
       setIsLoading(false);
       authCheckDoneRef.current = true;
     }
-  }, [fetchUser, fetchCsrfToken]);
+  }, [fetchUser, fetchLeader, fetchCsrfToken]);
 
   const login = async (username, password) => {
     try {
@@ -279,9 +304,15 @@ export const AuthProvider = ({ children }) => {
     const currentUserRole = (getUserRole() || "user").toLowerCase();
     const normalizedRequiredRole = requiredRole.toLowerCase();
 
-    // Special case: admin can act as market_admin (maintained for legacy but hierarchy handles it now)
-    if (normalizedRequiredRole === 'market_admin' && currentUserRole === 'admin') {
-      return true;
+    // Special case: aspirant/leader is NOT in the user hierarchy
+    if (normalizedRequiredRole === 'aspirant' || normalizedRequiredRole === 'leader') {
+      return isLeaderAuthenticated;
+    }
+
+    // If we're checking a user role but user is not authenticated as a normal user
+    // (Admins are checked via hierarchy below, so we only block if not logged in at all)
+    if (!isAuthenticated && !isLeaderAuthenticated) {
+      return false;
     }
 
     // UPDATED HIERARCHY: admin (3) is now higher than market_admin (2)
@@ -296,6 +327,9 @@ export const AuthProvider = ({ children }) => {
     const userLevel = roleHierarchy[currentUserRole] || 0;
     const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
     
+    // If requiredRole is not in hierarchy and not aspirant, deny by default if level is 0
+    if (requiredLevel === 0 && normalizedRequiredRole !== 'user') return false;
+
     return userLevel >= requiredLevel;
   };
   const isAdmin = () => hasRole("admin");
@@ -348,25 +382,3 @@ export const isLoggedIn = () => {
   const token = getStoredToken();
   return !!token;
 };
-
-export const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { isAuthenticated, isLoading, hasRole } = useAuth();
-  if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#000", color: "white" }}>Loading...</div>;
-  if (!isAuthenticated) { window.location.href = "/login"; return null; }
-  if (requiredRole && !hasRole(requiredRole)) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#000", color: "white", textAlign: "center" }}>
-        <div>
-          <h2>Access Denied</h2>
-          <p>You don't have permission to access this page.</p>
-          <button onClick={() => (window.location.href = "/")} style={{ marginTop: 20, padding: "10px 24px", background: "#ff3b3b", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}>Go Home</button>
-        </div>
-      </div>
-    );
-  }
-  return children;
-};
-
-export const AdminRoute = ({ children }) => <ProtectedRoute requiredRole="admin">{children}</ProtectedRoute>;
-export const SuperAdminRoute = ({ children }) => <ProtectedRoute requiredRole="super_admin">{children}</ProtectedRoute>;
-export const CEORoute = ({ children }) => <ProtectedRoute requiredRole="ceo">{children}</ProtectedRoute>;

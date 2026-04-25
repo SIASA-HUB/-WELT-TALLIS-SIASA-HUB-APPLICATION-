@@ -425,7 +425,7 @@ const TrendingLeaderCard = memo(({ leader, rank }) => {
 TrendingLeaderCard.displayName = "TrendingLeaderCard";
 
 // Main TrendingLeaders Component
-const TrendingLeaders = () => {
+const TrendingLeaders = ({ title }) => {
   const navigate = useNavigate();
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -464,7 +464,7 @@ const TrendingLeaders = () => {
             className="fire-icon"
             color="#dc2626"
           />
-          <div className="main-title">Trending Aspirants</div>
+          <div className="main-title">{title || "Trending Aspirants"}</div>
         </TitleSection>
         <ViewAllLink onClick={() => navigate("/leaders")}>
           SEE ALL <ChevronRight size={14} />

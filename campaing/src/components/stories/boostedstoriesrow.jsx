@@ -13,29 +13,13 @@ import {
   Play,
 } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
+import { buildImageUrl } from "../../utils/imageUtils";
 
 import API from "../../api/config";
 import api from "../../api/api";
 
 
-// ============================================
-// HELPER: Build image URL correctly via Gateway
-// ============================================
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl) return null;
-
-  // Already a full URL
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-
-  const baseUrl = API.UPLOAD_BASE;
-  if (imageUrl.startsWith("/")) {
-    return `${baseUrl}${imageUrl}`;
-  }
-
-  return `${baseUrl}/${imageUrl}`;
-};
+// Boosted stories logic
 
 
 // ============================================

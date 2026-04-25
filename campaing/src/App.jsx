@@ -117,28 +117,44 @@ const isAspirantAuthenticated = () => {
 import { useAuth } from "./components/hooks/useAuth.jsx";
 
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
-  const { isAuthenticated, isLeaderAuthenticated, user, hasRole, isLoading } = useAuth();
+  const { isAuthenticated, isLeaderAuthenticated, hasRole, isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
   }
 
-  // Use the hasRole helper which supports hierarchy (CEO > SuperAdmin > Admin)
-  if (requiredRole) {
-    // Universal bypass for admins
-    if (user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'ceo') {
-      // Admin bypass
-    } else if (!hasRole(requiredRole) && !isLeaderAuthenticated) {
-      return <Navigate to="/unauthorized" replace />;
-    }
-  }
-
-  // Default authentication check
+  // 1. Basic Auth Check
   if (!isAuthenticated && !isLeaderAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
 
+  // 2. Role Authorization Check
+  if (requiredRole && !hasRole(requiredRole)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   return children;
+};
+
+// Universal Profile Redirector
+const ProfileRedirect = () => {
+  const { isLeaderAuthenticated, isAdmin, isMarketAdmin, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
+  
+  // If authenticated, go to respective dashboards
+  if (isLeaderAuthenticated) return <Navigate to="/aspirant-dashboard" replace />;
+  if (isAdmin() || isMarketAdmin()) return <Navigate to="/marketplace-admin" replace />;
+  if (isAuthenticated) return <ProfilePage />;
+  
+  // If not authenticated, decide which login page to show
+  // We can check if they were previously an aspirant by looking for a hint in localStorage
+  const wasAspirant = localStorage.getItem("was_aspirant") === "true";
+  if (wasAspirant) {
+    return <Navigate to="/login-aspirant" replace />;
+  }
+  
+  return <Navigate to="/login" replace />;
 };
 
 // ============================================================
@@ -169,7 +185,6 @@ const AppLayout = () => {
     "/marketplace-admin",
     "/login-aspirant",
     "/register-aspirant",
-    "/aspirant-dashboard",
     "/login",
     "/register",
   ];
@@ -243,9 +258,7 @@ const AppLayout = () => {
             } />
             <Route path="/marketplace/orders" element={<Navigate to="/account/history" replace />} />
             <Route path="/profile" element={
-              <ProtectedRoute requiredRole="user" redirectTo="/login">
-                <ProfilePage />
-              </ProtectedRoute>
+              <ProfileRedirect />
             } />
             <Route path="/me/profile" element={<Navigate to="/profile" replace />} />
 

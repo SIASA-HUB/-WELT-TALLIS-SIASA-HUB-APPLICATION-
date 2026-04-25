@@ -15,6 +15,7 @@ import api from "../../api/api";
 const LeaderHeader = lazy(() => import("./leaderHeader.jsx"));
 const ManifestoPage = lazy(() => import("./manifestos/manifestoPage"));
 const LeaderFooter = lazy(() => import("./leaderFooter.jsx"));
+const TrendingLeaders = lazy(() => import("./TrendingLeaders.jsx"));
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -377,12 +378,26 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
                     <Info size={20} color="#000" />
                   </BioIcon>
                   <BioInfo>
-                    <BioTitle>{leader.name}</BioTitle>
-                    <BioPosition>{leader.position || "Candidate"}</BioPosition>
+                    <BioTitle>About {leader.name}</BioTitle>
+                    <BioPosition>{leader.position || "Candidate"} - {leader.party || "Independent"}</BioPosition>
                   </BioInfo>
                 </BioHeader>
-                <BioText>{leader.bio || "No biography available."}</BioText>
+                <BioText style={{ fontSize: "1.05rem", color: "#e2e8f0" }}>
+                  {leader.bio || `${leader.name} is a political leader in Kenya, currently vying for the position of ${leader.position || 'office'} in the upcoming 2027 General Elections. Explore their manifesto and endorsements to learn more about their vision for the region.`}
+                </BioText>
+                
+                {/* Additional Wikipedia-style sections if available */}
+                <div style={{ marginTop: 32, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 24 }}>
+                  <h3 style={{ fontSize: "1.2rem", marginBottom: 12 }}>Political Career</h3>
+                  <p style={{ color: "#94a3b8", lineHeight: 1.6 }}>{leader.career || "Historical political data is being verified for this profile."}</p>
+                </div>
               </BioSection>
+              
+              <div style={{ marginTop: 40 }}>
+                <Suspense fallback={null}>
+                  <TrendingLeaders title={`Other Leaders in ${leader.county || 'Kenya'}`} />
+                </Suspense>
+              </div>
             </SectionCard>
           )}
         </Suspense>

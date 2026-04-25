@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import api from "../../api/api";
 import API from "../../api/config";
+import { buildImageUrl } from "../../utils/imageUtils";
 
 import EndorsementStories from "../stories/endorsementStories";
 import BoostedStoriesRow from "../stories/boostedstoriesrow";
@@ -547,34 +548,7 @@ const getLoggedInUserId = () => {
 
 
 
-const buildImageUrl = (imageUrl) => {
-  if (!imageUrl || imageUrl === "null" || imageUrl === "undefined") return null;
-
-  // Already absolute URL
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-
-  // Try to get base URL from config
-  let baseUrl = API.UPLOAD_BASE || API.IMAGES || API.BASE_URL || API.BASE;
-
-
-  if (!baseUrl && typeof window !== "undefined") {
-    baseUrl = window.location.origin;
-  }
-
-
-  if (!baseUrl) return null;
-
-
-  if (baseUrl.includes("/api/v1")) {
-    baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "");
-  }
-
-  baseUrl = baseUrl.replace(/\/$/, "");
-  let cleanPath = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
-  return `${baseUrl}/${cleanPath}`;
-};
+// Leader header logic
 
 const getLeaderImage = (leader) => {
   if (!leader) return null;

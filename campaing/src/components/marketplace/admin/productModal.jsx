@@ -3,6 +3,7 @@ import styled from "styled-components";
 import * as Icons from "lucide-react";
 import axios from "axios";
 import { adminCreateProduct, adminUpdateProduct } from "../components/api";
+import api from "../../../api/api";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -359,6 +360,11 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
 
       if (onSave) {
         onSave(response?.data || productData);
+      }
+
+      // Clear API cache so the new product shows up in lists
+      if (api.clearCache) {
+        api.clearCache();
       }
 
       setTimeout(() => onClose(), 1000);

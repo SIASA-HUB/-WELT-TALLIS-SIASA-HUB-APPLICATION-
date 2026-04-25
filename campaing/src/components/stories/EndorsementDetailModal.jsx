@@ -610,9 +610,8 @@ const EndorsementDetailModal = ({
   }, [isOpen, current?.id, loadComments, current?.likes]);
 
   const getAvatarUrl = (item) => {
-    if (item?.image_url) {
-      return buildImageUrl(item.image_url);
-    }
+    // image_url is the story MEDIA, not the user's profile picture
+    // Always use a generated avatar based on the user's name
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(item?.user_name || "User")}&background=22c55e&color=fff&size=100`;
   };
 

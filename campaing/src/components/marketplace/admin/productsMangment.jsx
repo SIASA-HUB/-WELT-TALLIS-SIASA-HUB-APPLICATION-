@@ -149,6 +149,7 @@ const NoProductsCell = styled.td`
 `;
 
 import { adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from "../components/api";
+import api from "../../../api/api";
 
 const ProductsManagement = ({ products, loading, onRefresh }) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -168,6 +169,7 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
         await adminDeleteProduct(id);
+        if (api.clearCache) api.clearCache();
         onRefresh();
       } catch (error) {
         console.error("Error deleting product:", error);
@@ -177,18 +179,10 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
   };
 
   const handleSaveProduct = async (productData) => {
-    try {
-      if (editingProduct) {
-        await adminUpdateProduct(editingProduct.id, productData);
-      } else {
-        await adminCreateProduct(productData);
-      }
-      onRefresh();
-      setModalOpen(false);
-    } catch (error) {
-      console.error("Error saving product:", error);
-      alert("Failed to save product");
-    }
+    // The ProductModal now handles the actual API call.
+    // We just need to refresh the list and close the modal.
+    onRefresh();
+    setModalOpen(false);
   };
 
   if (loading) {

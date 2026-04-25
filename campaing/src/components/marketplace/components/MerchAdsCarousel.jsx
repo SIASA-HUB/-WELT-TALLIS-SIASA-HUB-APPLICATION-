@@ -4,6 +4,7 @@ import styled, { keyframes } from "styled-components";
 import { Flame } from "lucide-react";
 import api from "../../../api/api";
 import API from "../../../api/config";
+import { buildImageUrl } from "../../../utils/imageUtils";
 
 // --- ANIMATIONS ---
 const fadeInUp = keyframes`
@@ -184,19 +185,7 @@ const ViewAllButton = styled.div`
   }
 `;
 
-// FIXED: Improved image URL builder with better path handling
-const buildImageUrl = (url) => {
-  if (!url || url === "null") return null;
-
-  // If it's already a complete URL
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-
-  const gatewayBase = API?.IMAGES || "http://localhost:8009";
-  const path = url.startsWith("/") ? url : `/${url}`;
-  return `${gatewayBase}${path}`;
-};
+// Merch ads logic
 
 // Helper to get image from various possible fields
 const getProductImage = (product) => {

@@ -746,7 +746,6 @@ const DashboardHome = ({ leader, rallyCount, manifestoStatus, supporterCount }) 
   );
 };
 
-// ==================== Main Component ====================
 const AspirantDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -808,12 +807,25 @@ const AspirantDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm("Are you sure you want to logout?")) {
+      // Call server logout to clear session cookies
+      try {
+        await api.post("/users/logout").catch(() => {});
+        await api.post("/leaders/logout").catch(() => {});
+      } catch (e) {}
+
+      // Manual cleanup to ensure full session end
       localStorage.removeItem("leaderToken");
       localStorage.removeItem("leaderData");
       localStorage.removeItem("token");
-      navigate("/login-aspirant");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user_data");
+      localStorage.removeItem("user_role");
+      localStorage.setItem("was_aspirant", "true");
+      
+      // Force reload to clear all React states and go to login
+      window.location.href = "/login-aspirant";
     }
   };
 

@@ -339,7 +339,10 @@ const LoginPage = () => {
       setSuccessMessage("Registration successful! Please login with your credentials.");
     }
 
-    if (isAuthenticated && authUser) {
+    // Only redirect if fully authenticated AND we have a local token
+    // This prevents "ghost sessions" from cookies auto-redirecting a user who intentionally logged out
+    const hasLocalToken = localStorage.getItem("access_token") || localStorage.getItem("token");
+    if (isAuthenticated && authUser && hasLocalToken) {
       const redirectPath = getRedirectPathByRole(authUser.role);
       navigate(redirectPath, { replace: true });
     }
@@ -379,6 +382,7 @@ const LoginPage = () => {
         if (result.success) {
           const user = result.user;
           const userRole = user?.role || "user";
+          localStorage.removeItem("was_aspirant");
 
           loadingBarRef.current?.complete();
 

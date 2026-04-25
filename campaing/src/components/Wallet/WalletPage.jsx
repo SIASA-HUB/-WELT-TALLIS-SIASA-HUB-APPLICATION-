@@ -314,12 +314,24 @@ const ProfilePage = () => {
     const initProfile = async () => {
       try {
         const storedUser = localStorage.getItem("user_data");
-        if (!storedUser) {
+        const storedLeader = localStorage.getItem("leaderData");
+        
+        let user = null;
+        if (storedUser) {
+          user = JSON.parse(storedUser);
+        } else if (storedLeader) {
+          user = JSON.parse(storedLeader);
+          // Normalize leader data for UI
+          user.real_name = user.real_name || user.name;
+          user.role = "aspirant";
+          user.user_id = user.id || user.leader_id;
+        }
+
+        if (!user) {
           navigate("/login");
           return;
         }
 
-        const user = JSON.parse(storedUser);
         setUserData(user);
 
         const res = await walletApi.get(`/users/${user.user_id}/stats`);
@@ -366,8 +378,11 @@ const ProfilePage = () => {
             {userData?.real_name?.charAt(0) || "S"}
           </SmallAvatar>
           <HeaderText>
-            <div className="welcome">{userData?.role === 'admin' ? 'Strategic Partner' : 'Citizen Dashboard'}</div>
-            <div className="display-name">{userData?.real_name || userData?.username}</div>
+            <div className="welcome">
+              {userData?.role === 'admin' ? 'Strategic Partner' : 
+               userData?.role === 'aspirant' ? 'Leader Dashboard' : 'Citizen Dashboard'}
+            </div>
+            <div className="display-name">{userData?.real_name || userData?.username || userData?.name}</div>
           </HeaderText>
         </HeaderSection>
 

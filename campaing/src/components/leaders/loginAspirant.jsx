@@ -14,7 +14,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import api from "../../api/api";
+import api, { storeLeaderAuthData } from "../../api/api";
+import { useAuth } from "../hooks/useAuth";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -227,6 +228,7 @@ const LoadingSpinner = styled.div`
 const LoginAspirant = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { checkAuthStatus } = useAuth();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -303,8 +305,11 @@ const LoginAspirant = () => {
 
       if (response.success) {
         // Use the segregated storeLeaderAuthData helper from api.js
-        const { storeLeaderAuthData } = await import("../../api/api");
         storeLeaderAuthData(response.data);
+        localStorage.removeItem("was_aspirant");
+        
+        // Sync the auth state immediately
+        await checkAuthStatus(true);
 
         setSuccessMessage(`Welcome back! Redirecting...`);
 
