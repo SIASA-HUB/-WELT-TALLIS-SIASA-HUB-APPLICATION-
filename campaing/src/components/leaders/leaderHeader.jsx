@@ -304,7 +304,7 @@ const SupportButton = styled.button`
   background: ${(props) => (props.$active ? "#10b981" : "white")};
   color: ${(props) => (props.$active ? "white" : "black")};
   border: none;
-  padding: 10px 18px;
+  padding:    10px  20px 18px;
   border-radius: 10px;
   font-weight: 800;
   font-size: 12px;
@@ -1216,13 +1216,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               <SharePromptModal onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setShowSharePrompt(false)}
-                  style={{ 
-                    position: 'absolute', 
-                    top: 24, 
-                    right: 24, 
-                    background: 'rgba(255,255,255,0.05)', 
-                    border: 'none', 
-                    color: 'white', 
+                  style={{
+                    position: 'absolute',
+                    top: 24,
+                    right: 24,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    color: 'white',
                     cursor: 'pointer',
                     width: 32,
                     height: 32,
@@ -1235,13 +1235,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                   <X size={18} />
                 </button>
 
-                <div style={{ 
-                  width: 80, 
-                  height: 80, 
-                  background: 'rgba(16, 185, 129, 0.1)', 
-                  borderRadius: '50%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                <div style={{
+                  width: 80,
+                  height: 80,
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto 8px'
                 }}>
@@ -1272,14 +1272,14 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={() => setShowSharePrompt(false)} 
-                  style={{ 
-                    background: 'rgba(255,255,255,0.05)', 
-                    color: '#94a3b8', 
+                <Button
+                  onClick={() => setShowSharePrompt(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#94a3b8',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    width: '100%', 
-                    padding: '16px', 
+                    width: '100%',
+                    padding: '16px',
                     borderRadius: '16px',
                     fontSize: '14px',
                     letterSpacing: '1px'

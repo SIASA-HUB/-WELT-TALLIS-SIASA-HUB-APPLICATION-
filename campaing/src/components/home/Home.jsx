@@ -5,7 +5,7 @@ import SEO from "../../utils/SEO";
 
 // 1. LAZY LOAD TRENDING
 const TrendingSection = lazy(() => import("../treading/treading"));
-import OnboardingGuide from "./OnboardingGuide";
+const OnboardingGuide = lazy(() => import("./OnboardingGuide"));
 
 const progressMove = keyframes`
   0% { width: 0%; }
@@ -168,10 +168,8 @@ const SiasaApp = () => {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // Simulate minimum loading time to prevent flash
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    // Immediate loading
+    setIsLoading(false);
 
     // Scroll to top smoothly
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -181,7 +179,13 @@ const SiasaApp = () => {
       window.markAsLoaded();
     }
 
-    return () => clearTimeout(timer);
+    // Speculative pre-fetch of main sections
+    setTimeout(() => {
+      import("../leaders/leadersPage");
+      import("../marketplace/marketPage");
+    }, 2000);
+
+    return () => {};
   }, []);
 
   // Show loading state
@@ -198,7 +202,9 @@ const SiasaApp = () => {
       />
       <HomePageWrapper>
         <MainContent>
-          <OnboardingGuide />
+          <Suspense fallback={<div />}>
+            <OnboardingGuide />
+          </Suspense>
 
           <Suspense fallback={<LoadingFallback />}>
             <TrendingSection />

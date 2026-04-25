@@ -3,6 +3,7 @@ import styled from "styled-components";
 import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, ShoppingCart, User as UserIcon } from "lucide-react";
+import { useCart } from "../context/CartContext";
 
 const Nav = styled.div`
   background: rgba(255, 255, 255, 0.8);
@@ -188,22 +189,14 @@ const CartBadge = styled.div`
 const Navbar = ({ currentUser, currentLeader, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { getTotalItems } = useCart();
+  const cartCount = getTotalItems();
 
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
-    return null;
-  };
+  const userInitial = currentUser?.name?.[0] || currentLeader?.name?.[0] || currentUser?.anonymous_username?.[0] || "U";
+  const userImage = currentUser?.image || currentUser?.img || currentLeader?.image || currentLeader?.img || currentLeader?.image_url;
+  const isLoggedIn = !!(currentUser || localStorage.getItem("leaderToken") || localStorage.getItem("access_token"));
 
   const handleLogout = () => {
-    // Clear cookies
-    document.cookie.split(";").forEach(function (c) {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-    
-    // Clear only user session data if possible, or all if preferred
-    // Using the auth context's logout is better
     if (onLogout) {
       onLogout();
     } else {
@@ -213,14 +206,6 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
       navigate("/login");
     }
   };
-
-  const userInitial = currentUser?.name?.[0] || currentLeader?.name?.[0] || currentUser?.anonymous_username?.[0] || "U";
-  const userImage = currentUser?.image || currentUser?.img || currentLeader?.image || currentLeader?.img || currentLeader?.image_url;
-
-  const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-  const cartCount = guestCart.reduce((acc, item) => acc + item.quantity, 0);
-
-  const isLoggedIn = currentUser || !!getCookie("user_info") || localStorage.getItem("leaderToken");
 
   return (
     <Nav>

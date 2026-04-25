@@ -407,24 +407,33 @@ const loginAspirant = asyncHandler(async (req, res) => {
       });
     }
 
-    // Normalize input for case-insensitive search (trim and collapse multiple spaces)
+    // Normalize input for case-insensitive search
     const normalizedInput = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    const words = normalizedInput.split(' ').filter(w => w.length > 1);
 
-    // Search for candidates with similar names (case-insensitive fuzzy match)
-    const candidates = await safeQuery(
-      `SELECT leader_id, name, password_hash, party, slogan, 
-              position, position_running_for, county, constituency, ward, 
-              image_url, status, verification, created_at
-       FROM leaders 
-       WHERE status = 'active' 
-       AND (
-         LOWER(name) = LOWER(?) 
-         OR LOWER(name) LIKE ? 
-         OR ? LIKE CONCAT('%', LOWER(name), '%')
-       )
-       LIMIT 10`,
-      [normalizedInput, `%${normalizedInput}%`, normalizedInput]
-    );
+    // Build aggressive fuzzy search query
+    // 1. Exact match
+    // 2. LIKE match
+    // 3. Word-based match (if input has multiple words)
+    let query = `
+      SELECT leader_id, name, password_hash, party, slogan, 
+             position, position_running_for, county, constituency, ward, 
+             image_url, status, verification, created_at
+      FROM leaders 
+      WHERE status = 'active' AND (
+        LOWER(name) = LOWER(?)
+        OR LOWER(name) LIKE ?
+    `;
+    const params = [normalizedInput, `%${normalizedInput}%`];
+
+    if (words.length > 0) {
+      query += ` OR (${words.map(() => `LOWER(name) LIKE ?`).join(' AND ')})`;
+      words.forEach(w => params.push(`%${w}%`));
+    }
+    
+    query += `) LIMIT 15`;
+
+    const candidates = await safeQuery(query, params);
 
     if (!candidates || candidates.length === 0) {
       Logger.warn(`No aspirant found matching: ${name}`);

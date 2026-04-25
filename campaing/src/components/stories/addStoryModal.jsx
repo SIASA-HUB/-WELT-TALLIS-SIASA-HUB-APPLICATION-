@@ -333,14 +333,15 @@ const getLocalUser = () => {
   }
 };
 
-const isUserAuthenticated = () => {
-  const user = getLocalUser();
-  const isAuth = localStorage.getItem("isAuthenticated") === "true";
-  return !!(user && isAuth);
+// Checks purely from localStorage tokens — fallback when context isn't ready
+const isUserAuthenticatedFromStorage = () => {
+  const hasUserToken = !!(localStorage.getItem("access_token") || localStorage.getItem("token"));
+  const hasLeaderToken = !!localStorage.getItem("leaderToken");
+  return hasUserToken || hasLeaderToken;
 };
 
 const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
-  const { user: authUser, isAuthenticated: authIsAuth } = useAuth();
+  const { user: authUser, isAuthenticated: authIsAuth, isLeaderAuthenticated, leader: authLeader } = useAuth();
   const [postType, setPostType] = useState("text");
   const [text, setText] = useState("");
   const [media, setMedia] = useState({ file: null, preview: null, type: null });
@@ -351,8 +352,10 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const fileInput = useRef(null);
   const contentRef = useRef(null);
 
-  const user = authUser || getLocalUser();
-  const isAuthenticated = authIsAuth || isUserAuthenticated();
+  // Resolve active user: normal user > leader > localStorage fallback
+  const user = authUser || authLeader || getLocalUser();
+  // Authenticated if either normal user or aspirant/leader session is active
+  const isAuthenticated = authIsAuth || isLeaderAuthenticated || isUserAuthenticatedFromStorage();
 
   const getLeaderId = () => {
     if (!leader) return null;
@@ -452,10 +455,10 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
 
     const formData = new FormData();
     formData.append("leader_id", leaderId);
-    formData.append("user_id", user?.user_id || user?.id || "anonymous");
+    formData.append("user_id", user?.user_id || user?.id || user?.leader_id || "anonymous");
     formData.append(
       "user_name",
-      user?.real_name || user?.username || "Supporter",
+      user?.real_name || user?.username || user?.name || "Supporter",
     );
     formData.append("message", text.trim() || "");
     formData.append(

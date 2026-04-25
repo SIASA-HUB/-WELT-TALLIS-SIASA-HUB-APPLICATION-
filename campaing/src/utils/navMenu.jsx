@@ -99,6 +99,12 @@ const NavMenu = () => {
     // Attach to window, but use capture: false and passive: true
     window.addEventListener("scroll", handleScroll, { passive: true });
 
+    // Speculative pre-fetch of main sections
+    setTimeout(() => {
+      import("../components/leaders/leadersPage");
+      import("../components/marketplace/marketPage");
+    }, 2000);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -143,6 +149,13 @@ const NavMenu = () => {
               key={item.path}
               to={item.path}
               $active={isActive}
+              onMouseEnter={() => {
+                // Speculative pre-fetching of route components
+                if (item.path === "/") import("../components/home/Home");
+                if (item.path === "/leaders") import("../components/leaders/leadersPage");
+                if (item.path === "/marketplace/shop") import("../components/marketplace/marketPage");
+                if (item.path === "/profile") import("../components/Wallet/WalletPage");
+              }}
               onClick={() => {
                 if (location.pathname !== item.path) {
                   loadingBarRef.current?.continuousStart();

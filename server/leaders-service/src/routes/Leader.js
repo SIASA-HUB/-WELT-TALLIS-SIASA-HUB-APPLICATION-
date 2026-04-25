@@ -109,7 +109,7 @@ router.post("/login", loginAspirant);
 
 router.get("/manifestos/trending", getTrendingManifestos);
 router.get("/manifestos/personalized", getPersonalizedManifestos);
-router.post("/manifestos/create", createManifesto); // aspirants only
+router.post("/manifestos/create", verifyAspirantToken, createManifesto); // aspirants only
 
 
 router.post("/manifestos/vote", authenticate, voteManifestoAgenda);
@@ -148,8 +148,8 @@ router.get("/:leaderId", getLeaderById);
 // ============================================================
 // PROTECTED / ME ROUTES — aspirant only
 // ============================================================
-router.get("/profile/me", getMyProfile);
-router.put("/profile/me", updateMyProfile);
+router.get("/profile/me", verifyAspirantToken, getMyProfile);
+router.put("/profile/me", verifyAspirantToken, updateMyProfile);
 router.post("/verification/request", verifyAspirantToken, requestVerification);
 
 // ============================================================

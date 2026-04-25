@@ -305,11 +305,14 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
     "jobTitle": leader.position_running_for || leader.position || "Candidate",
     "affiliation": {
       "@type": "Organization",
-      "name": leader.party || "Independent"
+      "name": leader.party || "Independent",
+      "alternateName": leader.party_code || ""
     },
     "description": leader.bio || seoDescription,
     "image": seoImage,
     "url": seoUrl,
+    "knowsAbout": ["Kenyan Politics", "Election 2027", leader.position || "Leadership"],
+    "sameAs": leader.social_links?.map(s => s.url).filter(Boolean) || [],
     "workLocation": {
       "@type": "Place",
       "name": `${leader.ward ? leader.ward + ', ' : ''}${leader.constituency ? leader.constituency + ', ' : ''}${leader.county || 'Kenya'}`

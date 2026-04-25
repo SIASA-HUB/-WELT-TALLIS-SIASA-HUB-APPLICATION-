@@ -272,7 +272,7 @@ const AppLayout = () => {
             <Route path="/register-aspirant" element={<RegisterAspirant />} />
             <Route path="/login-aspirant" element={<LoginAspirant />} />
             <Route path="/aspirant-dashboard" element={
-              <ProtectedRoute requiredRole="aspirant">
+              <ProtectedRoute requiredRole="aspirant" redirectTo="/login-aspirant">
                 <AspirantDashboard />
               </ProtectedRoute>
             } />

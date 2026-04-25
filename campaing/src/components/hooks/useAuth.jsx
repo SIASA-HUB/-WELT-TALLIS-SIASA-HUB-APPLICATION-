@@ -142,11 +142,25 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("leaderData", JSON.stringify(response.data));
         return response.data;
       } else {
-        setIsLeaderAuthenticated(false);
+        // Non-success but not a thrown error – could be a soft 400/404
+        // Only clear if it's clearly an auth rejection (no data at all)
+        console.warn("[AUTH] Leader profile returned non-success, keeping optimistic session.");
         return null;
       }
     } catch (error) {
-      console.warn("Leader auth check failed", error.message);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // Explicit auth rejection – clear the leader session
+        console.warn("[AUTH] Leader token rejected by server, clearing leader session.");
+        setIsLeaderAuthenticated(false);
+        setLeader(null);
+        localStorage.removeItem("leaderToken");
+        localStorage.removeItem("leaderData");
+        localStorage.removeItem("currentLeaderId");
+      } else {
+        // Network error or 500 – keep the optimistic state loaded from localStorage
+        console.warn("[AUTH] Leader auth check failed (network/server), keeping cached session.", error.message);
+      }
       return null;
     }
   }, []);

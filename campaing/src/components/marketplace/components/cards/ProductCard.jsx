@@ -6,11 +6,12 @@ import {
 } from "lucide-react";
 
 import {
-  addToCart,
+  addToCart as addToCartApi,
 } from "../api/index";
 import { toast } from "react-toastify";
 import API from "../../../../api/config";
 import { buildImageUrl } from "../../../../utils/imageUtils";
+import { useCart } from "../../context/CartContext";
 
 const Card = styled.div`
   width: 280px;
@@ -191,6 +192,7 @@ const StarRating = ({ value }) => {
 const ProductCard = ({ product }) => {
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
+  const { addToCart: addToCartContext } = useCart();
 
   // Check if user is authenticated by checking token
   const isAuthenticated = () => {
@@ -203,30 +205,20 @@ const ProductCard = ({ product }) => {
 
   const addCart = async (e) => {
     e.stopPropagation();
-    if (!isAuthenticated()) {
-      // Guest Cart Implementation
-      const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
-      const currentId = product?.id || product?._id;
-      const existingItemIndex = guestCart.findIndex(item => (item.product?.id || item.product?._id) === currentId);
 
-      if (existingItemIndex > -1) {
-        guestCart[existingItemIndex].quantity += 1;
-      } else {
-        guestCart.push({ product, quantity: 1 });
+    // Always add to CartContext for reactive UI update (count badge)
+    addToCartContext({ ...product, id: product?.id || product?._id, quantity: 1 });
+    toast.success("🛒 Added to cart!");
+
+    // Additionally persist to server if user is logged in
+    if (isAuthenticated()) {
+      try {
+        const productId = product?.id || product?._id;
+        await addToCartApi(getAuthToken(), { productId, quantity: 1 });
+      } catch (err) {
+        console.error("Cart API sync failed:", err);
+        // Don't show error — local cart update already succeeded
       }
-
-      localStorage.setItem("guest_cart", JSON.stringify(guestCart));
-      toast.success("🛒 Added to cart!");
-      return;
-    }
-
-    try {
-      const productId = product?.id || product?._id;
-      await addToCart(getAuthToken(), { productId, quantity: 1 });
-      toast.success("🛒 Added to cart!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add to cart");
     }
   };
 
