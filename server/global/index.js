@@ -45,7 +45,7 @@ if (WEAK_SECRETS.has(process.env.JWT_REFRESH_SECRET)) {
 // ============================================
 const safeRedisClient = redis?.redis || null;
 const safeRedisGet = async (key) => {
-  if (!safeRedisClient) return null;
+  if (!safeRedisClient || safeRedisClient.status !== 'ready') return null;
   try {
     return await redis.get(key);
   } catch (err) {
@@ -54,7 +54,7 @@ const safeRedisGet = async (key) => {
   }
 };
 const safeRedisSet = async (key, value, ttl) => {
-  if (!safeRedisClient) return false;
+  if (!safeRedisClient || safeRedisClient.status !== 'ready') return false;
   try {
     await redis.set(key, value, ttl);
     return true;
@@ -64,7 +64,7 @@ const safeRedisSet = async (key, value, ttl) => {
   }
 };
 const safeRedisDel = async (key) => {
-  if (!safeRedisClient) return false;
+  if (!safeRedisClient || safeRedisClient.status !== 'ready') return false;
   try {
     await redis.del(key);
     return true;
@@ -101,7 +101,7 @@ const safeRedisIncr = async (key) => {
   }
 };
 const safeRedisKeys = async (pattern) => {
-  if (!safeRedisClient) return [];
+  if (!safeRedisClient || safeRedisClient.status !== 'ready') return [];
   try {
     // If redis client has .keys() method
     if (typeof redis.keys === 'function') return await redis.keys(pattern);

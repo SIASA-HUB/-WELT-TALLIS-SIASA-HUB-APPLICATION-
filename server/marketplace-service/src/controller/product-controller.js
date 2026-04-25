@@ -94,37 +94,44 @@ const clearProductCache = async (productId = null, slug = null) => {
   if (!redis) return;
 
   try {
-    // Clear all products list caches
-    const listKeys = await redisKeys("products:list:*");
-    for (const key of listKeys) await redisDel(key);
+    const keysToDelete = [];
 
-    // Clear hot products caches
-    await redisDel("products:hot");
-    const hotKeys = await redisKeys("products:hot:*");
-    for (const key of hotKeys) await redisDel(key);
+    // Find all keys to delete
+    const [listKeys, hotKeys, latestKeys, featuredKeys, categoryKeys] = await Promise.all([
+      redisKeys("products:list:*"),
+      redisKeys("products:hot:*"),
+      redisKeys("products:latest:*"),
+      redisKeys("products:featured:*"),
+      redisKeys("products:category:*")
+    ]);
 
-    // Clear latest products caches
-    await redisDel("products:latest");
-    const latestKeys = await redisKeys("products:latest:*");
-    for (const key of latestKeys) await redisDel(key);
+    keysToDelete.push(...listKeys);
+    keysToDelete.push(...hotKeys);
+    keysToDelete.push(...latestKeys);
+    keysToDelete.push(...featuredKeys);
+    keysToDelete.push(...categoryKeys);
 
-    // Clear categories cache
-    await redisDel("products:categories");
+    // Static keys
+    keysToDelete.push("products:hot", "products:latest", "products:categories");
 
-    // Clear featured products caches
-    const featuredKeys = await redisKeys("products:featured:*");
-    for (const key of featuredKeys) await redisDel(key);
-
-    // Clear specific product cache
+    // Specific product/slug keys
     if (productId) {
-      await redisDel(`product:${productId}`);
+      keysToDelete.push(`product:${productId}`);
       const slugKeys = await redisKeys(`product:slug:*`);
-      for (const key of slugKeys) await redisDel(key);
+      keysToDelete.push(...slugKeys);
     }
 
-    if (slug) await redisDel(`product:slug:${slug}`);
+    if (slug) keysToDelete.push(`product:slug:${slug}`);
 
-    Logger.info("✅ Product cache cleared");
+    // Remove duplicates and filter empty keys
+    const uniqueKeys = [...new Set(keysToDelete)].filter(Boolean);
+
+    // Delete all keys in parallel
+    if (uniqueKeys.length > 0) {
+      await Promise.all(uniqueKeys.map(key => redisDel(key)));
+    }
+
+    Logger.info(`✅ Product cache cleared (${uniqueKeys.length} keys)`);
   } catch (error) {
     Logger.error("Error clearing cache:", { error: error.message });
   }

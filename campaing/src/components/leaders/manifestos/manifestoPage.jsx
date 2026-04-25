@@ -166,16 +166,26 @@ const RejectProgress = styled.div`
 const VoteStats = styled.div`
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   margin-bottom: 25px;
-  color: ${KENYA.muted};
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 
   .sup {
     color: ${KENYA.green};
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    span { font-size: 10px; opacity: 0.6; }
   }
   .rej {
     color: ${KENYA.red};
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    span { font-size: 10px; opacity: 0.6; }
   }
 `;
 
@@ -594,14 +604,24 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
               <ArticleContent>{item.description}</ArticleContent>
 
               <VoteStats>
-                <span className="sup">{stats.support}% APPROVAL</span>
-                <span className="rej">{stats.reject}% REJECTION</span>
+                <div className="sup">
+                   <div>{stats.support}% APPROVAL</div>
+                   <span>{item.stats?.approve_count || 0} Citizens Agree</span>
+                </div>
+                <div className="rej">
+                   <div>{stats.reject}% REJECTION</div>
+                   <span>{item.stats?.reject_count || 0} Citizens Disagree</span>
+                </div>
               </VoteStats>
 
               <ImpactBarContainer>
                 <SupportProgress $percent={stats.support} />
                 <RejectProgress $percent={stats.reject} />
               </ImpactBarContainer>
+
+              <div style={{ fontSize: '10px', color: KENYA.muted, marginBottom: '20px', textAlign: 'center', letterSpacing: '1px' }}>
+                TOTAL ENGAGEMENT: {formatNumber(item.stats?.total_votes || 0)} VOTES
+              </div>
 
               <InteractionBar>
                 <div style={{ display: "flex", gap: "10px" }}>

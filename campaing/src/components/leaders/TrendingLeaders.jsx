@@ -28,8 +28,10 @@ const fadeUp = keyframes`
 
 // ========== STYLED COMPONENTS ==========
 const SectionWrapper = styled.section`
-  margin: 16px 0 24px 0;
+  margin: 0px 0 0px 0;
 `;
+
+
 
 const HeaderRow = styled.div`
   display: flex;

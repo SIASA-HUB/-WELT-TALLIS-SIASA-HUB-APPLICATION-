@@ -113,11 +113,11 @@ const NavMenu = () => {
   
   // Dynamic navigation items based on role
   const getProfileItem = () => {
-    if (isLeaderAuthenticated) {
-      return { path: "/aspirant-dashboard", label: "Dashboard", icon: LayoutDashboard };
-    }
     if (isAdmin() || isMarketAdmin()) {
       return { path: "/marketplace-admin", label: "Admin", icon: Settings };
+    }
+    if (isLeaderAuthenticated) {
+      return { path: "/aspirant-dashboard", label: "Dashboard", icon: LayoutDashboard };
     }
     return { path: "/profile", label: "Profile", icon: User };
   };

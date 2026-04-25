@@ -12,6 +12,7 @@ import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 // --- Utils & Theme ---
 import theme from "./utils/theme";
 import NavMenu from "./utils/navMenu";
+import { clickTracker } from "./utils/clickTracker";
 
 // --- Lazy Loaded Components ---
 const LandingPage = lazy(() => import("./components/home/Home"));
@@ -143,8 +144,9 @@ const ProfileRedirect = () => {
   if (isLoading) return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
   
   // If authenticated, go to respective dashboards
-  if (isLeaderAuthenticated) return <Navigate to="/aspirant-dashboard" replace />;
+  // Admin takes priority
   if (isAdmin() || isMarketAdmin()) return <Navigate to="/marketplace-admin" replace />;
+  if (isLeaderAuthenticated) return <Navigate to="/aspirant-dashboard" replace />;
   if (isAuthenticated) return <ProfilePage />;
   
   // If not authenticated, decide which login page to show
@@ -161,6 +163,10 @@ const ProfileRedirect = () => {
 // MAIN APP COMPONENT
 // ============================================================
 const App = () => {
+  useEffect(() => {
+    clickTracker.init();
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <Router>

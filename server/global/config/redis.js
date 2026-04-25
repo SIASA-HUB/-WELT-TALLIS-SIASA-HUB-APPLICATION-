@@ -8,9 +8,8 @@ const redis = new Redis({
   port: process.env.REDIS_PORT || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   retryStrategy: (times) => {
-    // Only retry for 10 seconds total, then fail gracefully
-    if (times > 10) return null;
-    const delay = Math.min(times * 200, 2000);
+    // Exponential backoff with a cap of 3 seconds
+    const delay = Math.min(times * 100, 3000);
     return delay;
   },
   maxRetriesPerRequest: null, // Allow retryStrategy to handle reconnections

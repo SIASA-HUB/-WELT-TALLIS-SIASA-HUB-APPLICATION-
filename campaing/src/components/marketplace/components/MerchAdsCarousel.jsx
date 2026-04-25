@@ -1,12 +1,13 @@
-// components/marketplace/components/MerchAdsCarousel.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { Flame } from "lucide-react";
+import { Flame, ArrowRight } from "lucide-react";
 import api from "../../../api/api";
 import API from "../../../api/config";
 import { buildImageUrl } from "../../../utils/imageUtils";
 
 // --- ANIMATIONS ---
+// ... existing animations ...
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -17,7 +18,7 @@ const shimmer = keyframes`
   100% { background-position: 200% 0; }
 `;
 
-// --- STYLED COMPONENTS ---
+// ... existing styles ...
 const Section = styled.div`
   padding: 48px 0;
   background: #ffffff;
@@ -185,34 +186,14 @@ const ViewAllButton = styled.div`
   }
 `;
 
-// Merch ads logic
-
 // Helper to get image from various possible fields
 const getProductImage = (product) => {
-  // Try multiple possible image fields
-  if (product.image_url && product.image_url !== "null" && product.image_url !== "undefined") {
-    return buildImageUrl(product.image_url);
-  }
-  if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-    const firstImage = product.images[0];
-    if (firstImage && firstImage !== "null" && firstImage !== "undefined") {
-      return buildImageUrl(firstImage);
-    }
-  }
-  if (product.image && product.image !== "null" && product.image !== "undefined") {
-    return buildImageUrl(product.image);
-  }
-  if (product.mainImage && product.mainImage !== "null" && product.mainImage !== "undefined") {
-    return buildImageUrl(product.mainImage);
-  }
-  if (product.thumbnail && product.thumbnail !== "null" && product.thumbnail !== "undefined") {
-    return buildImageUrl(product.thumbnail);
-  }
-  // Return null if no image found
+  if (product.image_url && product.image_url !== "null") return buildImageUrl(product.image_url);
+  if (product.images?.[0]) return buildImageUrl(product.images[0]);
+  if (product.image && product.image !== "null") return buildImageUrl(product.image);
   return null;
 };
 
-// Default placeholder images (using reliable CDN)
 const DEFAULT_PLACEHOLDER = "https://placehold.co/600x600/1e293b/ffffff?text=No+Image";
 const FALLBACK_PLACEHOLDER = "https://placehold.co/600x600/f0f0f0/999999?text=Image+Not+Found";
 
@@ -220,23 +201,19 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imageErrors, setImageErrors] = useState({});
+  const navigate = useNavigate();
 
   const fetchProducts = async () => {
     let mounted = true;
     setLoading(true);
     try {
-      // Try fetching featured products first
       await api.getWithCache(`/products?featured=true&limit=${limit}`, (data) => {
         if (!mounted) return;
-
-        // Handle both direct array and {success, data} formats
         const productsList = Array.isArray(data) ? data : (data?.data || []);
-
         if (productsList.length > 0) {
           setProducts(productsList);
           setLoading(false);
         } else {
-          // If featured is empty, try regular products as fallback
           api.getWithCache(`/products?limit=${limit}`, (fallbackData) => {
             if (!mounted) return;
             const fallbackList = Array.isArray(fallbackData) ? fallbackData : (fallbackData?.data || []);
@@ -264,26 +241,12 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
   }, [limit]);
 
   const handleImageError = (productId) => {
-    setImageErrors(prev => ({
-      ...prev,
-      [productId]: true
-    }));
+    setImageErrors(prev => ({ ...prev, [productId]: true }));
   };
 
   const getDisplayImage = (product) => {
-    // If image failed to load, use fallback
-    if (imageErrors[product._id]) {
-      return FALLBACK_PLACEHOLDER;
-    }
-
-    // Try to get product image
-    const imageUrl = getProductImage(product);
-    if (imageUrl) {
-      return imageUrl;
-    }
-
-    // Return default placeholder if no image
-    return DEFAULT_PLACEHOLDER;
+    if (imageErrors[product._id || product.id]) return FALLBACK_PLACEHOLDER;
+    return getProductImage(product) || DEFAULT_PLACEHOLDER;
   };
 
   if (loading) {
@@ -291,9 +254,7 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
       <Section>
         <Container>
           <HeaderGroup>
-            <SectionSubtitle>
-              <Flame size={14} /> HOT RIGHT NOW
-            </SectionSubtitle>
+            <SectionSubtitle><Flame size={14} /> HOT RIGHT NOW</SectionSubtitle>
             <Title>{title}</Title>
           </HeaderGroup>
           <GridContainer>
@@ -309,34 +270,27 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
     );
   }
 
-  if (!products.length) {
-    return null;
-  }
+  if (!products.length) return null;
 
   return (
     <Section>
       <Container>
         <HeaderGroup>
-          <SectionSubtitle>
-            <Flame size={14} /> HOT RIGHT NOW
-          </SectionSubtitle>
+          <SectionSubtitle><Flame size={14} /> HOT RIGHT NOW</SectionSubtitle>
           <Title>{title}</Title>
         </HeaderGroup>
 
         <GridContainer>
           {products.slice(0, limit).map((product) => (
             <ProductCard
-              key={product._id}
-              onClick={() => window.location.href = `/marketplace/shop/${product._id}`}
+              key={product._id || product.id}
+              onClick={() => navigate(`/marketplace/shop/${product._id || product.id}`)}
             >
               <ImageWrapper>
                 <ProductImage
                   src={getDisplayImage(product)}
                   alt={product.name || "Product image"}
-                  onError={(e) => {
-                    console.warn(`Image failed to load for product ${product._id}:`, e.target.src);
-                    handleImageError(product._id);
-                  }}
+                  onError={() => handleImageError(product._id || product.id)}
                   loading="lazy"
                 />
               </ImageWrapper>
@@ -346,8 +300,8 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
         </GridContainer>
 
         <ViewAllButton>
-          <button onClick={() => window.location.href = "/marketplace/shop"}>
-            Shop All →
+          <button onClick={() => navigate("/marketplace/shop")}>
+            Shop All <ArrowRight size={14} />
           </button>
         </ViewAllButton>
       </Container>
@@ -355,4 +309,4 @@ const MerchAdsCarousel = ({ title = "Trending Merchandise", limit = 8, onEmpty }
   );
 };
 
-export default MerchAdsCarousel;
+export default MerchAdsCarousel;

@@ -383,6 +383,45 @@ const trackTimeSpent = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: "Time spent tracked" });
 });
 
+const handleSupport = asyncHandler(async (req, res) => {
+  const { leaderId } = req.params;
+  const { user_id, status } = req.body; // status is true for support, false for remove support
+  const ip = req.ip;
+
+  try {
+    if (status) {
+      // Add support (like)
+      await safeQuery(
+        `INSERT IGNORE INTO leader_likes (leader_id, user_id, ip_address) VALUES (?, ?, ?)`,
+        [leaderId, user_id || null, ip]
+      );
+    } else {
+      // Remove support
+      await safeQuery(
+        `DELETE FROM leader_likes WHERE leader_id = ? AND (user_id = ? OR (user_id IS NULL AND ip_address = ?))`,
+        [leaderId, user_id || null, ip]
+      );
+    }
+
+    // Get updated counts
+    const count = await safeQueryOne(
+      `SELECT COUNT(*) as total FROM leader_likes WHERE leader_id = ?`,
+      [leaderId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: status ? "Supporting" : "Support removed",
+      data: {
+        support_count: parseInt(count?.total) || 0,
+        is_supporting: status
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = {
   handleInteraction,
   postComment,
@@ -391,4 +430,5 @@ module.exports = {
   trackView,
   trackShare,
   trackTimeSpent,
+  handleSupport,
 };

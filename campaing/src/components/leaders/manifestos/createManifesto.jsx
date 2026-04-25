@@ -249,21 +249,26 @@ const CreateManifesto = ({ leaderId, onManifestoChange }) => {
   }, [activeLeaderId]);
 
   const handleAgendaChange = (index, field, value) => {
-    const updated = [...formData.agenda_items];
-    updated[index][field] = value;
-    setFormData({ ...formData, agenda_items: updated });
+    setFormData(prev => ({
+      ...prev,
+      agenda_items: prev.agenda_items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
   };
 
   const addPoint = () => {
-    setFormData({
-      ...formData,
-      agenda_items: [...formData.agenda_items, { title: "", description: "" }],
-    });
+    setFormData(prev => ({
+      ...prev,
+      agenda_items: [...prev.agenda_items, { title: "", description: "" }],
+    }));
   };
 
   const removePoint = (index) => {
-    const filtered = formData.agenda_items.filter((_, i) => i !== index);
-    setFormData({ ...formData, agenda_items: filtered });
+    setFormData(prev => ({
+      ...prev,
+      agenda_items: prev.agenda_items.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSubmit = async (e) => {

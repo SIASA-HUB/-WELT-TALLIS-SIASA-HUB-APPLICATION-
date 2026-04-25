@@ -185,7 +185,7 @@ const CartBadge = styled.div`
   border: 2px solid white;
 `;
 
-const Navbar = ({ currentUser, onLogout }) => {
+const Navbar = ({ currentUser, currentLeader, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -197,23 +197,30 @@ const Navbar = ({ currentUser, onLogout }) => {
   };
 
   const handleLogout = () => {
+    // Clear cookies
     document.cookie.split(";").forEach(function (c) {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    localStorage.removeItem("guest_cart");
-    localStorage.removeItem("user_info");
-    sessionStorage.clear();
-    if (onLogout) onLogout();
-    navigate("/login");
+    
+    // Clear only user session data if possible, or all if preferred
+    // Using the auth context's logout is better
+    if (onLogout) {
+      onLogout();
+    } else {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user_data");
+      navigate("/login");
+    }
   };
 
-  const userInitial = currentUser?.name?.[0] || currentUser?.anonymous_username?.[0] || "U";
-  const userImage = currentUser?.image || currentUser?.img;
+  const userInitial = currentUser?.name?.[0] || currentLeader?.name?.[0] || currentUser?.anonymous_username?.[0] || "U";
+  const userImage = currentUser?.image || currentUser?.img || currentLeader?.image || currentLeader?.img || currentLeader?.image_url;
 
   const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
   const cartCount = guestCart.reduce((acc, item) => acc + item.quantity, 0);
 
-  const isLoggedIn = currentUser || !!getCookie("user_info");
+  const isLoggedIn = currentUser || !!getCookie("user_info") || localStorage.getItem("leaderToken");
 
   return (
     <Nav>
@@ -223,7 +230,7 @@ const Navbar = ({ currentUser, onLogout }) => {
         </NavLogo>
 
         <NavItems>
-          <Navlink to="/marketplace/shop">Home</Navlink>
+          <Navlink to="/marketplace" end>Home</Navlink>
           <Navlink to="/marketplace/shop">Shop</Navlink>
           <Navlink to="/marketplace/cart">Cart</Navlink>
         </NavItems>
@@ -241,7 +248,7 @@ const Navbar = ({ currentUser, onLogout }) => {
           {/* Only show user avatar/logout if logged in - NO SIGN IN BUTTON */}
           {isLoggedIn && (
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-              <AvatarCircle onClick={() => navigate("/marketplace/profile")}>
+              <AvatarCircle onClick={() => navigate("/profile")}>
                 {userImage ? <AvatarImg src={userImage} /> : userInitial}
               </AvatarCircle>
             </div>
@@ -261,12 +268,12 @@ const Navbar = ({ currentUser, onLogout }) => {
         </Mobileicons>
 
         <MobileMenu $isOpen={isOpen}>
-          <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Home</Navlink>
+          <Navlink to="/marketplace" end onClick={() => setIsOpen(false)}>Home</Navlink>
           <Navlink to="/marketplace/shop" onClick={() => setIsOpen(false)}>Shop</Navlink>
           <Navlink to="/marketplace/cart" onClick={() => setIsOpen(false)}>Cart</Navlink>
           {isLoggedIn ? (
             <>
-              <Navlink to="/marketplace/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
+              <Navlink to="/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
             </>
           ) : null}
 

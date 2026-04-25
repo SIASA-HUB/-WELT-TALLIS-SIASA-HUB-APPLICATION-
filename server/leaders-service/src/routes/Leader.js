@@ -49,6 +49,7 @@ const {
   trackView,
   trackShare,
   trackTimeSpent,
+  handleSupport,
 } = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
@@ -139,6 +140,8 @@ router.get("/", getPersonalizedFeed);
 // LEADER-SPECIFIC ROUTES
 // ============================================================
 router.post("/:leaderId/boost", boostLeader);
+router.get("/:leaderId/stats", optionalAuth, getLeaderStats);
+router.post("/:leaderId/support", optionalAuth, handleSupport);
 router.get("/:leaderId/competitors", getCompetitors);
 router.get("/:leaderId", getLeaderById);
 

@@ -297,7 +297,12 @@ const AdminDashboard = () => {
     pending: 0,
     totalEndorsements: 0,
     totalEarnings: 0,
-    countyStats: []
+    countyStats: [],
+    clickStats: {
+      topElementsById: [],
+      topPages: [],
+      tagDistribution: []
+    }
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -342,9 +347,18 @@ const AdminDashboard = () => {
           aspirants: allLeaders.length,
           pending: allLeaders.filter(l => l.verification === 0).length
         }));
-      } else {
+      } else if (activeTab === "wallets") {
         const walletRes = await api.get("/wallet/admin/transactions");
         setData(walletRes.data.data || walletRes.data || []);
+      } else if (activeTab === "clicks") {
+        const clickRes = await api.get("/users/analytics/clicks?period=week");
+        if (clickRes.success) {
+          setStats(prev => ({
+            ...prev,
+            clickStats: clickRes.data
+          }));
+          setData(clickRes.data.topPages || []);
+        }
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -386,6 +400,8 @@ const AdminDashboard = () => {
     const search = searchTerm.toLowerCase();
     if (activeTab === "aspirants") {
       return item.name?.toLowerCase().includes(search) || item.county?.toLowerCase().includes(search);
+    } else if (activeTab === "clicks") {
+      return item.page_url?.toLowerCase().includes(search);
     } else {
       return item.user_id?.toLowerCase().includes(search) || item.transaction_id?.toLowerCase().includes(search);
     }
@@ -445,6 +461,9 @@ const AdminDashboard = () => {
         <TabButton $active={activeTab === "counties"} onClick={() => setActiveTab("counties")}>
           <MapPin size={18} /> County Monitor
         </TabButton>
+        <TabButton $active={activeTab === "clicks"} onClick={() => setActiveTab("clicks")}>
+          <Activity size={18} /> Click Analytics
+        </TabButton>
       </TabContainer>
 
       <ContentCard>
@@ -452,6 +471,7 @@ const AdminDashboard = () => {
           <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>
             {activeTab === "aspirants" ? "Registered Political Aspirants" :
               activeTab === "wallets" ? "Global Wallet Transactions" :
+              activeTab === "clicks" ? "Top User Interactions" :
                 "Endorsement Activity by County"}
           </h2>
           <SearchBar>
@@ -508,6 +528,13 @@ const AdminDashboard = () => {
                     <th>Endorsement Count</th>
                     <th>Intensity</th>
                     <th>Trend</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th>Target / Element</th>
+                    <th>Identifier</th>
+                    <th>Interactions</th>
+                    <th>Aesthetics</th>
                   </tr>
                 )}
               </thead>
@@ -579,6 +606,26 @@ const AdminDashboard = () => {
                         </StatusBadge>
                       </td>
                       <td>{new Date(tx.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))
+                ) : activeTab === "clicks" ? (
+                  stats.clickStats.topElementsById.map((el, i) => (
+                    <tr key={i}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{el.text_content || "Untitled Element"}</div>
+                        <div style={{ fontSize: 11, color: '#a3aed0' }}>Most Clicked Action</div>
+                      </td>
+                      <td><code style={{ fontSize: 12 }}>#{el.element_id}</code></td>
+                      <td style={{ fontSize: '16px', fontWeight: 800 }}>{el.click_count.toLocaleString()} clicks</td>
+                      <td>
+                        <div style={{ width: '100%', maxWidth: 100, height: 6, background: '#eee', borderRadius: 10, overflow: 'hidden' }}>
+                          <div style={{ 
+                            width: `${Math.min((el.click_count / (stats.clickStats.topElementsById[0]?.click_count || 1)) * 100, 100)}%`, 
+                            height: '100%', 
+                            background: '#4318ff' 
+                          }} />
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (

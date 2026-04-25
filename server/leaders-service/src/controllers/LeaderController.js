@@ -410,53 +410,51 @@ const loginAspirant = asyncHandler(async (req, res) => {
     // Normalize input for case-insensitive search (trim and collapse multiple spaces)
     const normalizedInput = name.trim().toLowerCase().replace(/\s+/g, ' ');
 
-    // Search by name (case-insensitive) - also check both raw and normalized
-    const leader = await safeQueryOne(
+    // Search for candidates with similar names (case-insensitive fuzzy match)
+    const candidates = await safeQuery(
       `SELECT leader_id, name, password_hash, party, slogan, 
               position, position_running_for, county, constituency, ward, 
               image_url, status, verification, created_at
        FROM leaders 
        WHERE status = 'active' 
-       AND (LOWER(name) = LOWER(?) OR name = ?)`,
-      [normalizedInput, name]
+       AND (
+         LOWER(name) = LOWER(?) 
+         OR LOWER(name) LIKE ? 
+         OR ? LIKE CONCAT('%', LOWER(name), '%')
+       )
+       LIMIT 10`,
+      [normalizedInput, `%${normalizedInput}%`, normalizedInput]
     );
 
-    // Check if leader exists
-    if (!leader) {
-      Logger.warn(`Leader not found for name: ${name}`);
+    if (!candidates || candidates.length === 0) {
+      Logger.warn(`No aspirant found matching: ${name}`);
       return res.status(401).json({
         success: false,
         message: "Invalid credentials. Account not found."
       });
     }
 
-
-    // Check if password_hash exists
-    if (!leader.password_hash) {
-      Logger.error(`No password hash found for leader: ${leader.leader_id}`);
-      return res.status(401).json({
-        success: false,
-        message: "Account has no password set. Please contact support."
-      });
+    // Iterate through candidates to find the one with the correct password
+    let leader = null;
+    for (const candidate of candidates) {
+      if (!candidate.password_hash) continue;
+      
+      try {
+        const isMatch = await bcrypt.compare(password, candidate.password_hash);
+        if (isMatch) {
+          leader = candidate;
+          break;
+        }
+      } catch (err) {
+        Logger.error(`Bcrypt comparison failed for ${candidate.leader_id}`);
+      }
     }
 
-    // Verify password using bcrypt
-    let isValidPassword = false;
-    try {
-      isValidPassword = await bcrypt.compare(password, leader.password_hash);
-    } catch (bcryptError) {
-      Logger.error("Bcrypt error:", { error: bcryptError.message });
-      return res.status(500).json({
-        success: false,
-        message: "Error validating password"
-      });
-    }
-
-    if (!isValidPassword) {
-      Logger.warn(`Password mismatch for: ${leader.name}`);
+    if (!leader) {
+      Logger.warn(`Password mismatch for name hint: ${name}`);
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials. Wrong password."
+        message: "Invalid credentials. Please check your name and password."
       });
     }
 
@@ -1313,36 +1311,23 @@ const getLeaderStats = asyncHandler(async (req, res) => {
   }
 
   try {
-    const followers = await safeQueryOne(
-      `SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`,
-      [leaderId]
-    );
+    const userId = req.user?.user_id || req.query.user_id;
 
-    const endorsements = await safeQueryOne(
-      `SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`,
-      [leaderId]
-    );
+    const [followers, endorsements, views, shares, manifestos, supports, userSupport] = await Promise.all([
+      safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leaderId]),
+      safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [leaderId]),
+      safeQueryOne(`SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`, [leaderId]),
+      safeQueryOne(`SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`, [leaderId]),
+      safeQueryOne(`SELECT COUNT(*) as count FROM manifestos WHERE leader_id = ?`, [leaderId]),
+      safeQueryOne(`SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`, [leaderId]),
+      userId ? safeQueryOne(`SELECT 1 FROM leader_likes WHERE leader_id = ? AND user_id = ?`, [leaderId, userId]) : Promise.resolve(null)
+    ]);
 
-    const views = await safeQueryOne(
-      `SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`,
-      [leaderId]
-    );
-
-    const shares = await safeQueryOne(
-      `SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`,
-      [leaderId]
-    );
-
-    const manifestos = await safeQueryOne(
-      `SELECT COUNT(*) as count FROM manifestos WHERE leader_id = ?`,
-      [leaderId]
-    );
-
-    // Calculate trending score: views(1) + shares(5) + endorsements(10)
     const endorsementCount = endorsements?.count || 0;
     const viewCount = views?.count || 0;
     const shareCount = shares?.count || 0;
-    const trendingScore = viewCount + (shareCount * 5) + (endorsementCount * 10);
+    const supportCount = supports?.count || 0;
+    const trendingScore = viewCount + (shareCount * 5) + (endorsementCount * 10) + (supportCount * 2);
 
     res.status(200).json({
       success: true,
@@ -1351,6 +1336,8 @@ const getLeaderStats = asyncHandler(async (req, res) => {
         endorsements: endorsementCount,
         views: viewCount,
         shares: shareCount,
+        support_count: supportCount,
+        is_supporting: !!userSupport,
         manifestos_count: manifestos?.count || 0,
         trending_score: trendingScore
       }

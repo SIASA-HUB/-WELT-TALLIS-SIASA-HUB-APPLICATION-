@@ -319,7 +319,7 @@ const LeaderInsightPage = ({ leaderId: propLeaderId, onBack }) => {
   return (
     <PageContainer>
       <SEO
-        title={leader ? `${leader.name} Profile` : "Aspirant Profile"}
+        title={seoTitle}
         description={seoDescription}
         canonical={seoUrl}
         ogImage={seoImage}

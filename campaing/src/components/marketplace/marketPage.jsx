@@ -31,12 +31,12 @@ const Content = styled.div`
 `;
 
 function marketPage() {
-  const { user } = useAuth();
+  const { user, leader } = useAuth();
 
   return (
     <ThemeProvider theme={lightTheme}>
       <Container>
-        <Navbar currentUser={user} />
+        <Navbar currentUser={user} currentLeader={leader} />
         <Content>
           <Routes>
             <Route path="/" exact element={<Home />} />

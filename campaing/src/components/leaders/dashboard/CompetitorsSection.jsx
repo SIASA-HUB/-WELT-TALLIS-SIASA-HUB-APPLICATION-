@@ -236,18 +236,45 @@ const CompetitorsSection = ({ leader }) => {
       if (!leaderId) return;
 
       try {
-        const res = await api.get(`/leaders`, {
-          params: { 
-            position_running_for: leader.position,
-            county: leader.county,
-            limit: 5
-          }
-        });
+        // Build dynamic query based on position level
+        const params = { limit: 20 };
+        const position = leader.position?.toLowerCase() || "";
+        
+        if (position.includes("mca")) {
+          params.ward = leader.ward;
+          params.position = leader.position;
+        } else if (position.includes("mp") || position.includes("member of parliament")) {
+          params.constituency = leader.constituency;
+          params.position = leader.position;
+        } else if (position.includes("governor") || position.includes("senator") || position.includes("woman rep")) {
+          params.county = leader.county;
+          params.position = leader.position;
+        } else {
+          // National level or fallback
+          params.position = leader.position;
+          if (leader.county) params.county = leader.county;
+        }
+
+        const res = await api.get(`/leaders`, { params });
         
         if (res.success) {
-          // Filter out the current leader
-          const filtered = (Array.isArray(res.data) ? res.data : (res.data.leaders || []))
+          // Flatten data if grouped
+          let allLeaders = [];
+          if (Array.isArray(res.data)) {
+            res.data.forEach(group => {
+              if (group.leaders) allLeaders.push(...group.leaders);
+              else allLeaders.push(group);
+            });
+          } else if (res.data.leaders) {
+            allLeaders = res.data.leaders;
+          } else if (res.data.data) {
+             allLeaders = Array.isArray(res.data.data) ? res.data.data : [];
+          }
+
+          // Filter self and rank by endorsement_count or boost_score
+          const filtered = allLeaders
             .filter(c => c.leader_id !== leaderId)
+            .sort((a, b) => (b.endorsement_count || 0) - (a.endorsement_count || 0))
             .slice(0, 3);
           setCompetitors(filtered);
         }

@@ -14,6 +14,7 @@ import {
   User,
   Plus,
   Twitter,
+  Heart,
   MessageCircle,
   Facebook,
   Linkedin,
@@ -295,6 +296,95 @@ const ShareIconRow = styled.button`
   }
 `;
 
+const SupportButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: ${(props) => (props.$active ? "#10b981" : "white")};
+  color: ${(props) => (props.$active ? "white" : "black")};
+  border: none;
+  padding: 10px 18px;
+  border-radius: 40px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  flex-shrink: 0;
+
+  &:hover {
+    transform: scale(1.05);
+    background: ${(props) => (props.$active ? "#059669" : "#f1f5f9")};
+  }
+
+  .count {
+    background: ${(props) => (props.$active ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)")};
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+`;
+
+const SharePromptModal = styled.div`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #111;
+  color: white;
+  padding: 32px;
+  border-radius: 24px;
+  z-index: 10002;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  width: 90%;
+  max-width: 400px;
+  animation: ${fadeInUp} 0.4s ease-out;
+
+  h3 { margin: 0 0 12px 0; font-size: 24px; }
+  p { opacity: 0.7; margin-bottom: 24px; line-height: 1.5; font-size: 14px; }
+  
+  .share-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+`;
+
+const Button = styled.button`
+  background: #bb0000;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+
+  &:hover {
+    background: #990000;
+    transform: translateY(-2px);
+  }
+`;
+
+const SocialIconButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+`;
+
 const AddStoryButton = styled.button`
   position: fixed;
   bottom: ${(props) => (props.$visible ? "100px" : "-60px")};
@@ -526,6 +616,13 @@ const Toast = styled.div`
 
 // ==================== Helper Functions ====================
 
+const formatNumber = (num) => {
+  if (!num) return "0";
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toString();
+};
+
 const getLoggedInUserId = () => {
   try {
     const userData = localStorage.getItem("user_data");
@@ -605,6 +702,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const scrollTimeoutRef = useRef(null);
   const lastScrollYRef = useRef(0);
   const dropdownRef = useRef(null);
+  const [isSupporting, setIsSupporting] = useState(false);
+  const [supportCount, setSupportCount] = useState(0);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
   const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
@@ -613,6 +713,21 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   useEffect(() => {
     if (!leader?.leader_id) return;
+
+    // Fetch initial support count
+    const fetchSupportStats = async () => {
+      try {
+        const res = await api.get(`/leaders/${leader.leader_id}/stats`);
+        if (res.success && res.data) {
+          setSupportCount(res.data.support_count || 0);
+          setIsSupporting(res.data.is_supporting || false);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch support stats");
+      }
+    };
+    fetchSupportStats();
+
     startTimeRef.current = Date.now();
     return () => {
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -773,6 +888,37 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
 
   // Enhanced share functions with image attachment
+  const handleSupport = async () => {
+    if (!leader?.leader_id) return;
+
+    const originalStatus = isSupporting;
+    const originalCount = supportCount;
+
+    // Optimistic UI
+    setIsSupporting(!originalStatus);
+    setSupportCount(prev => originalStatus ? prev - 1 : prev + 1);
+
+    try {
+      const res = await api.post(`/leaders/${leader.leader_id}/support`, {
+        user_id: currentUserId,
+        status: !originalStatus
+      });
+
+      if (res.success) {
+        if (!originalStatus) {
+          setShowSharePrompt(true);
+        }
+      } else {
+        // Revert on error
+        setIsSupporting(originalStatus);
+        setSupportCount(originalCount);
+      }
+    } catch (err) {
+      setIsSupporting(originalStatus);
+      setSupportCount(originalCount);
+    }
+  };
+
   const shareToTwitter = async () => {
     await trackShare(leader?.leader_id, currentUserId, "twitter");
     // Twitter/X requires the image to be specified via 'media' parameter or via OG tags.
@@ -1007,16 +1153,58 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           </ProfileTopRow>
 
           <InfoSection>
-            <Name>
-              {leader.name}
-              <PartyNameText>{partyName}</PartyNameText>
-              <VerifyBadge $status={isVerified ? "verified" : "unverified"}>
-                {isVerified ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
-                {isVerified ? "Verified" : "Unverified"}
-              </VerifyBadge>
-            </Name>
-            <PositionText>{displayPosition}</PositionText>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <Name>
+                  {leader.name}
+                  {leader.party && <PartyNameText>{leader.party}</PartyNameText>}
+                  <VerifyBadge $status={leader.verification_status}>
+                    {leader.verification_status === "verified" ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
+                    {leader.verification_status === "verified" ? "Verified" : "Pending"}
+                  </VerifyBadge>
+                </Name>
+                <PositionText>{leader.position || "Leader"}</PositionText>
+              </div>
+
+              <SupportButton $active={isSupporting} onClick={handleSupport}>
+                <Heart size={16} fill={isSupporting ? "white" : "none"} />
+                SUPPORT
+                <span className="count">{formatNumber(supportCount)}</span>
+              </SupportButton>
+            </div>
           </InfoSection>
+
+          {showSharePrompt && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
+              <SharePromptModal>
+                <button
+                  onClick={() => setShowSharePrompt(false)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+                >
+                  <X size={24} />
+                </button>
+                <Heart size={48} color="#10b981" fill="#10b981" style={{ marginBottom: 16 }} />
+                <h3>Thank You!</h3>
+                <p>You're now supporting {leader.name}. Help boost their campaign by sharing their profile with your network.</p>
+
+                <div className="share-grid">
+                  <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
+                    <Twitter size={20} />
+                  </SocialIconButton>
+                  <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
+                    <MessageCircle size={20} />
+                  </SocialIconButton>
+                  <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
+                    <Facebook size={20} />
+                  </SocialIconButton>
+                </div>
+
+                <Button onClick={() => setShowSharePrompt(false)} style={{ background: '#333', color: 'white', width: '100%', padding: '14px', borderRadius: '12px' }}>
+                  MAYBE LATER
+                </Button>
+              </SharePromptModal>
+            </div>
+          )}
         </ProfileCard>
 
         <ContentArea>

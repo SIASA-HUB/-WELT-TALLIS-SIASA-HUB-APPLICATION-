@@ -294,7 +294,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Role helpers
-  const getUserRole = () => user?.role || "user";
+  const getUserRole = () => {
+    if (user?.role) return user.role;
+    if (isLeaderAuthenticated) return "aspirant";
+    return "user";
+  };
 
 
   const hasRole = (requiredRole) => {
@@ -309,8 +313,8 @@ export const AuthProvider = ({ children }) => {
       return isLeaderAuthenticated;
     }
 
-    // If we're checking a user role but user is not authenticated as a normal user
-    // (Admins are checked via hierarchy below, so we only block if not logged in at all)
+    // If we're checking a user role but user is not authenticated as a normal user,
+    // allow if they are authenticated as a leader (leaders should have user-level access)
     if (!isAuthenticated && !isLeaderAuthenticated) {
       return false;
     }

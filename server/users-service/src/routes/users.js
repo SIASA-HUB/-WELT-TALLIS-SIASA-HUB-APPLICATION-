@@ -14,6 +14,11 @@ const {
   getInstallCount,
 } = require("../controllers/userController");
 
+const {
+  trackClick,
+  getClickStats
+} = require("../controllers/analyticsController");
+
 // Auth controllers
 const {
   loginUser,
@@ -66,6 +71,10 @@ router.get("/county/stats", getCountyStats);
 // PWA Install Tracking
 router.post("/install/track", trackAppInstall);
 router.get("/install/count", getInstallCount);
+
+// Analytics Routes
+router.post("/analytics/click", trackClick);
+router.get("/analytics/clicks", authenticate, authorize("admin"), getClickStats);
 
 // ============================================
 // PROTECTED ROUTES (Authentication required)
