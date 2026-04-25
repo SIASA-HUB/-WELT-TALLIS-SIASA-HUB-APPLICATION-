@@ -305,7 +305,7 @@ const SupportButton = styled.button`
   color: ${(props) => (props.$active ? "white" : "black")};
   border: none;
   padding: 10px 18px;
-  border-radius: 40px;
+  border-radius: 10px;
   font-weight: 800;
   font-size: 12px;
   cursor: pointer;
@@ -326,31 +326,68 @@ const SupportButton = styled.button`
   }
 `;
 
-const SharePromptModal = styled.div`
+const ModalOverlay = styled.div`
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #111;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(15px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const SharePromptModal = styled.div`
+  background: linear-gradient(135deg, rgba(25, 25, 25, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%);
   color: white;
-  padding: 32px;
-  border-radius: 24px;
-  z-index: 10002;
+  padding: 40px 32px;
+  border-radius: 32px;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-  width: 90%;
-  max-width: 400px;
-  animation: ${fadeInUp} 0.4s ease-out;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  animation: ${fadeInUp} 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-  h3 { margin: 0 0 12px 0; font-size: 24px; }
-  p { opacity: 0.7; margin-bottom: 24px; line-height: 1.5; font-size: 14px; }
+  h3 { 
+    margin: 16px 0 8px 0; 
+    font-size: 28px; 
+    font-weight: 800;
+    background: linear-gradient(to right, #fff, #a3aed0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  p { 
+    opacity: 0.8; 
+    margin-bottom: 32px; 
+    line-height: 1.6; 
+    font-size: 15px;
+    color: #e2e8f0;
+  }
   
   .share-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
+  }
+
+  .social-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    
+    span {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
   }
 `;
 
@@ -1175,35 +1212,83 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           </InfoSection>
 
           {showSharePrompt && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
-              <SharePromptModal>
+            <ModalOverlay onClick={() => setShowSharePrompt(false)}>
+              <SharePromptModal onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setShowSharePrompt(false)}
-                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+                  style={{ 
+                    position: 'absolute', 
+                    top: 24, 
+                    right: 24, 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none', 
+                    color: 'white', 
+                    cursor: 'pointer',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
-                  <X size={24} />
+                  <X size={18} />
                 </button>
-                <Heart size={48} color="#10b981" fill="#10b981" style={{ marginBottom: 16 }} />
-                <h3>Thank You!</h3>
-                <p>You're now supporting {leader.name}. Help boost their campaign by sharing their profile with your network.</p>
 
-                <div className="share-grid">
-                  <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
-                    <Twitter size={20} />
-                  </SocialIconButton>
-                  <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
-                    <MessageCircle size={20} />
-                  </SocialIconButton>
-                  <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 'auto', height: 'auto', padding: '15px' }}>
-                    <Facebook size={20} />
-                  </SocialIconButton>
+                <div style={{ 
+                  width: 80, 
+                  height: 80, 
+                  background: 'rgba(16, 185, 129, 0.1)', 
+                  borderRadius: '50%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  margin: '0 auto 8px'
+                }}>
+                  <Heart size={40} color="#10b981" fill="#10b981" />
                 </div>
 
-                <Button onClick={() => setShowSharePrompt(false)} style={{ background: '#333', color: 'white', width: '100%', padding: '14px', borderRadius: '12px' }}>
+                <h3>Amazing!</h3>
+                <p>You're now a supporter of {leader.name}. Help them win by sharing their campaign profile!</p>
+
+                <div className="share-grid">
+                  <div className="social-item">
+                    <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 56, height: 56 }}>
+                      <Twitter size={24} />
+                    </SocialIconButton>
+                    <span>Twitter</span>
+                  </div>
+                  <div className="social-item">
+                    <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 56, height: 56 }}>
+                      <MessageCircle size={24} />
+                    </SocialIconButton>
+                    <span>WhatsApp</span>
+                  </div>
+                  <div className="social-item">
+                    <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 56, height: 56 }}>
+                      <Facebook size={24} />
+                    </SocialIconButton>
+                    <span>Facebook</span>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => setShowSharePrompt(false)} 
+                  style={{ 
+                    background: 'rgba(255,255,255,0.05)', 
+                    color: '#94a3b8', 
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    width: '100%', 
+                    padding: '16px', 
+                    borderRadius: '16px',
+                    fontSize: '14px',
+                    letterSpacing: '1px'
+                  }}
+                >
                   MAYBE LATER
                 </Button>
               </SharePromptModal>
-            </div>
+            </ModalOverlay>
           )}
         </ProfileCard>
 

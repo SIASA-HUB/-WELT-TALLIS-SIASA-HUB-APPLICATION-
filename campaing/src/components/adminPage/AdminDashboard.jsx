@@ -352,12 +352,12 @@ const AdminDashboard = () => {
         setData(walletRes.data.data || walletRes.data || []);
       } else if (activeTab === "clicks") {
         const clickRes = await api.get("/users/analytics/clicks?period=week");
-        if (clickRes.success) {
+        if (clickRes.data && clickRes.data.success) {
           setStats(prev => ({
             ...prev,
-            clickStats: clickRes.data
+            clickStats: clickRes.data.data || prev.clickStats
           }));
-          setData(clickRes.data.topPages || []);
+          setData(clickRes.data.data?.topElementsById || []);
         }
       }
     } catch (err) {
@@ -522,19 +522,19 @@ const AdminDashboard = () => {
                     <th>Status</th>
                     <th>Date</th>
                   </tr>
+                ) : activeTab === "clicks" ? (
+                  <tr>
+                    <th>Target / Element</th>
+                    <th>Identifier</th>
+                    <th>Interactions</th>
+                    <th>Aesthetics</th>
+                  </tr>
                 ) : (
                   <tr>
                     <th>County</th>
                     <th>Endorsement Count</th>
                     <th>Intensity</th>
                     <th>Trend</th>
-                  </tr>
-                ) : (
-                  <tr>
-                    <th>Target / Element</th>
-                    <th>Identifier</th>
-                    <th>Interactions</th>
-                    <th>Aesthetics</th>
                   </tr>
                 )}
               </thead>
