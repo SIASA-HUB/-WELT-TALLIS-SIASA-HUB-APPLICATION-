@@ -8,7 +8,7 @@ const crypto = require("crypto");
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: 1000 * 1024 * 1024 }, // 1000MB limit
 });
 
 // Base directories

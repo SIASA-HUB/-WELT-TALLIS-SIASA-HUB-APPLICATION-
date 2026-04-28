@@ -62,7 +62,7 @@ const fileFilter = (req, file, cb) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   allowedMimes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type'), false);
 };
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter }); // reduced to 5MB
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 }, fileFilter }); // Increased to 50MB
 const uploadSingle = upload.single('image');
 const uploadMultiple = upload.array('images', 5); // max 5 images
 

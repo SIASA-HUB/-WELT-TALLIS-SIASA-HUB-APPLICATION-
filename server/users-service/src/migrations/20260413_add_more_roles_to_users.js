@@ -5,12 +5,16 @@ exports.up = async function(knex) {
   
   if (hasRoleColumn) {
   
-    await knex.raw(`
-      ALTER TABLE users 
-      MODIFY COLUMN role ENUM('user', 'admin', 'administrator', 'market_admin') 
-      DEFAULT 'user'
-    `);
-    console.log("Updated role column with market_admin and administrator roles");
+    try {
+      await knex.raw(`
+        ALTER TABLE users 
+        MODIFY COLUMN role ENUM('user', 'admin', 'administrator', 'market_admin') 
+        DEFAULT 'user'
+      `);
+      console.log("Updated role column with market_admin and administrator roles");
+    } catch (err) {
+      console.log("Note: Could not modify role column (might already be updated or have incompatible data):", err.message);
+    }
   } else {
     // Add role column if it doesn't exist
     await knex.schema.table('users', (table) => {

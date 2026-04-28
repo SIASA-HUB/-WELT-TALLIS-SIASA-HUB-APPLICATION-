@@ -107,11 +107,24 @@ const createUser = asyncHandler(async (req, res) => {
     role,
   } = req.body;
 
-  if (!real_name) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Real name is required" });
-  }
+    Logger.info(`[Registration] Starting registration for: ${personal_email || "no-email"}`);
+
+    if (!real_name || !password) {
+      Logger.warn("[Registration] Missing required fields: real_name or password");
+      return res.status(400).json({
+        success: false,
+        message: "Real name and password are required",
+      });
+    }
+
+    if (!UserModel.isValidRealName(real_name)) {
+      Logger.warn(`[Registration] Invalid real name format: ${real_name}`);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid name format. Please use only letters, spaces, hyphens, dots, and apostrophes.",
+      });
+    }
+
   if (real_name.trim().length < 3) {
     return res.status(400).json({
       success: false,
@@ -144,10 +157,10 @@ const createUser = asyncHandler(async (req, res) => {
     // Check if email already exists
     const existingEmail = await UserModel.findByEmail(personal_email);
     if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
+      Logger.warn(`[Registration] Email already registered: ${personal_email}`);
+      return res
+        .status(400)
+        .json({ success: false, message: "Email already registered" });
     }
   }
 
@@ -260,6 +273,8 @@ const createUser = asyncHandler(async (req, res) => {
       personal_email: personal_email || null,
     });
 
+    Logger.info(`[Registration] User created successfully: ${user_id} (${finalUsername})`);
+
     // ADD WELCOME BONUS: 100 points to wallet
     let welcomeBonusAdded = false;
     try {
@@ -324,10 +339,14 @@ const createUser = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[createUser] Error:", error);
+    Logger.error("[Registration] Critical failure:", {
+      message: error.message,
+      stack: error.stack,
+      body: { ...req.body, password: "[REDACTED]" }
+    });
     return res.status(500).json({
       success: false,
-      message: "Failed to create user. Please try again.",
+      message: error.message || "Failed to create user account. Please try again.",
     });
   }
 });

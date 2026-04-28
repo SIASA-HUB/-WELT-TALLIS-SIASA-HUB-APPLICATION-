@@ -372,9 +372,10 @@ const RegistrationPage = () => {
     try {
       const response = await api.post("/users/register", submitData);
 
+      // Since our api instance returns response.data directly
       if (response.success) {
         toast.success(
-          `Welcome ${formData.real_name.split(" ")[0]}! 150 points added to your wallet! 🎉`,
+          `Welcome ${formData.real_name.split(" ")[0]}! 100 points added to your wallet! 🎉`,
         );
         
         // Handle redirect if present
@@ -382,11 +383,13 @@ const RegistrationPage = () => {
         const redirect = params.get('redirect');
         setTimeout(() => navigate(redirect === 'cart' ? '/marketplace' : '/login'), 2000);
       } else {
-        toast.error(response.data.message || "Registration failed");
+        toast.error(response.message || "Registration failed");
       }
     } catch (err) {
       console.error("Registration error:", err);
-      toast.error(err.response?.data?.message || "Connection error");
+      // Detailed error message from backend if available
+      const errorMsg = err.response?.data?.message || err.message || "Connection error";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

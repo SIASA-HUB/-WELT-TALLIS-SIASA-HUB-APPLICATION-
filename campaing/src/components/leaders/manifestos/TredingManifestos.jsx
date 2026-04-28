@@ -70,7 +70,7 @@ const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {
 
 // --- STYLED COMPONENTS ---
 const Section = styled.div`
-  padding: 12px 12px;
+  padding: 12px 1px;
   background: #000;
 `;
 
@@ -93,7 +93,7 @@ const Header = styled.div`
 
   .badge {
     background: rgba(34, 197, 94, 0.15);
-    padding: 2px 8px;
+    padding: 2px 0px;
     border-radius: 12px;
     font-size: 8px;
     font-weight: 600;
@@ -131,7 +131,7 @@ const LoadingState = styled.div`
 const SkeletonRow = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px 10px;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 0px;
   animation: ${pulse} 1.5s infinite;
@@ -174,7 +174,7 @@ const ManifestoCard = styled.div`
   background: ${(props) =>
     props.$isLocal ? "rgba(34, 197, 94, 0.04)" : "rgba(255, 255, 255, 0.01)"};
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid ${(props) => (props.$isLocal ? "rgba(34, 197, 94, 0.15)" : "rgba(255,255,255,0.03)")};
@@ -280,7 +280,7 @@ const TrendWrapper = styled.div`
   align-items: flex-end;
   gap: 4px;
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: 0px;
   
   .trend-icon {
     width: 14px;
@@ -434,7 +434,7 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
         await api.getWithCache(url, (data) => {
           if (!data) return;
           const fetchedData = Array.isArray(data.data) ? data.data : [];
-          
+
           if (data.success && fetchedData.length > 0) {
             // Shuffle and take requested limit
             const shuffled = [...fetchedData].sort(() => 0.5 - Math.random());
@@ -484,27 +484,27 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
     // 2. Try parsing agenda_items
     if (manifesto.agenda_items) {
       try {
-        const items = typeof manifesto.agenda_items === "string" 
-          ? JSON.parse(manifesto.agenda_items) 
+        const items = typeof manifesto.agenda_items === "string"
+          ? JSON.parse(manifesto.agenda_items)
           : manifesto.agenda_items;
 
         if (Array.isArray(items) && items.length > 0) {
           const firstItem = items[0];
-          return typeof firstItem === "string" 
-            ? firstItem 
+          return typeof firstItem === "string"
+            ? firstItem
             : (firstItem.title || firstItem.description || "Policy Agenda");
         }
-        
+
         if (typeof items === "object" && items !== null) {
           return items.title || items.description || "📜 View Policy";
         }
-        
+
         if (typeof items === "string") return items;
       } catch (e) {
         console.warn("Manifesto parse error", e);
       }
     }
-    
+
     return "📜 New Policy Agenda";
   };
 
@@ -631,7 +631,7 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
                   </LeaderName>
                   <ManifestoText>{displayText}</ManifestoText>
                 </Info>
-              <TrendWrapper>
+                <TrendWrapper>
                   {(() => {
                     const votes = m.total_votes || m.approve_count || m.vote_count || 0;
                     const isRising = votes >= 5;

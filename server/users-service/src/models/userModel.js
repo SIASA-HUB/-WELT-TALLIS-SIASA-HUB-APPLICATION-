@@ -99,7 +99,7 @@ class UserModel {
    * Validate real name
    */
   static isValidRealName(realName) {
-    const nameRegex = /^[a-zA-Z\s-]{3,100}$/;
+    const nameRegex = /^[a-zA-Z\s\-'.]{3,100}$/; // Relaxed to allow apostrophes, dots, etc.
     return nameRegex.test(realName.trim());
   }
 

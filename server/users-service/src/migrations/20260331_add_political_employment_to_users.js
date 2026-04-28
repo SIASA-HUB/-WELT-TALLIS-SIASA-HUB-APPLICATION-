@@ -39,10 +39,15 @@ exports.up = async function (knex) {
     AND index_name = 'idx_demographics'
   `);
 
-  if (hasDemographicsIndex[0].count === 0) {
-    await knex.raw(`
-      CREATE INDEX idx_demographics ON users(county, age_bracket, political_party)
-    `);
+  try {
+    if (hasDemographicsIndex[0].count === 0) {
+      await knex.raw(`
+        CREATE INDEX idx_demographics ON users(county, age_bracket, political_party)
+      `);
+      console.log("Created composite index idx_demographics");
+    }
+  } catch (err) {
+    console.log("Note: Could not create idx_demographics:", err.message);
   }
 };
 
