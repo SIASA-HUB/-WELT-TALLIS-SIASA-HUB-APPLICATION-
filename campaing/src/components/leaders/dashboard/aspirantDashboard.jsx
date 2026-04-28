@@ -540,7 +540,6 @@ const AspirantDashboard = () => {
       case "rally": return <CreateRally leaderId={leaderId} onRallyCreated={handleRallyCreated} />;
       case "supporters": return <SupportersSection leader={leader} />;
       case "analytics": return <AnalyticsSection leader={leader} />;
-      case "account": return <AccountBillingSection leader={leader} />;
       case "settings": return <ProfileSettingsSection leader={leader} />;
       default: return (
         <>
@@ -557,8 +556,7 @@ const AspirantDashboard = () => {
     { id: "rally", label: "Create Rally", icon: <MapPin size={18} />, badge: rallyCount },
     { id: "supporters", label: "Supporters", icon: <Users size={18} /> },
     { id: "analytics", label: "Analytics", icon: <TrendingUp size={18} /> },
-    { id: "account", label: "Account & Billing", icon: <CreditCard size={18} /> },
-    { id: "settings", label: "Profile Settings", icon: <Settings size={18} /> },
+    { id: "settings", label: "Profile & Settings", icon: <Settings size={18} /> },
   ];
 
   return (
@@ -575,10 +573,10 @@ const AspirantDashboard = () => {
               {item.badge > 0 && <RallyBadge>{item.badge}</RallyBadge>}
             </NavItem>
           ))}
+          <NavItem onClick={handleLogout} style={{ marginTop: "20px" }}>
+            <LogOut size={18} /><span>Logout</span>
+          </NavItem>
         </NavSection>
-        <NavItem onClick={handleLogout} style={{ marginTop: "auto", marginBottom: "20px" }}>
-          <LogOut size={18} /><span>Logout</span>
-        </NavItem>
       </Sidebar>
 
       <MainContent>

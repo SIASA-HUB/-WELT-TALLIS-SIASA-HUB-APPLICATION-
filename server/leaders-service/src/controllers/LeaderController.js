@@ -411,20 +411,18 @@ const loginAspirant = asyncHandler(async (req, res) => {
     const normalizedInput = name.trim().toLowerCase().replace(/\s+/g, ' ');
     const words = normalizedInput.split(' ').filter(w => w.length > 1);
 
-    // Build aggressive fuzzy search query
-    // 1. Exact match
-    // 2. LIKE match
-    // 3. Word-based match (if input has multiple words)
+    // Build query to check both name AND email
     let query = `
-      SELECT leader_id, name, password_hash, party, slogan, 
+      SELECT leader_id, name, email, password_hash, party, slogan, 
              position, position_running_for, county, constituency, ward, 
              image_url, status, verification, created_at
       FROM leaders 
       WHERE status = 'active' AND (
-        LOWER(name) = LOWER(?)
+        LOWER(name) = ?
+        OR LOWER(email) = ?
         OR LOWER(name) LIKE ?
     `;
-    const params = [normalizedInput, `%${normalizedInput}%`];
+    const params = [normalizedInput, normalizedInput, `%${normalizedInput}%`];
 
     if (words.length > 0) {
       query += ` OR (${words.map(() => `LOWER(name) LIKE ?`).join(' AND ')})`;
@@ -1609,6 +1607,90 @@ const getLeaderAdminStats = asyncHandler(async (req, res) => {
   }
 });
 
+// GET ALL LEADERS PUBLIC (For Sitemap)
+const getAllLeadersPublic = asyncHandler(async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 1000;
+    const sql = `
+      SELECT leader_id, name, slug, updated_at 
+      FROM leaders 
+      WHERE status = 'active' AND slug IS NOT NULL AND slug != ''
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `;
+    const leaders = await safeQuery(sql, [limit]);
+    res.status(200).json({ success: true, data: leaders });
+  } catch (error) {
+    Logger.error("Get all leaders public error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch leaders" });
+  }
+});
+
+// ============================================
+// GENERATE SITEMAP (SEO)
+// ============================================
+const generateSitemap = asyncHandler(async (req, res) => {
+  try {
+    const baseUrl = 'https://siasahub.co.ke';
+    
+    // 1. Get all active leaders
+    const leaders = await safeQuery(
+      `SELECT slug, county, constituency, ward, updated_at 
+       FROM leaders WHERE status = 'active' AND slug IS NOT NULL`
+    );
+
+    // 2. Get distinct locations
+    const counties = await safeQuery(`SELECT DISTINCT county FROM leaders WHERE status = 'active' AND county IS NOT NULL`);
+    const constituencies = await safeQuery(`SELECT DISTINCT county, constituency FROM leaders WHERE status = 'active' AND constituency IS NOT NULL`);
+    const wards = await safeQuery(`SELECT DISTINCT county, constituency, ward FROM leaders WHERE status = 'active' AND ward IS NOT NULL`);
+
+    res.header('Content-Type', 'application/xml');
+    res.write('<?xml version="1.0" encoding="UTF-8"?>\n');
+    res.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n');
+
+    const addUrl = (url, priority = '0.8', freq = 'daily') => {
+      res.write('  <url>\n');
+      res.write(`    <loc>${url}</loc>\n`);
+      res.write(`    <changefreq>${freq}</changefreq>\n`);
+      res.write(`    <priority>${priority}</priority>\n`);
+      res.write('  </url>\n');
+    };
+
+    // Base pages
+    addUrl(`${baseUrl}/`, '1.0');
+    addUrl(`${baseUrl}/leaders`, '0.9');
+
+    // Location pages
+    for (const c of counties) {
+      const cSlug = c.county.toLowerCase().replace(/\s+/g, '-');
+      addUrl(`${baseUrl}/county/${cSlug}`, '0.8', 'weekly');
+    }
+    
+    for (const w of wards) {
+      if (!w.county || !w.constituency) continue;
+      const cSlug = w.county.toLowerCase().replace(/\s+/g, '-');
+      const consSlug = w.constituency.toLowerCase().replace(/\s+/g, '-');
+      const wSlug = w.ward.toLowerCase().replace(/\s+/g, '-');
+      addUrl(`${baseUrl}/${cSlug}/${consSlug}/${wSlug}`, '0.9', 'daily');
+    }
+
+    // Leader Deep Links
+    for (const l of leaders) {
+      let url = `${baseUrl}/leader/${l.slug}`;
+      if (l.county && l.constituency && l.ward) {
+        url = `${baseUrl}/leaders/${l.county.toLowerCase().replace(/\s+/g, '-')}/${l.constituency.toLowerCase().replace(/\s+/g, '-')}/${l.ward.toLowerCase().replace(/\s+/g, '-')}/${l.slug}`;
+      }
+      addUrl(url, '0.9', 'daily');
+    }
+
+    res.write('</urlset>');
+    res.end();
+  } catch (error) {
+    Logger.error("Generate sitemap error:", error);
+    res.status(500).send("Error generating sitemap");
+  }
+});
+
 module.exports = {
   startLeaderWorkers,
   createLeader,
@@ -1635,5 +1717,7 @@ module.exports = {
   rejectLeader,
   deleteLeader,
   getAllLeaders,
-  getLeaderAdminStats
+  getLeaderAdminStats,
+  getAllLeadersPublic,
+  generateSitemap
 };

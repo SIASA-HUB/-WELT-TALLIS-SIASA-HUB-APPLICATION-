@@ -341,39 +341,19 @@ const RegistrationPage = () => {
       toast.error("Full name must be at least 3 characters");
       return false;
     }
+    if (!formData.personal_email) {
+      toast.error("Please enter your email address");
+      return false;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.personal_email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
     if (!formData.password || formData.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return false;
     }
-    if (!formData.gender) {
-      toast.error("Please select your gender");
-      return false;
-    }
-    if (!formData.age_bracket) {
-      toast.error("Please select your age bracket");
-      return false;
-    }
-    if (!formData.county) {
-      toast.error("Please select your county");
-      return false;
-    }
-    if (!formData.voter_card) {
-      toast.error("Please indicate if you have a voter's card");
-      return false;
-    }
-    if (!formData.will_vote) {
-      toast.error("Please indicate if you will vote");
-      return false;
-    }
-
-    if (formData.personal_email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.personal_email)) {
-        toast.error("Please enter a valid email address");
-        return false;
-      }
-    }
-
     return true;
   };
 
@@ -385,18 +365,8 @@ const RegistrationPage = () => {
 
     const submitData = {
       real_name: formData.real_name.trim(),
-      gender: formData.gender,
-      age_bracket: formData.age_bracket,
-      county: formData.county,
-      ward: formData.ward || "",
-      voter_card: formData.voter_card,
-      will_vote: formData.will_vote,
+      personal_email: formData.personal_email.trim(),
       password: formData.password,
-      political_party: formData.political_party || "Undecided",
-      employment_status: formData.employment_status || "Prefer not to say",
-      political_leanings: formData.political_leanings || "Prefer not to say",
-      vote_frequency: formData.vote_frequency || "Prefer not to say",
-      personal_email: formData.personal_email || null,
     };
 
     try {
@@ -406,24 +376,17 @@ const RegistrationPage = () => {
         toast.success(
           `Welcome ${formData.real_name.split(" ")[0]}! 150 points added to your wallet! 🎉`,
         );
-        setTimeout(() => navigate("/login"), 2000);
+        
+        // Handle redirect if present
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect');
+        setTimeout(() => navigate(redirect === 'cart' ? '/marketplace' : '/login'), 2000);
       } else {
         toast.error(response.data.message || "Registration failed");
       }
     } catch (err) {
       console.error("Registration error:", err);
-
-      if (err.response) {
-        toast.error(
-          err.response.data?.message || `Server error: ${err.response.status}`,
-        );
-      } else if (err.request) {
-        toast.error(
-          "Cannot connect to server. Please check if backend is running",
-        );
-      } else {
-        toast.error(err.message || "Connection error");
-      }
+      toast.error(err.response?.data?.message || "Connection error");
     } finally {
       setLoading(false);
     }
@@ -459,8 +422,7 @@ const RegistrationPage = () => {
 
             {/* Personal Email */}
             <Label>
-              <Mail size={16} /> Personal Email{" "}
-              <OptionalBadge>Optional</OptionalBadge>
+              <Mail size={16} /> Personal Email *
             </Label>
             <InputWrapper>
               <InputIcon>
@@ -475,175 +437,6 @@ const RegistrationPage = () => {
                 hasIcon
               />
             </InputWrapper>
-
-            <Grid>
-              <div>
-                <Label>Gender *</Label>
-                <Select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                >
-                  <option value="">Select</option>
-                  <option value="Male">👨 Male</option>
-                  <option value="Female">👩 Female</option>
-                  <option value="Other">🌈 Other</option>
-                </Select>
-              </div>
-              <div>
-                <Label>
-                  <Calendar size={14} /> Age Bracket *
-                </Label>
-                <Select
-                  name="age_bracket"
-                  value={formData.age_bracket}
-                  onChange={handleChange}
-                >
-                  <option value="">Select</option>
-                  <option value="18-30">🌟 18-30 (Gen Z)</option>
-                  <option value="31-40">💪 31-40 (Millennial)</option>
-                  <option value="41-50">📊 41-50 (Gen X)</option>
-                  <option value="51-60">🏆 51-60</option>
-                  <option value="61+">👑 61+</option>
-                </Select>
-              </div>
-            </Grid>
-
-            <Grid>
-              <div>
-                <Label>
-                  <MapPin size={14} /> County *
-                </Label>
-                <Select
-                  name="county"
-                  value={formData.county}
-                  onChange={handleChange}
-                >
-                  <option value="">Select county</option>
-                  {CountyList.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>
-                  <MapPin size={14} /> Ward
-                </Label>
-                <Input
-                  name="ward"
-                  placeholder="Your ward/constituency"
-                  value={formData.ward}
-                  onChange={handleChange}
-                />
-              </div>
-            </Grid>
-
-            <Grid>
-              <div>
-                <Label>
-                  <ShieldCheck size={14} /> Voter's Card? *
-                </Label>
-                <Select
-                  name="voter_card"
-                  value={formData.voter_card}
-                  onChange={handleChange}
-                >
-                  <option value="">Select</option>
-                  <option value="Yes">✅ Yes, registered</option>
-                  <option value="No">❌ Not registered</option>
-                </Select>
-              </div>
-              <div>
-                <Label>
-                  <ClipboardList size={14} /> Will you vote? *
-                </Label>
-                <Select
-                  name="will_vote"
-                  value={formData.will_vote}
-                  onChange={handleChange}
-                >
-                  <option value="">Select</option>
-                  <option value="Yes">✅ Yes</option>
-                  <option value="No">❌ No</option>
-                  <option value="Not Sure">🤔 Not sure</option>
-                </Select>
-              </div>
-            </Grid>
-
-            {/* Vote Frequency */}
-            <Label>
-              <TrendingUp size={14} /> Voting History{" "}
-              <OptionalBadge>Optional</OptionalBadge>
-            </Label>
-            <Select
-              name="vote_frequency"
-              value={formData.vote_frequency}
-              onChange={handleChange}
-            >
-              <option value="">How often do you vote?</option>
-              {VoteFrequencies.map((freq) => (
-                <option key={freq} value={freq}>
-                  {freq}
-                </option>
-              ))}
-            </Select>
-
-            {/* Political Party */}
-            <Label>
-              <Flag size={14} /> Political Party{" "}
-              <OptionalBadge>Optional</OptionalBadge>
-            </Label>
-            <Select
-              name="political_party"
-              value={formData.political_party}
-              onChange={handleChange}
-            >
-              <option value="">Select political affiliation</option>
-              {PoliticalParties.map((party) => (
-                <option key={party} value={party}>
-                  {party}
-                </option>
-              ))}
-            </Select>
-
-            {/* Political Leanings */}
-            <Label>
-              <Heart size={14} /> Political Leanings{" "}
-              <SensitiveBadge>Sensitive</SensitiveBadge>{" "}
-              <OptionalBadge>Optional</OptionalBadge>
-            </Label>
-            <Select
-              name="political_leanings"
-              value={formData.political_leanings}
-              onChange={handleChange}
-            >
-              <option value="">Select political leaning</option>
-              {PoliticalLeanings.map((leaning) => (
-                <option key={leaning} value={leaning}>
-                  {leaning}
-                </option>
-              ))}
-            </Select>
-
-            {/* Employment Status */}
-            <Label>
-              <Briefcase size={14} /> Employment Status{" "}
-              <OptionalBadge>Optional</OptionalBadge>
-            </Label>
-            <Select
-              name="employment_status"
-              value={formData.employment_status}
-              onChange={handleChange}
-            >
-              <option value="">Select employment status</option>
-              {EmploymentStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </Select>
 
             {/* Password */}
             <Label>

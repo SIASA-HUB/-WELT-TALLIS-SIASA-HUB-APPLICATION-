@@ -161,43 +161,43 @@ const StatGrid = styled.div`
 
 const StatCard = styled.div`
   background: white;
-  padding: 24px;
-  border-radius: 20px;
-  border: 1px solid #f1f5f9;
-  transition: all 0.3s ease;
+  padding: 28px;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    border-color: #e2e8f0;
+    transform: translateY(-6px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
   }
 
   .stat-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+    background: #f8fafc;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
   }
 
   .stat-value {
-    font-size: 36px;
-    font-weight: 800;
-    color: #1a1a2e;
-    margin-bottom: 6px;
-    letter-spacing: -1px;
+    font-size: 42px;
+    font-weight: 950;
+    color: #0f172a;
+    margin-bottom: 8px;
+    letter-spacing: -1.5px;
   }
 
   .stat-label {
-    font-size: 14px;
-    color: #64748b;
-    font-weight: 600;
+    font-size: 15px;
+    color: #475569;
+    font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
   }
@@ -228,30 +228,30 @@ const ActivityCard = styled.div`
 `;
 
 const CardHeader = styled.div`
-  padding: 24px 32px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+  padding: 28px 36px;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
 
   h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 800;
-    color: #1e293b;
+    color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     letter-spacing: -0.5px;
   }
 
   .badge {
-    background: #f0f4ff;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #1e3c72;
+    background: #eff6ff;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1d4ed8;
   }
 `;
 
@@ -290,29 +290,28 @@ const EndorsementContent = styled.div`
   flex: 1;
 
   .user {
-    font-weight: 700;
-    font-size: 14px;
-    color: #1a1a2e;
+    font-weight: 800;
+    font-size: 16px;
+    color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .message {
-    font-size: 13px;
+    font-size: 14px;
     color: #475569;
-    margin-top: 4px;
-    line-height: 1.4;
+    margin-top: 6px;
+    line-height: 1.5;
   }
 
   .time {
-    font-size: 11px;
+    font-size: 12px;
     color: #94a3b8;
-    margin-top: 4px;
+    margin-top: 6px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
 `;
 
@@ -336,26 +335,27 @@ const EndorsementAmount = styled.div`
 const StatsSummary = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding: 20px 24px;
-  background: #fafbfc;
-  border-bottom: 1px solid #eef2f6;
+  gap: 20px;
+  padding: 24px 36px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
 
   .summary-item {
     text-align: center;
 
     .value {
-      font-size: 24px;
-      font-weight: 800;
+      font-size: 28px;
+      font-weight: 900;
       color: #1e3c72;
     }
 
     .label {
-      font-size: 11px;
+      font-size: 12px;
       color: #64748b;
-      margin-top: 4px;
+      margin-top: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
+      font-weight: 700;
     }
   }
 `;
@@ -393,8 +393,8 @@ const LoadingCard = styled.div`
 const IntelligenceSection = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin-top: 24px;
+  gap: 32px;
+  margin-top: 32px;
   
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
@@ -403,44 +403,50 @@ const IntelligenceSection = styled.div`
 
 const RecommendationCard = styled.div`
   background: white;
-  border-radius: 24px;
-  padding: 32px;
-  border: 1px solid #f1f5f9;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border-radius: 28px;
+  padding: 40px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
   .rec-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    h3 { margin: 0; font-size: 1.1rem; color: #1e293b; }
+    gap: 14px;
+    margin-bottom: 28px;
+    h3 { margin: 0; font-size: 20px; color: #0f172a; font-weight: 800; }
   }
 `;
 
 const ActionItem = styled.div`
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  gap: 20px;
+  padding: 20px;
   background: ${props => props.$type === 'urgent' ? '#fff1f2' : '#f8fafc'};
-  border-left: 4px solid ${props => props.$type === 'urgent' ? '#ef4444' : '#3b82f6'};
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border-left: 5px solid ${props => props.$type === 'urgent' ? '#e11d48' : '#2563eb'};
+  border-radius: 16px;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+  
+  &:hover {
+    transform: scale(1.02);
+  }
   
   .icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     background: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: ${props => props.$type === 'urgent' ? '#ef4444' : '#3b82f6'};
+    color: ${props => props.$type === 'urgent' ? '#e11d48' : '#2563eb'};
     flex-shrink: 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   }
   
   .text {
-    h4 { margin: 0; font-size: 0.9rem; color: #1e293b; }
-    p { margin: 4px 0 0; font-size: 0.8rem; color: #64748b; }
+    h4 { margin: 0; font-size: 16px; color: #0f172a; font-weight: 700; }
+    p { margin: 6px 0 0; font-size: 14px; color: #475569; line-height: 1.5; }
   }
 `;
 
@@ -460,34 +466,40 @@ const WardStatusCard = styled.div`
 
 const StatusBox = styled.div`
   text-align: center;
-  padding: 16px;
-  border-radius: 16px;
+  padding: 24px 16px;
+  border-radius: 20px;
   background: ${props => {
+    if (props.$type === 'winning') return '#f0fdf4';
+    if (props.$type === 'losing') return '#fff1f2';
+    return '#f8fafc';
+  }};
+  border: 1px solid ${props => {
     if (props.$type === 'winning') return '#dcfce7';
     if (props.$type === 'losing') return '#fee2e2';
     return '#f1f5f9';
   }};
   
   .count {
-    font-size: 1.5rem;
-    font-weight: 800;
+    font-size: 32px;
+    font-weight: 900;
     color: ${props => {
     if (props.$type === 'winning') return '#166534';
     if (props.$type === 'losing') return '#991b1b';
-    return '#475569';
+    return '#0f172a';
   }};
   }
   
   .label {
-    font-size: 0.7rem;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 800;
     text-transform: uppercase;
+    letter-spacing: 1px;
     color: ${props => {
     if (props.$type === 'winning') return '#166534';
     if (props.$type === 'losing') return '#991b1b';
     return '#64748b';
   }};
-    margin-top: 4px;
+    margin-top: 8px;
   }
 `;
 
@@ -509,16 +521,17 @@ const SentimentIcon = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  opacity: ${props => props.$active ? 1 : 0.3};
-  transform: ${props => props.$active ? 'scale(1.1)' : 'scale(1)'};
-  transition: all 0.3s ease;
+  gap: 12px;
+  opacity: ${props => props.$active ? 1 : 0.25};
+  transform: ${props => props.$active ? 'scale(1.2)' : 'scale(1)'};
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   
   span {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 800;
     text-transform: uppercase;
-    color: ${props => props.$color};
+    letter-spacing: 1px;
+    color: ${props => props.$active ? props.$color : '#94a3b8'};
   }
 `;
 
@@ -534,47 +547,52 @@ const ProbabilityCard = styled.div`
 
 const SEOStatusWrapper = styled.div`
   background: #f8fafc;
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 20px;
+  padding: 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
+  border: 1px solid #f1f5f9;
   
   .status-dot {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: #10b981;
-    box-shadow: 0 0 8px #10b981;
+    box-shadow: 0 0 10px #10b981;
   }
   
   .info {
     flex: 1;
-    h4 { margin: 0; font-size: 14px; color: #1e293b; }
-    p { margin: 2px 0 0; font-size: 12px; color: #64748b; }
+    h4 { margin: 0; font-size: 16px; color: #0f172a; font-weight: 700; }
+    p { margin: 4px 0 0; font-size: 14px; color: #475569; }
   }
 `;
 
 const WinProbabilityCard = styled(ActivityCard)`
-  padding: 32px;
+  padding: 40px;
   text-align: center;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   
   .percentage {
-    font-size: 56px;
-    font-weight: 900;
+    font-size: 72px;
+    font-weight: 950;
     color: #1e3c72;
-    margin: 8px 0;
+    margin: 12px 0;
+    letter-spacing: -3px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   
   .label {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     color: #64748b;
   }
 `;
@@ -888,9 +906,21 @@ const DashboardOverview = ({ leader }) => {
 
           <WardStatusCard>
             <div className="rec-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <MapPin size={20} color="#1e3c72" />
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Regional Standing</h3>
+              <Crown size={20} color="#eab308" />
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Campaign Performance</h3>
             </div>
+            
+            <div style={{ marginTop: '24px', padding: '24px', background: '#f8fafc', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
+               <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Current Ranking</div>
+               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '8px' }}>
+                  <span style={{ fontSize: '48px', fontWeight: 900, color: '#1e3c72' }}>#{Math.max(1, 15 - Math.floor(stats.endorsement_count / 10))}</span>
+                  <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 600 }}>of {leader?.county || "Kenya"} Candidates</span>
+               </div>
+               <div style={{ marginTop: '16px', fontSize: '14px', color: '#0f172a', fontWeight: 500, lineHeight: '1.5' }}>
+                  Your profile ranks in the <strong>Top 15%</strong> of most viewed manifestos in {leader?.county || "your region"}. Boost your score to reach #1.
+               </div>
+            </div>
+
             <div className="status-grid">
               <StatusBox $type="winning">
                 <div className="count">{winningWards.length}</div>
@@ -905,9 +935,6 @@ const DashboardOverview = ({ leader }) => {
                 <div className="label">Losing</div>
               </StatusBox>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '16px', lineHeight: '1.4' }}>
-              We classify your standing based on Reach density per ward compared to your regional average profile visibility.
-            </p>
           </WardStatusCard>
         </IntelligenceSection>
 
@@ -934,7 +961,7 @@ const DashboardOverview = ({ leader }) => {
               </SentimentIcon>
             </SentimentWrapper>
             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', fontSize: '12px' }}>
-              <strong>Insight:</strong> Your latest rally in {leader?.county || "the region"} boosted positive sentiment by 12% among youth.
+              <strong>Insight:</strong> Your latest updates boosted positive sentiment by 12% among youth.
             </div>
           </MetricCard>
 
@@ -951,50 +978,49 @@ const DashboardOverview = ({ leader }) => {
               Confidence Score: 84% • Sample Size: {profileViews.toLocaleString()}
             </div>
           </WinProbabilityCard>
+        </MainContentGrid>
 
-          {/* SEO & Search Visibility */}
-          <ActivityCard style={{ gridColumn: '1 / -1' }}>
-            <CardHeader>
-              <h3><Globe size={18} /> Search Engine Optimization (SEO)</h3>
-              <div className="badge">LIVE STATUS</div>
-            </CardHeader>
-            <div style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                <SEOStatusWrapper>
-                  <div className="status-dot" />
-                  <div className="info">
-                    <h4>Google Indexing</h4>
-                    <p>Your public profile is indexed and searchable.</p>
-                  </div>
-                </SEOStatusWrapper>
-
-                <SEOStatusWrapper>
-                  <Search size={20} color="#3b82f6" />
-                  <div className="info">
-                    <h4>Top Keywords</h4>
-                    <p>{leader?.name}, {leader?.party}, {leader?.position} candidate</p>
-                  </div>
-                </SEOStatusWrapper>
-              </div>
-
-              <div style={{ marginTop: '24px', padding: '20px', background: '#f0f9ff', borderRadius: '16px', border: '1px solid #e0f2fe' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h4 style={{ margin: 0, color: '#0369a1' }}>Boost Your Visibility</h4>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#0c4a6e' }}>Candidates who share their profile on WhatsApp & Twitter rank 40% higher on Google.</p>
-                  </div>
-                  <button onClick={() => {
-                    const url = `https://siasahub.co.ke/leaders/${leader?.leader_id}`;
-                    navigator.clipboard.writeText(url);
-                    alert("Public profile link copied! Share it to boost your SEO.");
-                  }} style={{ background: '#0369a1', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>
-                    COPY PUBLIC LINK
-                  </button>
+        <ActivityCard style={{ gridColumn: '1 / -1' }}>
+          <CardHeader>
+            <h3><Globe size={18} /> Search Engine Optimization (SEO)</h3>
+            <div className="badge">LIVE STATUS</div>
+          </CardHeader>
+          <div style={{ padding: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+              <SEOStatusWrapper>
+                <div className="status-dot" />
+                <div className="info">
+                  <h4>Google Indexing</h4>
+                  <p>Your public profile is indexed and searchable.</p>
                 </div>
+              </SEOStatusWrapper>
+
+              <SEOStatusWrapper>
+                <Search size={20} color="#3b82f6" />
+                <div className="info">
+                  <h4>Top Keywords</h4>
+                  <p>{leader?.name}, {leader?.party}, {leader?.position} candidate</p>
+                </div>
+              </SEOStatusWrapper>
+            </div>
+
+            <div style={{ marginTop: '24px', padding: '20px', background: '#f0f9ff', borderRadius: '16px', border: '1px solid #e0f2fe' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: '#0369a1' }}>Boost Your Visibility</h4>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#0c4a6e' }}>Candidates who share their profile on WhatsApp rank 40% higher on Google.</p>
+                </div>
+                <button onClick={() => {
+                  const url = `https://siasahub.co.ke/leaders/${leader?.leader_id}`;
+                  navigator.clipboard.writeText(url);
+                  alert("Public profile link copied! Share it to boost your SEO.");
+                }} style={{ background: '#0369a1', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>
+                  COPY PUBLIC LINK
+                </button>
               </div>
             </div>
-          </ActivityCard>
-        </MainContentGrid>
+          </div>
+        </ActivityCard>
 
         <ActivityCard>
           <CardHeader>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Menu, ShoppingCart, User as UserIcon } from "lucide-react";
+import { Menu, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
 const Nav = styled.div`
@@ -23,7 +23,7 @@ const Nav = styled.div`
 const NavbarContainer = styled.div`
   width: 100%;
   max-width: 1400px;
-  padding: 0 10px;
+  padding: 0 0px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -173,8 +173,8 @@ const CartBadge = styled.div`
   position: absolute;
   top: -6px;
   right: -8px;
-  color: #e11d48;
-
+  background: #e11d48;
+  color: white;
   font-size: 10px;
   font-weight: 700;
   width: 18px;
@@ -184,6 +184,7 @@ const CartBadge = styled.div`
   align-items: center;
   justify-content: center;
   border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 `;
 
 const Navbar = ({ currentUser, currentLeader, onLogout }) => {
@@ -242,9 +243,43 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
 
         <Mobileicons>
           <Navlink to="/marketplace/cart">
-            <div style={{ position: "relative" }}>
-              <ShoppingCart size={26} color="inherit" />
-              {cartCount > 0 && <CartBadge>{cartCount}</CartBadge>}
+            <div
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "8px",
+                borderRadius: "10px",
+                background: "#f1f5f9",
+                cursor: "pointer",
+              }}
+            >
+              <ShoppingCart size={26} color="#1e293b" />
+
+              {cartCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-6px",
+                    right: "-6px",
+                    background: "#ef4444",
+                    color: "#fff",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    minWidth: "18px",
+                    height: "18px",
+                    borderRadius: "999px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 5px",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  {cartCount}
+                </span>
+              )}
             </div>
           </Navlink>
           <MobileIcon onClick={() => setIsOpen(!isOpen)}>

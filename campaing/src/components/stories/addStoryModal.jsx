@@ -434,11 +434,6 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   };
 
   const handleSubmit = async () => {
-    if (!isAuthenticated) {
-      setError("Please login first");
-      return;
-    }
-
     if (!leaderId) {
       setError("Invalid leader. Please refresh and try again.");
       return;
@@ -505,24 +500,32 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
 
   if (!isOpen) return null;
 
-  if (!isAuthenticated) {
-    return (
-      <Overlay onClick={onClose}>
-        <Content onClick={(e) => e.stopPropagation()}>
-          <LoginPrompt>
-            <div className="icon">
-              <Lock size={28} />
-            </div>
-            <h3>Login Required</h3>
-            <p>Please login to post your endorsement story</p>
-            <button onClick={() => (window.location.href = "/login")}>
-              Login Now
-            </button>
-          </LoginPrompt>
-        </Content>
-      </Overlay>
-    );
-  }
+  // Header content based on auth status
+  const renderHeader = () => (
+    <Header>
+      <UserProfile>
+        <div className="avatar">
+          {isAuthenticated && user?.avatar ? (
+            <img src={user.avatar} alt="" />
+          ) : (
+            <User size={22} />
+          )}
+        </div>
+        <div className="meta">
+          <div className="name">
+            {isAuthenticated ? (user?.real_name || user?.username || "Supporter") : "Anonymous Supporter"}
+          </div>
+          <div className="target">🗳️ Supporting {leaderName} — make your voice count!</div>
+        </div>
+      </UserProfile>
+      <X
+        size={20}
+        color="#64748b"
+        onClick={onClose}
+        style={{ cursor: "pointer" }}
+      />
+    </Header>
+  );
 
   if (!leaderId) {
     return (
@@ -546,29 +549,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   return (
     <Overlay onClick={onClose}>
       <Content ref={contentRef} onClick={(e) => e.stopPropagation()}>
-        <Header>
-          <UserProfile>
-            <div className="avatar">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" />
-              ) : (
-                <User size={22} />
-              )}
-            </div>
-            <div className="meta">
-              <div className="name">
-                {user?.real_name || user?.username || "Supporter"}
-              </div>
-              <div className="target">Supporting {leaderName}</div>
-            </div>
-          </UserProfile>
-          <X
-            size={20}
-            color="#64748b"
-            onClick={onClose}
-            style={{ cursor: "pointer" }}
-          />
-        </Header>
+        {renderHeader()}
 
         <TabGroup>
           <Tab
@@ -597,6 +578,12 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           </Tab>
         </TabGroup>
 
+        {/* Anonymous hint */}
+        {!isAuthenticated && (
+          <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '12px', padding: '6px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '20px' }}>
+            🔒 Anonymous · No login required · Up to 20 stories/day
+          </div>
+        )}
         {error && (
           <StatusMessage $isError>
             <AlertCircle size={14} /> {error}
@@ -610,7 +597,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
 
         <InputWrapper>
           <TextArea
-            placeholder="Share your endorsement message..."
+            placeholder={`Tell Kenya WHY you support ${leaderName}! What will they do for your community? Share your truth — your voice matters 🇰🇪`}
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, 500))}
             maxLength={500}
@@ -665,7 +652,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           ) : (
             <Send size={18} />
           )}
-          {loading ? "POSTING..." : "POST STORY"}
+          {loading ? "POSTING..." : "🚀 PUBLISH YOUR STORY"}
         </SubmitBtn>
 
         <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>

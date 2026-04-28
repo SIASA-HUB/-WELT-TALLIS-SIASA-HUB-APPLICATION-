@@ -8,16 +8,16 @@ const { v4: uuidv4 } = require("uuid");
 // Get the upload directory path (inside leaders-service)
 const getUploadDir = () => {
   // This will point to: /c/ballot/server/leaders-service/uploads/leaders
-  return path.join(__dirname, "../../../uploads/leaders");
+  return path.join(__dirname, "../../uploads/leaders");
 };
 
 // Ensure upload directories exist (creates if not exists)
 const ensureDirectoryExists = async (dirPath) => {
   try {
     await fs.access(dirPath);
-    console.log(`📁 Directory exists: ${dirPath}`);
+    console.log(` Directory exists: ${dirPath}`);
   } catch {
-    console.log(`📁 Creating directory: ${dirPath}`);
+    console.log(` Creating directory: ${dirPath}`);
     await fs.mkdir(dirPath, { recursive: true });
   }
 };
@@ -32,7 +32,7 @@ const processAndSaveImages = async (req, res, next) => {
   try {
     const leaderId = req.body.leader_id || req.params.leaderId || `temp_${Date.now()}`;
     const baseUploadDir = getUploadDir();
-    
+
     await ensureDirectoryExists(baseUploadDir);
     const uploadDir = path.join(baseUploadDir, leaderId);
     await ensureDirectoryExists(uploadDir);
@@ -47,7 +47,7 @@ const processAndSaveImages = async (req, res, next) => {
 
     req.body.images = processedImages;
     req.body.processedImages = processedImages;
-    
+
     next();
   } catch (error) {
     console.error("Error processing images:", error);
@@ -60,20 +60,20 @@ const saveToLocalDisk = async (buffer, leaderId, index, uploadDir, options = {})
   const timestamp = Date.now();
   const uniqueId = uuidv4().slice(0, 8);
   const baseFilename = `${leaderId}_${timestamp}_${index}_${uniqueId}`;
-  
+
   // Define sizes for different use cases - HIGH QUALITY settings
   const sizes = {
     original: { width: null, height: null, suffix: "original" },
-    large: { width: 1920, height: 1920, suffix: "large" },      // Increased to 1920px
-    medium: { width: 1280, height: 1280, suffix: "medium" },    // Increased to 1280px
-    small: { width: 640, height: 640, suffix: "small" },        // Increased to 640px
-    thumbnail: { width: 300, height: 300, suffix: "thumb" },    // Increased to 300px
+    large: { width: 1920, height: 1920, suffix: "large" },
+    medium: { width: 1280, height: 1280, suffix: "medium" },
+    small: { width: 640, height: 640, suffix: "small" },
+    thumbnail: { width: 300, height: 300, suffix: "thumb" },
     social: { width: 1200, height: 630, suffix: "social" }
   };
 
   const image = sharp(buffer);
   const metadata = await image.metadata();
-  
+
   const versions = {};
   const savedPaths = {};
 
@@ -97,7 +97,7 @@ const saveToLocalDisk = async (buffer, leaderId, index, uploadDir, options = {})
     // Convert to WebP with HIGH QUALITY (85 -> 92)
     const quality = key === 'original' ? 95 : (options.quality || 92);
     await processedImage
-      .webp({ 
+      .webp({
         quality: quality,
         effort: 6,              // Maximum compression effort for better quality
         smartSubsample: true,   // Smart subsampling for better quality
@@ -111,13 +111,13 @@ const saveToLocalDisk = async (buffer, leaderId, index, uploadDir, options = {})
       width: size.width || metadata.width,
       height: size.height || metadata.height
     };
-    
+
     savedPaths[key] = relativePath;
   }
 
   // Get file sizes
   const stats = await fs.stat(versions.original.path);
-  
+
   return {
     url: versions.original.url,
     public_id: `${leaderId}/${baseFilename}`,
@@ -145,13 +145,13 @@ const deleteLocalImages = async (publicIds) => {
     const [leaderId, baseFilename] = publicId.split("/");
     const baseUploadDir = getUploadDir();
     const uploadDir = path.join(baseUploadDir, leaderId);
-    
+
     const suffixes = ["original", "large", "medium", "small", "thumb", "social"];
-    
+
     for (const suffix of suffixes) {
       const filename = `${baseFilename}_${suffix}.webp`;
       const filepath = path.join(uploadDir, filename);
-      
+
       try {
         await fs.unlink(filepath);
         console.log(`🗑️ Deleted: ${filepath}`);
@@ -160,7 +160,7 @@ const deleteLocalImages = async (publicIds) => {
       }
     }
   });
-  
+
   await Promise.all(deletePromises);
 };
 
@@ -175,19 +175,19 @@ const optimizeExistingImage = async (publicId, options = {}) => {
   const baseUploadDir = getUploadDir();
   const uploadDir = path.join(baseUploadDir, leaderId);
   const originalPath = path.join(uploadDir, `${baseFilename}_original.webp`);
-  
+
   try {
     const buffer = await fs.readFile(originalPath);
     const optimized = await sharp(buffer)
-      .webp({ 
+      .webp({
         quality: options.quality || 92,  // Increased from 80 to 92
         effort: 6,
         smartSubsample: true
       })
       .toBuffer();
-    
+
     await fs.writeFile(originalPath, optimized);
-    
+
     return {
       success: true,
       message: "Image optimized successfully",
@@ -204,12 +204,12 @@ const getLocalImageInfo = async (publicId) => {
   const baseUploadDir = getUploadDir();
   const uploadDir = path.join(baseUploadDir, leaderId);
   const originalPath = path.join(uploadDir, `${baseFilename}_original.webp`);
-  
+
   try {
     const stats = await fs.stat(originalPath);
     const image = sharp(originalPath);
     const metadata = await image.metadata();
-    
+
     return {
       publicId,
       size: stats.size,

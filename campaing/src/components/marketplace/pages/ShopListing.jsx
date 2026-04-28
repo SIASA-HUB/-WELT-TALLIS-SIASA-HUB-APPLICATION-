@@ -24,11 +24,11 @@ const fadeInUp = keyframes`
 
 // --- STYLED COMPONENTS ---
 const Container = styled.div`
-  padding: 40px 30px;
+  padding: 10px 0px;
   min-height: 100vh;
   display: flex;
   gap: 40px;
-  background: #f8fafc;
+ 
   max-width: 1600px;
   margin: 0 auto;
   
@@ -272,17 +272,37 @@ const ShopListing = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [products, setProducts] = useState([]);
   const [priceRange, setPriceRange] = useState(5000);
-  const [selectedSizes, setSelectedSizes] = useState([]); 
+  const [selectedSizes, setSelectedSizes] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  
+
   const location = useLocation();
   const navigate = useNavigate();
-  const limit = 12;
+  const limit = 24;
 
+  // Helper to parse categories from URL
+  const getCategoriesFromUrl = useCallback(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) {
+      const match = category.find(c =>
+        c.slug.toLowerCase() === categoryParam.toLowerCase() ||
+        c.name.toLowerCase() === categoryParam.toLowerCase()
+      );
+      return match ? [match.name] : [categoryParam];
+    }
+    return [];
+  }, [location.search]);
+
+  useEffect(() => {
+    const cats = getCategoriesFromUrl();
+    if (cats.length > 0) {
+      setSelectedCategories(cats);
+    }
+  }, [getCategoriesFromUrl]);
   const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
@@ -292,19 +312,19 @@ const ShopListing = () => {
       params.append("limit", limit);
       params.append("offset", (pageNum - 1) * limit);
       params.append("maxPrice", priceRange);
-      
+
       if (selectedCategories.length > 0) {
-        const slugs = selectedCategories.map(cat => cat.toLowerCase().replace(" ", ""));
-        params.append("categories", slugs.join(","));
+        // Send actual names to backend, backend handles LOWER()
+        params.append("categories", selectedCategories.join(","));
       }
-      
+
       if (selectedSizes.length > 0) {
         params.append("sizes", selectedSizes.join(","));
       }
 
       const res = await getAllProducts(params.toString());
-      const newProducts = res.data?.data || [];
-      const pagination = res.data?.pagination || {};
+      const newProducts = res.data || (Array.isArray(res) ? res : []);
+      const pagination = res.pagination || {};
 
       if (append) {
         setProducts(prev => [...prev, ...newProducts]);
@@ -328,18 +348,7 @@ const ShopListing = () => {
     fetchProducts(1, false);
   }, [fetchProducts]);
 
-  useEffect(() => {
-    // Parse category from URL
-    const searchParams = new URLSearchParams(location.search);
-    const categoryParam = searchParams.get("category");
-    if (categoryParam) {
-      const match = category.find(c => 
-        c.slug.toLowerCase() === categoryParam.toLowerCase() || 
-        c.name.toLowerCase() === categoryParam.toLowerCase()
-      );
-      if (match) setSelectedCategories([match.name]);
-    }
-  }, [location.search]);
+  // URL category sync handled by getCategoriesFromUrl useEffect
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
@@ -350,20 +359,20 @@ const ShopListing = () => {
   };
 
   const toggleCategory = (cat) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
   };
 
   const toggleSize = (size) => {
-    setSelectedSizes(prev => 
+    setSelectedSizes(prev =>
       prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
     );
   };
 
   return (
     <Container>
-      <SEO 
+      <SEO
         title="Campaign Shop | Official Merchandise"
         description="Official SiasaHub campaign merchandise. Browse our collection of high-quality t-shirts, caps, and promotional items."
         canonical="/marketplace/shop"
@@ -377,8 +386,8 @@ const ShopListing = () => {
             </FilterTitle>
             <CategoryList>
               {filter[0].items.map((cat) => (
-                <CategoryItem 
-                  key={cat} 
+                <CategoryItem
+                  key={cat}
                   selected={selectedCategories.includes(cat)}
                   onClick={() => toggleCategory(cat)}
                 >
@@ -393,10 +402,10 @@ const ShopListing = () => {
               Max Price <SlidersHorizontal size={14} />
             </FilterTitle>
             <div style={{ padding: "0 4px" }}>
-              <input 
-                type="range" 
-                min="0" 
-                max="10000" 
+              <input
+                type="range"
+                min="0"
+                max="10000"
                 step="500"
                 value={priceRange}
                 onChange={(e) => setPriceRange(parseInt(e.target.value))}
@@ -415,7 +424,7 @@ const ShopListing = () => {
             </FilterTitle>
             <SizeGrid>
               {filter[2].items.map((size) => (
-                <SizeBox 
+                <SizeBox
                   key={size}
                   selected={selectedSizes.includes(size)}
                   onClick={() => toggleSize(size)}
@@ -462,7 +471,7 @@ const ShopListing = () => {
                 <ProductCard key={product._id} product={product} />
               ))}
             </CardWrapper>
-            
+
             {hasMore && (
               <LoadMoreContainer>
                 <LoadMoreButton onClick={loadMore} disabled={loadingMore}>
@@ -479,18 +488,18 @@ const ShopListing = () => {
             )}
           </>
         ) : (
-          <div style={{ 
-            textAlign: "center", 
-            padding: "100px 20px", 
-            background: "white", 
+          <div style={{
+            textAlign: "center",
+            padding: "100px 20px",
+            background: "white",
             borderRadius: "24px",
             border: "1px dashed #e2e8f0"
           }}>
             <PackageSearch size={48} color="#cbd5e1" style={{ marginBottom: "16px" }} />
             <h3 style={{ color: "#1e293b", fontSize: "20px" }}>No Products Found</h3>
             <p style={{ color: "#64748b" }}>Try adjusting your filters to find what you're looking for.</p>
-            <LoadMoreButton 
-              style={{ margin: "24px auto 0" }} 
+            <LoadMoreButton
+              style={{ margin: "24px auto 0" }}
               onClick={() => {
                 setSelectedCategories([]);
                 setSelectedSizes([]);

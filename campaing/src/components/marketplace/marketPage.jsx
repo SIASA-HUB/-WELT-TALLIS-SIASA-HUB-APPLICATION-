@@ -8,7 +8,6 @@ import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductDetails";
 import Checkout from "./checkout/checkout";
 import { useAuth } from "@/components/hooks/useAuth";
-import { CartProvider } from "./context/CartContext";
 
 const Container = styled.div`
   width: 100%;
@@ -34,22 +33,20 @@ function marketPage() {
   const { user, leader } = useAuth();
 
   return (
-    <CartProvider>
-      <ThemeProvider theme={lightTheme}>
-        <Container>
-          <Navbar currentUser={user} currentLeader={leader} />
-          <Content>
-            <Routes>
-              <Route path="/" exact element={<Home />} />
-              <Route path="/shop" exact element={<ShopListing />} />
-              <Route path="/cart" exact element={<Cart />} />
-              <Route path="/checkout" exact element={<Checkout />} />
-              <Route path="/shop/:id" exact element={<ProductDetails />} />
-            </Routes>
-          </Content>
-        </Container>
-      </ThemeProvider>
-    </CartProvider>
+    <ThemeProvider theme={lightTheme}>
+      <Container>
+        <Navbar currentUser={user} currentLeader={leader} />
+        <Content>
+          <Routes>
+            <Route path="/" exact element={<Home />} />
+            <Route path="/shop" exact element={<ShopListing />} />
+            <Route path="/cart" exact element={<Cart />} />
+            <Route path="/checkout" exact element={<Checkout />} />
+            <Route path="/shop/:id" exact element={<ProductDetails />} />
+          </Routes>
+        </Content>
+      </Container>
+    </ThemeProvider>
   );
 }
 

@@ -158,12 +158,25 @@ io.on("connection", (socket) => {
 // ============================================
 
 process.on("uncaughtException", (error) => {
-  Logger.error("UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
-  setTimeout(() => process.exit(1), 1000);
+  Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
+  
+  const isConnectionError = [
+    'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'
+  ].includes(error.code);
+
+  if (!isConnectionError && !error.message.toLowerCase().includes('redis')) {
+    Logger.error("Stopping process due to fatal exception...");
+    setTimeout(() => process.exit(1), 1000);
+  } else {
+    Logger.warn("Maintaining process after connection-related exception.");
+  }
 });
 
 process.on("unhandledRejection", (reason) => {
-  Logger.error("UNHANDLED PROMISE REJECTION", { stack: reason?.stack || reason });
+  Logger.error("🌀 UNHANDLED PROMISE REJECTION", { 
+    message: reason?.message || reason,
+    stack: reason?.stack 
+  });
 });
 
 // ============================================

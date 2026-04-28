@@ -41,6 +41,7 @@ const Logger = winston.createLogger({
   level: 'debug',
   format: shortFormat,
   defaultMeta: { label: 'users-service' },
+  exitOnError: false,
   transports: [
     createFileTransport('info.log', 'info'),
     createFileTransport('warn.log', 'warn'),

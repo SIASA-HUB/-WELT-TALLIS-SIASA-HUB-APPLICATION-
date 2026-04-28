@@ -22,6 +22,8 @@ import {
   Instagram,
   Youtube,
   Globe,
+  Eye as EyeIcon,
+  Users,
 } from "lucide-react";
 import api from "../../api/api";
 import API from "../../api/config";
@@ -259,6 +261,73 @@ const ShareButton = styled.button`
   }
 `;
 
+
+const blink = keyframes`
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+`;
+
+
+export const Eye = styled.div`
+  position: relative;
+  width: 120px;
+  height: 70px;
+  border-radius: 70px / 45px;
+  background: linear-gradient(145deg, #f8fafc, #e2e8f0);
+  box-shadow: 
+    inset 0 2px 6px rgba(0,0,0,0.15),
+    0 8px 20px rgba(0,0,0,0.2);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* iris + pupil */
+  &::before {
+    content: "";
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #60a5fa, #1e3a8a 70%);
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+  }
+
+  /* shine */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 18px;
+    left: 35%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    filter: blur(1px);
+  }
+
+  @media (max-width: 600px) {
+    width: 90px;
+    height: 55px;
+
+    &::before {
+      width: 28px;
+      height: 28px;
+    }
+  }
+`;
+
+
+
+const CompetitorsTitle = styled.div`
+  font-size: 10px;
+  font-weight: 800;
+  color: #ef4444;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+`;
+
 const ShareDropdown = styled.div`
   position: absolute;
   bottom: 60px;
@@ -299,27 +368,29 @@ const ShareIconRow = styled.button`
 const SupportButton = styled.button`
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: ${(props) => (props.$active ? "#10b981" : "white")};
-  color: ${(props) => (props.$active ? "white" : "black")};
+  gap: 8px;
+  background: ${(props) => (props.$active ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)")};
+  color: white;
   border: none;
-  padding:    10px  20px 18px;
-  border-radius: 10px;
+  padding: 10px 20px;
+  border-radius: 12px;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  flex-shrink: 0;
+  box-shadow: 0 4px 12px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)")};
 
   &:hover {
-    transform: scale(1.05);
-    background: ${(props) => (props.$active ? "#059669" : "#f1f5f9")};
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 6px 20px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)")};
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   .count {
-    background: ${(props) => (props.$active ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)")};
+    background: rgba(255, 255, 255, 0.2);
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 10px;
@@ -342,7 +413,7 @@ const SharePromptModal = styled.div`
   background: linear-gradient(135deg, rgba(25, 25, 25, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%);
   color: white;
   padding: 40px 32px;
-  border-radius: 32px;
+  border-radius: 10px;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
@@ -353,7 +424,7 @@ const SharePromptModal = styled.div`
 
   h3 { 
     margin: 16px 0 8px 0; 
-    font-size: 28px; 
+    font-size: 18px; 
     font-weight: 800;
     background: linear-gradient(to right, #fff, #a3aed0);
     -webkit-background-clip: text;
@@ -424,26 +495,29 @@ const SocialIconButton = styled.button`
 
 const AddStoryButton = styled.button`
   position: fixed;
-  bottom: ${(props) => (props.$visible ? "100px" : "-60px")};
-  right: 20px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  border: none;
+  bottom: ${(props) => (props.$visible ? "100px" : "-80px")};
+  right: 16px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.55);
   z-index: 99;
-  transition: all 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transition: all 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
   opacity: ${(props) => (props.$visible ? 1 : 0)};
   animation: ${(props) => (props.$visible ? fadeInUp : fadeOutDown)} 0.3s ease-out;
+  font-size: 12px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.5px;
 
   &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.5);
+    transform: scale(1.06) translateY(-2px);
+    box-shadow: 0 8px 24px rgba(220, 38, 38, 0.65);
   }
 `;
 
@@ -724,6 +798,36 @@ const normalizePosition = (position) => {
 // Memoized LeaderHeader component
 const LeaderHeader = memo(({ leader, onBack }) => {
   const [showBoostModal, setShowBoostModal] = useState(false);
+  const userId = getLoggedInUserId();
+  const leaderId = leader?.leader_id;
+
+  // SEO Dynamic Data
+  const aspirantName = leader?.name || "Aspirant";
+  const position = normalizePosition(leader?.position_running_for || leader?.position);
+  const location = leader?.ward || leader?.constituency || leader?.county || "Kenya";
+  const party = leader?.party || "Independent";
+
+  const seoTitle = `${aspirantName} for ${position} (${location}) | SiasaHub 2027`;
+  const seoDescription = `Learn about ${aspirantName}, candidate for ${position} in ${location}. View their manifesto, trending stories, and official campaign merchandise on SiasaHub.`;
+  const seoKeywords = `${aspirantName} Manifesto, Who is ${aspirantName}?, Best ${position} candidates in ${location}, Trending leaders in ${location}, Vote for ${aspirantName}, ${party} candidates 2027`;
+
+  // Structured Data (Schema.org)
+  const candidateSchema = {
+    "@context": "https://schema.org",
+    "@type": "Candidate",
+    "name": aspirantName,
+    "jobTitle": position,
+    "party": party,
+    "url": window.location.href,
+    "image": getLeaderImage(leader),
+    "description": leader?.slogan || seoDescription,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": location,
+      "addressRegion": leader?.county,
+      "addressCountry": "KE"
+    }
+  };
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -741,6 +845,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const dropdownRef = useRef(null);
   const [isSupporting, setIsSupporting] = useState(false);
   const [supportCount, setSupportCount] = useState(0);
+  const [viewsCount, setViewsCount] = useState(0);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
   const startTimeRef = useRef(Date.now());
 
@@ -757,6 +862,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         const res = await api.get(`/leaders/${leader.leader_id}/stats`);
         if (res.success && res.data) {
           setSupportCount(res.data.support_count || 0);
+          setViewsCount(res.data.views_count || res.data.views || 0);
           setIsSupporting(res.data.is_supporting || false);
         }
       } catch (err) {
@@ -765,15 +871,24 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     };
     fetchSupportStats();
 
+    // Engagement Loop: Auto-prompt to share after 15 seconds of reading the profile
+    const engagementTimer = setTimeout(() => {
+      // Check if they haven't supported yet, prompt them to share to support
+      if (!isSupporting && !sessionStorage.getItem(`shared_${leader.leader_id}`)) {
+        setShowSharePrompt(true);
+      }
+    }, 15000);
+
     startTimeRef.current = Date.now();
     return () => {
+      clearTimeout(engagementTimer);
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
       if (timeSpent >= 3) {
         api.post(`/leaders/${leader.leader_id}/time-spent`, {
           user_id: currentUserId,
           time_spent: timeSpent,
-          timestamp: new Date().toISOString()
-        }).catch(err => console.error("Error tracking time:", err));
+          source: window.location.pathname
+        }).catch(err => console.warn("Failed to track time"));
       }
     };
   }, [leader?.leader_id, currentUserId]);
@@ -922,8 +1037,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const shareImageUrl = getShareImageUrl();
-  const shareText = `Check out ${leader?.name || "this leader"}'s 2027 campaign on SiasaHub! ${leader?.position || ""} ${leader?.county ? `- ${leader.county} County` : ""}`;
 
+  // Compute formattedPosition early (needed by shareText before render block)
+  const _runningFor = leader?.vying_for || leader?.position || "Candidate";
+  const _formattedPosition = normalizePosition(_runningFor);
+  const shareText = `Support ${leader?.name || "this leader"} for ${_formattedPosition}! Check out their vision and manifesto for 2027 on SiasaHub. Every support counts! #SiasaHub #Elections2027`;
   // Enhanced share functions with image attachment
   const handleSupport = async () => {
     if (!leader?.leader_id) return;
@@ -957,16 +1075,16 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const shareToTwitter = async () => {
+    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
     await trackShare(leader?.leader_id, currentUserId, "twitter");
-    // Twitter/X requires the image to be specified via 'media' parameter or via OG tags.
-    // Since OG tags are already present, we just share the URL.
-    // For better preview, we encode the image URL as well.
+
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`;
     window.open(twitterIntentUrl, "_blank");
     setShowShareDropdown(false);
   };
 
   const shareToWhatsApp = async () => {
+    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
     await trackShare(leader?.leader_id, currentUserId, "whatsapp");
     // Remove the raw image URL from the text and let WhatsApp generate a preview from the canonical link
     const whatsappText = `${shareText}\n\nView Profile: ${canonicalUrl}`;
@@ -975,6 +1093,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const shareToFacebook = async () => {
+    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
     await trackShare(leader?.leader_id, currentUserId, "facebook");
     // Facebook relies on the URL to pull Open Graph metadata (including the image)
     const facebookIntentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`;
@@ -983,6 +1102,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const shareToLinkedIn = async () => {
+    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
     await trackShare(leader?.leader_id, currentUserId, "linkedin");
     // LinkedIn shares the URL with OG tags. We can also add a summary with image.
     const linkedInIntentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}`;
@@ -992,11 +1112,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const handleCopyLink = async () => {
     try {
-      // Create rich text for clipboard without the raw image URL to keep it clean
+      //  rich text for clipboard without the raw image URL to keep it clean
       const htmlContent = `<div><img src="${shareImageUrl}" width="400" style="border-radius:12px; margin-bottom:10px;" /><br/><strong>${leader.name}</strong><br/>${shareText}<br/><a href="${canonicalUrl}">${canonicalUrl}</a></div>`;
       const textContent = `${shareText}\n\n${canonicalUrl}`;
 
-      // Use Clipboard API with both text and HTML for rich preview
+      // Clipboard API with both text and HTML for rich preview
       if (navigator.clipboard && window.ClipboardItem) {
         const clipboardItem = new ClipboardItem({
           'text/plain': new Blob([textContent], { type: 'text/plain' }),
@@ -1106,56 +1226,58 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </script>
       </Helmet>
 
-      <PageContainer>
-        <HeroSection>
-          <CoverImage $image={coverImage} />
-          <TopNav>
-            <IconButton onClick={onBack}>
-              <ArrowLeft size={20} />
-            </IconButton>
-          </TopNav>
-        </HeroSection>
+      <HeroSection>
+        <CoverImage $image={coverImage} />
+        <TopNav>
+          <IconButton onClick={onBack}>
+            <ArrowLeft size={20} />
+          </IconButton>
+        </TopNav>
+      </HeroSection>
 
-        <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
-          <div style={{ position: "relative" }} ref={dropdownRef}>
-            <ShareButton onMouseDown={(e) => { e.stopPropagation(); setShowShareDropdown(!showShareDropdown); }}>
-              <div className="share-icon"><Share2 size={18} /></div>
-              <div className="share-text">Share</div>
-            </ShareButton>
-            {showShareDropdown && (
-              <ShareDropdown>
-                <ShareIconRow onClick={shareToTwitter}><Twitter size={18} /> Twitter</ShareIconRow>
-                <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={18} /> WhatsApp</ShareIconRow>
-                <ShareIconRow onClick={shareToFacebook}><Facebook size={18} /> Facebook</ShareIconRow>
-                <ShareIconRow onClick={shareToLinkedIn}><Linkedin size={18} /> LinkedIn</ShareIconRow>
-                <ShareIconRow onClick={handleCopyLink}><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
-              </ShareDropdown>
-            )}
-          </div>
-          <BoostButton onMouseDown={() => setShowBoostModal(true)}>
-            <div className="boost-icon"><TrendingUp size={18} /></div>
-            <div className="boost-text">Boost</div>
-          </BoostButton>
-          <VerifiedBadge $verified={isVerified}>
-            <div className="verified-icon">{isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}</div>
-            <div className="verified-text">{isVerified ? "Verified" : "Pending"}</div>
-          </VerifiedBadge>
-        </SideActions>
+      <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
+        <div style={{ position: "relative" }} ref={dropdownRef}>
+          <ShareButton onMouseDown={(e) => { e.stopPropagation(); setShowShareDropdown(!showShareDropdown); }}>
+            <div className="share-icon"><Share2 size={18} /></div>
+            <div className="share-text">Share</div>
+          </ShareButton>
+          {showShareDropdown && (
+            <ShareDropdown>
+              <ShareIconRow onClick={shareToTwitter}><Twitter size={18} /> Twitter</ShareIconRow>
+              <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={18} /> WhatsApp</ShareIconRow>
+              <ShareIconRow onClick={shareToFacebook}><Facebook size={18} /> Facebook</ShareIconRow>
+              <ShareIconRow onClick={shareToLinkedIn}><Linkedin size={18} /> LinkedIn</ShareIconRow>
+              <ShareIconRow onClick={handleCopyLink}><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
+            </ShareDropdown>
+          )}
+        </div>
+        <BoostButton onMouseDown={() => setShowBoostModal(true)}>
+          <div className="boost-icon"><TrendingUp size={18} /></div>
+          <div className="boost-text">Boost</div>
+        </BoostButton>
+        <VerifiedBadge $verified={isVerified}>
+          <div className="verified-icon">{isVerified ? <CheckCircle size={18} /> : <AlertCircle size={18} />}</div>
+          <div className="verified-text">{isVerified ? "Verified" : "Pending"}</div>
+        </VerifiedBadge>
+      </SideActions>
 
-        <AddStoryButton onMouseDown={handleAddStory} $visible={addButtonVisible}>
-          <Plus size={22} color="white" />
-        </AddStoryButton>
+      <AddStoryButton onMouseDown={handleAddStory} $visible={addButtonVisible}>
+        <Plus size={18} color="white" />
+        Endorse Me
+      </AddStoryButton>
 
-        <ProfileCard>
-          <ProfileTopRow>
-            <AvatarWrapper>
-              <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
-              <VerifiedIcon $verified={isVerified}>
-                {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
-              </VerifiedIcon>
-            </AvatarWrapper>
+      <ProfileCard>
+        <ProfileTopRow>
+          <AvatarWrapper>
+            <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
+            <VerifiedIcon $verified={isVerified}>
+              {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
+            </VerifiedIcon>
+          </AvatarWrapper>
 
-            {competitors.length > 0 && (
+          {competitors.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <CompetitorsTitle>Competitors</CompetitorsTitle>
               <CompetitorsRowContainer>
                 {competitors.map((competitor, idx) => {
                   const competitorImg = getLeaderImage(competitor);
@@ -1186,135 +1308,161 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                   );
                 })}
               </CompetitorsRowContainer>
-            )}
-          </ProfileTopRow>
+            </div>
+          )}
+        </ProfileTopRow>
 
-          <InfoSection>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Name>
-                  {leader.name}
-                  {leader.party && <PartyNameText>{leader.party}</PartyNameText>}
-                  <VerifyBadge $status={leader.verification_status}>
-                    {leader.verification_status === "verified" ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
-                    {leader.verification_status === "verified" ? "Verified" : "Pending"}
-                  </VerifyBadge>
-                </Name>
-                <PositionText>{leader.position || "Leader"}</PositionText>
+        <InfoSection>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <Name>
+                {leader.name}
+                {leader.party && <PartyNameText>{leader.party}</PartyNameText>}
+                <VerifyBadge $status={leader.verification_status}>
+                  {leader.verification_status === "verified" ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
+                  {leader.verification_status === "verified" ? "Verified" : "Pending"}
+                </VerifyBadge>
+              </Name>
+              <PositionText>{leader.position || "Leader"}</PositionText>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.07)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <EyeIcon size={14} color="#60a5fa" />
+                <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: '700', letterSpacing: '0.3px' }}>{formatNumber(viewsCount)}</span>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '600', textTransform: 'uppercase' }}>views</span>
               </div>
-
               <SupportButton $active={isSupporting} onClick={handleSupport}>
                 <Heart size={16} fill={isSupporting ? "white" : "none"} />
-                SUPPORT
-                <span className="count">{formatNumber(supportCount)}</span>
+                {isSupporting ? "✓ JOINED" : `JOIN ${leader.name.split(" ")[0].toUpperCase()}`}
+                <span className="count"><Users size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />{formatNumber(supportCount)}</span>
               </SupportButton>
             </div>
-          </InfoSection>
+          </div>
+        </InfoSection>
 
-          {showSharePrompt && (
-            <ModalOverlay onClick={() => setShowSharePrompt(false)}>
-              <SharePromptModal onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => setShowSharePrompt(false)}
-                  style={{
-                    position: 'absolute',
-                    top: 24,
-                    right: 24,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: 'none',
-                    color: 'white',
-                    cursor: 'pointer',
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <X size={18} />
-                </button>
-
-                <div style={{
-                  width: 80,
-                  height: 80,
-                  background: 'rgba(16, 185, 129, 0.1)',
+        {showSharePrompt && (
+          <ModalOverlay onClick={() => setShowSharePrompt(false)}>
+            <SharePromptModal onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowSharePrompt(false)}
+                style={{
+                  position: 'absolute',
+                  top: 24,
+                  right: 24,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  width: 32,
+                  height: 32,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 8px'
-                }}>
-                  <Heart size={40} color="#10b981" fill="#10b981" />
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={18} />
+              </button>
+
+              <div style={{
+                width: 80,
+                height: 80,
+                background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 8px',
+                border: '2px solid rgba(239,68,68,0.3)'
+              }}>
+                <Heart size={40} color="#ef4444" fill="#ef4444" />
+              </div>
+
+              <h3>🗳️ You're In!</h3>
+              <p>Every share wins votes. Send {leader.name}'s profile to your contacts right now — your support can change the result!</p>
+
+              <div className="share-grid">
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 56, height: 56 }}>
+                    <Twitter size={24} />
+                  </SocialIconButton>
+                  <span>Post on X</span>
                 </div>
-
-                <h3>Amazing!</h3>
-                <p>You're now a supporter of {leader.name}. Help them win by sharing their campaign profile!</p>
-
-                <div className="share-grid">
-                  <div className="social-item">
-                    <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 56, height: 56 }}>
-                      <Twitter size={24} />
-                    </SocialIconButton>
-                    <span>Twitter</span>
-                  </div>
-                  <div className="social-item">
-                    <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 56, height: 56 }}>
-                      <MessageCircle size={24} />
-                    </SocialIconButton>
-                    <span>WhatsApp</span>
-                  </div>
-                  <div className="social-item">
-                    <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 56, height: 56 }}>
-                      <Facebook size={24} />
-                    </SocialIconButton>
-                    <span>Facebook</span>
-                  </div>
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 56, height: 56 }}>
+                    <MessageCircle size={24} />
+                  </SocialIconButton>
+                  <span>WhatsApp</span>
                 </div>
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 56, height: 56 }}>
+                    <Facebook size={24} />
+                  </SocialIconButton>
+                  <span>Facebook</span>
+                </div>
+              </div>
 
-                <Button
-                  onClick={() => setShowSharePrompt(false)}
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    color: '#94a3b8',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: '16px',
-                    fontSize: '14px',
-                    letterSpacing: '1px'
-                  }}
-                >
-                  MAYBE LATER
-                </Button>
-              </SharePromptModal>
-            </ModalOverlay>
-          )}
-        </ProfileCard>
-
-        <ContentArea>
-          {boostedStories && boostedStories.length > 0 && (
-            <>
-              <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-              <Divider />
-            </>
-          )}
-          <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-        </ContentArea>
-
-        <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
-        <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
-          setToastMessage("Story posted successfully!");
-          setTimeout(() => setToastMessage(null), 3000);
-          fetchBoostedStories();
-        }} />
-
-        {toastMessage && (
-          <Toast>
-            <Sparkles size={14} /> {toastMessage}
-          </Toast>
+              <Button
+                onClick={handleCopyLink}
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: 'white',
+                  border: 'none',
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '16px',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  letterSpacing: '1px',
+                  boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
+                  marginBottom: '10px'
+                }}
+              >
+                📋 COPY & SHARE LINK
+              </Button>
+              <Button
+                onClick={() => setShowSharePrompt(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#94a3b8',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '16px',
+                  fontSize: '12px',
+                  letterSpacing: '1px'
+                }}
+              >
+                Maybe Later
+              </Button>
+            </SharePromptModal>
+          </ModalOverlay>
         )}
-      </PageContainer>
+      </ProfileCard>
+
+      <ContentArea>
+        {boostedStories && boostedStories.length > 0 && (
+          <>
+            <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
+            <Divider />
+          </>
+        )}
+        <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
+      </ContentArea>
+
+      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
+      <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
+        setToastMessage("Story posted successfully!");
+        setTimeout(() => setToastMessage(null), 3000);
+        fetchBoostedStories();
+      }} />
+
+      {toastMessage && (
+        <Toast>
+          <Sparkles size={14} /> {toastMessage}
+        </Toast>
+      )}
     </>
   );
 });

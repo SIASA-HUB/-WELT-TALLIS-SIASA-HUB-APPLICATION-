@@ -16,14 +16,8 @@ const { uploadEndorsementMedia } = require("../utils/uploader/imageUploader");
 // STORY EXPIRATION RULES
 // ============================================
 const getExpirationHours = (boostPoints, totalBoostAmount) => {
-  const points = boostPoints || 0;
-  const amount = totalBoostAmount || 0;
-  const effectiveScore = Math.max(points, amount / 10);
-
-  if (effectiveScore >= 5000) return 30 * 24;
-  if (effectiveScore >= 1000) return 14 * 24;
-  if (effectiveScore >= 100) return 7 * 24;
-  if (effectiveScore > 0) return 3 * 24;
+  // STRICT 24 HOUR LIMIT (WhatsApp Style)
+  // We ignore boosts for longevity to keep stories fresh and ephemeral
   return 24;
 };
 
@@ -359,12 +353,14 @@ const getActiveStories = asyncHandler(async (req, res) => {
   const cacheKey = `leader:${leaderId}:active_stories:${limit}`;
 
   const data = await cacheManager.getOrSet(cacheKey, async () => {
+    // Strictly filter for stories from the last 24 hours
     const endorsements = await safeQuery(
       `SELECT id, user_id, user_name, amount, phrase, message, image_url, thumbnail_url,
               media_type, post_type, level, likes, views, shares, comments, 
               boost_count, total_boost_amount, created_at
        FROM endorsements 
        WHERE leader_id = ? AND status = 'active'
+         AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
        ORDER BY created_at DESC
        LIMIT ?`,
       [leaderId, limit]

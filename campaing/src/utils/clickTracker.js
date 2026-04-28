@@ -1,11 +1,12 @@
 import axios from 'axios';
+import API from '../api/config';
 
 /**
  * ClickTracker - Monitors and records user click interactions across the application
  */
 class ClickTracker {
   constructor() {
-    this.trackingEndpoint = '/api/v1/users/analytics/click';
+    this.trackingEndpoint = `${API.BASE}/users/analytics/click`;
     this.userId = null;
     this.isInitialized = false;
   }

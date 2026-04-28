@@ -1,4 +1,19 @@
 const express = require("express");
+const Logger = require("./src/utils/logger/logger");
+
+// Process error handlers
+process.on("uncaughtException", (error) => {
+  Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
+  const isConnectionError = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code);
+  if (!isConnectionError && !error.message.toLowerCase().includes('redis')) {
+    process.exit(1);
+  }
+});
+
+process.on("unhandledRejection", (reason) => {
+  Logger.error("🌀 UNHANDLED PROMISE REJECTION", { message: reason?.message || reason, stack: reason?.stack });
+});
+
 const helmet = require("helmet");
 const path = require("path");
 const dotenv = require("dotenv");
@@ -27,7 +42,6 @@ dotenv.config();
 // Import local modules
 const corsMiddleware = require("../global/middlewares/corsMiddleware");
 const { initDB, safeQuery } = require("./src/configurations/db");
-const Logger = require("./src/utils/logger/logger");
 const knexConfig = require("./knexfile");
 
 // Initialize knex

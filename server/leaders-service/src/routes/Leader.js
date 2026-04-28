@@ -22,6 +22,7 @@ const {
   getLeaderAnalyticsByCounty, getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard, getLeaderAnalyticsByPosition, getLeaderDashboardAnalytics,
   requestVerification, getCompetitors, getAllLeaders, getLeaderAdminStats,
+  getAllLeadersPublic, generateSitemap,
 } = require("../controllers/LeaderController");
 
 const {
@@ -85,7 +86,7 @@ router.get("/analytics/position", getLeaderAnalyticsByPosition);
 // INTERACTION & TRACKING ROUTES (NEW)
 // ============================================================
 
-router.post("/interact", authenticate, handleInteraction);
+router.post("/interact", optionalAuth, handleInteraction);
 router.get("/:leaderId/interaction-stats", getLeaderInteractionCounts);
 
 // Get detailed time analytics for a leader
@@ -131,9 +132,11 @@ router.delete("/manifestos/:manifestoId", verifyAspirantToken, deleteManifesto);
 // ============================================================
 // PUBLIC LEADER ROUTES
 // ============================================================
+router.get("/sitemap.xml", generateSitemap);
 router.get("/popular", getPopularLeaders);
 router.get("/profile/:slug", getLeaderBySlug);
 router.post("/backfill-slugs", backfillSlugs);
+router.get("/all", getAllLeadersPublic);
 router.get("/", getPersonalizedFeed);
 
 // ============================================================

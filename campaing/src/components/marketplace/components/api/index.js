@@ -36,10 +36,27 @@ const normalizeProduct = (product) => {
 };
 
 const extractData = (response) => {
-  const data = response?.data ?? response;
-  if (Array.isArray(data)) return data.map(normalizeProduct);
-  if (data && typeof data === "object") return normalizeProduct(data);
-  return [];
+  const raw = response?.data ?? response;
+  
+  // Case 1: Paginated response { data: [], pagination: {} }
+  if (raw && Array.isArray(raw.data)) {
+    return {
+      data: raw.data.map(normalizeProduct),
+      pagination: raw.pagination || {}
+    };
+  }
+
+  // Case 2: Direct array [...]
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeProduct);
+  }
+
+  // Case 3: Single object {...}
+  if (raw && typeof raw === "object" && (raw.id || raw._id)) {
+    return normalizeProduct(raw);
+  }
+
+  return raw;
 };
 
 // ============================================

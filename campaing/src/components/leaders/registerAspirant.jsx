@@ -43,6 +43,11 @@ const slideIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const vibratePulse = keyframes`
+  0%, 100% { box-shadow: 0 6px 24px rgba(187, 0, 0, 0.45), 0 0 0 0 rgba(187, 0, 0, 0.35); }
+  50% { box-shadow: 0 8px 32px rgba(187, 0, 0, 0.65), 0 0 0 10px rgba(187, 0, 0, 0); }
+`;
+
 const PageWrapper = styled.div`
   background: #f8fafc;
   min-height: 100vh;
@@ -239,6 +244,43 @@ const PrimaryButton = styled.button`
   }
 `;
 
+const VibrantSubmitButton = styled.button`
+  flex: 1;
+  padding: 18px;
+  background: linear-gradient(135deg, #bb0000 0%, #e11d48 50%, #bb0000 100%);
+  background-size: 200% 100%;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-weight: 900;
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  letter-spacing: 0.5px;
+  animation: ${vibratePulse} 2s ease-in-out infinite;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
+    background-position: right center;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    animation: none;
+    box-shadow: none;
+  }
+`;
+
 const SecondaryButton = styled.button`
   padding: 16px 24px;
   background: white;
@@ -366,6 +408,7 @@ const RegisterAspirant = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
     password: "",
     party: "",
     slogan: "",
@@ -454,6 +497,7 @@ const RegisterAspirant = () => {
     try {
       const submitData = new FormData();
       submitData.append("name", formData.name.trim());
+      if (formData.email) submitData.append("email", formData.email.trim());
       submitData.append("password", formData.password);
       if (formData.party) submitData.append("party", formData.party.trim());
       if (formData.slogan) submitData.append("slogan", formData.slogan.trim());
@@ -620,6 +664,19 @@ const RegisterAspirant = () => {
                   </div>
                 </Grid>
 
+                <Label>Email Address (For Login & Notifications)</Label>
+                <InputWrapper>
+                  <InputIcon><LogIn size={18} /></InputIcon>
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="aspirant@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    hasIcon
+                  />
+                </InputWrapper>
+
                 <Label>Campaign Slogan</Label>
                 <InputWrapper>
                   <InputIcon><Type size={18} /></InputIcon>
@@ -782,14 +839,14 @@ const RegisterAspirant = () => {
                 Next Step <ChevronRight size={20} />
               </PrimaryButton>
             ) : (
-              <PrimaryButton
+              <VibrantSubmitButton
                 type="button"
                 onClick={handleFinalSubmit}
                 disabled={loading}
               >
-                {loading ? "Finalizing Profile..." : "Complete Registration"}
+                {loading ? "🔄 Finalizing Profile..." : "🚀 Complete Registration"}
                 {!loading && <CheckCircle size={20} />}
-              </PrimaryButton>
+              </VibrantSubmitButton>
             )}
           </ButtonContainer>
         </div>

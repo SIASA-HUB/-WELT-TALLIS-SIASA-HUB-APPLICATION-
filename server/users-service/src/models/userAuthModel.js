@@ -12,7 +12,7 @@ class UserAuthModel {
   static async findUserForAuth(identifier) {
     if (!identifier) return null;
 
-    console.log(`🔍 Looking for user with identifier: ${identifier}`);
+    console.log(` Looking for user with identifier: ${identifier}`);
 
     return await safeQueryOne(
       `SELECT 

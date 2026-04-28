@@ -399,10 +399,10 @@ const LeaderFooter = ({ leader, stats }) => {
                   <div className="stat-label">Endorsements</div>
                 </StatItem>
               )}
-              {viewsCount > 0 && (
+              {endorsementsCount > 0 && (
                 <StatItem>
-                  <div className="stat-value">{formatNumber(viewsCount)}</div>
-                  <div className="stat-label">Profile Views</div>
+                  <div className="stat-value">{formatNumber(endorsementsCount)}</div>
+                  <div className="stat-label">Endorsements</div>
                 </StatItem>
               )}
             </StatsRow>

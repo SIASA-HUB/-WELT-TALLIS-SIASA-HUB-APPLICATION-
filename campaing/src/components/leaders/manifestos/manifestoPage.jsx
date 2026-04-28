@@ -29,6 +29,18 @@ const slideUp = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const pulse = keyframes`
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+`;
+
+const pulseGlow = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+`;
+
 const Page = styled.div`
   background: ${KENYA.black};
   width: 100%;
@@ -112,6 +124,59 @@ const CategoryLabel = styled.span`
   letter-spacing: 1px;
 `;
 
+const StatusBadgeGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const VoteBadge = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  transition: all 0.3s ease;
+
+  svg {
+    color: ${KENYA.green};
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: ${KENYA.green};
+  }
+`;
+
+const ActiveBadge = styled.div`
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  color: ${KENYA.green};
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: ${pulseGlow} 2s infinite;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    background: ${KENYA.green};
+    border-radius: 50%;
+    animation: ${pulse} 1.5s infinite;
+  }
+`;
+
 const ArticleTitle = styled.h2`
   font-family: "Playfair Display", serif;
   font-size: 32px;
@@ -149,16 +214,9 @@ const ImpactBarContainer = styled.div`
   display: flex;
 `;
 
-const SupportProgress = styled.div`
+const EngagementProgress = styled.div`
   height: 100%;
   background: ${KENYA.green};
-  width: ${(props) => props.$percent}%;
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-`;
-
-const RejectProgress = styled.div`
-  height: 100%;
-  background: ${KENYA.red};
   width: ${(props) => props.$percent}%;
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 `;
@@ -172,15 +230,15 @@ const VoteStats = styled.div`
   padding: 12px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 
-  .sup {
+  .likes {
     color: ${KENYA.green};
     display: flex;
     flex-direction: column;
     gap: 4px;
     span { font-size: 10px; opacity: 0.6; }
   }
-  .rej {
-    color: ${KENYA.red};
+  .engagement {
+    color: ${KENYA.muted};
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -263,7 +321,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
 
   const userId = useMemo(() => {
     if (user?.user_id || user?.id) return user.user_id || user.id;
-    
+
     let anonId = localStorage.getItem("siasa_anon_id");
     if (!anonId) {
       anonId = `anon_${Math.random().toString(36).substring(2, 11)}_${Date.now().toString(36)}`;
@@ -354,7 +412,7 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
             // Track specifically that a manifesto was viewed
             api.post(`/leaders/manifestos/${manifestoId}/view`, {
               user_id: userId
-            }).catch(() => {});
+            }).catch(() => { });
 
             try {
               const statsResponse = await api.get(`/leaders/manifestos/${manifestoId}/stats`);
@@ -433,21 +491,15 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
           let newStats = { ...currentStats };
 
           // Remove previous vote if exists
-          if (previousVote === 'approve') {
+          if (previousVote === 'like') {
             newStats.approve_count = Math.max(0, (newStats.approve_count || 0) - 1);
-            newStats.total_votes = Math.max(0, (newStats.total_votes || 0) - 1);
-          } else if (previousVote === 'reject') {
-            newStats.reject_count = Math.max(0, (newStats.reject_count || 0) - 1);
             newStats.total_votes = Math.max(0, (newStats.total_votes || 0) - 1);
           }
 
           // Add new vote if not toggling off
           if (previousVote !== voteType) {
-            if (voteType === 'approve') {
+            if (voteType === 'like') {
               newStats.approve_count = (newStats.approve_count || 0) + 1;
-              newStats.total_votes = (newStats.total_votes || 0) + 1;
-            } else if (voteType === 'reject') {
-              newStats.reject_count = (newStats.reject_count || 0) + 1;
               newStats.total_votes = (newStats.total_votes || 0) + 1;
             }
           }
@@ -499,12 +551,11 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
     const rejects = stats?.reject_count || 0;
 
     if (total === 0) {
-      return { support: 0, reject: 0 };
+      return { engagement: 0 };
     }
 
     return {
-      support: ((approves / total) * 100).toFixed(1),
-      reject: ((rejects / total) * 100).toFixed(1),
+      engagement: ((approves / total) * 100).toFixed(1),
     };
   };
 
@@ -582,64 +633,49 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
                 >
                   AGENDA {index + 1}
                 </CategoryLabel>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "15px",
-                    color: KENYA.muted,
-                    fontSize: "11px",
-                  }}
-                >
-                  <span>
-                    <Eye size={12} />{" "}
+                <StatusBadgeGroup>
+                  <VoteBadge>
+                    <ThumbsUp size={12} />
                     {formatNumber(item.stats?.total_votes || 0)} Votes
-                  </span>
-                  <span>
-                    <TrendingUp size={12} /> Active
-                  </span>
-                </div>
+                  </VoteBadge>
+                  <ActiveBadge>
+                    <div className="dot" />
+                    Active
+                  </ActiveBadge>
+                </StatusBadgeGroup>
               </CategoryRow>
 
               <ArticleTitle>{item.title}</ArticleTitle>
               <ArticleContent>{item.description}</ArticleContent>
 
               <VoteStats>
-                <div className="sup">
-                   <div>{stats.support}% APPROVAL</div>
-                   <span>{item.stats?.approve_count || 0} Citizens Agree</span>
+                <div className="likes">
+                  <div>{item.stats?.approve_count || 0} LIKES</div>
+                  <span>Citizens who agree with this agenda</span>
                 </div>
-                <div className="rej">
-                   <div>{stats.reject}% REJECTION</div>
-                   <span>{item.stats?.reject_count || 0} Citizens Disagree</span>
+                <div className="engagement">
+                  <div>{stats.engagement}% ENGAGEMENT</div>
+                  <span>Public resonance score</span>
                 </div>
               </VoteStats>
 
               <ImpactBarContainer>
-                <SupportProgress $percent={stats.support} />
-                <RejectProgress $percent={stats.reject} />
+                <EngagementProgress $percent={stats.engagement} />
               </ImpactBarContainer>
 
               <div style={{ fontSize: '10px', color: KENYA.muted, marginBottom: '20px', textAlign: 'center', letterSpacing: '1px' }}>
-                TOTAL ENGAGEMENT: {formatNumber(item.stats?.total_votes || 0)} VOTES
+                TOTAL ENGAGEMENT: {formatNumber(item.stats?.total_votes || 0)} INTERACTIONS
               </div>
 
               <InteractionBar>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <IconButton
                     $color={KENYA.green}
-                    $active={currentVote === "approve"}
-                    onClick={() => handleVote(item, "approve")}
+                    $active={currentVote === "like"}
+                    onClick={() => handleVote(item, "like")}
                     disabled={voting[voteKey]}
                   >
-                    <ThumbsUp size={14} /> APPROVE
-                  </IconButton>
-                  <IconButton
-                    $color={KENYA.red}
-                    $active={currentVote === "reject"}
-                    onClick={() => handleVote(item, "reject")}
-                    disabled={voting[voteKey]}
-                  >
-                    <ThumbsDown size={14} /> REJECT
+                    <ThumbsUp size={14} /> LIKE AGENDA
                   </IconButton>
                 </div>
               </InteractionBar>

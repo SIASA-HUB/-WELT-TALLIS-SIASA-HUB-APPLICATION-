@@ -35,19 +35,19 @@ const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 24px;
-  border-bottom: 1px solid #eef2f6;
+  padding: 24px 32px;
+  border-bottom: 1px solid #f1f5f9;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
 
   h3 {
     margin: 0;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 800;
     color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 `;
 
@@ -62,10 +62,10 @@ const StatGrid = styled.div`
 `;
 
 const StatCard = styled.div`
-  padding: 24px 16px;
+  padding: 32px 24px;
   text-align: center;
-  border-right: 1px solid #eef2f6;
-  border-bottom: 1px solid #eef2f6;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
   transition: all 0.2s;
 
   &:nth-child(4n) {
@@ -73,32 +73,35 @@ const StatCard = styled.div`
   }
 
   .value {
-    font-size: 32px;
-    font-weight: 800;
+    font-size: 36px;
+    font-weight: 900;
     color: #0f172a;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
+    letter-spacing: -1px;
   }
 
   .label {
-    font-size: 13px;
+    font-size: 14px;
     color: #475569;
-    font-weight: 500;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .trend {
-    font-size: 12px;
-    margin-top: 8px;
-    font-weight: 600;
+    font-size: 13px;
+    margin-top: 12px;
+    font-weight: 700;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: #f1f5f9;
-    padding: 2px 8px;
-    border-radius: 20px;
+    gap: 6px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 100px;
   }
 
-  .trend.up { color: #10b981; }
-  .trend.down { color: #ef4444; }
+  .trend.up { color: #10b981; border: 1px solid #dcfce7; }
+  .trend.down { color: #ef4444; border: 1px solid #fee2e2; }
 `;
 
 const TwoColumnGrid = styled.div`
@@ -136,33 +139,36 @@ const StatRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: 14px;
 
   .label {
     color: #475569;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    font-weight: 600;
   }
 
   .value {
-    font-weight: 700;
+    font-weight: 800;
     color: #0f172a;
+    min-width: 40px;
+    text-align: right;
   }
 
   .bar {
     flex: 1;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    margin: 0 16px;
+    height: 10px;
+    background: #f1f5f9;
+    border-radius: 100px;
+    margin: 0 20px;
     overflow: hidden;
 
     div {
       height: 100%;
-      background: #e11d48;
-      border-radius: 4px;
-      transition: width 0.3s;
+      background: linear-gradient(90deg, #e11d48, #fb7185);
+      border-radius: 100px;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
 `;
@@ -202,23 +208,34 @@ const KpiRow = styled.div`
 `;
 
 const KpiCard = styled.div`
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 16px 20px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 24px 32px;
   flex: 1;
-  min-width: 140px;
+  min-width: 180px;
   text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
+  }
 
   .kpi-value {
-    font-size: 28px;
-    font-weight: 800;
-    color: #0f172a;
+    font-size: 32px;
+    font-weight: 900;
+    color: #1e3c72;
+    margin-bottom: 4px;
   }
 
   .kpi-label {
-    font-size: 12px;
-    color: #475569;
-    margin-top: 4px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 `;
 

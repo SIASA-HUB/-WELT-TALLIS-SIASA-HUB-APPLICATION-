@@ -779,7 +779,7 @@ class UserModel {
   }
 
   static isValidAgeBracket(bracket) {
-    const validBrackets = ["18-30", "31-40", "41-50", "51-60", "61+"];
+    const validBrackets = ["18-30", "31-40", "41-50", "51-60", "61+", "Prefer not to say"];
     return validBrackets.includes(bracket);
   }
 

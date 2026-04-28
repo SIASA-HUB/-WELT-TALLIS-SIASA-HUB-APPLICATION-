@@ -7,17 +7,19 @@ const redis = new Redis({
   host: process.env.REDIS_HOST || "127.0.0.1",
   port: parseInt(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
-  // Retry up to 3 times, then give up (don't crash)
+  // Fail fast if Redis is down to prevent latency spikes
   retryStrategy: (times) => {
-    if (times > 3) {
-      Logger.warn("⚠️ Redis: max retries reached. Caching disabled.");
-      return null; // Stop retrying
+    if (times >= 1) {
+      Logger.warn("⚠️ Redis unavailable: Falling back to database.");
+      return null; // Stop retrying after 1 failure
     }
-    return Math.min(times * 500, 2000);
+    return 100;
   },
-  maxRetriesPerRequest: 1,
+  connectTimeout: 2000, // 2 seconds max to connect
+  commandTimeout: 2000, // 2 seconds max per command
+  maxRetriesPerRequest: 0, // Fail immediately if not connected
   enableReadyCheck: false,
-  lazyConnect: false,
+  lazyConnect: true, // Don't block startup
 });
 
 redis.on("connect", () => Logger.info("🔌 Redis connecting..."));

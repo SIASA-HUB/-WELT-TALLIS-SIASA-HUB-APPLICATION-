@@ -20,10 +20,21 @@ const pulse = keyframes`
   100% { opacity: 0.6; }
 `;
 
-
 const shimmer = keyframes`
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+`;
+
+
+const pulseGlow = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+`;
+
+const slideIn = keyframes`
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
 `;
 
 const Sparkline = ({ data, width = 40, height = 20, color = "#22c55e" }) => {
@@ -187,11 +198,17 @@ const CardContent = styled.div`
 `;
 
 const RankBadge = styled.div`
-  font-size: 10px;
-  font-weight: 700;
-  color: ${(props) => (props.$top3 ? "#22c55e" : "rgba(255,255,255,0.2)")};
-  min-width: 20px;
-  font-family: monospace;
+  font-size: 11px;
+  font-weight: 800;
+  color: ${(props) => (props.$top3 ? "#22c55e" : "rgba(255,255,255,0.3)")};
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${(props) => (props.$top3 ? "rgba(34, 197, 94, 0.1)" : "transparent")};
+  border-radius: 50%;
+  font-family: 'Outfit', sans-serif;
 `;
 
 const Avatar = styled.div`
@@ -259,8 +276,9 @@ const ManifestoText = styled.div`
 
 const TrendWrapper = styled.div`
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   flex-shrink: 0;
   margin-left: 8px;
   
@@ -268,6 +286,54 @@ const TrendWrapper = styled.div`
     width: 14px;
     height: 14px;
     color: #22c55e;
+  }
+
+  .vote-badge {
+    font-size: 10px;
+    font-weight: 900;
+    color: #ffffff;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    animation: ${(props) => props.$isRising ? css`${pulseGlow} 2s infinite` : 'none'};
+  }
+
+  .vote-badge-new {
+    font-size: 10px;
+    font-weight: 900;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  .active-tag {
+    font-size: 8px;
+    font-weight: 900;
+    color: #10b981;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    
+    &::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: ${pulse} 1s infinite;
+    }
   }
 `;
 
@@ -565,9 +631,27 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
                   </LeaderName>
                   <ManifestoText>{displayText}</ManifestoText>
                 </Info>
-                <TrendWrapper>
-                  <TrendingUp className="trend-icon" />
-                  <Sparkline data={sparkData} width={36} height={16} color="#22c55e" />
+              <TrendWrapper>
+                  {(() => {
+                    const votes = m.total_votes || m.approve_count || m.vote_count || 0;
+                    const isRising = votes >= 5;
+                    return (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <TrendingUp className="trend-icon" style={{ color: isRising ? '#22c55e' : '#f59e0b' }} />
+                          <Sparkline
+                            data={isRising ? generateSparkData() : [10, 12, 11, 13, 14]}
+                            width={32} height={14}
+                            color={isRising ? '#22c55e' : '#f59e0b'}
+                          />
+                        </div>
+                        <span className={isRising ? 'vote-badge' : 'vote-badge-new'} $isRising={isRising}>
+                          {votes} {votes === 1 ? 'Vote' : 'Votes'}
+                        </span>
+                        {votes > 0 && <span className="active-tag">Active</span>}
+                      </>
+                    );
+                  })()}
                 </TrendWrapper>
                 <ActionIcon className="action-icon">
                   <ChevronRight size={14} />

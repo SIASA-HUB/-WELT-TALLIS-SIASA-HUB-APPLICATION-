@@ -13,6 +13,9 @@ import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 import theme from "./utils/theme";
 import NavMenu from "./utils/navMenu";
 import { clickTracker } from "./utils/clickTracker";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { CartProvider } from "./components/marketplace/context/CartContext";
 
 // --- Lazy Loaded Components ---
 const LandingPage = lazy(() => import("./components/home/Home"));
@@ -92,31 +95,9 @@ const ScrollToTop = () => {
 };
 
 // ============================================================
-// AUTHENTICATION HELPERS (Isolated buckets)
-// ============================================================
-const getStoredUser = () => {
-  try {
-    const userData = localStorage.getItem("user_data");
-    return userData ? JSON.parse(userData) : null;
-  } catch { return null; }
-};
-
-const getStoredLeader = () => {
-  try {
-    const leaderData = localStorage.getItem("leaderData");
-    return leaderData ? JSON.parse(leaderData) : null;
-  } catch { return null; }
-};
-
-const isAspirantAuthenticated = () => {
-  return localStorage.getItem("leaderToken") !== null && getStoredLeader() !== null;
-};
-
-// ============================================================
 // PROTECTED ROUTE – Supports both Citizens and Aspirants
 // ============================================================
 import { useAuth } from "./components/hooks/useAuth.jsx";
-
 const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
   const { isAuthenticated, isLeaderAuthenticated, hasRole, isLoading } = useAuth();
 
@@ -124,9 +105,13 @@ const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
     return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
   }
 
-  // 1. Basic Auth Check
-  if (!isAuthenticated && !isLeaderAuthenticated) {
-    return <Navigate to={redirectTo} replace />;
+  // UPDATED LOGIC: Allow if EITHER standard user OR leader is authenticated
+  const isAnyAuth = isAuthenticated || isLeaderAuthenticated;
+
+  if (!isAnyAuth) {
+    // If they are trying to access aspirant areas, send them to aspirant login
+    const isAspirantRoute = window.location.pathname.includes("aspirant");
+    return <Navigate to={isAspirantRoute ? "/login-aspirant" : redirectTo} replace />;
   }
 
   // 2. Role Authorization Check
@@ -137,28 +122,24 @@ const ProtectedRoute = ({ children, requiredRole, redirectTo = "/login" }) => {
   return children;
 };
 
-// Universal Profile Redirector
 const ProfileRedirect = () => {
   const { isLeaderAuthenticated, isAdmin, isMarketAdmin, isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
-  
-  // If authenticated, go to respective dashboards
-  // Admin takes priority
-  if (isAdmin() || isMarketAdmin()) return <Navigate to="/marketplace-admin" replace />;
-  if (isLeaderAuthenticated) return <Navigate to="/aspirant-dashboard" replace />;
-  if (isAuthenticated) return <ProfilePage />;
-  
-  // If not authenticated, decide which login page to show
-  // We can check if they were previously an aspirant by looking for a hint in localStorage
-  const wasAspirant = localStorage.getItem("was_aspirant") === "true";
-  if (wasAspirant) {
-    return <Navigate to="/login-aspirant" replace />;
-  }
-  
-  return <Navigate to="/login" replace />;
-};
 
+  if (isLoading) return <LoadingSpinner><div className="spinner" /></LoadingSpinner>;
+
+  // Admin and Market Admin check
+  if (isAdmin() || isMarketAdmin()) return <Navigate to="/marketplace-admin" replace />;
+
+  // Leader check - if they are a leader, they MUST go to the dashboard
+  if (isLeaderAuthenticated) return <Navigate to="/aspirant-dashboard" replace />;
+
+  // Standard user check
+  if (isAuthenticated) return <ProfilePage />;
+
+  // Fallback if not logged in at all
+  const wasAspirant = localStorage.getItem("was_aspirant") === "true";
+  return <Navigate to={wasAspirant ? "/login-aspirant" : "/login"} replace />;
+};
 // ============================================================
 // MAIN APP COMPONENT
 // ============================================================
@@ -169,11 +150,14 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        <GlobalStyle />
-        <ScrollToTop />
-        <AppLayout />
-      </Router>
+      <CartProvider>
+        <Router>
+          <GlobalStyle />
+          <ToastContainer position="top-right" autoClose={3000} theme="dark" />
+          <ScrollToTop />
+          <AppLayout />
+        </Router>
+      </CartProvider>
     </ThemeProvider>
   );
 };
@@ -278,6 +262,10 @@ const AppLayout = () => {
             } />
 
             {/* ===== SEO LEADER ROUTES ===== */}
+            {/* Deep location-based routes for maximum SEO (e.g. /leaders/nairobi/dagoretti-north/kilimani/john-doe) */}
+            <Route path="/leaders/:county/:constituency/:ward/:slug" element={<LeaderInsightPage />} />
+            <Route path="/leaders/:county/:constituency/:slug" element={<LeaderInsightPage />} />
+            <Route path="/leaders/:county/:slug" element={<LeaderInsightPage />} />
             <Route path="/leader/:slug" element={<LeaderInsightPage />} />
             <Route path="/aspirants/:slug" element={<LeaderInsightPage />} />
             <Route path="/leaders/:id" element={<LeaderInsightPage />} />
@@ -287,7 +275,7 @@ const AppLayout = () => {
             <Route path="/county/:county" element={<LeadersPage />} />
 
             {/* ===== LEGACY LOCATION-BASED SEO ROUTES ===== */}
-            {/* These must come LAST before 404 */}
+            {/* These must come LAST before 404 to avoid catching /leaders/... */}
             <Route path="/:county/:constituency/:ward" element={<LeadersPage />} />
             <Route path="/:county/:constituency" element={<LeadersPage />} />
             <Route path="/:county" element={<LeadersPage />} />

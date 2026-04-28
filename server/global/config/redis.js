@@ -8,21 +8,31 @@ const redis = new Redis({
   port: process.env.REDIS_PORT || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   retryStrategy: (times) => {
-    // Exponential backoff with a cap of 3 seconds
-    const delay = Math.min(times * 100, 3000);
-    return delay;
+    // Cap at 5 retries — after that, disable cache silently
+    if (times > 5) {
+      Logger.warn("[Redis] Max retries reached. Running without cache.");
+      return null; // Stop reconnecting, don't crash
+    }
+    return Math.min(times * 200, 3000);
   },
-  maxRetriesPerRequest: null, // Allow retryStrategy to handle reconnections
-  enableOfflineQueue: false, // Critical: don't queue commands when redis is down
+  maxRetriesPerRequest: 1,
+  enableOfflineQueue: false,
+  enableReadyCheck: false,
   connectTimeout: 5000,
+  lazyConnect: true,
+});
+
+// Attempt connection lazily — failure is non-fatal
+redis.connect().catch(() => {
+  Logger.warn("[Redis] Initial connection failed — cache disabled.");
 });
 
 // Connection logging
-redis.on("connect", () => Logger.info("🔌 Redis connecting..."));
-redis.on("ready", () => Logger.info("✅ Redis connected and ready"));
-redis.on("error", (err) => Logger.error("❌ Redis error:", err.message));
-redis.on("close", () => Logger.warn("⚠️ Redis connection closed"));
-redis.on("reconnecting", () => Logger.info("🔄 Redis reconnecting..."));
+redis.on("connect", () => Logger.info("[Redis] Connecting..."));
+redis.on("ready", () => Logger.info("[Redis] Ready"));
+redis.on("error", (err) => Logger.warn(`[Redis] ${err.message}`));
+redis.on("close", () => Logger.warn("[Redis] Connection closed"));
+redis.on("reconnecting", () => Logger.info("[Redis] Reconnecting..."));
 
 // Simple wrapper functions for convenience (optional)
 const get = async (key) => {
@@ -37,14 +47,14 @@ const get = async (key) => {
 const set = async (key, value, ttlSeconds = null) => {
   const stringValue =
     typeof value === "object" ? JSON.stringify(value) : String(value);
-    
+
   if (ttlSeconds) {
     // Handle both number and object like { ttl: 300 }
     let finalTtl = typeof ttlSeconds === "object" ? (ttlSeconds.ttl || ttlSeconds.expiry) : ttlSeconds;
-    
+
     // Ensure it's a valid integer
     finalTtl = Math.floor(Number(finalTtl));
-    
+
     if (!isNaN(finalTtl) && finalTtl > 0) {
       return await redis.set(key, stringValue, "EX", finalTtl);
     }
@@ -76,10 +86,10 @@ const incr = async (key) => {
 
 module.exports = {
   redis,
-  get, 
-  set, 
-  del, 
-  exists, 
+  get,
+  set,
+  del,
+  exists,
   expire,
-  incr, 
+  incr,
 };

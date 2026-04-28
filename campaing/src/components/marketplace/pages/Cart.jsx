@@ -7,8 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import { Trash2, ShoppingCart, ArrowLeft, Minus, Plus, Truck, CreditCard, MapPin } from "lucide-react";
 import { useAuth } from "@/components/hooks/useAuth";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
+import { useCart } from "../context/CartContext";
 
 // ======================== STYLED COMPONENTS ========================
 const Container = styled.div`
@@ -294,6 +294,7 @@ const InputLabel = styled.label`
 const Cart = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { clearCart: clearContext, addToCart: addToContext, removeFromCart: removeFromContext } = useCart();
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(false);
   const [cartItems, setCartItems] = useState([]);
@@ -456,7 +457,6 @@ const Cart = () => {
   if (!isAuthenticated) {
     return (
       <Container>
-        <ToastContainer position="top-right" autoClose={3000} />
         <EmptyCart>
           <ShoppingCart size={64} color="#cbd5e1" />
           <EmptyTitle>Please log in</EmptyTitle>
@@ -473,7 +473,6 @@ const Cart = () => {
 
   return (
     <Container>
-      <ToastContainer position="top-right" autoClose={3000} />
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
           <Spinner animation="border" style={{ color: "#e11d48", width: "40px", height: "40px" }} />

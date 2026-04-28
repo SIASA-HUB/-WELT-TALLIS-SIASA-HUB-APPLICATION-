@@ -1,5 +1,20 @@
 const dotenv = require("dotenv");
 dotenv.config();
+const Logger = require("./src/utils/logger/logger");
+
+// Process error handlers
+process.on("uncaughtException", (error) => {
+  Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
+  const isConnectionError = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code);
+  if (!isConnectionError) {
+    process.exit(1);
+  }
+});
+
+process.on("unhandledRejection", (reason) => {
+  Logger.error("🌀 UNHANDLED PROMISE REJECTION", { message: reason?.message || reason, stack: reason?.stack });
+});
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -7,7 +22,6 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const { apiReference } = require("@scalar/express-api-reference");
-const Logger = require("./src/utils/logger/logger");
 const client = require("prom-client");
 
 // Prometheus Metrics Setup
@@ -229,17 +243,23 @@ app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
 // ============================================
 const SITE_URL = process.env.SITE_URL || "https://siasahub.co.ke";
 
-// Lightweight internal HTTP fetch helper (no axios needed)
-const fetchInternal = (url) => new Promise((resolve) => {
+// Lightweight internal HTTP fetch helper with timeout
+const fetchInternal = (url, timeoutMs = 5000) => new Promise((resolve) => {
   const http = require("http");
-  http.get(url, (res) => {
+  const request = http.get(url, (res) => {
     let data = "";
     res.on("data", chunk => { data += chunk; });
     res.on("end", () => {
       try { resolve(JSON.parse(data)); }
       catch { resolve(null); }
     });
-  }).on("error", () => resolve(null));
+  });
+
+  request.on("error", () => resolve(null));
+  request.setTimeout(timeoutMs, () => {
+    request.destroy();
+    resolve(null);
+  });
 });
 
 app.get("/sitemap.xml", async (req, res) => {
@@ -247,30 +267,32 @@ app.get("/sitemap.xml", async (req, res) => {
     let leaderUrls = [];
     let productUrls = [];
 
-    // Fetch leaders with slugs from leaders-service directly
+    // Fetch up to 5000 leaders with slugs and updated_at
     try {
-      const leadersData = await fetchInternal(`${SERVICES.leaders}/api/v1/leaders?limit=500`);
+      const leadersData = await fetchInternal(`${SERVICES.leaders}/api/v1/leaders/all?limit=5000`);
       const leaders = leadersData?.data || leadersData?.leaders || [];
       leaderUrls = leaders
         .filter(l => l.slug && l.slug.trim() !== '')
         .map(l => `
   <url>
     <loc>${SITE_URL}/leader/${l.slug}</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <lastmod>${l.updated_at ? l.updated_at.split('T')[0] : new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
   </url>`);
     } catch (_) { /* non-fatal */ }
 
-    // Fetch products with slugs from marketplace-service directly
+    // Fetch up to 5000 products with slugs
     try {
-      const productsData = await fetchInternal(`${SERVICES.marketplace}/api/v1/products?limit=500`);
+      const productsData = await fetchInternal(`${SERVICES.marketplace}/api/v1/products?limit=5000`);
       const products = productsData?.data || [];
       productUrls = products
         .filter(p => p.slug && p.slug.trim() !== '')
         .map(p => `
   <url>
     <loc>${SITE_URL}/product/${p.slug}</loc>
-    <changefreq>daily</changefreq>
+    <lastmod>${p.updated_at ? p.updated_at.split('T')[0] : new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>`);
     } catch (_) { /* non-fatal */ }
@@ -285,6 +307,7 @@ app.get("/sitemap.xml", async (req, res) => {
     ].map(({ url, priority, freq }) => `
   <url>
     <loc>${SITE_URL}${url}</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>${freq}</changefreq>
     <priority>${priority}</priority>
   </url>`);

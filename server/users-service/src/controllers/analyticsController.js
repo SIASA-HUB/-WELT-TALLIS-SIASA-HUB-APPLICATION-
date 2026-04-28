@@ -20,18 +20,27 @@ const trackClick = asyncHandler(async (req, res) => {
   const ip = req.ip;
 
   try {
+    // Sanitize inputs to ensure they are strings or null
+    const clean_id = element_id ? String(element_id).substring(0, 100) : null;
+    const clean_class = element_class ? String(element_class).substring(0, 255) : null;
+    const clean_tag = element_tag ? String(element_tag).substring(0, 50) : null;
+    const clean_url = page_url ? String(page_url).substring(0, 255) : null;
+    const clean_text = text_content ? String(text_content).substring(0, 255) : null;
+    const clean_user = user_id ? String(user_id).substring(0, 50) : null;
+    const clean_ip = ip ? String(ip).substring(0, 45) : "0.0.0.0";
+
     await safeQuery(
       `INSERT INTO app_clicks (
         element_id, element_class, element_tag, page_url, text_content, user_id, ip_address, clicked_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        element_id || null, 
-        element_class || null, 
-        element_tag || null, 
-        page_url || null, 
-        text_content || null, 
-        user_id || null, 
-        ip
+        clean_id,
+        clean_class,
+        clean_tag,
+        clean_url,
+        clean_text,
+        clean_user,
+        clean_ip
       ]
     );
 

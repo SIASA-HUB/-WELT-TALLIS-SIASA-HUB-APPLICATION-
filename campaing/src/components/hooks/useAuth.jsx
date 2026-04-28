@@ -87,6 +87,34 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * NEW: setLeaderSession
+   * Manually pushes leader data into state immediately after login
+   * to avoid the "refresh to see dashboard" issue.
+   */
+  const setLeaderSession = useCallback((authData) => {
+    if (!authData) return;
+
+    // Support various response structures (data.leader or direct data)
+    const leaderObj = authData.leader || authData.data || authData;
+    const token = authData.token || authData.accessToken;
+
+    // 1. Update State synchronously
+    setLeader(leaderObj);
+    setIsLeaderAuthenticated(true);
+    setIsLoading(false);
+
+    // 2. Persist to Storage
+    if (token) localStorage.setItem("leaderToken", token);
+    localStorage.setItem("leaderData", JSON.stringify(leaderObj));
+    if (leaderObj.leader_id) {
+      localStorage.setItem("currentLeaderId", leaderObj.leader_id);
+    }
+
+    // 3. Mark check as done to prevent fetchLeader from overriding this immediately
+    authCheckDoneRef.current = true;
+  }, []);
+
   const fetchCsrfToken = useCallback(async () => {
     const token = getStoredToken();
     if (!token) return null;
@@ -118,14 +146,11 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       if (error?.response?.status === 401) {
-        // Do NOT clearAuthData here – let the refresh logic in checkAuthStatus handle it
         console.log("[AUTH] /me returned 401, checkAuthStatus will attempt refresh");
         setIsAuthenticated(false);
         setUser(null);
       } else {
-        // 500, network error, etc. – keep existing user (do not log out)
         console.warn("Auth check network/server error, using cached user", error.message);
-        // Keep the current user from localStorage (already set optimistically)
       }
       return null;
     }
@@ -142,15 +167,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("leaderData", JSON.stringify(response.data));
         return response.data;
       } else {
-        // Non-success but not a thrown error – could be a soft 400/404
-        // Only clear if it's clearly an auth rejection (no data at all)
         console.warn("[AUTH] Leader profile returned non-success, keeping optimistic session.");
         return null;
       }
     } catch (error) {
       const status = error?.response?.status;
       if (status === 401 || status === 403) {
-        // Explicit auth rejection – clear the leader session
         console.warn("[AUTH] Leader token rejected by server, clearing leader session.");
         setIsLeaderAuthenticated(false);
         setLeader(null);
@@ -158,7 +180,6 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("leaderData");
         localStorage.removeItem("currentLeaderId");
       } else {
-        // Network error or 500 – keep the optimistic state loaded from localStorage
         console.warn("[AUTH] Leader auth check failed (network/server), keeping cached session.", error.message);
       }
       return null;
@@ -177,28 +198,24 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // Try to fetch fresh user data if token exists
       if (token) {
         const userData = await fetchUser();
         if (userData) {
           await fetchCsrfToken();
-          // Do not return early; we might also have a leader session to check
         } else {
-          // If fetchUser failed but we still have token, try to refresh
           const refreshResponse = await api.post("/users/refresh").catch(() => null);
           if (refreshResponse?.success && refreshResponse?.accessToken) {
             console.log("[AUTH] Refresh successful in checkAuthStatus");
             const newToken = refreshResponse.accessToken;
             localStorage.setItem("access_token", newToken);
             localStorage.setItem("token", newToken);
-            
+
             const newUser = await fetchUser();
             if (newUser) {
               setIsAuthenticated(true);
               setUser(newUser);
             }
           } else {
-            // Refresh failed
             if (token && isTokenExpired(token)) {
               console.warn("[AUTH] Session expired and refresh failed.");
               localStorage.removeItem("access_token");
@@ -210,7 +227,6 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      // Try to fetch fresh leader data if leaderToken exists
       if (leaderToken) {
         await fetchLeader();
       }
@@ -269,7 +285,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (_) { }
 
-    // surgical clear
     const { clearAuthData } = await import("../../api/api");
     clearAuthData(target);
 
@@ -314,42 +329,47 @@ export const AuthProvider = ({ children }) => {
     return "user";
   };
 
-
   const hasRole = (requiredRole) => {
     if (!requiredRole) return true;
-    
-    // Normalize roles to lowercase for case-insensitive comparison
+
     const currentUserRole = (getUserRole() || "user").toLowerCase();
     const normalizedRequiredRole = requiredRole.toLowerCase();
 
-    // Special case: aspirant/leader is NOT in the user hierarchy
+    console.debug(`[AUTH] Role check: current='${currentUserRole}', required='${normalizedRequiredRole}', isLeaderAuth=${isLeaderAuthenticated}`);
+
     if (normalizedRequiredRole === 'aspirant' || normalizedRequiredRole === 'leader') {
-      return isLeaderAuthenticated;
+      if (isLeaderAuthenticated) return true;
+      const hasToken = !!localStorage.getItem("leaderToken");
+      if (hasToken) return true;
+      return false;
     }
 
-    // If we're checking a user role but user is not authenticated as a normal user,
-    // allow if they are authenticated as a leader (leaders should have user-level access)
     if (!isAuthenticated && !isLeaderAuthenticated) {
       return false;
     }
 
-    // UPDATED HIERARCHY: admin (3) is now higher than market_admin (2)
-    const roleHierarchy = { 
-      user: 1, 
-      market_admin: 2, 
-      admin: 3, 
-      super_admin: 4, 
-      ceo: 5 
+    const roleHierarchy = {
+      user: 1,
+      aspirant: 1,
+      leader: 1,
+      market_admin: 2,
+      admin: 3,
+      super_admin: 4,
+      ceo: 5
     };
 
     const userLevel = roleHierarchy[currentUserRole] || 0;
     const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
-    
-    // If requiredRole is not in hierarchy and not aspirant, deny by default if level is 0
+
     if (requiredLevel === 0 && normalizedRequiredRole !== 'user') return false;
 
-    return userLevel >= requiredLevel;
+    const permitted = userLevel >= requiredLevel;
+    if (!permitted) {
+      console.warn(`[AUTH] Permission denied: required ${normalizedRequiredRole} (level ${requiredLevel}), but user is ${currentUserRole} (level ${userLevel})`);
+    }
+    return permitted;
   };
+
   const isAdmin = () => hasRole("admin");
   const isSuperAdmin = () => hasRole("super_admin");
   const isCEO = () => hasRole("ceo");
@@ -378,6 +398,7 @@ export const AuthProvider = ({ children }) => {
     isMarketAdmin,
     checkAuthStatus,
     fetchUser,
+    setLeaderSession, // <--- EXPOSED TO UI
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

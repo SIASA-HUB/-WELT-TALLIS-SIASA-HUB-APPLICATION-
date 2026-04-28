@@ -1,27 +1,27 @@
 export const category = [
   {
-    img: "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&q=80&w=600",
-    name: "Caps",
+    img: "/images/halfcoat.jpeg",
+    name: "Campaign Reflectors",
+    slug: "reflector",
+    off: "Bulk Discount",
+  },
+  {
+    img: "/images/cap.jpg",
+    name: "Political Caps",
     slug: "caps",
-    off: "Buy 1 Get 1 Free",
+    off: "Custom Branding",
   },
   {
-    img: "https://images.unsplash.com/photo-1583922606661-0822ed0bd916?auto=format&fit=crop&q=80&w=600",
-    name: "Posters",
-    slug: "posters",
-    off: "Flat 20% OFF",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1507679799987-c7127769d7bb?auto=format&fit=crop&q=80&w=600",
-    name: "Formal Wear",
-    slug: "formalwear",
-    off: "New Collection",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=600",
-    name: "T-Shirts",
+    img: "/images/tshirts.jpg",
+    name: "Campaign Tshirts",
     slug: "tshirts",
-    off: "Starting at $19",
+    off: "High Quality",
+  },
+  {
+    img: "/images/flag.jpg",
+    name: "Handheld Flags",
+    slug: "flags",
+    off: "Event Ready",
   },
 ];
 
@@ -30,10 +30,10 @@ export const filter = [
     name: "Product Categories",
     value: "category",
     items: [
-      "Caps",
-      "Posters",
-      "T-Shirts",
-      "Formal Wear",
+      "Campaign Reflectors",
+      "Political Caps",
+      "Campaign Tshirts",
+      "Handheld Flags",
     ],
   },
   {

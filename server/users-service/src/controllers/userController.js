@@ -107,12 +107,6 @@ const createUser = asyncHandler(async (req, res) => {
     role,
   } = req.body;
 
-  // Required fields validation
-  if (!password) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Password is required" });
-  }
   if (!real_name) {
     return res
       .status(400)
@@ -123,31 +117,6 @@ const createUser = asyncHandler(async (req, res) => {
       success: false,
       message: "Real name must be at least 3 characters",
     });
-  }
-  if (!gender) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Gender is required" });
-  }
-  if (!age_bracket) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Age bracket is required" });
-  }
-  if (!county) {
-    return res
-      .status(400)
-      .json({ success: false, message: "County is required" });
-  }
-  if (!voter_card) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Voter card status is required" });
-  }
-  if (!will_vote) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Voting intention is required" });
   }
 
   // Validate role if provided (must be a valid role)
@@ -214,15 +183,15 @@ const createUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // Validate county
-  if (!UserModel.isValidCounty(county)) {
+  // Validate county if provided
+  if (county && !UserModel.isValidCounty(county)) {
     return res
       .status(400)
       .json({ success: false, message: "Invalid county name" });
   }
 
-  // Validate age bracket
-  if (!UserModel.isValidAgeBracket(age_bracket)) {
+  // Validate age bracket if provided
+  if (age_bracket && !UserModel.isValidAgeBracket(age_bracket)) {
     return res.status(400).json({
       success: false,
       message: "Invalid age bracket. Must be: 18-30, 31-40, 41-50, 51-60, 61+",
@@ -266,7 +235,7 @@ const createUser = asyncHandler(async (req, res) => {
       }
     }
 
-    const generation = UserModel.getGenerationLabel(age_bracket);
+    const generation = age_bracket ? UserModel.getGenerationLabel(age_bracket) : null;
     const password_hash = await UserModel.hashPassword(password);
 
     const voterCardInt = voter_card === "Yes" ? 1 : 0;
@@ -275,10 +244,10 @@ const createUser = asyncHandler(async (req, res) => {
     const user_id = await UserModel.create({
       real_name: real_name.trim(),
       anonymous_username: finalUsername,
-      gender,
-      age_bracket,
+      gender: (gender === "Prefer not to say" || !gender) ? null : gender,
+      age_bracket: (age_bracket === "Prefer not to say" || !age_bracket) ? null : age_bracket,
       generation,
-      county,
+      county: (county === "Nairobi" || !county) ? "Nairobi" : county,
       ward: ward || null,
       voter_card: voterCardInt,
       will_vote: willVoteVal,
@@ -296,21 +265,21 @@ const createUser = asyncHandler(async (req, res) => {
     try {
       const { db } = require("../../../global/index");
 
-      await db.query("START TRANSACTION");
+      await db.safeQuery("START TRANSACTION");
 
-      const [existingWallet] = await db.query(
+      const existingWallet = await db.safeQuery(
         "SELECT * FROM user_wallets WHERE user_id = ?",
         [user_id],
       );
 
       if (!existingWallet || existingWallet.length === 0) {
-        await db.query(
+        await db.safeQuery(
           `INSERT INTO user_wallets (user_id, balance, total_deposited, total_bonus, created_at, updated_at) 
            VALUES (?, 100, 0, 100, NOW(), NOW())`,
           [user_id],
         );
       } else {
-        await db.query(
+        await db.safeQuery(
           `UPDATE user_wallets 
            SET balance = balance + 100, 
                total_bonus = total_bonus + 100, 
@@ -321,19 +290,19 @@ const createUser = asyncHandler(async (req, res) => {
       }
 
       const transactionId = `WELCOME-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-      await db.query(
+      await db.safeQuery(
         `INSERT INTO wallet_transactions 
          (transaction_id, user_id, amount, type, description, status, completed_at, created_at)
          VALUES (?, ?, 100, 'bonus', 'Welcome bonus for new user registration', 'completed', NOW(), NOW())`,
         [transactionId, user_id],
       );
 
-      await db.query("COMMIT");
+      await db.safeQuery("COMMIT");
       welcomeBonusAdded = true;
     } catch (walletError) {
       try {
         const { db } = require("../../../global/index");
-        await db.query("ROLLBACK");
+        await db.safeQuery("ROLLBACK");
       } catch (rollbackError) {
         // Ignore rollback error
       }

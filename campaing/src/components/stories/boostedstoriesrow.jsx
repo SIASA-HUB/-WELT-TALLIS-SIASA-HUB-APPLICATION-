@@ -469,22 +469,29 @@ const BoostedStoriesRow = ({
       
 
       // Transform stories to ensure consistent format
-      const transformedStories = fetchedStories.map((story) => ({
-        id: story.id,
-        user_id: story.user_id,
-        user_name: story.user_name || "Anonymous",
-        message: story.message || story.phrase || "",
-        media_type: story.media_type || "text",
-        image_url: story.image_url,
-        thumbnail_url: story.thumbnail_url,
-        likes: story.likes || 0,
-        comments: story.comments || 0,
-        boost_count: story.boost_count || 0,
-        total_boost_amount: story.total_boost_amount || 0,
-        created_at: story.created_at,
-        isFree: story.isFree || story.amount === 0,
-        type: story.type || (story.amount === 0 ? "free" : "paid"),
-      }));
+      const transformedStories = fetchedStories
+        .map((story) => ({
+          id: story.id,
+          user_id: story.user_id,
+          user_name: story.user_name || "Anonymous",
+          message: story.message || story.phrase || "",
+          media_type: story.media_type || "text",
+          image_url: story.image_url,
+          thumbnail_url: story.thumbnail_url,
+          likes: story.likes || 0,
+          comments: story.comments || 0,
+          boost_count: story.boost_count || 0,
+          total_boost_amount: story.total_boost_amount || 0,
+          created_at: story.created_at,
+          isFree: story.isFree || story.amount === 0,
+          type: story.type || (story.amount === 0 ? "free" : "paid"),
+        }))
+        .filter(story => {
+          const storyDate = new Date(story.created_at);
+          const now = new Date();
+          const diffHours = (now - storyDate) / (1000 * 60 * 60);
+          return diffHours <= 24;
+        });
 
       setStories(transformedStories);
 

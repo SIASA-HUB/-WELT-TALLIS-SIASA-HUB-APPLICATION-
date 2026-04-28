@@ -32,9 +32,13 @@ const app = express();
 
 
 process.on("uncaughtException", (err) => {
+  console.error("🔥 Uncaught Exception:", err);
 
+  const isConnectionError = [
+    'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'
+  ].includes(err.code);
 
-  if (err.code !== 'ECONNREFUSED' && err.code !== 'ENOTFOUND') {
+  if (!isConnectionError && !err.message.toLowerCase().includes('redis')) {
     process.exit(1);
   }
 });

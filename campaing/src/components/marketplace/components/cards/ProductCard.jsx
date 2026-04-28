@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import {
   ShoppingCart,
+  Share2,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -176,6 +178,17 @@ const Discount = styled.span`
   color: #22c55e;
 `;
 
+const Description = styled.div`
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+`;
+
 // Simple custom Star component for rating
 const StarRating = ({ value }) => {
   return (
@@ -203,6 +216,34 @@ const ProductCard = ({ product }) => {
 
   const getAuthToken = () => localStorage.getItem("access_token") || localStorage.getItem("token");
 
+  const generateAIDescription = (name) => {
+    const descriptions = [
+      `Premium ${name} designed for true supporters. Show your allegiance with this high-quality campaign merchandise, crafted for comfort and impact.`,
+      `Stand out with this exclusive ${name}. Part of our premium political collection, this item combines modern style with grassroots passion.`,
+      `Support the movement in style. This ${name} is more than just merchandise; it's a statement of progress and community dedication.`,
+      `Official ${name} from the SiasaHub Marketplace. Durable, premium-grade material featuring high-definition campaign branding.`,
+      `Join the wave of change. This ${name} represents the vision of a better future. Quality guaranteed for every patriot.`
+    ];
+    // Simple hash based on name to keep it consistent for the same product
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return descriptions[hash % descriptions.length];
+  };
+
+  const handleShare = (e) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      navigator.share({
+        title: product.name,
+        text: `Check out this ${product.name} on SiasaHub!`,
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard!");
+    }
+  };
+
   const addCart = async (e) => {
     e.stopPropagation();
 
@@ -210,7 +251,7 @@ const ProductCard = ({ product }) => {
     addToCartContext({ ...product, id: product?.id || product?._id, quantity: 1 });
     toast.success("🛒 Added to cart!");
 
-    // Additionally persist to server if user is logged in
+    // additionally persist to server if user is logged in
     if (isAuthenticated()) {
       try {
         const productId = product?.id || product?._id;
@@ -219,6 +260,13 @@ const ProductCard = ({ product }) => {
         console.error("Cart API sync failed:", err);
         // Don't show error — local cart update already succeeded
       }
+    } else {
+      // If not logged in, redirect to registration
+      toast.info("Please register to complete your purchase!");
+      setTimeout(() => {
+        navigate("/register?redirect=cart");
+      }, 1500);
+      return;
     }
   };
 
@@ -252,8 +300,11 @@ const ProductCard = ({ product }) => {
 
         <Overlay />
         <ActionButtons>
-          <IconButton onClick={addCart}>
+          <IconButton onClick={addCart} title="Add to Cart">
             <ShoppingCart size={18} />
+          </IconButton>
+          <IconButton onClick={handleShare} title="Share Product">
+            <Share2 size={18} />
           </IconButton>
         </ActionButtons>
         <Badge>
@@ -274,6 +325,7 @@ const ProductCard = ({ product }) => {
             </>
           )}
         </PriceTag>
+        {/* Description moved to product details page */}
       </Content>
     </Card>
   );
