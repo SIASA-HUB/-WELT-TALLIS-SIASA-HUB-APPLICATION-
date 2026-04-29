@@ -251,6 +251,7 @@ const TrendingSection = () => {
         <MemoizedSloganSection />
       </StickyFooterWrapper>
     </TrendingContainer>
+
   );
 };
 

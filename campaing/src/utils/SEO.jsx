@@ -4,6 +4,10 @@ import { Helmet } from "react-helmet-async";
 /**
  * SEO Component for standardizing metadata and social tags across the application.
  */
+
+
+
+
 const SEO = ({
   title,
   description,
@@ -16,15 +20,15 @@ const SEO = ({
 }) => {
   const siteName = "SiasaHub";
   const fullTitle = title ? `${title} | ${siteName}` : `${siteName} - Your Political Campaign Command Center`;
-  const defaultDescription = "SiasaHub is Kenya's leading political campaign command center. Track leaders, manifestos, and real-time voter engagement for the 2027 General Election.";
+  const defaultDescription = "SiasaHub is Kenya's leading   digital  campaing   Agency for   political campaign command center. Track leaders, manifestos, and real-time voter engagement for the 2027 General Election.";
   const defaultOgImage = "/icons/og-image.png";
   const baseUrl = "https://siasahub.co.ke";
-  
-  const fullCanonical = canonical 
+
+  const fullCanonical = canonical
     ? (canonical.startsWith("http") ? canonical : `${baseUrl}${canonical}`)
     : baseUrl;
 
-  const resolvedOgImage = ogImage 
+  const resolvedOgImage = ogImage
     ? (ogImage.startsWith("http") ? ogImage : `${baseUrl}${ogImage}`)
     : `${baseUrl}${defaultOgImage}`;
 

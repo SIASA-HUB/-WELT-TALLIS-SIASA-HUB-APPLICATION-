@@ -145,14 +145,14 @@ router.get("/", getPersonalizedFeed);
 router.post("/:leaderId/boost", boostLeader);
 router.get("/:leaderId/stats", optionalAuth, getLeaderStats);
 router.post("/:leaderId/support", optionalAuth, handleSupport);
-router.get("/:leaderId/competitors", getCompetitors);
+router.get("/slug/:slug/competitors", getCompetitors);
 router.get("/:leaderId", getLeaderById);
 
 // ============================================================
 // PROTECTED / ME ROUTES — aspirant only
 // ============================================================
 router.get("/profile/me", verifyAspirantToken, getMyProfile);
-router.put("/profile/me", verifyAspirantToken, updateMyProfile);
+router.put("/profile/me", updateMyProfile);
 router.post("/verification/request", verifyAspirantToken, requestVerification);
 
 // ============================================================

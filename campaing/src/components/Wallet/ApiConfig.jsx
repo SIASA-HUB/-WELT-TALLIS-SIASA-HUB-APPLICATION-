@@ -12,10 +12,10 @@ const isTokenExpired = () => {
   if (!expiry) return false;
   const parsedExpiry = parseInt(expiry);
   if (isNaN(parsedExpiry)) return false;
-  
-  // Safety: If expiry is suspiciously small (e.g. before year 2024), it's likely invalid.
-  if (parsedExpiry < 1704067200000) return false; 
-  
+
+
+  if (parsedExpiry < 1704067200000) return false;
+
   return Date.now() > parsedExpiry;
 };
 
@@ -49,10 +49,10 @@ walletApi.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const token = getToken();
-    
+
     // Safety: ignore calls that are part of auth flow to prevent loops
-    const isAuthCall = originalRequest.url.includes('/users/refresh') || 
-                       originalRequest.url.includes('/users/login');
+    const isAuthCall = originalRequest.url.includes('/users/refresh') ||
+      originalRequest.url.includes('/users/login');
 
     if (error.response?.status === 401 && !originalRequest._retry && token && !isAuthCall) {
       originalRequest._retry = true;
@@ -61,7 +61,7 @@ walletApi.interceptors.response.use(
         // Import main api client for refresh
         const mainApi = (await import("../../api/api")).default;
         const refreshResponse = await mainApi.post("/users/refresh");
-        
+
         if (refreshResponse?.success && refreshResponse?.accessToken) {
           // Note: mainApi already updates localStorage
           originalRequest.headers.Authorization = `Bearer ${refreshResponse.accessToken}`;
@@ -70,7 +70,7 @@ walletApi.interceptors.response.use(
       } catch (refreshError) {
         console.error("Wallet Auth refresh failed:", refreshError.message);
       }
-      
+
       clearAuthData();
       const isAspirant = window.location.pathname.startsWith('/aspirant');
       const loginPath = isAspirant ? '/login-aspirant' : '/login';

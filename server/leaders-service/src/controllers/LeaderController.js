@@ -435,7 +435,7 @@ const loginAspirant = asyncHandler(async (req, res) => {
       query += ` OR (${words.map(() => `LOWER(name) LIKE ?`).join(' AND ')})`;
       words.forEach(w => params.push(`%${w}%`));
     }
-    
+
     query += `) LIMIT 15`;
 
     const candidates = await safeQuery(query, params);
@@ -452,7 +452,7 @@ const loginAspirant = asyncHandler(async (req, res) => {
     let leader = null;
     for (const candidate of candidates) {
       if (!candidate.password_hash) continue;
-      
+
       try {
         const isMatch = await bcrypt.compare(password, candidate.password_hash);
         if (isMatch) {
@@ -508,6 +508,10 @@ const loginAspirant = asyncHandler(async (req, res) => {
 // ============================================
 // GET LEADER BY SLUG (SEO)
 // ============================================
+
+// ============================================
+// GET LEADER BY SLUG (SEO) - FIXED WITH ALL STATS
+// ============================================
 const getLeaderBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   if (!slug) {
@@ -538,10 +542,25 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
       [leader.leader_id]
     );
 
+    // Get ALL stats properly
+    const endorsements = await safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [leader.leader_id]);
     const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leader.leader_id]);
+    const shares = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`, [leader.leader_id]);
+    const likes = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`, [leader.leader_id]);
+    const comments = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_comments WHERE leader_id = ?`, [leader.leader_id]);
+
+    // Safe boost stats
+    let boosts = { count: 0, total_amount: 0 };
+    try {
+      const boostResult = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [leader.leader_id]);
+      if (boostResult) boosts = boostResult;
+    } catch (boostErr) {
+      Logger.warn(`leaders_boosts table not found: ` + boostErr.message);
+    }
+
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [leader.leader_id]);
 
-    // Return relative paths â€” the API gateway and frontend handle full URL construction
+    // Return relative paths — the API gateway and frontend handle full URL construction
     const formatImageUrl = (url) => url || null;
 
     const responseData = {
@@ -557,10 +576,15 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
           social_url: formatImageUrl(img.social_url)
         })),
         stats: {
-          endorsements: leader.endorsement_count || 0,
+          endorsements: endorsements?.count || 0,
           followers: followers?.count || 0,
           views: leader.views || 0,
-          boost_score: leader.boost_score || 0
+          shares: shares?.count || 0,
+          likes: likes?.count || 0,
+          comments: comments?.count || 0,
+          boost_score: leader.boost_score || 0,
+          boost_count: boosts?.count || 0,
+          total_boost_amount: boosts?.total_amount || 0
         },
         social_links: socialLinks
       }
@@ -1245,33 +1269,44 @@ const getLeaderDashboardAnalytics = asyncHandler(async (req, res) => {
 });
 
 
-
 // ============================================
-// GET COMPETITORS
+// GET COMPETITORS BY SLUG (FIXED)
 // ============================================
 const getCompetitors = asyncHandler(async (req, res) => {
-  const { leaderId } = req.params;
+  const { slug } = req.params; // Changed from leaderId to slug
 
   try {
+    // First get the leader by slug to get their ID and other info
     const leader = await safeQueryOne(
-      `SELECT leader_id, position, position_running_for, county, constituency, ward FROM leaders WHERE leader_id = ?`,
-      [leaderId]
+      `SELECT leader_id, position, position_running_for, county, constituency, ward 
+       FROM leaders 
+       WHERE slug = ? AND status != 'deleted'`,
+      [slug]
     );
 
     if (!leader) {
       return res.status(404).json({ success: false, message: "Leader not found" });
     }
 
+    const leaderId = leader.leader_id;
     const position = leader.position_running_for || leader.position || "";
     const lowerPos = position.toLowerCase();
 
     let query = `
       SELECT 
-        l.leader_id, l.name, l.party, l.position, l.position_running_for, 
-        l.county, l.constituency, l.ward,
+        l.leader_id, 
+        l.name, 
+        l.slug,
+        l.party, 
+        l.position, 
+        l.position_running_for, 
+        l.county, 
+        l.constituency, 
+        l.ward,
         l.verification,
         COALESCE(l.image_url, li.image_url) as image_url,
         (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) as views,
+        (SELECT COUNT(*) FROM endorsements WHERE leader_id = l.leader_id AND status = 'active') as endorsement_count,
         (
           (SELECT COUNT(*) FROM leader_views WHERE leader_id = l.leader_id) +
           (SELECT COUNT(*) FROM leader_shares WHERE leader_id = l.leader_id) * 5 +
@@ -1301,7 +1336,8 @@ const getCompetitors = asyncHandler(async (req, res) => {
       params.push(position, position);
     }
 
-    query += ` LIMIT 15`;
+    // Order by boost_score DESC to show highest ranked first
+    query += ` ORDER BY boost_score DESC LIMIT 15`;
 
     const competitors = await safeQuery(query, params);
 
@@ -1314,7 +1350,6 @@ const getCompetitors = asyncHandler(async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching competitors" });
   }
 });
-
 // ============================================
 // GET LEADER STATS
 // ============================================
@@ -1515,16 +1550,16 @@ const deleteLeader = asyncHandler(async (req, res) => {
   const { password } = req.body;
 
   if (!password) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Security confirmation required: Please enter your administrator password to proceed with deletion." 
+    return res.status(400).json({
+      success: false,
+      message: "Security confirmation required: Please enter your administrator password to proceed with deletion."
     });
   }
 
   try {
     // 1. Verify admin password for critical security action
     const adminUser = await safeQueryOne(`SELECT password_hash FROM users WHERE user_id = ?`, [req.userId]);
-    
+
     if (!adminUser) {
       return res.status(401).json({ success: false, message: "Authorization failed: Administrator account not found." });
     }
@@ -1536,7 +1571,7 @@ const deleteLeader = asyncHandler(async (req, res) => {
 
     // 2. Perform soft delete
     await safeQuery(`UPDATE leaders SET status = 'deleted', updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
-    
+
     // 3. Purge related caches to ensure UI reflects the changes
     const cacheKeys = [
       `leader:${leaderId}`,
@@ -1544,13 +1579,13 @@ const deleteLeader = asyncHandler(async (req, res) => {
       'admin:all_leaders',
       'admin:leader_stats'
     ];
-    
+
     for (const key of cacheKeys) {
       await redis.del(key).catch(err => Logger.warn(`Redis cache clear failed for key ${key}:`, err));
     }
 
     Logger.info(`[SECURITY] Leader ${leaderId} deleted by Admin ${req.userId}`);
-    
+
     res.status(200).json({ success: true, message: "Leader profile has been successfully deleted." });
   } catch (err) {
     Logger.error(`Delete leader error [LeaderID: ${leaderId}, AdminID: ${req.userId}]:`, err);
@@ -1675,7 +1710,7 @@ const getAllLeadersPublic = asyncHandler(async (req, res) => {
 const generateSitemap = asyncHandler(async (req, res) => {
   try {
     const baseUrl = 'https://siasahub.co.ke';
-    
+
     // 1. Get all active leaders
     const leaders = await safeQuery(
       `SELECT slug, county, constituency, ward, updated_at 
@@ -1708,7 +1743,7 @@ const generateSitemap = asyncHandler(async (req, res) => {
       const cSlug = c.county.toLowerCase().replace(/\s+/g, '-');
       addUrl(`${baseUrl}/county/${cSlug}`, '0.8', 'weekly');
     }
-    
+
     for (const w of wards) {
       if (!w.county || !w.constituency) continue;
       const cSlug = w.county.toLowerCase().replace(/\s+/g, '-');

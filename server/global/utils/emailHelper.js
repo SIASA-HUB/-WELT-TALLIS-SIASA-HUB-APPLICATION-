@@ -1,10 +1,8 @@
 const nodemailer = require("nodemailer");
 const Logger = require("../logger/logger");
 
-/**
- * Global Email Helper
- * Sends HTML/Text emails using SMTP configuration from environment variables.
- */
+
+
 const sendEmail = async ({ to, subject, text, html }) => {
   try {
     // 1. Create transporter
@@ -18,7 +16,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
         pass: process.env.SMTP_PASS,
       },
       tls: {
-        rejectUnauthorized: false // Helps with some shared hosting environments
+        rejectUnauthorized: false
       }
     });
 

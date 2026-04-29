@@ -7,9 +7,11 @@ const {
   directOrder
 } = require("../controller/order-controller");
 
+const { authenticate } = require("../../../global/index");
+
 // ─── Place Order ─────────────────────────────────────────────────────────────
-router.post("/", placeOrder);         // POST /orders
-router.post("/place", placeOrder);    // POST /orders/place  ← frontend calls this
+router.post("/", authenticate, placeOrder);
+router.post("/place", authenticate, placeOrder);
 
 // ─── Stats (must be before /:id) ─────────────────────────────────────────────
 router.get("/stats", getOrderStats);

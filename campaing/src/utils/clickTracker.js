@@ -1,9 +1,7 @@
 import axios from 'axios';
 import API from '../api/config';
 
-/**
- * ClickTracker - Monitors and records user click interactions across the application
- */
+
 class ClickTracker {
   constructor() {
     this.trackingEndpoint = `${API.BASE}/users/analytics/click`;
@@ -19,9 +17,9 @@ class ClickTracker {
 
     // Listen for all clicks on the document
     document.addEventListener('click', (event) => this.handleGlobalClick(event), true);
-    
+
     this.isInitialized = true;
-    console.log('🖱️ Click Tracker initialized');
+
   }
 
   updateUserContext() {
@@ -38,14 +36,14 @@ class ClickTracker {
 
   handleGlobalClick(event) {
     const target = event.target;
-    
-    // Only track meaningful elements (buttons, links, or elements with IDs/classes)
-    const shouldTrack = 
-      target.tagName === 'BUTTON' || 
-      target.tagName === 'A' || 
-      target.closest('button') || 
+
+
+    const shouldTrack =
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'A' ||
+      target.closest('button') ||
       target.closest('a') ||
-      target.id || 
+      target.id ||
       target.className;
 
     if (!shouldTrack) return;
@@ -60,7 +58,7 @@ class ClickTracker {
       user_id: this.userId
     };
 
-    // If it's a nested element in a button/link, get the parent text if own text is empty
+
     if (!data.text_content) {
       const parent = target.closest('button') || target.closest('a');
       if (parent) {
@@ -68,22 +66,19 @@ class ClickTracker {
       }
     }
 
-    // Don't track sensitive info (like password fields or hidden elements)
+
     if (target.type === 'password') return;
 
-    // Send to backend (non-blocking)
+
     this.sendData(data);
   }
 
   async sendData(data) {
     try {
-      // Use standard axios to avoid interceptor complexity for analytics
-      // but ensure we still have the base URL if needed.
-      // Since it's a post to our own API, relative path works if proxy is set,
-      // otherwise we use the absolute URL.
-      
-      const baseUrl = window.location.origin; // Or get from config
-      
+
+
+      const baseUrl = window.location.origin;
+
       // Update user ID just in case it changed since init
       if (!this.userId) this.updateUserContext();
       data.user_id = this.userId;

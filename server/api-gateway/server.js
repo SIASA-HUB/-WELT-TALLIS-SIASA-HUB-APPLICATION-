@@ -153,16 +153,11 @@ const createProxy = (targetUrl) => {
     target: targetUrl,
     changeOrigin: true,
     selfHandleResponse: false,
-    proxyTimeout: 300000,
-    timeout: 300000,
+    proxyTimeout: 900000,
+    timeout: 900000,
     on: {
       proxyReq: (proxyReq, req) => {
-        // ─── CRITICAL PATH FIX ───────────────────────────────────────────────
-        // When app.use('/api/v1/users', proxy) is called, Express strips the
-        // mount prefix from req.url. So req.url becomes '/login' instead of
-        // '/api/v1/users/login'. The microservices need the FULL original path.
-        // We restore it here by setting proxyReq.path = req.originalUrl.
-        // ─────────────────────────────────────────────────────────────────────
+
         const parsed = new URL(req.originalUrl, 'http://localhost');
         proxyReq.path = parsed.pathname + parsed.search;
 

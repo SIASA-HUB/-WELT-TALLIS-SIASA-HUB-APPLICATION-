@@ -179,8 +179,7 @@ const ProductsManagement = ({ products, loading, onRefresh }) => {
   };
 
   const handleSaveProduct = async (productData) => {
-    // The ProductModal now handles the actual API call.
-    // We just need to refresh the list and close the modal.
+
     onRefresh();
     setModalOpen(false);
   };

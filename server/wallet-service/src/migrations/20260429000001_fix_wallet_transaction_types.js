@@ -29,7 +29,7 @@ exports.up = async function (knex) {
       ) NOT NULL
     `);
 
-    console.log('✅ wallet_transactions type ENUM expanded successfully');
+    console.log('wallet_transactions type ENUM expanded successfully');
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
     throw error;

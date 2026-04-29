@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - Enhanced SEO with Engagement Booster
+// components/leaders/leaderHeader.jsx - With Competitor Ranking & Crowns
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Helmet } from "react-helmet-async";
@@ -30,7 +30,10 @@ import {
   Award,
   Shield,
   Zap,
-  Trophy
+  Trophy,
+  Crown,
+  Medal,
+  Star
 } from "lucide-react";
 import api from "../../api/api";
 import { buildImageUrl } from "../../utils/imageUtils";
@@ -70,6 +73,12 @@ const fadeInUp = keyframes`
 const slideInRight = keyframes`
   from { opacity: 0; transform: translateX(50px); }
   to { opacity: 1; transform: translateX(0); }
+`;
+
+const crownGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px gold); }
+  50% { filter: drop-shadow(0 0 8px gold); }
+  100% { filter: drop-shadow(0 0 2px gold); }
 `;
 
 // Brand Colors
@@ -303,7 +312,7 @@ const SupportButton = styled.button`
   }
 `;
 
-// Competitors Stories Row - Instagram-style story rings
+// Competitors Stories Row - Instagram-style story rings with ranking
 const CompetitorsSection = styled.div`
   margin: 20px 0;
   padding: 0 20px;
@@ -351,47 +360,92 @@ const StoryRing = styled.div`
   gap: 8px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.2s;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
   
   &:hover {
-    transform: scale(1.05);
+    transform: scale(1.08) translateY(-5px);
   }
 `;
 
 const RingBorder = styled.div`
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f09433, #e6683c, #dc2743);
+  background: ${(props) => {
+    if (props.$rank === 1) return "linear-gradient(135deg, #FFD700, #FFA500)";
+    if (props.$rank === 2) return "linear-gradient(135deg, #C0C0C0, #A8A8A8)";
+    if (props.$rank === 3) return "linear-gradient(135deg, #CD7F32, #B87333)";
+    return "linear-gradient(135deg, #f09433, #e6683c, #dc2743)";
+  }};
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: 3px;
+  position: relative;
+  animation: ${(props) => props.$rank === 1 ? crownGlow : "none"} 2s infinite;
 `;
 
 const CompetitorAvatar = styled.img`
-  width: 68px;
-  height: 68px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #000000;
+  border: 3px solid #000000;
+`;
+
+const RankBadge = styled.div`
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: ${(props) => {
+    if (props.$rank === 1) return "linear-gradient(135deg, #FFD700, #FFA500)";
+    if (props.$rank === 2) return "linear-gradient(135deg, #C0C0C0, #A8A8A8)";
+    if (props.$rank === 3) return "linear-gradient(135deg, #CD7F32, #B87333)";
+    return "#ef4444";
+  }};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: ${(props) => (props.$rank <= 2 ? "#000" : "#fff")};
+  border: 2px solid #000;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 `;
 
 const CompetitorName = styled.span`
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: #e5e7eb;
   text-align: center;
-  max-width: 72px;
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
-const PositionBadge = styled.div`
+const CompetitorStats = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 9px;
   color: #9ca3af;
   text-align: center;
+  
+  svg {
+    width: 10px;
+    height: 10px;
+  }
+`;
+
+const SupportCount = styled.span`
+  color: #10b981;
+  font-weight: 600;
 `;
 
 const StickyActionBar = styled.div`
@@ -613,6 +667,17 @@ const StatChip = styled.div`
   }
 `;
 
+
+
+const PositionBadge = styled.div`
+  font-size: 9px;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 2px;
+`;
+
+
+
 const ContentArea = styled.div`
   margin-top: 24px;
   padding-bottom: 100px;
@@ -690,31 +755,36 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   ];
 
   useEffect(() => {
-    if (!leader?.leader_id) return;
+    if (!leader?.slug) {
+      console.warn("No slug provided for leader");
+      return;
+    }
 
     const fetchData = async () => {
       try {
-        // Fetch stats
-        const statsRes = await api.get(`/leaders/${leader.leader_id}/stats`);
-        if (statsRes.success && statsRes.data) {
-          setSupportCount(statsRes.data.support_count || 0);
-          setViewsCount(statsRes.data.views || 0);
-          setIsSupported(statsRes.data.is_supporting || false);
+        // Fetch stats using ID (keep as is)
+        if (leader?.leader_id) {
+          const statsRes = await api.get(`/leaders/${leader.leader_id}/stats`);
+          if (statsRes.success && statsRes.data) {
+            setSupportCount(statsRes.data.support_count || 0);
+            setViewsCount(statsRes.data.views || 0);
+            setIsSupported(statsRes.data.is_supporting || false);
+          }
         }
 
-        // Fetch competitors (Instagram-style stories format)
-        const competitorsRes = await api.get(`/leaders/${leader.leader_id}/competitors`);
+        // Fetch competitors using SLUG and sort by boost_score (highest first)
+        const competitorsRes = await api.get(`/leaders/slug/${leader.slug}/competitors`);
         if (competitorsRes.success && competitorsRes.data) {
-          setCompetitors(competitorsRes.data);
+          // Sort competitors by boost_score DESC (highest first)
+          const sortedCompetitors = [...competitorsRes.data].sort((a, b) => {
+            const scoreA = a.boost_score || 0;
+            const scoreB = b.boost_score || 0;
+            return scoreB - scoreA;
+          });
+          setCompetitors(sortedCompetitors);
         }
       } catch (err) {
         console.warn("Fetch failed", err);
-        // Fallback mock data for competitors
-        setCompetitors([
-          { id: 1, name: "Jane Doe", position: "Governor", image_url: null },
-          { id: 2, name: "John Smith", position: "Governor", image_url: null },
-          { id: 3, name: "Mary Johnson", position: "Governor", image_url: null },
-        ]);
       }
     };
 
@@ -724,7 +794,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       if (!isSupported) setShowSharePrompt(true);
     }, 15000);
     return () => clearTimeout(timer);
-  }, [leader?.leader_id, isSupported]);
+  }, [leader?.slug, leader?.leader_id, isSupported]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -750,6 +820,12 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const handleBoostSuccess = () => {
     setToastMessage("Campaign boosted successfully! 🔥");
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCompetitorClick = (competitor) => {
+    // Navigate using slug (preferred) or fallback to ID
+    const slugOrId = competitor.slug || competitor.leader_id || competitor.id;
+    window.location.href = `/leader/${slugOrId}`;
   };
 
   const canonicalUrl = window.location.href;
@@ -788,6 +864,18 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const leaderImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
 
+  // Use stats from leader object if available
+  const displayViews = leader?.stats?.views || viewsCount;
+  const displaySupport = leader?.stats?.endorsements || supportCount;
+
+  // Get rank icon
+  const getRankIcon = (rank) => {
+    if (rank === 1) return <Crown size={16} fill="#FFD700" />;
+    if (rank === 2) return <Medal size={14} />;
+    if (rank === 3) return <Star size={12} fill="#CD7F32" />;
+    return rank;
+  };
+
   return (
     <PageContainer>
       <Helmet>
@@ -796,7 +884,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
         {/* Open Graph tags for rich share previews */}
         <meta property="og:title" content={`${leader?.name} - ${normalizePosition(leader?.position)} | SiasaHub`} />
-        <meta property="og:description" content={`Join ${formatNumber(supportCount)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Make your voice heard!`} />
+        <meta property="og:description" content={`Join ${formatNumber(displaySupport)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Make your voice heard!`} />
         <meta property="og:image" content={shareImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -806,7 +894,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${leader?.name} - ${normalizePosition(leader?.position)} | SiasaHub`} />
-        <meta name="twitter:description" content={`Join ${formatNumber(supportCount)} supporters backing ${leader?.name}.`} />
+        <meta name="twitter:description" content={`Join ${formatNumber(displaySupport)} supporters backing ${leader?.name}.`} />
         <meta name="twitter:image" content={shareImageUrl} />
       </Helmet>
 
@@ -851,7 +939,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         <SupportButton $active={isSupported} onClick={handleSupport} style={{ flex: 1 }}>
           {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
           {isSupported ? "JOINED" : "JOIN CAMPAIGN"}
-          {supportCount > 0 && <span className="count">{formatNumber(supportCount)}</span>}
+          {displaySupport > 0 && <span className="count">{formatNumber(displaySupport)}</span>}
         </SupportButton>
         <ActionButton $bg="rgba(255, 255, 255, 0.1)" onClick={() => setShowSharePrompt(true)} style={{ width: 56, height: 56, borderRadius: 12, justifyContent: 'center' }}>
           <Share2 size={22} />
@@ -878,13 +966,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             </LeaderMeta>
 
             <StatsRow>
-              <StatChip><EyeIcon size={14} /> <span className="stat-number">{formatNumber(viewsCount)}</span> Views</StatChip>
-              <StatChip><Heart size={14} /> <span className="stat-number">{formatNumber(supportCount)}</span> Joined</StatChip>
+              <StatChip><EyeIcon size={14} /> <span className="stat-number">{formatNumber(displayViews)}</span> Views</StatChip>
+              <StatChip><Heart size={14} /> <span className="stat-number">{formatNumber(displaySupport)}</span> Joined</StatChip>
             </StatsRow>
 
             <div style={{ marginTop: 16, marginBottom: 16 }}>
-              <SupportButton 
-                $active={isSupported} 
+              <SupportButton
+                $active={isSupported}
                 onClick={handleSupport}
                 style={{ width: 'fit-content', padding: '10px 24px', borderRadius: '12px' }}
               >
@@ -906,26 +994,46 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </ProfileTopRow>
       </ProfileCard>
 
-      {/* Competitors Section - Instagram-style story rings */}
+      {/* Competitors Section - Instagram-style story rings with ranking */}
       {competitors.length > 0 && (
         <CompetitorsSection>
           <SectionTitle>
-            <h3><Users size={16} /> Other Candidates for {normalizePosition(leader?.position)}</h3>
+            <h3>
+              <Trophy size={16} />
+              Top Candidates for {normalizePosition(leader?.position)}
+            </h3>
             <span>See all →</span>
           </SectionTitle>
           <StoriesScrollContainer>
-            {competitors.map((competitor) => (
-              <StoryRing key={competitor.id} onClick={() => window.location.href = `/leader/${competitor.id}`}>
-                <RingBorder>
-                  <CompetitorAvatar
-                    src={buildImageUrl(competitor.image_url) || "https://via.placeholder.com/68"}
-                    alt={competitor.name}
-                  />
-                </RingBorder>
-                <CompetitorName>{competitor.name.split(" ")[0]}</CompetitorName>
-                <PositionBadge>{competitor.party || "Independent"}</PositionBadge>
-              </StoryRing>
-            ))}
+            {competitors.map((competitor, index) => {
+              const rank = index + 1;
+              return (
+                <StoryRing
+                  key={competitor.slug || competitor.leader_id || competitor.id}
+                  onClick={() => handleCompetitorClick(competitor)}
+                >
+                  <RingBorder $rank={rank}>
+                    <CompetitorAvatar
+                      src={buildImageUrl(competitor.image_url) || "https://via.placeholder.com/74"}
+                      alt={competitor.name}
+                    />
+                    <RankBadge $rank={rank}>
+                      {rank === 1 ? <Crown size={16} fill="#FFD700" /> : rank === 2 ? <Medal size={14} /> : rank === 3 ? <Star size={12} fill="#CD7F32" /> : rank}
+                    </RankBadge>
+                  </RingBorder>
+                  <CompetitorName>{competitor.name?.split(" ")[0] || competitor.name}</CompetitorName>
+                  <CompetitorStats>
+                    {competitor.endorsement_count > 0 && (
+                      <>
+                        <Heart size={8} />
+                        <SupportCount>{formatNumber(competitor.endorsement_count)}</SupportCount>
+                      </>
+                    )}
+                  </CompetitorStats>
+                  <PositionBadge>{competitor.party || "Independent"}</PositionBadge>
+                </StoryRing>
+              );
+            })}
           </StoriesScrollContainer>
         </CompetitorsSection>
       )}
@@ -940,7 +1048,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             <IconButton onClick={() => setShowSharePrompt(false)} style={{ position: "absolute", top: 12, right: 12 }}><X size={18} /></IconButton>
             <div style={{ padding: "20px" }}>
               <Heart size={40} color="#ef4444" fill="#ef4444" style={{ marginBottom: 12 }} />
-              <h3>Support {leader?.name.split(" ")[0]}!</h3>
+              <h3>Support {leader?.name?.split(" ")[0]}!</h3>
               <p>Every share helps win votes. Spread the word to your community!</p>
               <div className="share-grid">
                 <div className="social-item"><SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter }}><Twitter size={20} /></SocialIconButton><span>X</span></div>
@@ -953,7 +1061,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </ModalOverlay>
       )}
 
-      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader?.name} targetId={leader?.leader_id} targetType="leader" userId={currentUserId} />
+      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader?.name} targetId={leader?.slug} targetType="leader" userId={currentUserId} />
       <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={handleBoostSuccess} />
 
       {toastMessage && <Toast><Sparkles size={14} /> {toastMessage}</Toast>}

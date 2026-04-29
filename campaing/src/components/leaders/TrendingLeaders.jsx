@@ -83,7 +83,7 @@ const CardsContainer = styled.div`
   display: flex;
   gap: 14px;
   overflow-x: auto;
-  padding: 4px 16px 20px;
+  padding: 4px 0px 20px;
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
