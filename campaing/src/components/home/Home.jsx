@@ -185,7 +185,7 @@ const SiasaApp = () => {
       import("../marketplace/marketPage");
     }, 2000);
 
-    return () => {};
+    return () => { };
   }, []);
 
   // Show loading state

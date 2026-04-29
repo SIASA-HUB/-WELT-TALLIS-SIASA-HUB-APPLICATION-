@@ -3,7 +3,7 @@ import styled, { keyframes } from "styled-components";
 import LoadingBar from "react-top-loading-bar";
 
 import TopFypHeader from "./fyp";
-import TrendingStoriesRow from "../stories/tredingStoriesRow";
+
 import TrendingManifestos from "../leaders/manifestos/TredingManifestos";
 import RalliesSection from "../rallies/ralliessection";
 import TrendingLeaders from "../leaders/TrendingLeaders";
@@ -79,8 +79,8 @@ const StickyFooterWrapper = styled.div`
 
 // Minimal loading component
 const CarouselSkeleton = memo(() => (
-  <div style={{ 
-    padding: "0", 
+  <div style={{
+    padding: "0",
     minHeight: "auto",
     display: "flex",
     alignItems: "center",
@@ -105,14 +105,12 @@ const EmptyMessage = memo(() => (
 ));
 
 // Memoized section components to prevent re-renders
-const MemoizedTrendingStoriesRow = memo(TrendingStoriesRow);
 const MemoizedTrendingLeaders = memo(TrendingLeaders);
 const MemoizedTrendingManifestos = memo(TrendingManifestos);
 const MemoizedSloganSection = memo(SloganSection);
 
 const TrendingSection = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [hasStories, setHasStories] = useState(true);
   const [hasLeaders, setHasLeaders] = useState(true);
   const [hasManifestos, setHasManifestos] = useState(true);
   const [hasRallies, setHasRallies] = useState(true);
@@ -139,14 +137,14 @@ const TrendingSection = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsPageLoaded(true);
-    }, 50); 
-    
+    }, 50);
+
     const userData = localStorage.getItem("user_data");
     if (userData) {
-      try { setCurrentUser(JSON.parse(userData)); } catch {}
+      try { setCurrentUser(JSON.parse(userData)); } catch { }
     }
     loadingBarRef.current?.complete();
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -154,19 +152,18 @@ const TrendingSection = () => {
   const memoizedCurrentUser = useMemo(() => currentUser, [currentUser]);
 
   // Callback handlers with useCallback
-  const handleStoriesEmpty = useCallback(() => setHasStories(false), []);
   const handleLeadersEmpty = useCallback(() => setHasLeaders(false), []);
   const handleManifestosEmpty = useCallback(() => setHasManifestos(false), []);
   const handleRalliesEmpty = useCallback(() => setHasRallies(false), []);
-  
+
   const handleMerchEmpty = useCallback(() => {
     setMerchHasData(false);
   }, []);
 
   // Memoize content check
   const hasAnyContent = useMemo(() => {
-    return hasStories || hasLeaders || hasManifestos || hasRallies;
-  }, [hasStories, hasLeaders, hasManifestos, hasRallies]);
+    return hasLeaders || hasManifestos || hasRallies;
+  }, [hasLeaders, hasManifestos, hasRallies]);
 
   // Memoize empty state check
   const showEmptyState = useMemo(() => {
@@ -211,20 +208,7 @@ const TrendingSection = () => {
       <TopFypHeader />
 
       <ContentWrapper>
-        {/* ── 1. TRENDING STORIES ── */}
-        {hasStories && (
-          <SectionWrapper>
-            <MemoizedTrendingStoriesRow
-              currentUser={memoizedCurrentUser}
-              limit={50}
-              onEmpty={handleStoriesEmpty}
-            />
-          </SectionWrapper>
-        )}
-
-        {hasStories && hasLeaders && <Divider />}
-
-        {/* ── 2. TRENDING LEADERS ── */}
+        {/* ── 1. TRENDING LEADERS ── */}
         {hasLeaders && (
           <SectionWrapper>
             <MemoizedTrendingLeaders
@@ -237,7 +221,7 @@ const TrendingSection = () => {
 
         {hasLeaders && hasManifestos && <Divider />}
 
-        {/* ── 3. TRENDING MANIFESTOS ── */}
+        {/* ── 2. TRENDING MANIFESTOS ── */}
         {hasManifestos && (
           <SectionWrapper>
             <MemoizedTrendingManifestos
@@ -250,11 +234,11 @@ const TrendingSection = () => {
 
         {hasManifestos && <Divider />}
 
-        {/* ── 4. MERCH ADS CAROUSEL  ── */}
+        {/* ── 3. MERCH ADS CAROUSEL  ── */}
         {merchHasData && shouldLoadMerch && (
           <BottomCarouselWrapper>
             <Suspense fallback={<CarouselSkeleton />}>
-              <MerchAdsCarousel 
+              <MerchAdsCarousel
                 onEmpty={handleMerchEmpty}
               />
             </Suspense>
@@ -262,7 +246,7 @@ const TrendingSection = () => {
         )}
       </ContentWrapper>
 
-      {/* ── 5. STICKY FOOTER - ALWAYS AT BOTTOM ── */}
+      {/* ── 4. STICKY FOOTER - ALWAYS AT BOTTOM ── */}
       <StickyFooterWrapper>
         <MemoizedSloganSection />
       </StickyFooterWrapper>

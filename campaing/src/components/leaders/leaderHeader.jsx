@@ -1,4 +1,4 @@
-// components/leaders/leaderHeader.jsx - Enhanced SEO with Helmet Async (No scrollbar line)
+// components/leaders/leaderHeader.jsx - Enhanced SEO with Engagement Booster
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Helmet } from "react-helmet-async";
@@ -24,9 +24,11 @@ import {
   Globe,
   Eye as EyeIcon,
   Users,
+  Search,
+  MapPin,
+  Smartphone
 } from "lucide-react";
 import api from "../../api/api";
-import API from "../../api/config";
 import { buildImageUrl } from "../../utils/imageUtils";
 
 import EndorsementStories from "../stories/endorsementStories";
@@ -36,8 +38,24 @@ import AddStoryModal from "../stories/addStoryModal";
 
 // --- Animations ---
 const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+`;
+
+const shimmer = keyframes`
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+`;
+
+const scrollTicker = keyframes`
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 `;
 
 const fadeInUp = keyframes`
@@ -69,27 +87,6 @@ const BRANDS = {
   whatsapp: "#25D366",
   linkedin: "#0077B5",
   copy: "#10b981",
-};
-
-const PARTY_LOGOS = {
-  UDA: "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
-  "United Democratic Alliance": "https://uda.ke/wp-content/uploads/2023/04/cropped-uda.png",
-  ODM: "https://odm.co.ke/images/logo.png",
-  "Orange Democratic Movement": "https://odm.co.ke/images/logo.png",
-  Wiper: "https://wiper.co.ke/static/assets/img/wiperlogo.png",
-  Jubilee: "https://global-uploads.webflow.com/61fa0db307d4e6dbea95b2ec/61fa411f7160025aac17c63a_jp-logo.svg",
-};
-
-const getPartyLogo = (partyName) => {
-  if (!partyName) return null;
-  const upperParty = partyName.toUpperCase();
-  if (PARTY_LOGOS[upperParty]) return PARTY_LOGOS[upperParty];
-  for (const [key, value] of Object.entries(PARTY_LOGOS)) {
-    if (upperParty.includes(key.toUpperCase()) || key.toUpperCase().includes(upperParty)) {
-      return value;
-    }
-  }
-  return null;
 };
 
 // ==================== STYLED COMPONENTS ====================
@@ -193,11 +190,6 @@ const VerifiedBadge = styled.div`
     font-weight: 500;
     color: ${(props) => (props.$verified ? "#10b981" : "#9ca3af")};
   }
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
 `;
 
 const BoostButton = styled.button`
@@ -219,7 +211,6 @@ const BoostButton = styled.button`
     justify-content: center;
     background: #dc2626;
     backdrop-filter: blur(10px);
-    transition: none;
     color: white;
   }
 
@@ -250,7 +241,6 @@ const ShareButton = styled.button`
     justify-content: center;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
-    transition: none;
     color: white;
   }
 
@@ -259,73 +249,6 @@ const ShareButton = styled.button`
     font-weight: 500;
     color: rgba(255, 255, 255, 0.7);
   }
-`;
-
-
-const blink = keyframes`
-  0%, 90%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.1); }
-`;
-
-
-export const Eye = styled.div`
-  position: relative;
-  width: 120px;
-  height: 70px;
-  border-radius: 70px / 45px;
-  background: linear-gradient(145deg, #f8fafc, #e2e8f0);
-  box-shadow: 
-    inset 0 2px 6px rgba(0,0,0,0.15),
-    0 8px 20px rgba(0,0,0,0.2);
-  
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* iris + pupil */
-  &::before {
-    content: "";
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, #60a5fa, #1e3a8a 70%);
-    box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
-  }
-
-  /* shine */
-  &::after {
-    content: "";
-    position: absolute;
-    top: 18px;
-    left: 35%;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.9);
-    filter: blur(1px);
-  }
-
-  @media (max-width: 600px) {
-    width: 90px;
-    height: 55px;
-
-    &::before {
-      width: 28px;
-      height: 28px;
-    }
-  }
-`;
-
-
-
-const CompetitorsTitle = styled.div`
-  font-size: 10px;
-  font-weight: 800;
-  color: #ef4444;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-  opacity: 0.8;
 `;
 
 const ShareDropdown = styled.div`
@@ -354,15 +277,10 @@ const ShareIconRow = styled.button`
   border-radius: 10px;
   color: white;
   cursor: pointer;
-  transition: none;
   width: 100%;
   font-size: 13px;
   font-weight: 500;
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
+  &:hover { background: rgba(255,255,255,0.05); }
 `;
 
 const SupportButton = styled.button`
@@ -372,29 +290,75 @@ const SupportButton = styled.button`
   background: ${(props) => (props.$active ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)")};
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 12px 24px;
   border-radius: 12px;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   box-shadow: 0 4px 12px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)")};
+  animation: ${(props) => (!props.$active ? pulse : "none")} 2s infinite ease-in-out;
 
   &:hover {
     transform: scale(1.05) translateY(-2px);
     box-shadow: 0 6px 20px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)")};
   }
 
-  &:active {
-    transform: scale(0.95);
-  }
-
   .count {
     background: rgba(255, 255, 255, 0.2);
     padding: 2px 8px;
     border-radius: 10px;
-    font-size: 10px;
+    font-size: 11px;
   }
+`;
+
+const StickyActionBar = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 10, 10, 0.9);
+  backdrop-filter: blur(25px);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  z-index: 10000;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  transform: translateY(${(props) => (props.$visible ? "0" : "100%")});
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (min-width: 768px) { display: none; }
+`;
+
+const TickerWrapper = styled.div`
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 8px 16px;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  width: 100%;
+`;
+
+const TickerTrack = styled.div`
+  display: flex;
+  white-space: nowrap;
+  animation: ${scrollTicker} 30s linear infinite;
+  gap: 40px;
+`;
+
+const TickerItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  span { color: #dc2626; font-weight: 800; }
+  strong { color: #10b981; }
 `;
 
 const ModalOverlay = styled.div`
@@ -409,11 +373,23 @@ const ModalOverlay = styled.div`
   padding: 20px;
 `;
 
+const ActionButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: ${(props) => props.$bg || "transparent"};
+  color: ${(props) => props.$color || "white"};
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+`;
+
 const SharePromptModal = styled.div`
   background: linear-gradient(135deg, rgba(25, 25, 25, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%);
   color: white;
   padding: 40px 32px;
-  border-radius: 10px;
+  border-radius: 20px;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
@@ -421,62 +397,10 @@ const SharePromptModal = styled.div`
   max-width: 420px;
   position: relative;
   animation: ${fadeInUp} 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-  h3 { 
-    margin: 16px 0 8px 0; 
-    font-size: 18px; 
-    font-weight: 800;
-    background: linear-gradient(to right, #fff, #a3aed0);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  p { 
-    opacity: 0.8; 
-    margin-bottom: 32px; 
-    line-height: 1.6; 
-    font-size: 15px;
-    color: #e2e8f0;
-  }
-  
-  .share-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-
-  .social-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    
-    span {
-      font-size: 11px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-  }
-`;
-
-const Button = styled.button`
-  background: #bb0000;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-
-  &:hover {
-    background: #990000;
-    transform: translateY(-2px);
-  }
+  h3 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+  p { opacity: 0.8; margin-bottom: 24px; font-size: 15px; }
+  .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .social-item { display: flex; flex-direction: column; align-items: center; gap: 8px; span { font-size: 11px; color: #94a3b8; } }
 `;
 
 const SocialIconButton = styled.button`
@@ -486,11 +410,11 @@ const SocialIconButton = styled.button`
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.1);
-  }
+  width: 56px;
+  height: 56px;
+  color: white;
+  transition: all 0.3s;
+  &:hover { transform: scale(1.1); }
 `;
 
 const AddStoryButton = styled.button`
@@ -509,16 +433,10 @@ const AddStoryButton = styled.button`
   z-index: 99;
   transition: all 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
   opacity: ${(props) => (props.$visible ? 1 : 0)};
-  animation: ${(props) => (props.$visible ? fadeInUp : fadeOutDown)} 0.3s ease-out;
   font-size: 12px;
   font-weight: 800;
   color: white;
-  letter-spacing: 0.5px;
-
-  &:hover {
-    transform: scale(1.06) translateY(-2px);
-    box-shadow: 0 8px 24px rgba(220, 38, 38, 0.65);
-  }
+  &:hover { transform: scale(1.06) translateY(-2px); }
 `;
 
 const ProfileCard = styled.div`
@@ -533,197 +451,18 @@ const ProfileTopRow = styled.div`
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  /* Removed scrollbar styling – no visible line */
 `;
 
-const AvatarWrapper = styled.div`
-  position: relative;
-  flex-shrink: 0;
-`;
+const ProfileInfo = styled.div` flex: 1; `;
+const LeaderName = styled.h1` font-size: 20px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; `;
+const LeaderMeta = styled.div` display: flex; gap: 16px; font-size: 12px; color: #9ca3af; margin-top: 4px; `;
+const AvatarWrapper = styled.div` position: relative; flex-shrink: 0; `;
+const Avatar = styled.img` width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #000; background: #1a1a1a; `;
+const VerifiedIcon = styled.div` position: absolute; bottom: 2px; right: 2px; background: ${(props) => (props.$verified ? "#10b981" : "#6b7280")}; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 2px solid #000; `;
 
-const Avatar = styled.img`
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #000000;
-  background: #1a1a1a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-`;
-
-const VerifiedIcon = styled.div`
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  background: ${(props) => (props.$verified ? "#10b981" : "#6b7280")};
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #000000;
-`;
-
-const CompetitorsRowContainer = styled.div`
-  display: flex;
-  gap: 20px;
-  flex-shrink: 0;
-  align-items: center;
-`;
-
-const CompetitorItem = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: none;
-`;
-
-const CompetitorRing = styled.div`
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  padding: 2px;
-  background: ${(props) => (props.$isTop ? "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" : "rgba(255,255,255,0.2)")};
-  animation: ${(props) => (props.$isTop ? ringGlow : "none")} 2.5s infinite ease-in-out;
-  position: relative;
-`;
-
-const CompetitorAvatar = styled.div`
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #1a1a1a;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .default-avatar {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #2a2a2a;
-    svg {
-      width: 24px;
-      height: 24px;
-      color: rgba(255,255,255,0.5);
-    }
-  }
-`;
-
-const CompetitorName = styled.div`
-  font-size: 10px;
-  font-weight: 500;
-  color: #fff;
-  max-width: 70px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-`;
-
-const TopBadge = styled.div`
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #22c55e;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: bold;
-  color: white;
-  border: 1.5px solid #000;
-`;
-
-const InfoSection = styled.div`
-  margin-top: 8px;
-`;
-
-const Name = styled.h1`
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 2px 0;
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  letter-spacing: -0.2px;
-`;
-
-const PartyNameText = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 10px;
-  font-weight: 600;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-`;
-
-const VerifyBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 10px;
-  font-weight: 600;
-  background: ${(props) => (props.$status === "verified" ? "rgba(16, 185, 129, 0.15)" : "rgba(107, 114, 128, 0.15)")};
-  color: ${(props) => (props.$status === "verified" ? "#10b981" : "#9ca3af")};
-`;
-
-const PositionText = styled.div`
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const ContentArea = styled.div`
-  margin-top: 24px;
-
-  padding-bottom: 100px;
-`;
-
-
-
-const Toast = styled.div`
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(12px);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 40px;
-  z-index: 10001;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  animation: ${fadeIn} 0.3s ease;
-`;
+const ContentArea = styled.div` margin-top: 24px; padding-bottom: 100px; `;
+const Divider = styled.div` height: 1px; background: rgba(255,255,255,0.1); margin: 20px 0; `;
+const Toast = styled.div` position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(12px); color: white; padding: 12px 24px; border-radius: 40px; z-index: 10001; display: flex; align-items: center; gap: 8px; font-size: 14px; animation: ${fadeIn} 0.3s ease; `;
 
 // ==================== Helper Functions ====================
 
@@ -736,522 +475,153 @@ const formatNumber = (num) => {
 
 const getLoggedInUserId = () => {
   try {
-    const userData = localStorage.getItem("user_data");
-    const leaderData = localStorage.getItem("leaderData");
-
-    if (userData) {
-      const user = JSON.parse(userData);
-      return user.user_id || user.id || null;
-    }
-
-    if (leaderData) {
-      const leader = JSON.parse(leaderData);
-      return leader.leader_id || leader.id || null;
-    }
-  } catch (e) {
+    const userData = localStorage.getItem("user_data") || localStorage.getItem("user_info");
+    if (userData) return JSON.parse(userData).user_id || JSON.parse(userData).id;
     return null;
-  }
-  return null;
+  } catch (e) { return null; }
 };
 
-
-
-// Leader header logic
-
-const getLeaderImage = (leader) => {
-  if (!leader) return null;
-  const imageUrl = leader.image_url || leader.primary_image || leader.profile_image || leader.avatar || leader.image;
-  return buildImageUrl(imageUrl);
+const normalizePosition = (pos) => {
+  if (!pos) return "";
+  const l = pos.toLowerCase();
+  if (l.includes("governor")) return "Governor";
+  if (l.includes("senator")) return "Senator";
+  if (l.includes("mp")) return "MP";
+  if (l.includes("mca")) return "MCA";
+  return pos;
 };
 
-const trackProfileView = async (leaderId, userId) => {
-  if (!leaderId) return;
-  try {
-    await api.post(`/leaders/${leaderId}/view`, { user_id: userId, timestamp: new Date().toISOString() });
-  } catch (error) {
-    console.error("Error tracking profile view:", error);
-  }
-};
+// ==================== MAIN COMPONENT ====================
 
-const trackShare = async (leaderId, userId, platform) => {
-  if (!leaderId) return;
-  try {
-    await api.post(`/leaders/${leaderId}/share`, { user_id: userId, platform, timestamp: new Date().toISOString() });
-  } catch (error) {
-    console.error("Error tracking share:", error);
-  }
-};
-
-const normalizePosition = (position) => {
-  if (!position) return "";
-  const lower = position.toLowerCase();
-  if (lower.includes("governor")) return "Governor";
-  if (lower.includes("women rep") || lower.includes("woman rep")) return "Women Representative";
-  if (lower.includes("mp") || lower.includes("member of parliament")) return "Member of Parliament";
-  if (lower.includes("mca") || lower.includes("member of county assembly")) return "Member of County Assembly";
-  if (lower.includes("senator")) return "Senator";
-  if (lower.includes("president")) return "President";
-  if (lower.includes("deputy president")) return "Deputy President";
-  return position.charAt(0).toUpperCase() + position.slice(1);
-};
-
-// Memoized LeaderHeader component
 const LeaderHeader = memo(({ leader, onBack }) => {
   const [showBoostModal, setShowBoostModal] = useState(false);
-  const userId = getLoggedInUserId();
-  const leaderId = leader?.leader_id;
-
-  // SEO Dynamic Data
-  const aspirantName = leader?.name || "Aspirant";
-  const position = normalizePosition(leader?.position_running_for || leader?.position);
-  const location = leader?.ward || leader?.constituency || leader?.county || "Kenya";
-  const party = leader?.party || "Independent";
-
-  const seoTitle = `${aspirantName} for ${position} (${location}) | SiasaHub 2027`;
-  const seoDescription = `Learn about ${aspirantName}, candidate for ${position} in ${location}. View their manifesto, trending stories, and official campaign merchandise on SiasaHub.`;
-  const seoKeywords = `${aspirantName} Manifesto, Who is ${aspirantName}?, Best ${position} candidates in ${location}, Trending leaders in ${location}, Vote for ${aspirantName}, ${party} candidates 2027`;
-
-  // Structured Data (Schema.org)
-  const candidateSchema = {
-    "@context": "https://schema.org",
-    "@type": "Candidate",
-    "name": aspirantName,
-    "jobTitle": position,
-    "party": party,
-    "url": window.location.href,
-    "image": getLeaderImage(leader),
-    "description": leader?.slogan || seoDescription,
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": location,
-      "addressRegion": leader?.county,
-      "addressCountry": "KE"
-    }
-  };
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [competitors, setCompetitors] = useState([]);
-  const [boostedStories, setBoostedStories] = useState([]);
-  const [sideActionsVisible, setSideActionsVisible] = useState(true);
-  const [addButtonVisible, setAddButtonVisible] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(getLoggedInUserId());
   const [scrolledPast, setScrolledPast] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [viewTracked, setViewTracked] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const scrollTimeoutRef = useRef(null);
-  const lastScrollYRef = useRef(0);
-  const dropdownRef = useRef(null);
-  const [isSupporting, setIsSupporting] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
   const [supportCount, setSupportCount] = useState(0);
   const [viewsCount, setViewsCount] = useState(0);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
-  const startTimeRef = useRef(Date.now());
+  const [actionBarVisible, setActionBarVisible] = useState(false);
 
-  useEffect(() => {
-    setCurrentUserId(getLoggedInUserId());
-  }, []);
+  const dropdownRef = useRef(null);
+
+  const tickerItems = [
+    "Share this profile to boost visibility 🔥",
+    "Join the campaign and make an impact 🚀",
+    "Post an endorsement story today 📢",
+    "Help this candidate reach more voters ✨",
+  ];
 
   useEffect(() => {
     if (!leader?.leader_id) return;
-
-    // Fetch initial support count
-    const fetchSupportStats = async () => {
+    const fetchData = async () => {
       try {
         const res = await api.get(`/leaders/${leader.leader_id}/stats`);
         if (res.success && res.data) {
           setSupportCount(res.data.support_count || 0);
-          setViewsCount(res.data.views_count || res.data.views || 0);
-          setIsSupporting(res.data.is_supporting || false);
+          setViewsCount(res.data.views_count || 0);
+          setIsSupported(res.data.is_supporting || false);
         }
-      } catch (err) {
-        console.warn("Failed to fetch support stats");
-      }
+      } catch (err) { console.warn("Stats fetch failed"); }
     };
-    fetchSupportStats();
 
-    // Engagement Loop: Auto-prompt to share after 15 seconds of reading the profile
-    const engagementTimer = setTimeout(() => {
-      // Check if they haven't supported yet, prompt them to share to support
-      if (!isSupporting && !sessionStorage.getItem(`shared_${leader.leader_id}`)) {
-        setShowSharePrompt(true);
-      }
+    fetchData();
+
+    const timer = setTimeout(() => {
+      if (!isSupported) setShowSharePrompt(true);
     }, 15000);
-
-    startTimeRef.current = Date.now();
-    return () => {
-      clearTimeout(engagementTimer);
-      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      if (timeSpent >= 3) {
-        api.post(`/leaders/${leader.leader_id}/time-spent`, {
-          user_id: currentUserId,
-          time_spent: timeSpent,
-          source: window.location.pathname
-        }).catch(err => console.warn("Failed to track time"));
-      }
-    };
-  }, [leader?.leader_id, currentUserId]);
-
-  useEffect(() => {
-    if (leader?.leader_id && !viewTracked) {
-      trackProfileView(leader.leader_id, currentUserId);
-      setViewTracked(true);
-    }
-  }, [leader?.leader_id, currentUserId, viewTracked]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowShareDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [leader?.leader_id, isSupported]);
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const heroHeight = 380;
-      const isScrollingUp = currentScrollY < lastScrollYRef.current;
-
-      setScrolledPast(currentScrollY > heroHeight - 100);
-
-      if (isScrollingUp) {
-        setAddButtonVisible(true);
-      } else if (currentScrollY > 50) {
-        setAddButtonVisible(false);
-      }
-      if (currentScrollY <= 10) setAddButtonVisible(true);
-
-      setSideActionsVisible(false);
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      scrollTimeoutRef.current = setTimeout(() => setSideActionsVisible(true), 300);
-
-      lastScrollYRef.current = currentScrollY;
+      setActionBarVisible(window.scrollY > 300);
+      setScrolledPast(window.scrollY > 280);
     };
     window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const fetchBoostedStories = useCallback(async () => {
+  const handleSupport = async () => {
     if (!leader?.leader_id) return;
+    const nextStatus = !isSupported;
+    setIsSupported(nextStatus);
+    setSupportCount(prev => nextStatus ? prev + 1 : prev - 1);
     try {
-      const response = await api.get(`/endorsements/leader/${leader.leader_id}/boosted?limit=15&t=${Date.now()}`);
-      if (response.data?.success && response.data?.data) setBoostedStories(response.data.data);
-    } catch (error) {
-      console.error("Error fetching boosted stories:", error);
-    }
-  }, [leader?.leader_id]);
-
-  useEffect(() => {
-    if (leader?.leader_id) fetchBoostedStories();
-  }, [leader?.leader_id, fetchBoostedStories]);
-
-  const fetchCompetitors = useCallback(async () => {
-    if (!leader?.leader_id) return;
-
-    try {
-      const currentPositionRaw = leader.vying_for || leader.position || "";
-      const normalizedCurrentPosition = normalizePosition(currentPositionRaw);
-      const currentCounty = leader.county || "";
-      const currentConstituency = leader.constituency || "";
-
-      const response = await api.get("/leaders", { params: { limit: 500 } });
-
-      if (!response?.success || !response?.data) return;
-
-      let allLeaders = [];
-      if (Array.isArray(response.data)) {
-        response.data.forEach(group => {
-          if (group.leaders && Array.isArray(group.leaders)) {
-            allLeaders.push(...group.leaders);
-          }
-        });
-      } else if (response.data.leaders) {
-        allLeaders = response.data.leaders;
-      }
-
-      const competitorsList = allLeaders
-        .filter(aspirant => {
-          const aspirantPosition = normalizePosition(aspirant.position_running_for || aspirant.position || "");
-          const notSelf = aspirant.leader_id !== leader.leader_id;
-          const samePosition = aspirantPosition === normalizedCurrentPosition;
-          if (!samePosition || !notSelf) return false;
-
-          let sameLocation = false;
-          const pos = normalizedCurrentPosition;
-          if (pos === "Governor" || pos === "Senator" || pos === "Women Representative") {
-            sameLocation = currentCounty && aspirant.county && aspirant.county.toLowerCase() === currentCounty.toLowerCase();
-          } else if (pos === "Member of Parliament") {
-            sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
-          } else if (pos === "Member of County Assembly") {
-            sameLocation = currentConstituency && aspirant.constituency && aspirant.constituency.toLowerCase() === currentConstituency.toLowerCase();
-          } else if (pos === "President" || pos === "Deputy President") {
-            sameLocation = true;
-          }
-          return sameLocation;
-        })
-        .slice(0, 8);
-
-      setCompetitors(competitorsList);
-    } catch (error) {
-      console.error("Error fetching competitors:", error);
-      setCompetitors([]);
-    }
-  }, [leader]);
-
-  useEffect(() => {
-    if (leader?.leader_id) fetchCompetitors();
-  }, [leader?.leader_id, fetchCompetitors]);
-
-  const handleBoostSuccess = () => {
-    setToastMessage(`Successfully boosted ${leader.name}'s campaign!`);
-    setTimeout(() => setToastMessage(null), 3000);
-    fetchBoostedStories();
-  };
-
-  const handleCompetitorClick = (competitor) => {
-    const target = competitor.slug ? `/leader/${competitor.slug}` : `/leaders/${competitor.leader_id}`;
-    window.location.href = target;
+      await api.post(`/leaders/${leader.leader_id}/support`, { user_id: currentUserId, status: nextStatus });
+      if (nextStatus) setShowSharePrompt(true);
+    } catch (err) { console.error(err); }
   };
 
   const handleAddStory = () => setShowAddStoryModal(true);
-
-  const canonicalUrl = leader?.slug
-    ? `${window.location.origin}/leader/${leader.slug}`
-    : (typeof window !== "undefined" ? window.location.href : "");
-
-  // Get the leader's image URL for sharing (with proper absolute URL)
-  const getShareImageUrl = () => {
-    const imageUrl = getLeaderImage(leader);
-    if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-      return imageUrl;
-    }
-    // Fallback to a default image if none available
-    return 'https://siasahub.com/default-leader-share-image.jpg';
+  const handleBoostSuccess = () => {
+    setToastMessage("Campaign boosted successfully! 🔥");
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const shareImageUrl = getShareImageUrl();
+  const canonicalUrl = window.location.href;
+  const shareText = `Support ${leader?.name} for ${normalizePosition(leader?.position)}! Check their vision on SiasaHub. #SiasaHub #Kenya2027`;
 
-  // Compute formattedPosition early (needed by shareText before render block)
-  const _runningFor = leader?.vying_for || leader?.position || "Candidate";
-  const _formattedPosition = normalizePosition(_runningFor);
-  const shareText = `Support ${leader?.name || "this leader"} for ${_formattedPosition}! Check out their vision and manifesto for 2027 on SiasaHub. Every support counts! #SiasaHub #Elections2027`;
-  // Enhanced share functions with image attachment
-  const handleSupport = async () => {
-    if (!leader?.leader_id) return;
-
-    const originalStatus = isSupporting;
-    const originalCount = supportCount;
-
-    // Optimistic UI
-    setIsSupporting(!originalStatus);
-    setSupportCount(prev => originalStatus ? prev - 1 : prev + 1);
-
-    try {
-      const res = await api.post(`/leaders/${leader.leader_id}/support`, {
-        user_id: currentUserId,
-        status: !originalStatus
-      });
-
-      if (res.success) {
-        if (!originalStatus) {
-          setShowSharePrompt(true);
-        }
-      } else {
-        // Revert on error
-        setIsSupporting(originalStatus);
-        setSupportCount(originalCount);
-      }
-    } catch (err) {
-      setIsSupporting(originalStatus);
-      setSupportCount(originalCount);
-    }
-  };
-
-  const shareToTwitter = async () => {
-    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
-    await trackShare(leader?.leader_id, currentUserId, "twitter");
-
-    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`;
-    window.open(twitterIntentUrl, "_blank");
+  const shareToWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
-  const shareToWhatsApp = async () => {
-    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
-    await trackShare(leader?.leader_id, currentUserId, "whatsapp");
-    // Remove the raw image URL from the text and let WhatsApp generate a preview from the canonical link
-    const whatsappText = `${shareText}\n\nView Profile: ${canonicalUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank");
+  const shareToTwitter = () => {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
-  const shareToFacebook = async () => {
-    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
-    await trackShare(leader?.leader_id, currentUserId, "facebook");
-    // Facebook relies on the URL to pull Open Graph metadata (including the image)
-    const facebookIntentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`;
-    window.open(facebookIntentUrl, "_blank");
-    setShowShareDropdown(false);
-  };
-
-  const shareToLinkedIn = async () => {
-    sessionStorage.setItem(`shared_${leader?.leader_id}`, "true");
-    await trackShare(leader?.leader_id, currentUserId, "linkedin");
-    // LinkedIn shares the URL with OG tags. We can also add a summary with image.
-    const linkedInIntentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}`;
-    window.open(linkedInIntentUrl, "_blank");
+  const shareToFacebook = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`, "_blank");
     setShowShareDropdown(false);
   };
 
   const handleCopyLink = async () => {
     try {
-      //  rich text for clipboard without the raw image URL to keep it clean
-      const htmlContent = `<div><img src="${shareImageUrl}" width="400" style="border-radius:12px; margin-bottom:10px;" /><br/><strong>${leader.name}</strong><br/>${shareText}<br/><a href="${canonicalUrl}">${canonicalUrl}</a></div>`;
-      const textContent = `${shareText}\n\n${canonicalUrl}`;
-
-      // Clipboard API with both text and HTML for rich preview
-      if (navigator.clipboard && window.ClipboardItem) {
-        const clipboardItem = new ClipboardItem({
-          'text/plain': new Blob([textContent], { type: 'text/plain' }),
-          'text/html': new Blob([htmlContent], { type: 'text/html' })
-        });
-        await navigator.clipboard.write([clipboardItem]);
-      } else {
-        // Fallback for older browsers
-        await navigator.clipboard.writeText(textContent);
-      }
-
-      await trackShare(leader?.leader_id, currentUserId, "copy_link");
-      setCopied(true);
-      setToastMessage("Link with image copied to clipboard!");
-      setTimeout(() => { setCopied(false); setToastMessage(null); }, 2000);
+      await navigator.clipboard.writeText(canonicalUrl);
+      setToastMessage("Link copied to clipboard! 📋");
+      setTimeout(() => setToastMessage(null), 2000);
       setShowShareDropdown(false);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-      // Fallback to just URL if rich copy fails
-      try {
-        await navigator.clipboard.writeText(canonicalUrl);
-        setToastMessage("Link copied (image not supported in your browser)");
-        setTimeout(() => setToastMessage(null), 2000);
-      } catch (fallbackErr) {
-        console.error("Fallback copy failed:", fallbackErr);
-      }
-    }
+    } catch (err) { console.error(err); }
   };
 
-  if (!leader) return null;
-
-  const leaderImageUrl = getLeaderImage(leader);
-  const coverImage = leaderImageUrl || "https://images.unsplash.com/photo-1570126688035-1e6adbd61053?auto=format&fit=crop&q=80&w=1400";
-  const partyName = leader?.party || leader?.political_party || "Independent";
+  const leaderImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
-  const runningFor = leader?.vying_for || leader?.position || "Candidate";
-  const formattedPosition = normalizePosition(runningFor);
-  const getLocationText = () => {
-    const pos = formattedPosition;
-    if (pos === "Governor" || pos === "Women Representative" || pos === "Senator") return leader?.county || "";
-    if (pos === "Member of Parliament" || pos === "Member of County Assembly") return leader?.constituency || "";
-    return "";
-  };
-  const displayPosition = formattedPosition + (getLocationText() ? ` - ${getLocationText()}` : "");
-  const getFallbackAvatar = () => `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.name)}&background=dc2626&color=fff&size=100&bold=true`;
-
-  // Enhanced SEO metadata
-  const pageTitle = `${leader.name} – ${displayPosition} | ${partyName} Manifesto & Endorsements | SiasaHub 2027`;
-  const pageDescription = `Support ${leader.name} (${partyName}) for ${displayPosition} in the 2027 Kenyan elections. View manifesto, campaign promises, endorsements, and trending stories. Get involved today!`;
-  const pageImage = leaderImageUrl || getFallbackAvatar();
-  const pageUrl = canonicalUrl;
-
-  // JSON-LD structured data for the leader (Person/Organization)
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    "name": leader.name,
-    "description": pageDescription,
-    "image": pageImage,
-    "url": pageUrl,
-    "jobTitle": displayPosition,
-    "affiliation": {
-      "@type": "Organization",
-      "name": partyName
-    },
-    "sameAs": leader.website ? [leader.website] : [],
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": getLocationText() || leader.county || leader.constituency,
-      "addressCountry": "KE"
-    }
-  };
 
   return (
-    <>
+    <PageContainer>
       <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-        <meta name="keywords" content={`${leader.name}, ${partyName}, ${displayPosition}, Kenyan elections 2027, manifesto, endorsements, campaign promises, SiasaHub, ${leader.county || ""}, ${leader.constituency || ""}`} />
-        <link rel="canonical" href={pageUrl} />
-
-        <meta property="og:type" content="profile" />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDescription} />
-        <meta property="og:image" content={pageImage} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content={`${leader.name} - ${displayPosition}`} />
-        <meta property="og:url" content={pageUrl} />
-        <meta property="og:site_name" content="SiasaHub" />
-        <meta property="profile:first_name" content={leader.name.split(" ")[0]} />
-        <meta property="profile:last_name" content={leader.name.split(" ").slice(1).join(" ") || ""} />
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={pageTitle} />
-        <meta name="twitter:description" content={pageDescription} />
-        <meta name="twitter:image" content={pageImage} />
-        {isVerified && <meta name="twitter:label1" value="Verified Aspirant" />}
-
-        <meta name="robots" content="index, follow" />
-        <meta name="author" content={leader.name} />
-        <meta name="geo.region" content="KE" />
-        {leader.county && <meta name="geo.placename" content={leader.county} />}
-
-        <script type="application/ld+json">
-          {JSON.stringify(jsonLd)}
-        </script>
+        <title>{leader?.name} - {normalizePosition(leader?.position)} | SiasaHub</title>
+        <meta name="description" content={`Support ${leader?.name} for ${leader?.position}. View manifesto and stories.`} />
       </Helmet>
 
       <HeroSection>
-        <CoverImage $image={coverImage} />
+        <CoverImage $image={leaderImageUrl} />
         <TopNav>
-          <IconButton onClick={onBack}>
-            <ArrowLeft size={20} />
-          </IconButton>
+          <IconButton onClick={onBack}><ArrowLeft size={20} /></IconButton>
         </TopNav>
       </HeroSection>
 
-      <SideActions $visible={sideActionsVisible} $scrolledPast={scrolledPast}>
+      <SideActions $visible={!scrolledPast} $scrolledPast={scrolledPast}>
         <div style={{ position: "relative" }} ref={dropdownRef}>
-          <ShareButton onMouseDown={(e) => { e.stopPropagation(); setShowShareDropdown(!showShareDropdown); }}>
+          <ShareButton onClick={() => setShowShareDropdown(!showShareDropdown)}>
             <div className="share-icon"><Share2 size={18} /></div>
             <div className="share-text">Share</div>
           </ShareButton>
           {showShareDropdown && (
             <ShareDropdown>
-              <ShareIconRow onClick={shareToTwitter}><Twitter size={18} /> Twitter</ShareIconRow>
-              <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={18} /> WhatsApp</ShareIconRow>
-              <ShareIconRow onClick={shareToFacebook}><Facebook size={18} /> Facebook</ShareIconRow>
-              <ShareIconRow onClick={shareToLinkedIn}><Linkedin size={18} /> LinkedIn</ShareIconRow>
-              <ShareIconRow onClick={handleCopyLink}><Link2 size={18} /> {copied ? "Copied!" : "Copy Link"}</ShareIconRow>
+              <ShareIconRow onClick={shareToTwitter}><Twitter size={16} /> X (Twitter)</ShareIconRow>
+              <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={16} /> WhatsApp</ShareIconRow>
+              <ShareIconRow onClick={shareToFacebook}><Facebook size={16} /> Facebook</ShareIconRow>
+              <ShareIconRow onClick={handleCopyLink}><Link2 size={16} /> Copy Link</ShareIconRow>
             </ShareDropdown>
           )}
         </div>
-        <BoostButton onMouseDown={() => setShowBoostModal(true)}>
+        <BoostButton onClick={() => setShowBoostModal(true)}>
           <div className="boost-icon"><TrendingUp size={18} /></div>
           <div className="boost-text">Boost</div>
         </BoostButton>
@@ -1261,211 +631,80 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </VerifiedBadge>
       </SideActions>
 
-      <AddStoryButton onMouseDown={handleAddStory} $visible={addButtonVisible}>
-        <Plus size={18} color="white" />
-        Endorse Me
+      <AddStoryButton $visible={!showAddStoryModal} onClick={handleAddStory}>
+        <TrendingUp size={16} /> 📢 ENDORSE ME
       </AddStoryButton>
+
+      <StickyActionBar $visible={actionBarVisible}>
+        <SupportButton $active={isSupported} onClick={handleSupport} style={{ flex: 1 }}>
+          {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
+          {isSupported ? "JOINED" : "JOIN CAMPAIGN"}
+        </SupportButton>
+        <ActionButton $bg="rgba(255, 255, 255, 0.1)" onClick={() => setShowSharePrompt(true)} style={{ width: 56, height: 56, borderRadius: 12, justifyContent: 'center' }}>
+          <Share2 size={22} />
+        </ActionButton>
+        <ActionButton $bg="#dc2626" onClick={handleAddStory} style={{ flex: 1, borderRadius: 12, justifyContent: 'center' }}>
+          <TrendingUp size={18} /> POST STORY
+        </ActionButton>
+      </StickyActionBar>
 
       <ProfileCard>
         <ProfileTopRow>
           <AvatarWrapper>
-            <Avatar src={(!imageError && leaderImageUrl) ? leaderImageUrl : getFallbackAvatar()} alt={leader.name} onError={() => setImageError(true)} />
-            <VerifiedIcon $verified={isVerified}>
-              {isVerified ? <CheckCircle size={12} fill="#10b981" color="white" /> : <AlertCircle size={10} color="white" />}
-            </VerifiedIcon>
+            <Avatar src={leaderImageUrl} alt={leader?.name} />
+            <VerifiedIcon $verified={isVerified}><CheckCircle size={14} color="white" /></VerifiedIcon>
           </AvatarWrapper>
-
-          {competitors.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <CompetitorsTitle>Competitors</CompetitorsTitle>
-              <CompetitorsRowContainer>
-                {competitors.map((competitor, idx) => {
-                  const competitorImg = getLeaderImage(competitor);
-                  const isTop = idx === 0;
-                  return (
-                    <CompetitorItem key={competitor.leader_id} onClick={() => handleCompetitorClick(competitor)}>
-                      <div style={{ position: "relative" }}>
-                        <CompetitorRing $isTop={isTop}>
-                          <CompetitorAvatar>
-                            {competitorImg ? (
-                              <img
-                                src={competitorImg}
-                                alt={competitor.name}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(competitor.name)}&background=2a2a2a&color=fff&size=60`;
-                                }}
-                              />
-                            ) : (
-                              <div className="default-avatar"><User size={24} /></div>
-                            )}
-                          </CompetitorAvatar>
-                        </CompetitorRing>
-                        {isTop && <TopBadge>👑</TopBadge>}
-                      </div>
-                      <CompetitorName>{competitor.name.split(" ")[0]}</CompetitorName>
-                    </CompetitorItem>
-                  );
-                })}
-              </CompetitorsRowContainer>
-            </div>
-          )}
+          <ProfileInfo>
+            <LeaderName>
+              {leader?.name} {isVerified && <CheckCircle size={16} color="#10b981" />}
+            </LeaderName>
+            <LeaderMeta>
+              <span><Smartphone size={14} /> {leader?.position}</span>
+              <span><MapPin size={14} /> {leader?.county}</span>
+            </LeaderMeta>
+            <TickerWrapper>
+              <TickerTrack>
+                {tickerItems.concat(tickerItems).map((text, idx) => (
+                  <TickerItem key={idx}>
+                    {text}
+                  </TickerItem>
+                ))}
+              </TickerTrack>
+            </TickerWrapper>
+          </ProfileInfo>
         </ProfileTopRow>
-
-        <InfoSection>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <Name>
-                {leader.name}
-                {leader.party && <PartyNameText>{leader.party}</PartyNameText>}
-                <VerifyBadge $status={leader.verification_status}>
-                  {leader.verification_status === "verified" ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
-                  {leader.verification_status === "verified" ? "Verified" : "Pending"}
-                </VerifyBadge>
-              </Name>
-              <PositionText>{leader.position || "Leader"}</PositionText>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.07)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <EyeIcon size={14} color="#60a5fa" />
-                <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: '700', letterSpacing: '0.3px' }}>{formatNumber(viewsCount)}</span>
-                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '600', textTransform: 'uppercase' }}>views</span>
-              </div>
-              <SupportButton $active={isSupporting} onClick={handleSupport}>
-                <Heart size={16} fill={isSupporting ? "white" : "none"} />
-                {isSupporting ? "✓ JOINED" : `JOIN ${leader.name.split(" ")[0].toUpperCase()}`}
-                <span className="count"><Users size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />{formatNumber(supportCount)}</span>
-              </SupportButton>
-            </div>
-          </div>
-        </InfoSection>
-
-        {showSharePrompt && (
-          <ModalOverlay onClick={() => setShowSharePrompt(false)}>
-            <SharePromptModal onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => setShowSharePrompt(false)}
-                style={{
-                  position: 'absolute',
-                  top: 24,
-                  right: 24,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: 'none',
-                  color: 'white',
-                  cursor: 'pointer',
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <X size={18} />
-              </button>
-
-              <div style={{
-                width: 80,
-                height: 80,
-                background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 8px',
-                border: '2px solid rgba(239,68,68,0.3)'
-              }}>
-                <Heart size={40} color="#ef4444" fill="#ef4444" />
-              </div>
-
-              <h3>🗳️ You're In!</h3>
-              <p>Every share wins votes. Send {leader.name}'s profile to your contacts right now — your support can change the result!</p>
-
-              <div className="share-grid">
-                <div className="social-item">
-                  <SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter, color: 'white', width: 56, height: 56 }}>
-                    <Twitter size={24} />
-                  </SocialIconButton>
-                  <span>Post on X</span>
-                </div>
-                <div className="social-item">
-                  <SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp, color: 'white', width: 56, height: 56 }}>
-                    <MessageCircle size={24} />
-                  </SocialIconButton>
-                  <span>WhatsApp</span>
-                </div>
-                <div className="social-item">
-                  <SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook, color: 'white', width: 56, height: 56 }}>
-                    <Facebook size={24} />
-                  </SocialIconButton>
-                  <span>Facebook</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleCopyLink}
-                style={{
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  color: 'white',
-                  border: 'none',
-                  width: '100%',
-                  padding: '16px',
-                  borderRadius: '16px',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  letterSpacing: '1px',
-                  boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
-                  marginBottom: '10px'
-                }}
-              >
-                📋 COPY & SHARE LINK
-              </Button>
-              <Button
-                onClick={() => setShowSharePrompt(false)}
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  color: '#94a3b8',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '16px',
-                  fontSize: '12px',
-                  letterSpacing: '1px'
-                }}
-              >
-                Maybe Later
-              </Button>
-            </SharePromptModal>
-          </ModalOverlay>
-        )}
       </ProfileCard>
 
       <ContentArea>
-        {boostedStories && boostedStories.length > 0 && (
-          <>
-            <BoostedStoriesRow leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
-            <Divider />
-          </>
-        )}
-        <EndorsementStories leaderId={leader.leader_id} currentUser={{ name: "You", id: currentUserId || "unknown" }} onBoostSuccess={handleBoostSuccess} />
+        <EndorsementStories leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId }} onBoostSuccess={handleBoostSuccess} />
       </ContentArea>
 
-      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader.name} targetId={leader.leader_id} targetType="leader" userId={currentUserId} />
-      <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={() => {
-        setToastMessage("Story posted successfully!");
-        setTimeout(() => setToastMessage(null), 3000);
-        fetchBoostedStories();
-      }} />
-
-      {toastMessage && (
-        <Toast>
-          <Sparkles size={14} /> {toastMessage}
-        </Toast>
+      {showSharePrompt && (
+        <ModalOverlay onClick={() => setShowSharePrompt(false)}>
+          <SharePromptModal onClick={(e) => e.stopPropagation()}>
+            <IconButton onClick={() => setShowSharePrompt(false)} style={{ position: "absolute", top: 12, right: 12 }}><X size={18} /></IconButton>
+            <div style={{ padding: "20px" }}>
+              <Heart size={40} color="#ef4444" fill="#ef4444" style={{ marginBottom: 12 }} />
+              <h3>Support {leader?.name.split(" ")[0]}!</h3>
+              <p>Every share helps win votes. Spread the word to your community!</p>
+              <div className="share-grid">
+                <div className="social-item"><SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter }}><Twitter size={20} /></SocialIconButton><span>X</span></div>
+                <div className="social-item"><SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp }}><MessageCircle size={20} /></SocialIconButton><span>WhatsApp</span></div>
+                <div className="social-item"><SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook }}><Facebook size={20} /></SocialIconButton><span>Facebook</span></div>
+              </div>
+              <button onClick={handleCopyLink} style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#ef4444", color: "white", border: "none", fontWeight: "bold", marginTop: 20 }}>📋 COPY LINK</button>
+            </div>
+          </SharePromptModal>
+        </ModalOverlay>
       )}
-    </>
+
+      <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader?.name} targetId={leader?.leader_id} targetType="leader" userId={currentUserId} />
+      <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={handleBoostSuccess} />
+
+      {toastMessage && <Toast><Sparkles size={14} /> {toastMessage}</Toast>}
+    </PageContainer>
   );
 });
 
-LeaderHeader.displayName = 'LeaderHeader';
+LeaderHeader.displayName = "LeaderHeader";
 export default LeaderHeader;

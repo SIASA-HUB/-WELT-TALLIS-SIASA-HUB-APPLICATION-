@@ -8,7 +8,9 @@ const { v4: uuidv4 } = require("uuid");
 // Get the upload directory path (inside leaders-service)
 const getUploadDir = () => {
   // This will point to: /c/ballot/server/leaders-service/uploads/leaders
-  return path.join(__dirname, "../../uploads/leaders");
+  // FIX: ../../../ goes from src/utils/images -> src/utils -> src -> leaders-service root
+  // This matches the Docker volume: ./leaders-service/uploads -> /usr/src/app/leaders-service/uploads
+  return path.join(__dirname, "../../../uploads/leaders");
 };
 
 // Ensure upload directories exist (creates if not exists)
@@ -154,7 +156,7 @@ const deleteLocalImages = async (publicIds) => {
 
       try {
         await fs.unlink(filepath);
-        console.log(`🗑️ Deleted: ${filepath}`);
+        console.log(`ðŸ—‘ï¸ Deleted: ${filepath}`);
       } catch (err) {
         // File might not exist, ignore
       }

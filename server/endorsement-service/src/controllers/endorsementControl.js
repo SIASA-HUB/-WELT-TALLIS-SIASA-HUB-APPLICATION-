@@ -73,7 +73,7 @@ class CacheManager {
     }
   }
 
-  // Safe pattern deleter – works with any Redis client, never crashes
+  // Safe pattern deleter â€“ works with any Redis client, never crashes
   async delPattern(pattern) {
     if (!redis) return 0;
     try {
@@ -133,7 +133,7 @@ class CacheManager {
     }
     await this.delPattern("global:trending_endorsements:*");
     await this.delPattern("global:trending:*");
-    Logger.info(`✅ Cleared ${totalCleared} cache entries for leader: ${leaderId}`);
+    Logger.info(`âœ… Cleared ${totalCleared} cache entries for leader: ${leaderId}`);
     return totalCleared;
   }
 
@@ -184,9 +184,9 @@ const createEndorsement = [
     if (req.fileProcessed && req.mediaUrl) {
       mediaUrl = req.mediaUrl;
       mediaType = req.mediaType || "image";
-      Logger.info(`📸 Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
+      Logger.info(`ðŸ“¸ Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
     } else if (req.file && !req.mediaUrl) {
-      Logger.warn("⚠️ Middleware didn't set mediaUrl, using fallback");
+      Logger.warn("âš ï¸ Middleware didn't set mediaUrl, using fallback");
       const file = req.file;
       const now = new Date();
       const year = now.getFullYear();
@@ -195,12 +195,12 @@ const createEndorsement = [
       mediaUrl = `/uploads/endorsements/${year}/${month}/${fileName}`;
       mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
 
-      const uploadDir = path.join(__dirname, "../../uploads/endorsements", String(year), month);
+      const uploadDir = path.join(__dirname, "../../../uploads/endorsements", String(year), month);
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
       fs.writeFileSync(path.join(uploadDir, fileName), file.buffer);
-      Logger.info(`📸 Fallback - Media saved: ${mediaUrl}`);
+      Logger.info(`ðŸ“¸ Fallback - Media saved: ${mediaUrl}`);
     }
 
     if (!leader_id || !finalUserId) {
@@ -231,9 +231,9 @@ const createEndorsement = [
 
       // Build final message
       let finalMessage = userMessage;
-      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) finalMessage = "📷 Photo";
-      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) finalMessage = "📹 Video";
-      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) finalMessage = "💬 Support message";
+      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ“· Photo";
+      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ“¹ Video";
+      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ’¬ Support message";
       finalMessage = finalMessage.trim();
 
       // Insert endorsement (free)

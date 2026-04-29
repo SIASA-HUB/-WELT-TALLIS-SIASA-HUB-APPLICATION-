@@ -249,18 +249,18 @@ const SearchBar = styled.div`
 
   input {
     width: 100%;
-    padding: 12px 16px 12px 44px;
-    border-radius: 14px;
-    border: 1px solid #e0e5f2;
+    padding: 12px 20px 12px 48px;
+    border-radius: 12px;
+    border: none;
     background: #f4f7fe;
     font-size: 14px;
-    outline: none;
-    transition: all 0.3s;
+    font-weight: 500;
+    transition: all 0.2s;
 
     &:focus {
-      border-color: #4318ff;
+      outline: none;
+      box-shadow: 0 0 0 2px #4318ff20;
       background: white;
-      box-shadow: 0 4px 15px rgba(67, 24, 255, 0.08);
     }
   }
 
@@ -271,6 +271,79 @@ const SearchBar = styled.div`
     transform: translateY(-50%);
     color: #a3aed0;
   }
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+  animation: ${fadeIn} 0.3s ease-out;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 40px;
+  border-radius: 30px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  position: relative;
+
+  h3 {
+    margin: 0 0 12px 0;
+    font-size: 24px;
+    font-weight: 800;
+    color: #1b2559;
+    letter-spacing: -0.5px;
+  }
+
+  p {
+    color: #707eae;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+`;
+
+const ModalInput = styled.input`
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 2px solid #e9edf7;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1b2559;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #4318ff;
+    background: #f8fafc;
+  }
+
+  &::placeholder {
+    color: #a3aed0;
+  }
+`;
+
+const ModalError = styled.div`
+  color: #ee5d50;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 `;
 
 const EmptyState = styled.div`
@@ -292,6 +365,13 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("aspirants");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
+  
+  // Security Modal States
+  const [deleteId, setDeleteId] = useState(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   const [stats, setStats] = useState({
     aspirants: 0,
     pending: 0,
@@ -386,13 +466,38 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this leader?")) return;
+  const handleDelete = (id) => {
+    setDeleteId(id);
+    setConfirmPassword("");
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmPassword) {
+      setDeleteError("Please enter your password to continue.");
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
+
     try {
-      await api.delete(`/leaders/${id}`);
-      setData(data.filter(l => l.leader_id !== id));
+      const response = await api.delete(`/leaders/${deleteId}`, {
+        data: { password: confirmPassword }
+      });
+
+      if (response.success) {
+        setData(data.filter(l => l.leader_id !== deleteId));
+        setDeleteId(null);
+        setConfirmPassword("");
+      } else {
+        setDeleteError(response.message || "Failed to delete leader. Please check your password.");
+      }
     } catch (err) {
-      alert("Failed to delete leader");
+      const msg = err.response?.data?.message || "Invalid password or server error.";
+      setDeleteError(msg);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -647,6 +752,54 @@ const AdminDashboard = () => {
           </TableWrapper>
         )}
       </ContentCard>
+      {deleteId && (
+        <ModalOverlay onClick={() => !isDeleting && setDeleteId(null)}>
+          <ModalContent onClick={e => e.stopPropagation()}>
+            <h3>Verify Deletion</h3>
+            <p>
+              This is a permanent action. Please enter your administrator password to confirm the deletion of this leader profile.
+            </p>
+            
+            <ModalInput 
+              type="password"
+              placeholder="Enter admin password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && confirmDelete()}
+              autoFocus
+              disabled={isDeleting}
+            />
+
+            {deleteError && (
+              <ModalError>
+                <XCircle size={14} /> {deleteError}
+              </ModalError>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+              <ActionButton 
+                $bg="#f4f7fe" 
+                $color="#1b2559" 
+                onClick={() => setDeleteId(null)}
+                disabled={isDeleting}
+                style={{ flex: 1, padding: '14px', justifyContent: 'center' }}
+              >
+                Cancel
+              </ActionButton>
+              <ActionButton 
+                $bg="#ee5d50" 
+                $color="white" 
+                onClick={confirmDelete}
+                disabled={isDeleting || !confirmPassword}
+                style={{ flex: 2, padding: '14px', justifyContent: 'center' }}
+              >
+                {isDeleting ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {isDeleting ? "Verifying..." : "Confirm Delete"}
+              </ActionButton>
+            </div>
+          </ModalContent>
+        </ModalOverlay>
+      )}
     </DashboardWrapper>
   );
 };

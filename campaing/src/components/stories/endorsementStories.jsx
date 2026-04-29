@@ -24,6 +24,12 @@ const ringGlow = keyframes`
   100% { box-shadow: 0 0 0 0 rgba(255, 92, 1, 0); }
 `;
 
+const trendingPulse = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(67, 24, 255, 0.6); transform: scale(1); }
+  50% { box-shadow: 0 0 0 10px rgba(67, 24, 255, 0); transform: scale(1.05); }
+  100% { box-shadow: 0 0 0 0 rgba(67, 24, 255, 0); transform: scale(1); }
+`;
+
 const shimmer = keyframes`
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -106,18 +112,29 @@ const StoryItem = styled.div`
 `;
 
 const StoryRing = styled.div`
-  width: 80px;
-  height: 80px;
+  width: 82px;
+  height: 82px;
   border-radius: 50%;
-  padding: 2px;
+  padding: 3px;
   background: ${(props) =>
     props.$isAdd
-      ? "transparent"
-      : props.$hasReplies
-        ? "linear-gradient(135deg, #10b981, #34d399)"
-        : `linear-gradient(135deg, ${theme.colors?.primary || "#ff5c01"}, #f59e0b)`};
-  animation: ${(props) => (props.$isAdd ? "none" : ringGlow)} 2.8s infinite
-    ease-in-out;
+      ? "rgba(255, 255, 255, 0.1)"
+      : props.$isTrending
+      ? "linear-gradient(135deg, #dc2626, #f59e0b)"
+      : props.$viewed
+      ? "rgba(255,255,255,0.2)"
+      : `linear-gradient(135deg, ${theme.colors?.primary || "#ff5c01"}, #f59e0b)`};
+  animation: ${(props) =>
+    props.$isAdd ? "none" : ringGlow} 2.5s infinite ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s;
+
+  &:active {
+    transform: scale(0.92);
+  }
 `;
 
 const StoryAvatar = styled.div`
@@ -193,24 +210,21 @@ const StoryName = styled.div`
   white-space: nowrap;
 `;
 
-const ReplyBadge = styled.div`
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  background: #10b981;
+const AddIcon = styled.div`
+  width: 24px;
+  height: 24px;
+  background: ${theme.colors?.primary || "#dc2626"};
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  border: 2px solid #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #0a0a0a;
-
-  svg {
-    width: 10px;
-    height: 10px;
-    color: white;
-  }
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 5;
 `;
 
 const MediaTypeBadge = styled.div`
@@ -492,11 +506,16 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
             <StoryItem onClick={handleAddStoryClick}>
               <StoryRing $isAdd>
                 <StoryAvatar $isAdd>
-                  <Plus size={24} color={theme.colors?.primary || "#ff5c01"} />
+                  <Plus size={30} color="white" strokeWidth={3} />
                 </StoryAvatar>
+                <AddIcon>
+                   <Plus size={16} strokeWidth={3} />
+                </AddIcon>
               </StoryRing>
-              <StoryName>Your Story</StoryName>
+              <StoryName style={{ color: theme.colors?.primary || "#dc2626", fontWeight: 800 }}>Your Story</StoryName>
             </StoryItem>
+
+
 
             {loading ? (
               [...Array(6)].map((_, i) => (
@@ -519,18 +538,20 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
                 <p>No stories .</p>
               </EmptyState>
             ) : (
-              validEndorsements.map((supporter, index) => {
-                const hasRepliesCount = hasReplies(supporter.id);
-                const latestReply = replies[supporter.id]?.[0];
-                const mediaType = supporter.media_type || "text";
+              validEndorsements.map((story, index) => {
+                const isTrending = new Date() - new Date(story.created_at) < 3600000;
+                const hasRepliesCount = hasReplies(story.endorsement_id);
+                const latestReply = replies[story.endorsement_id]?.[0];
+                const mediaType = story.media_type || "text";
                 return (
-                  <StoryItem
-                    key={supporter.id}
-                    onClick={() => handleStoryClick(index)}
-                  >
-                    <StoryRing $hasReplies={hasRepliesCount}>
+                  <StoryItem key={story.endorsement_id} onClick={() => handleStoryClick(index)}>
+                    <StoryRing
+                      $viewed={false}
+                      $isTrending={isTrending}
+                      $hasReplies={hasRepliesCount}
+                    >
                       <StoryAvatar>
-                        {getStoryPreview(supporter)}
+                        {getStoryPreview(story)}
                         {hasRepliesCount && (
                           <ReplyBadge>
                             <MessageCircle size={10} />
@@ -540,7 +561,7 @@ const EndorsementStories = ({ leaderId, currentUser, onBoostSuccess }) => {
                       </StoryAvatar>
                     </StoryRing>
                     <StoryName>
-                      {supporter.user_name?.split(" ")[0] || "Anonymous"}
+                      {story.user_name?.split(" ")[0] || "Anonymous"}
                     </StoryName>
                     {latestReply && (
                       <div

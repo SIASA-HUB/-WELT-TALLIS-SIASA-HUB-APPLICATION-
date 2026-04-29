@@ -201,10 +201,17 @@ const getLeaderById = asyncHandler(async (req, res) => {
 
     const endorsements = await safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [safeLeaderId]);
     const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [safeLeaderId]);
-    const boosts = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [safeLeaderId]);
+    // SAFE: leaders_boosts table may not exist yet in production — return zeros gracefully
+    let boosts = { count: 0, total_amount: 0 };
+    try {
+      const boostResult = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [safeLeaderId]);
+      if (boostResult) boosts = boostResult;
+    } catch (boostErr) {
+      Logger.warn(`[GET LEADER] leaders_boosts table not found (run migrations): ` + boostErr.message);
+    }
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [safeLeaderId]);
 
-    // Return relative paths — the API gateway and frontend handle full URL construction
+    // Return relative paths â€” the API gateway and frontend handle full URL construction
     const formatImageUrl = (url) => url || null;
 
     const responseData = {
@@ -465,7 +472,7 @@ const loginAspirant = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate JWT token — Standardized via global auth utility
+    // Generate JWT token â€” Standardized via global auth utility
     const token = generateAccessToken({
       leaderId: leader.leader_id,
       userId: leader.leader_id,
@@ -534,7 +541,7 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
     const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leader.leader_id]);
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [leader.leader_id]);
 
-    // Return relative paths — the API gateway and frontend handle full URL construction
+    // Return relative paths â€” the API gateway and frontend handle full URL construction
     const formatImageUrl = (url) => url || null;
 
     const responseData = {
@@ -730,7 +737,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
       [limit]
     );
 
-    // Return relative paths — the API gateway and frontend handle full URL construction
+    // Return relative paths â€” the API gateway and frontend handle full URL construction
     const formatImageUrl = (url) => url || null;
 
     // Format leaders with proper image URLs
@@ -1505,13 +1512,49 @@ const rejectLeader = asyncHandler(async (req, res) => {
 
 const deleteLeader = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Security confirmation required: Please enter your administrator password to proceed with deletion." 
+    });
+  }
+
   try {
+    // 1. Verify admin password for critical security action
+    const adminUser = await safeQueryOne(`SELECT password_hash FROM users WHERE user_id = ?`, [req.userId]);
+    
+    if (!adminUser) {
+      return res.status(401).json({ success: false, message: "Authorization failed: Administrator account not found." });
+    }
+
+    const isMatch = await bcrypt.compare(password, adminUser.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Verification failed: The password you entered is incorrect." });
+    }
+
+    // 2. Perform soft delete
     await safeQuery(`UPDATE leaders SET status = 'deleted', updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
-    await redis.del(`leader:${leaderId}`);
-    await redis.del('global:all_leaders');
-    res.status(200).json({ success: true, message: "Leader deleted successfully" });
+    
+    // 3. Purge related caches to ensure UI reflects the changes
+    const cacheKeys = [
+      `leader:${leaderId}`,
+      'global:all_leaders',
+      'admin:all_leaders',
+      'admin:leader_stats'
+    ];
+    
+    for (const key of cacheKeys) {
+      await redis.del(key).catch(err => Logger.warn(`Redis cache clear failed for key ${key}:`, err));
+    }
+
+    Logger.info(`[SECURITY] Leader ${leaderId} deleted by Admin ${req.userId}`);
+    
+    res.status(200).json({ success: true, message: "Leader profile has been successfully deleted." });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    Logger.error(`Delete leader error [LeaderID: ${leaderId}, AdminID: ${req.userId}]:`, err);
+    res.status(500).json({ success: false, message: "A server error occurred while attempting to delete the leader profile." });
   }
 });
 

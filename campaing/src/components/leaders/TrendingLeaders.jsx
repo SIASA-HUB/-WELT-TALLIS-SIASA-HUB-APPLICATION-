@@ -26,6 +26,12 @@ const fadeUp = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const livePulse = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+`;
+
 // ========== STYLED COMPONENTS ==========
 const SectionWrapper = styled.section`
   margin: 0px 0 0px 0;
@@ -286,6 +292,8 @@ const RankBadge = styled.div`
   backdrop-filter: blur(4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 `;
+
+
 
 // Helper function to normalize position
 const normalizePosition = (position) => {

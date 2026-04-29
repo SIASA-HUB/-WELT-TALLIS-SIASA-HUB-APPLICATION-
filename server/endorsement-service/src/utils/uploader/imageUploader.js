@@ -12,7 +12,9 @@ const upload = multer({
 });
 
 // Base directories
-const UPLOADS_DIR = path.join(__dirname, "../../uploads");
+// FIX: ../../../ goes from src/utils/uploader -> src/utils -> src -> endorsement-service root
+// This matches Docker volume: ./endorsement-service/uploads -> /usr/src/app/endorsement-service/uploads
+const UPLOADS_DIR = path.join(__dirname, "../../../uploads");
 const ENDORSEMENTS_DIR = path.join(UPLOADS_DIR, "endorsements");
 
 // Ensure directories exist
@@ -52,7 +54,7 @@ const uploadEndorsementMedia = (req, res, next) => {
     const isImage = file.mimetype.startsWith("image/");
 
     console.log(
-      `📁 Processing file: ${file.originalname}, type: ${file.mimetype}, size: ${file.size}`,
+      `ðŸ“ Processing file: ${file.originalname}, type: ${file.mimetype}, size: ${file.size}`,
     );
 
     if (!isImage && !isVideo) {
@@ -69,7 +71,7 @@ const uploadEndorsementMedia = (req, res, next) => {
 
       if (!fs.existsSync(dateDir)) {
         fs.mkdirSync(dateDir, { recursive: true });
-        console.log(`📁 Created directory: ${dateDir}`);
+        console.log(`ðŸ“ Created directory: ${dateDir}`);
       }
 
       // Generate filename and save
@@ -82,7 +84,7 @@ const uploadEndorsementMedia = (req, res, next) => {
       // Create URL for the file
       const mediaUrl = `/uploads/endorsements/${year}/${month}/${fileName}`;
 
-      console.log(`✅ File saved: ${mediaUrl}`);
+      console.log(`âœ… File saved: ${mediaUrl}`);
 
       // Attach to request for controller to use
       req.mediaUrl = mediaUrl;
