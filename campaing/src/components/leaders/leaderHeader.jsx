@@ -1,7 +1,9 @@
-// components/leaders/leaderHeader.jsx - With Competitor Ranking & Crowns
+
+
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Share2,
@@ -33,7 +35,11 @@ import {
   Trophy,
   Crown,
   Medal,
-  Star
+  Star,
+  LogIn,
+  Mail,
+  Lock,
+  UserPlus
 } from "lucide-react";
 import api from "../../api/api";
 import { buildImageUrl } from "../../utils/imageUtils";
@@ -146,7 +152,11 @@ const IconButton = styled.button`
   justify-content: center;
   cursor: pointer;
   color: #000;
-  transition: none;
+  transition: all 0.2s;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const SideActions = styled.div`
@@ -255,7 +265,7 @@ const ShareDropdown = styled.div`
   position: absolute;
   bottom: 60px;
   right: 0;
-  background: #1a1a1a;
+  background: #000000ff;
   border-radius: 16px;
   padding: 12px;
   display: flex;
@@ -369,8 +379,8 @@ const StoryRing = styled.div`
 `;
 
 const RingBorder = styled.div`
-  width: 80px;
-  height: 80px;
+  width: 85px;
+  height: 85px;
   border-radius: 50%;
   background: ${(props) => {
     if (props.$rank === 1) return "linear-gradient(135deg, #FFD700, #FFA500)";
@@ -387,8 +397,8 @@ const RingBorder = styled.div`
 `;
 
 const CompetitorAvatar = styled.img`
-  width: 74px;
-  height: 74px;
+  width: 85px;
+  height: 85px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #000000;
@@ -501,7 +511,7 @@ const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
   z-index: 10001;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(15px);
   display: flex;
   align-items: center;
@@ -521,22 +531,127 @@ const ActionButton = styled.button`
   transition: all 0.2s;
 `;
 
+// Login Required Modal that redirects to register page
+const LoginRequiredModal = styled.div`
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: 32px;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  animation: ${fadeInUp} 0.4s ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  padding: 40px 32px;
+`;
+
+const LoginRequiredTitle = styled.h3`
+  font-size: 24px;
+  font-weight: 800;
+  margin: 16px 0 8px;
+  color: white;
+`;
+
+const LoginRequiredText = styled.p`
+  color: #9ca3af;
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.5;
+`;
+
+const LoginRequiredButton = styled.button`
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  border-radius: 16px;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  
+  &:hover {
+    filter: brightness(1.05);
+  }
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+`;
+
+// Rich Share Modal with enhanced message
 const SharePromptModal = styled.div`
-  background: linear-gradient(135deg, rgba(25, 25, 25, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%);
+  background: linear-gradient(135deg, rgba(25, 25, 35, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
   color: white;
   padding: 40px 32px;
-  border-radius: 20px;
+  border-radius: 32px;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   position: relative;
   animation: ${fadeInUp} 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  h3 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
-  p { opacity: 0.8; margin-bottom: 24px; font-size: 15px; }
-  .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .social-item { display: flex; flex-direction: column; align-items: center; gap: 8px; span { font-size: 11px; color: #94a3b8; } }
+  
+  h3 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #fff, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  p {
+    opacity: 0.7;
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+  
+  .share-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .share-message-preview {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    text-align: left;
+    border-left: 3px solid #ef4444;
+    
+    .preview-text {
+      font-size: 13px;
+      color: #e5e7eb;
+      line-height: 1.5;
+    }
+    
+    .preview-link {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+  }
 `;
 
 const SocialIconButton = styled.button`
@@ -550,7 +665,12 @@ const SocialIconButton = styled.button`
   height: 56px;
   color: white;
   transition: all 0.3s;
-  &:hover { transform: scale(1.1); }
+  background: ${props => props.$bg || "#2a2a3a"};
+  
+  &:hover {
+    transform: scale(1.1);
+    filter: brightness(1.1);
+  }
 `;
 
 const AddStoryButton = styled.button`
@@ -667,16 +787,12 @@ const StatChip = styled.div`
   }
 `;
 
-
-
 const PositionBadge = styled.div`
   font-size: 9px;
   color: #9ca3af;
   text-align: center;
   margin-top: 2px;
 `;
-
-
 
 const ContentArea = styled.div`
   margin-top: 24px;
@@ -718,6 +834,14 @@ const getLoggedInUserId = () => {
   } catch (e) { return null; }
 };
 
+const getLoggedInUser = () => {
+  try {
+    const userData = localStorage.getItem("user_data") || localStorage.getItem("user_info");
+    if (userData) return JSON.parse(userData);
+    return null;
+  } catch (e) { return null; }
+};
+
 const normalizePosition = (pos) => {
   if (!pos) return "";
   const l = pos.toLowerCase();
@@ -732,16 +856,19 @@ const normalizePosition = (pos) => {
 // ==================== MAIN COMPONENT ====================
 
 const LeaderHeader = memo(({ leader, onBack }) => {
+  const navigate = useNavigate();
   const [showBoostModal, setShowBoostModal] = useState(false);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(getLoggedInUserId());
+  const [currentUser, setCurrentUser] = useState(getLoggedInUser());
   const [scrolledPast, setScrolledPast] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [supportCount, setSupportCount] = useState(0);
   const [viewsCount, setViewsCount] = useState(0);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
+  const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   const [actionBarVisible, setActionBarVisible] = useState(false);
   const [competitors, setCompetitors] = useState([]);
 
@@ -754,6 +881,20 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     "Help this candidate reach more voters ✨",
   ];
 
+  // Check authentication on mount and storage changes
+  useEffect(() => {
+    const checkAuth = () => {
+      const userId = getLoggedInUserId();
+      const user = getLoggedInUser();
+      setCurrentUserId(userId);
+      setCurrentUser(user);
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
+
   useEffect(() => {
     if (!leader?.slug) {
       console.warn("No slug provided for leader");
@@ -762,7 +903,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
     const fetchData = async () => {
       try {
-        // Fetch stats using ID (keep as is)
         if (leader?.leader_id) {
           const statsRes = await api.get(`/leaders/${leader.leader_id}/stats`);
           if (statsRes.success && statsRes.data) {
@@ -772,10 +912,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           }
         }
 
-        // Fetch competitors using SLUG and sort by boost_score (highest first)
         const competitorsRes = await api.get(`/leaders/slug/${leader.slug}/competitors`);
         if (competitorsRes.success && competitorsRes.data) {
-          // Sort competitors by boost_score DESC (highest first)
           const sortedCompetitors = [...competitorsRes.data].sort((a, b) => {
             const scoreA = a.boost_score || 0;
             const scoreB = b.boost_score || 0;
@@ -791,10 +929,10 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     fetchData();
 
     const timer = setTimeout(() => {
-      if (!isSupported) setShowSharePrompt(true);
+      if (!isSupported && !showLoginRequiredModal) setShowSharePrompt(true);
     }, 15000);
     return () => clearTimeout(timer);
-  }, [leader?.slug, leader?.leader_id, isSupported]);
+  }, [leader?.slug, leader?.leader_id, isSupported, showLoginRequiredModal]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -805,6 +943,15 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Handle support - requires authentication
+  const handleSupportClick = () => {
+    if (!currentUserId) {
+      setShowLoginRequiredModal(true);
+      return;
+    }
+    handleSupport();
+  };
+
   const handleSupport = async () => {
     if (!leader?.leader_id) return;
     const nextStatus = !isSupported;
@@ -813,43 +960,81 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     try {
       await api.post(`/leaders/${leader.leader_id}/support`, { user_id: currentUserId, status: nextStatus });
       if (nextStatus) setShowSharePrompt(true);
-    } catch (err) { console.error(err); }
+      setToastMessage(nextStatus ? "You joined the campaign! 🎉" : "Removed support");
+      setTimeout(() => setToastMessage(null), 2000);
+    } catch (err) {
+      console.error(err);
+      setIsSupported(!nextStatus);
+      setSupportCount(prev => nextStatus ? prev - 1 : prev + 1);
+    }
   };
 
-  const handleAddStory = () => setShowAddStoryModal(true);
+  // Handle add story - requires authentication - redirect to register
+  const handleAddStoryClick = () => {
+    if (!currentUserId) {
+      setShowLoginRequiredModal(true);
+      return;
+    }
+    setShowAddStoryModal(true);
+  };
+
+  // Redirect to register page
+  const redirectToRegister = () => {
+    setShowLoginRequiredModal(false);
+    navigate("/register");
+  };
+
   const handleBoostSuccess = () => {
     setToastMessage("Campaign boosted successfully! 🔥");
     setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleCompetitorClick = (competitor) => {
-    // Navigate using slug (preferred) or fallback to ID
     const slugOrId = competitor.slug || competitor.leader_id || competitor.id;
     window.location.href = `/leader/${slugOrId}`;
   };
 
   const canonicalUrl = window.location.href;
   const shareImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
-  const shareText = `Support ${leader?.name} for ${normalizePosition(leader?.position)}! Check their vision on SiasaHub. #SiasaHub #Kenya2027`;
+
+  // Enhanced rich share message
+  const shareTitle = `${leader?.name} for ${normalizePosition(leader?.position)} | SiasaHub`;
+  const shareDescription = `Join ${formatNumber(supportCount)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Together, we can make a difference! 🇰🇪`;
+
+  const getRichShareText = () => {
+    return `🇰🇪 *VOTE ${leader?.name?.toUpperCase()} FOR ${normalizePosition(leader?.position)?.toUpperCase()}* 🇰🇪\n\n` +
+      `🌟 "${leader?.slogan || "Together we rise, together we win!"}"\n\n` +
+      `📊 ${formatNumber(supportCount)} supporters already joined!\n` +
+      `📍 County: ${leader?.county || "Kenya"}\n` +
+      `🏛️ Party: ${leader?.party || "People's Choice"}\n\n` +
+      `👉 Join the movement today!\n` +
+      `🔗 ${canonicalUrl}\n\n` +
+      `#SiasaHub #${leader?.name?.replace(/\s/g, '')} #${normalizePosition(leader?.position)?.replace(/\s/g, '')} #Kenya2027`;
+  };
 
   const shareToWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + canonicalUrl)}`, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(getRichShareText())}`, "_blank");
     setShowShareDropdown(false);
+    setShowSharePrompt(false);
   };
 
   const shareToTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    const tweetText = `${shareTitle}\n\n${shareDescription}\n\nJoin me in supporting ${leader?.name}! ${canonicalUrl}\n#${leader?.name?.replace(/\s/g, '')} #SiasaHub`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, "_blank");
     setShowShareDropdown(false);
+    setShowSharePrompt(false);
   };
 
   const shareToFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonicalUrl)}&quote=${encodeURIComponent(shareDescription)}`, "_blank");
     setShowShareDropdown(false);
+    setShowSharePrompt(false);
   };
 
   const shareToLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}&title=${encodeURIComponent(shareTitle)}&summary=${encodeURIComponent(shareDescription)}`, "_blank");
     setShowShareDropdown(false);
+    setShowSharePrompt(false);
   };
 
   const handleCopyLink = async () => {
@@ -858,43 +1043,30 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       setToastMessage("Link copied to clipboard! 📋");
       setTimeout(() => setToastMessage(null), 2000);
       setShowShareDropdown(false);
+      setShowSharePrompt(false);
     } catch (err) { console.error(err); }
   };
 
   const leaderImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
-
-  // Use stats from leader object if available
   const displayViews = leader?.stats?.views || viewsCount;
   const displaySupport = leader?.stats?.endorsements || supportCount;
-
-  // Get rank icon
-  const getRankIcon = (rank) => {
-    if (rank === 1) return <Crown size={16} fill="#FFD700" />;
-    if (rank === 2) return <Medal size={14} />;
-    if (rank === 3) return <Star size={12} fill="#CD7F32" />;
-    return rank;
-  };
 
   return (
     <PageContainer>
       <Helmet>
-        <title>{leader?.name} - {normalizePosition(leader?.position)} | SiasaHub</title>
-        <meta name="description" content={`Support ${leader?.name} for ${leader?.position}. View manifesto and stories.`} />
-
-        {/* Open Graph tags for rich share previews */}
-        <meta property="og:title" content={`${leader?.name} - ${normalizePosition(leader?.position)} | SiasaHub`} />
-        <meta property="og:description" content={`Join ${formatNumber(displaySupport)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Make your voice heard!`} />
+        <title>{shareTitle}</title>
+        <meta name="description" content={shareDescription} />
+        <meta property="og:title" content={shareTitle} />
+        <meta property="og:description" content={shareDescription} />
         <meta property="og:image" content={shareImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:type" content="profile" />
         <meta property="og:url" content={canonicalUrl} />
-
-        {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${leader?.name} - ${normalizePosition(leader?.position)} | SiasaHub`} />
-        <meta name="twitter:description" content={`Join ${formatNumber(displaySupport)} supporters backing ${leader?.name}.`} />
+        <meta name="twitter:title" content={shareTitle} />
+        <meta name="twitter:description" content={shareDescription} />
         <meta name="twitter:image" content={shareImageUrl} />
       </Helmet>
 
@@ -931,12 +1103,12 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </VerifiedBadge>
       </SideActions>
 
-      <AddStoryButton $visible={!showAddStoryModal} onClick={handleAddStory}>
+      <AddStoryButton $visible={!showAddStoryModal && !showLoginRequiredModal} onClick={handleAddStoryClick}>
         <TrendingUp size={16} /> 📢 ENDORSE ME
       </AddStoryButton>
 
       <StickyActionBar $visible={actionBarVisible}>
-        <SupportButton $active={isSupported} onClick={handleSupport} style={{ flex: 1 }}>
+        <SupportButton $active={isSupported} onClick={handleSupportClick} style={{ flex: 1 }}>
           {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
           {isSupported ? "JOINED" : "JOIN CAMPAIGN"}
           {displaySupport > 0 && <span className="count">{formatNumber(displaySupport)}</span>}
@@ -944,7 +1116,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         <ActionButton $bg="rgba(255, 255, 255, 0.1)" onClick={() => setShowSharePrompt(true)} style={{ width: 56, height: 56, borderRadius: 12, justifyContent: 'center' }}>
           <Share2 size={22} />
         </ActionButton>
-        <ActionButton $bg="#dc2626" onClick={handleAddStory} style={{ flex: 1, borderRadius: 12, justifyContent: 'center' }}>
+        <ActionButton $bg="#dc2626" onClick={handleAddStoryClick} style={{ flex: 1, borderRadius: 12, justifyContent: 'center' }}>
           <TrendingUp size={18} /> POST STORY
         </ActionButton>
       </StickyActionBar>
@@ -973,7 +1145,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             <div style={{ marginTop: 16, marginBottom: 16 }}>
               <SupportButton
                 $active={isSupported}
-                onClick={handleSupport}
+                onClick={handleSupportClick}
                 style={{ width: 'fit-content', padding: '10px 24px', borderRadius: '12px' }}
               >
                 {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
@@ -994,7 +1166,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </ProfileTopRow>
       </ProfileCard>
 
-      {/* Competitors Section - Instagram-style story rings with ranking */}
+      {/* Competitors Section */}
       {competitors.length > 0 && (
         <CompetitorsSection>
           <SectionTitle>
@@ -1039,30 +1211,92 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       )}
 
       <ContentArea>
-        <EndorsementStories leaderId={leader?.leader_id} currentUser={{ name: "You", id: currentUserId }} onBoostSuccess={handleBoostSuccess} />
+        <EndorsementStories
+          leaderId={leader?.leader_id}
+          currentUser={{ name: currentUser?.name || "You", id: currentUserId }}
+          onBoostSuccess={handleBoostSuccess}
+          requireAuth={true}
+          onAuthRequired={() => setShowLoginRequiredModal(true)}
+        />
       </ContentArea>
 
+      {/* Rich Share Prompt Modal */}
       {showSharePrompt && (
         <ModalOverlay onClick={() => setShowSharePrompt(false)}>
           <SharePromptModal onClick={(e) => e.stopPropagation()}>
-            <IconButton onClick={() => setShowSharePrompt(false)} style={{ position: "absolute", top: 12, right: 12 }}><X size={18} /></IconButton>
-            <div style={{ padding: "20px" }}>
-              <Heart size={40} color="#ef4444" fill="#ef4444" style={{ marginBottom: 12 }} />
+            <CloseButton onClick={() => setShowSharePrompt(false)}><X size={18} /></CloseButton>
+            <div>
+              <Heart size={48} color="#ef4444" fill="#ef4444" style={{ marginBottom: 12 }} />
               <h3>Support {leader?.name?.split(" ")[0]}!</h3>
-              <p>Every share helps win votes. Spread the word to your community!</p>
-              <div className="share-grid">
-                <div className="social-item"><SocialIconButton onClick={shareToTwitter} style={{ background: BRANDS.twitter }}><Twitter size={20} /></SocialIconButton><span>X</span></div>
-                <div className="social-item"><SocialIconButton onClick={shareToWhatsApp} style={{ background: BRANDS.whatsapp }}><MessageCircle size={20} /></SocialIconButton><span>WhatsApp</span></div>
-                <div className="social-item"><SocialIconButton onClick={shareToFacebook} style={{ background: BRANDS.facebook }}><Facebook size={20} /></SocialIconButton><span>Facebook</span></div>
+              <p>Share this campaign with your network</p>
+
+              <div className="share-message-preview">
+                <div className="preview-text">
+                  🇰🇪 <strong>VOTE {leader?.name?.toUpperCase()} FOR {normalizePosition(leader?.position)?.toUpperCase()}</strong> 🇰🇪
+                  <br />
+                  "{leader?.slogan || "Together we rise, together we win!"}"
+                  <br />
+                  📊 {formatNumber(supportCount)} supporters already joined!
+                </div>
+                <div className="preview-link">{canonicalUrl}</div>
               </div>
-              <button onClick={handleCopyLink} style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#ef4444", color: "white", border: "none", fontWeight: "bold", marginTop: 20 }}>📋 COPY LINK</button>
+
+              <div className="share-grid">
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToTwitter} $bg="#000000"><Twitter size={24} /></SocialIconButton>
+                  <span>X</span>
+                </div>
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToWhatsApp} $bg="#25D366"><MessageCircle size={24} /></SocialIconButton>
+                  <span>WhatsApp</span>
+                </div>
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToFacebook} $bg="#1877F2"><Facebook size={24} /></SocialIconButton>
+                  <span>Facebook</span>
+                </div>
+                <div className="social-item">
+                  <SocialIconButton onClick={shareToLinkedIn} $bg="#0077B5"><Linkedin size={24} /></SocialIconButton>
+                  <span>LinkedIn</span>
+                </div>
+              </div>
+
+              <button onClick={handleCopyLink} style={{ width: "100%", padding: "14px", borderRadius: "16px", background: "#ef4444", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}>
+                📋 COPY CAMPAIGN LINK
+              </button>
             </div>
           </SharePromptModal>
         </ModalOverlay>
       )}
 
+      {/* Login Required Modal - Redirects to Register Page */}
+      {showLoginRequiredModal && (
+        <ModalOverlay onClick={() => setShowLoginRequiredModal(false)}>
+          <LoginRequiredModal onClick={(e) => e.stopPropagation()}>
+            <CloseButton onClick={() => setShowLoginRequiredModal(false)}><X size={18} /></CloseButton>
+            <UserPlus size={64} color="#ef4444" />
+            <LoginRequiredTitle>Join the Movement!</LoginRequiredTitle>
+            <LoginRequiredText>
+              You need to create an account or login to support {leader?.name?.split(" ")[0]}'s campaign.<br /><br />
+              It only takes a minute to join thousands of Kenyans shaping the future!
+            </LoginRequiredText>
+            <LoginRequiredButton onClick={redirectToRegister}>
+              <UserPlus size={18} /> CREATE ACCOUNT / LOGIN
+            </LoginRequiredButton>
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "16px" }}>
+              Already have an account? Click above to login
+            </p>
+          </LoginRequiredModal>
+        </ModalOverlay>
+      )}
+
       <BoostModal isOpen={showBoostModal} onClose={() => setShowBoostModal(false)} onBoost={handleBoostSuccess} targetName={leader?.name} targetId={leader?.slug} targetType="leader" userId={currentUserId} />
-      <AddStoryModal isOpen={showAddStoryModal} onClose={() => setShowAddStoryModal(false)} leader={leader} onComplete={handleBoostSuccess} />
+      <AddStoryModal
+        isOpen={showAddStoryModal}
+        onClose={() => setShowAddStoryModal(false)}
+        leader={leader}
+        onComplete={handleBoostSuccess}
+        currentUserId={currentUserId}
+      />
 
       {toastMessage && <Toast><Sparkles size={14} /> {toastMessage}</Toast>}
     </PageContainer>
