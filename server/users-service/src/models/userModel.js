@@ -373,8 +373,10 @@ class UserModel {
       political_party,
       employment_status,
       personal_email,
+      phone_number,
       political_leanings,
       vote_frequency,
+      constituency,
     } = userData;
 
     const user_id = this.generateUserId();
@@ -415,10 +417,10 @@ class UserModel {
 
     await safeQuery(
       `INSERT INTO users
-        (user_id, real_name, anonymous_username, gender, age_bracket, generation, county, ward,
+        (user_id, real_name, anonymous_username, gender, age_bracket, generation, county, ward, constituency,
          voter_card, will_vote, password_hash, role, political_party, employment_status, 
-         personal_email, political_leanings, vote_frequency, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         personal_email, phone_number, political_leanings, vote_frequency, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user_id,
         real_name.trim(),
@@ -428,6 +430,7 @@ class UserModel {
         generation || null,
         normalizedCounty,
         ward || null,
+        constituency || null,
         voter_card || 0,
         will_vote !== undefined && will_vote !== null ? will_vote : 2,
         password_hash,
@@ -435,6 +438,7 @@ class UserModel {
         finalPoliticalParty,
         finalEmploymentStatus,
         personal_email || null,
+        phone_number || null,
         finalPoliticalLeanings,
         finalVoteFrequency,
         now,
@@ -465,8 +469,10 @@ class UserModel {
       "political_party",
       "employment_status",
       "personal_email",
+      "phone_number",
       "political_leanings",
       "vote_frequency",
+      "constituency",
     ];
 
     allowedFields.forEach((field) => {

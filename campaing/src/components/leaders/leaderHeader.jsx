@@ -297,21 +297,21 @@ const SupportButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  background: ${(props) => (props.$active ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)")};
-  color: white;
-  border: none;
+  background: ${(props) => (props.$active ? "#374151" : "linear-gradient(135deg, #ef4444, #dc2626)")};
+  color: ${(props) => (props.$active ? "#9ca3af" : "white")};
+  border: ${(props) => (props.$active ? "1px solid #4b5563" : "none")};
   padding: 12px 24px;
   border-radius: 12px;
   font-weight: 800;
   font-size: 14px;
-  cursor: pointer;
+  cursor: ${(props) => (props.$active ? "default" : "pointer")};
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 4px 12px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)")};
+  box-shadow: ${(props) => (props.$active ? "none" : "0 4px 12px rgba(239, 68, 68, 0.4)")};
   animation: ${(props) => (!props.$active ? pulse : "none")} 2s infinite ease-in-out;
 
   &:hover {
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 6px 20px ${(props) => (props.$active ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)")};
+    transform: ${(props) => (props.$active ? "none" : "scale(1.05) translateY(-2px)")};
+    box-shadow: ${(props) => (props.$active ? "none" : "0 6px 20px rgba(239, 68, 68, 0.5)")};
   }
 
   .count {
@@ -531,34 +531,79 @@ const ActionButton = styled.button`
   transition: all 0.2s;
 `;
 
-// Login Required Modal that redirects to register page
-const LoginRequiredModal = styled.div`
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  border-radius: 32px;
+// Support Register Modal for joining a campaign
+const SupportRegisterModal = styled.div`
+  background: #050505;
+  border-radius: 24px;
   width: 100%;
-  max-width: 400px;
+  max-width: 480px;
   overflow: hidden;
   animation: ${fadeInUp} 0.4s ease-out;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  text-align: center;
-  padding: 40px 32px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  padding: 32px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  /* Custom scrollbar for webkit browsers */
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 8px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 8px; }
 `;
 
-const LoginRequiredTitle = styled.h3`
+const FormTitle = styled.h3`
   font-size: 24px;
   font-weight: 800;
-  margin: 16px 0 8px;
   color: white;
+  margin-bottom: 8px;
+  text-align: center;
 `;
 
-const LoginRequiredText = styled.p`
+const FormSubtitle = styled.p`
   color: #9ca3af;
-  margin-bottom: 24px;
   font-size: 14px;
-  line-height: 1.5;
+  text-align: center;
+  margin-bottom: 24px;
 `;
 
-const LoginRequiredButton = styled.button`
+const FormGroup = styled.div`
+  margin-bottom: 16px;
+  text-align: left;
+  
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #9ca3af;
+    font-weight: 600;
+  }
+  
+  input, select {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s;
+    
+    &:focus {
+      border-color: #ef4444;
+      background: rgba(0, 0, 0, 0.4);
+    }
+  }
+`;
+
+const FormRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+`;
+
+const SubmitButton = styled.button`
   width: 100%;
   padding: 14px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -568,14 +613,21 @@ const LoginRequiredButton = styled.button`
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
-  margin-top: 8px;
+  margin-top: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: all 0.2s;
   
-  &:hover {
+  &:hover:not(:disabled) {
     filter: brightness(1.05);
+    transform: translateY(-2px);
+  }
+  
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
 `;
 
@@ -597,13 +649,13 @@ const CloseButton = styled.button`
 
 // Rich Share Modal with enhanced message
 const SharePromptModal = styled.div`
-  background: linear-gradient(135deg, rgba(25, 25, 35, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
+  background: radial-gradient(circle at top right, rgba(239, 68, 68, 0.15), transparent 60%), #050505;
   color: white;
   padding: 40px 32px;
   border-radius: 32px;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(239, 68, 68, 0.1);
   width: 100%;
   max-width: 480px;
   position: relative;
@@ -613,9 +665,7 @@ const SharePromptModal = styled.div`
     font-size: 24px;
     font-weight: 800;
     margin-bottom: 8px;
-    background: linear-gradient(135deg, #fff, #ef4444);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: white;
   }
   
   p {
@@ -868,8 +918,92 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const [supportCount, setSupportCount] = useState(0);
   const [viewsCount, setViewsCount] = useState(0);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
-  const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
+  const [showSupportRegisterModal, setShowSupportRegisterModal] = useState(false);
   const [actionBarVisible, setActionBarVisible] = useState(false);
+
+  const handleCloseSharePrompt = () => {
+    setShowSharePrompt(false);
+    if (leader?.slug) {
+      localStorage.setItem(`dismissed_share_${leader?.slug}`, Date.now().toString());
+    }
+  };
+
+  // Support Form State
+  const [supportForm, setSupportForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    county: "",
+    constituency: "",
+    ward: "",
+    password: ""
+  });
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const [supportFormError, setSupportFormError] = useState("");
+
+  const handleSupportFormChange = (e) => {
+    setSupportForm({ ...supportForm, [e.target.name]: e.target.value });
+  };
+
+  const submitSupportForm = async (e) => {
+    e.preventDefault();
+    setSupportFormError("");
+    setIsSubmittingSupport(true);
+
+    try {
+      // 1. Register the user
+      const registerRes = await api.post("/users/register", {
+        real_name: supportForm.name,
+        personal_email: supportForm.email,
+        phone_number: supportForm.phone,
+        county: supportForm.county,
+        constituency: supportForm.constituency,
+        ward: supportForm.ward,
+        password: supportForm.password,
+      });
+
+      if (!registerRes.success) throw new Error(registerRes.message || "Failed to create account");
+
+      // 2. Login the user to get token
+      const loginRes = await api.post("/users/login", {
+        identifier: supportForm.email,
+        password: supportForm.password,
+        remember_me: true
+      });
+
+      if (!loginRes.success) throw new Error(loginRes.message || "Failed to auto-login");
+
+      // 3. Update local user state
+      const userId = loginRes.user.user_id || loginRes.user.id;
+      setCurrentUserId(userId);
+      setCurrentUser(loginRes.user);
+      
+      // Persist auth state to localStorage so auto-join works for other candidates
+      const token = loginRes.accessToken || loginRes.token;
+      if (token) {
+        localStorage.setItem("access_token", token);
+        localStorage.setItem("token", token);
+      }
+      localStorage.setItem("user_data", JSON.stringify(loginRes.user));
+      window.dispatchEvent(new Event("storage")); // Notify other components
+
+      // 4. Record support for the leader
+      if (leader?.leader_id) {
+        await api.post(`/leaders/${leader.leader_id}/support`, { user_id: userId, status: true });
+        setIsSupported(true);
+        setSupportCount(prev => prev + 1);
+        setShowSharePrompt(true);
+        setToastMessage("You successfully joined the campaign! 🎉");
+      }
+
+      setShowSupportRegisterModal(false);
+    } catch (error) {
+      console.error("Support Registration Error:", error);
+      setSupportFormError(error.message || "An error occurred during registration");
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
   const [competitors, setCompetitors] = useState([]);
 
   const dropdownRef = useRef(null);
@@ -927,12 +1061,30 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     };
 
     fetchData();
+  }, [leader?.slug, leader?.leader_id]);
 
-    const timer = setTimeout(() => {
-      if (!isSupported && !showLoginRequiredModal) setShowSharePrompt(true);
-    }, 15000);
+  useEffect(() => {
+    if (!leader?.slug) return;
+
+    const checkTimer = () => {
+      if (isSupported || showSupportRegisterModal) return;
+      
+      const storageKey = `dismissed_share_${leader?.slug}`;
+      const dismissedAt = localStorage.getItem(storageKey);
+      
+      if (dismissedAt) {
+        const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000;
+        if (Date.now() - parseInt(dismissedAt, 10) < fiveDaysInMs) {
+          return; // Skip showing if dismissed within 5 days
+        }
+      }
+      
+      setShowSharePrompt(true);
+    };
+
+    const timer = setTimeout(checkTimer, 15000);
     return () => clearTimeout(timer);
-  }, [leader?.slug, leader?.leader_id, isSupported, showLoginRequiredModal]);
+  }, [leader?.slug, isSupported, showSupportRegisterModal]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -946,7 +1098,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   // Handle support - requires authentication
   const handleSupportClick = () => {
     if (!currentUserId) {
-      setShowLoginRequiredModal(true);
+      setShowSupportRegisterModal(true);
       return;
     }
     handleSupport();
@@ -954,33 +1106,35 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const handleSupport = async () => {
     if (!leader?.leader_id) return;
-    const nextStatus = !isSupported;
-    setIsSupported(nextStatus);
-    setSupportCount(prev => nextStatus ? prev + 1 : prev - 1);
+    if (isSupported) return; // Prevent un-joining, you can only join once!
+
+    const nextStatus = true;
+    setIsSupported(true);
+    setSupportCount(prev => prev + 1);
     try {
-      await api.post(`/leaders/${leader.leader_id}/support`, { user_id: currentUserId, status: nextStatus });
-      if (nextStatus) setShowSharePrompt(true);
-      setToastMessage(nextStatus ? "You joined the campaign! 🎉" : "Removed support");
+      await api.post(`/leaders/${leader.leader_id}/support`, { user_id: currentUserId, status: true });
+      setShowSharePrompt(true);
+      setToastMessage("You joined the campaign! 🎉");
       setTimeout(() => setToastMessage(null), 2000);
     } catch (err) {
       console.error(err);
-      setIsSupported(!nextStatus);
-      setSupportCount(prev => nextStatus ? prev - 1 : prev + 1);
+      setIsSupported(false);
+      setSupportCount(prev => prev - 1);
     }
   };
 
   // Handle add story - requires authentication - redirect to register
   const handleAddStoryClick = () => {
     if (!currentUserId) {
-      setShowLoginRequiredModal(true);
+      setShowSupportRegisterModal(true);
       return;
     }
     setShowAddStoryModal(true);
   };
 
-  // Redirect to register page
+  // Redirect to register page fallback
   const redirectToRegister = () => {
-    setShowLoginRequiredModal(false);
+    setShowSupportRegisterModal(false);
     navigate("/register");
   };
 
@@ -997,19 +1151,46 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const canonicalUrl = window.location.href;
   const shareImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
 
-  // Enhanced rich share message
-  const shareTitle = `${leader?.name} for ${normalizePosition(leader?.position)} | SiasaHub`;
-  const shareDescription = `Join ${formatNumber(supportCount)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Together, we can make a difference! 🇰🇪`;
+  const getSeasonalMessage = () => {
+    const today = new Date();
+    const month = today.getMonth(); // 0 = Jan, 4 = May
+    const date = today.getDate();
+
+    // Specific holidays
+    if (month === 4 && date === 1) return "👷 Happy Labor Day! Demand better working conditions by choosing the right leader today. Take Action Now!";
+    if (month === 5 && date === 1) return "🇰🇪 Happy Madaraka Day! Reclaim your power. Support a leader who fights for you. Act Now!";
+    if (month === 9 && date === 20) return "🇰🇪 Happy Mashujaa Day! Be a hero for your community. Stand with leadership that delivers. Join the movement!";
+    if (month === 11 && date === 12) return "🇰🇪 Happy Jamhuri Day! Celebrate our republic by demanding accountability. Make your voice heard today!";
+    
+    // Seasonal alternating messages
+    if (month >= 2 && month <= 4) {
+      return "🌱 A season of growth requires strong roots. Demand action and support a leader who builds for the future. Join us now!";
+    }
+    if (month >= 5 && month <= 7) {
+      return "☀️ It's time for bright ideas and bold action. Don't wait on the sidelines—support the change we need today!";
+    }
+    if (month >= 8 && month <= 10) {
+      return "🍂 As the year winds down, our fight ramps up. Demand real action for your community. Stand with us now!";
+    }
+    if (month === 11 || month <= 1) {
+      return "✨ A new season brings new opportunities. Demand better for your family. Support visionary leadership today!";
+    }
+    
+    return `✨ Make today count! Demand real action and support true leadership for your community. Act Now!`;
+  };
 
   const getRichShareText = () => {
+    const seasonMsg = getSeasonalMessage();
     return `🇰🇪 *VOTE ${leader?.name?.toUpperCase()} FOR ${normalizePosition(leader?.position)?.toUpperCase()}* 🇰🇪\n\n` +
+      `🌸 *${seasonMsg}* 🌸\n\n` +
       `🌟 "${leader?.slogan || "Together we rise, together we win!"}"\n\n` +
       `📊 ${formatNumber(supportCount)} supporters already joined!\n` +
       `📍 County: ${leader?.county || "Kenya"}\n` +
-      `🏛️ Party: ${leader?.party || "People's Choice"}\n\n` +
-      `👉 Join the movement today!\n` +
+      `🏛️ Party: ${leader?.party || "Independent"}\n\n` +
+      `👉 JOIN THE MOVEMENT TODAY & DEMAND ACTION!\n` +
       `🔗 ${canonicalUrl}\n\n` +
-      `#SiasaHub #${leader?.name?.replace(/\s/g, '')} #${normalizePosition(leader?.position)?.replace(/\s/g, '')} #Kenya2027`;
+      `*(Wait 3 seconds for the image preview to load before sending)*\n\n` +
+      `#SiasaHub #${leader?.name?.replace(/\s/g, '')} #DemandAction #Kenya2027`;
   };
 
   const shareToWhatsApp = () => {
@@ -1032,15 +1213,68 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   };
 
   const shareToLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}&title=${encodeURIComponent(shareTitle)}&summary=${encodeURIComponent(shareDescription)}`, "_blank");
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonicalUrl)}`, "_blank");
+    setShowShareDropdown(false);
+    setShowSharePrompt(false);
+  };
+
+  const handleNativeShare = async () => {
+    const text = getRichShareText();
+    
+    if (navigator.share) {
+      try {
+        let filesArray = [];
+        // Attempt to fetch and attach the image directly to the share
+        if (shareImageUrl) {
+          try {
+            // Fix relative paths for fetching
+            let fetchUrl = shareImageUrl;
+            if (fetchUrl.startsWith('/')) {
+              fetchUrl = window.location.origin + fetchUrl;
+            }
+            if (fetchUrl.startsWith('http')) {
+               // Ensure we try to fetch as a blob from a remote server with correct cors
+               // If it's a cross-origin request without CORS headers, it might fail.
+               const response = await fetch(fetchUrl);
+               const blob = await response.blob();
+               const file = new File([blob], 'campaign_image.jpg', { type: blob.type });
+               if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                 filesArray = [file];
+               }
+            }
+          } catch (e) {
+            console.warn("Could not fetch image for native share, but we will share the text.", e);
+          }
+        }
+
+        const shareData = {
+          title: `${leader?.name} Campaign`,
+          text: text,
+          url: canonicalUrl
+        };
+        
+        if (filesArray.length > 0) {
+          shareData.files = filesArray;
+        }
+        
+        await navigator.share(shareData);
+        setToastMessage("Shared successfully! 🎉");
+      } catch (err) {
+        console.error("Error with native share:", err);
+      }
+    } else {
+      // Fallback to copy link
+      handleCopyLink();
+    }
     setShowShareDropdown(false);
     setShowSharePrompt(false);
   };
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(canonicalUrl);
-      setToastMessage("Link copied to clipboard! 📋");
+      const text = getRichShareText();
+      await navigator.clipboard.writeText(text);
+      setToastMessage("Campaign message & link copied! 📋");
       setTimeout(() => setToastMessage(null), 2000);
       setShowShareDropdown(false);
       setShowSharePrompt(false);
@@ -1052,6 +1286,10 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const displayViews = leader?.stats?.views || viewsCount;
   const displaySupport = leader?.stats?.endorsements || supportCount;
 
+  // Ensure shareTitle and shareDescription are defined for helmet
+  const shareTitle = `${leader?.name} for ${normalizePosition(leader?.position)} | SiasaHub`;
+  const shareDescription = `Join ${formatNumber(supportCount)} supporters backing ${leader?.name} for ${normalizePosition(leader?.position)}. Together, we can make a difference! 🇰🇪`;
+
   return (
     <PageContainer>
       <Helmet>
@@ -1060,6 +1298,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         <meta property="og:title" content={shareTitle} />
         <meta property="og:description" content={shareDescription} />
         <meta property="og:image" content={shareImageUrl} />
+        <meta property="og:image:secure_url" content={shareImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:type" content="profile" />
@@ -1085,11 +1324,12 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           </ShareButton>
           {showShareDropdown && (
             <ShareDropdown>
+              <ShareIconRow onClick={handleNativeShare}><Share2 size={16} /> Native Share</ShareIconRow>
               <ShareIconRow onClick={shareToTwitter}><Twitter size={16} /> X (Twitter)</ShareIconRow>
               <ShareIconRow onClick={shareToWhatsApp}><MessageCircle size={16} /> WhatsApp</ShareIconRow>
               <ShareIconRow onClick={shareToFacebook}><Facebook size={16} /> Facebook</ShareIconRow>
               <ShareIconRow onClick={shareToLinkedIn}><Linkedin size={16} /> LinkedIn</ShareIconRow>
-              <ShareIconRow onClick={handleCopyLink}><Link2 size={16} /> Copy Link</ShareIconRow>
+              <ShareIconRow onClick={handleCopyLink}><Link2 size={16} /> Copy Message</ShareIconRow>
             </ShareDropdown>
           )}
         </div>
@@ -1103,7 +1343,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </VerifiedBadge>
       </SideActions>
 
-      <AddStoryButton $visible={!showAddStoryModal && !showLoginRequiredModal} onClick={handleAddStoryClick}>
+      <AddStoryButton $visible={!showAddStoryModal && !showSupportRegisterModal} onClick={handleAddStoryClick}>
         <TrendingUp size={16} /> 📢 ENDORSE ME
       </AddStoryButton>
 
@@ -1216,15 +1456,15 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           currentUser={{ name: currentUser?.name || "You", id: currentUserId }}
           onBoostSuccess={handleBoostSuccess}
           requireAuth={true}
-          onAuthRequired={() => setShowLoginRequiredModal(true)}
+          onAuthRequired={() => setShowSupportRegisterModal(true)}
         />
       </ContentArea>
 
       {/* Rich Share Prompt Modal */}
       {showSharePrompt && (
-        <ModalOverlay onClick={() => setShowSharePrompt(false)}>
+        <ModalOverlay onClick={handleCloseSharePrompt}>
           <SharePromptModal onClick={(e) => e.stopPropagation()}>
-            <CloseButton onClick={() => setShowSharePrompt(false)}><X size={18} /></CloseButton>
+            <CloseButton onClick={handleCloseSharePrompt}><X size={18} /></CloseButton>
             <div>
               <Heart size={48} color="#ef4444" fill="#ef4444" style={{ marginBottom: 12 }} />
               <h3>Support {leader?.name?.split(" ")[0]}!</h3>
@@ -1243,8 +1483,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
               <div className="share-grid">
                 <div className="social-item">
-                  <SocialIconButton onClick={shareToTwitter} $bg="#000000"><Twitter size={24} /></SocialIconButton>
-                  <span>X</span>
+                  <SocialIconButton onClick={handleNativeShare} $bg="#3b82f6"><Share2 size={24} /></SocialIconButton>
+                  <span>Share</span>
                 </div>
                 <div className="social-item">
                   <SocialIconButton onClick={shareToWhatsApp} $bg="#25D366"><MessageCircle size={24} /></SocialIconButton>
@@ -1255,37 +1495,84 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                   <span>Facebook</span>
                 </div>
                 <div className="social-item">
-                  <SocialIconButton onClick={shareToLinkedIn} $bg="#0077B5"><Linkedin size={24} /></SocialIconButton>
-                  <span>LinkedIn</span>
+                  <SocialIconButton onClick={shareToTwitter} $bg="#000000"><Twitter size={24} /></SocialIconButton>
+                  <span>X</span>
                 </div>
               </div>
 
               <button onClick={handleCopyLink} style={{ width: "100%", padding: "14px", borderRadius: "16px", background: "#ef4444", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}>
-                📋 COPY CAMPAIGN LINK
+                📋 COPY CAMPAIGN MESSAGE
               </button>
             </div>
           </SharePromptModal>
         </ModalOverlay>
       )}
 
-      {/* Login Required Modal - Redirects to Register Page */}
-      {showLoginRequiredModal && (
-        <ModalOverlay onClick={() => setShowLoginRequiredModal(false)}>
-          <LoginRequiredModal onClick={(e) => e.stopPropagation()}>
-            <CloseButton onClick={() => setShowLoginRequiredModal(false)}><X size={18} /></CloseButton>
-            <UserPlus size={64} color="#ef4444" />
-            <LoginRequiredTitle>Join the Movement!</LoginRequiredTitle>
-            <LoginRequiredText>
-              You need to create an account or login to support {leader?.name?.split(" ")[0]}'s campaign.<br /><br />
-              It only takes a minute to join thousands of Kenyans shaping the future!
-            </LoginRequiredText>
-            <LoginRequiredButton onClick={redirectToRegister}>
-              <UserPlus size={18} /> CREATE ACCOUNT / LOGIN
-            </LoginRequiredButton>
-            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "16px" }}>
-              Already have an account? Click above to login
+      {/* Support Register Modal */}
+      {showSupportRegisterModal && (
+        <ModalOverlay onClick={() => setShowSupportRegisterModal(false)}>
+          <SupportRegisterModal onClick={(e) => e.stopPropagation()}>
+            <CloseButton onClick={() => setShowSupportRegisterModal(false)}><X size={18} /></CloseButton>
+            
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <UserPlus size={48} color="#ef4444" style={{ marginBottom: "8px" }} />
+              <FormTitle>Join {leader?.name?.split(" ")[0]}'s Campaign!</FormTitle>
+              <FormSubtitle>Sign up to officially become a supporter and get campaign updates.</FormSubtitle>
+            </div>
+
+            {supportFormError && (
+              <div style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", padding: "10px", borderRadius: "8px", marginBottom: "16px", fontSize: "13px", textAlign: "center" }}>
+                {supportFormError}
+              </div>
+            )}
+
+            <form onSubmit={submitSupportForm}>
+              <FormGroup>
+                <label>Full Name</label>
+                <input type="text" name="name" value={supportForm.name} onChange={handleSupportFormChange} placeholder="John Doe" required minLength="3" />
+              </FormGroup>
+
+              <FormRow>
+                <FormGroup>
+                  <label>Email Address</label>
+                  <input type="email" name="email" value={supportForm.email} onChange={handleSupportFormChange} placeholder="john@example.com" required />
+                </FormGroup>
+                <FormGroup>
+                  <label>Phone Number</label>
+                  <input type="tel" name="phone" value={supportForm.phone} onChange={handleSupportFormChange} placeholder="0712345678" required />
+                </FormGroup>
+              </FormRow>
+
+              <FormRow>
+                <FormGroup>
+                  <label>County</label>
+                  <input type="text" name="county" value={supportForm.county} onChange={handleSupportFormChange} placeholder="e.g. Nairobi" required />
+                </FormGroup>
+                <FormGroup>
+                  <label>Constituency</label>
+                  <input type="text" name="constituency" value={supportForm.constituency} onChange={handleSupportFormChange} placeholder="e.g. Westlands" required />
+                </FormGroup>
+              </FormRow>
+
+              <FormGroup>
+                <label>Ward</label>
+                <input type="text" name="ward" value={supportForm.ward} onChange={handleSupportFormChange} placeholder="e.g. Parklands" required />
+              </FormGroup>
+
+              <FormGroup>
+                <label>Create Password</label>
+                <input type="password" name="password" value={supportForm.password} onChange={handleSupportFormChange} placeholder="••••••••" required minLength="6" />
+              </FormGroup>
+
+              <SubmitButton type="submit" disabled={isSubmittingSupport}>
+                {isSubmittingSupport ? "JOINING..." : "JOIN CAMPAIGN NOW"}
+              </SubmitButton>
+            </form>
+            
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "16px", textAlign: "center" }}>
+              Already have an account? <span onClick={redirectToRegister} style={{ color: "#ef4444", cursor: "pointer" }}>Login instead</span>
             </p>
-          </LoginRequiredModal>
+          </SupportRegisterModal>
         </ModalOverlay>
       )}
 

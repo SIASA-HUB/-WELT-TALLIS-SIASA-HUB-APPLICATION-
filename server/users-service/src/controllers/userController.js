@@ -104,6 +104,8 @@ const createUser = asyncHandler(async (req, res) => {
     political_leanings,
     vote_frequency,
     personal_email,
+    phone_number,
+    constituency,
     role,
   } = req.body;
 
@@ -271,6 +273,8 @@ const createUser = asyncHandler(async (req, res) => {
       political_leanings: political_leanings || "Prefer not to say",
       vote_frequency: vote_frequency || "Prefer not to say",
       personal_email: personal_email || null,
+      phone_number: phone_number || null,
+      constituency: constituency || null,
     });
 
     Logger.info(`[Registration] User created successfully: ${user_id} (${finalUsername})`);
@@ -424,6 +428,8 @@ const updateUser = asyncHandler(async (req, res) => {
     political_leanings,
     vote_frequency,
     personal_email,
+    phone_number,
+    constituency,
   } = req.body;
 
   if (!userId) {
@@ -548,6 +554,8 @@ const updateUser = asyncHandler(async (req, res) => {
     if (political_leanings) updateData.political_leanings = political_leanings;
     if (vote_frequency) updateData.vote_frequency = vote_frequency;
     if (personal_email) updateData.personal_email = personal_email;
+    if (phone_number) updateData.phone_number = phone_number;
+    if (constituency) updateData.constituency = constituency;
 
     if (age_bracket) {
       updateData.age_bracket = age_bracket;

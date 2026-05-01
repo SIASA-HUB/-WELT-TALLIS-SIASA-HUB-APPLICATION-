@@ -1,64 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en-KE">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
-  <title>Siasa Hub 🇰🇪 - Your Political Campaign Command Center</title>
 
+  <!--  SEO  TITLE FOR 2027 ELECTIONS -->
+  <title>2027 Kenya Elections: Official Manifestos, Aspirant Profiles & Data Hub | Siasa Hub</title>
+
+  <!-- Favicon & Icons -->
   <link rel="icon" type="image/png" href="/image/siasa.png" />
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
   <meta name="image" content="https://siasahub.co.ke/image/siasa.png" />
 
-  <!-- Google tag (gtag.js) -->
+  <!-- Google Analytics (async + perf friendly) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MTXE9PKZDC"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
-
     gtag('config', 'G-MTXE9PKZDC');
   </script>
 
-  <!-- Preconnect to API and CDN -->
+  <!-- Resource Hints for SPEED -->
   <link rel="preconnect" href="https://siasahub.co.ke" />
   <link rel="dns-prefetch" href="https://siasahub.co.ke" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.googletagmanager.com" />
 
   <meta name="theme-color" content="#000000" />
-  <meta name="description"
-    content="SiasaHub 🇰🇪 is Kenya's definitive political campaign command center. Discover official candidate profiles, manifestos, real-time analytics, and merchandise for the 2027 General Election. The Wikipedia of Kenyan Politics." />
-  <meta name="keywords"
-    content="SiasaHub, Siasa Hub, Kenya Elections 2027, Kenyan Politicians, IEBC, UDA, ODM, Jubilee, Wiper, Nairobi Politics, Campaign Merchandise, Political Analytics Kenya, 2027 General Election, Kenyan Candidates, Manifestos, Political Endorsements" />
 
+  <!-- META DESCRIPTION -->
+  <meta name="description"
+    content="The #1 data hub for Kenya's 2027 General Election. Access official aspirant profiles, side-by-side manifesto comparisons, real-time analytics, campaign tools & IEBC updates. Your command center for 2027." />
+
+  <meta name="keywords"
+    content="2027 Kenya Elections, Kenyan Manifestos, Aspirant Profiles Kenya, IEBC 2027, Presidential Candidates Kenya, UDA, ODM, Kenya Election Data, SiasaHub, Campaign Analytics Kenya" />
+
+  <!-- Open Graph / Social -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Siasa Hub 🇰🇪 - Official Candidate Profiles" />
+  <meta property="og:title" content="2027 Kenya Elections: Compare Manifestos & Aspirant Profiles | Siasa Hub" />
   <meta property="og:description"
-    content="Explore manifestos and real-time analytics for the 2027 Kenyan General Election." />
+    content="Explore live manifestos, candidate comparisons, and data-driven insights for Kenya's 2027 General Election." />
   <meta property="og:image" content="https://siasahub.co.ke/icons/og-image.png" />
   <meta property="twitter:card" content="summary_large_image" />
   <meta name="geo.region" content="KE" />
+
   <link rel="manifest" href="/manifest.json" />
 
+  <!-- SEO Structured Data for Election Hub -->
   <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "SiasaHub",
-        "url": "https://siasahub.co.ke",
-        "logo": "https://siasahub.co.ke/image/siasa.png",
-        "description": "The Command Center for Kenyan Campaigns."
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "SiasaHub | Kenya Elections 2027",
+      "url": "https://siasahub.co.ke",
+      "description": "Official manifestos, aspirant profiles and real-time election data for Kenya 2027 General Election.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://siasahub.co.ke/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
       }
-    </script>
+    }
+  </script>
 
-  <link rel="preload" href="/bootstrap/css/bootstrap.min.css" as="style"
-    onload="this.onload=null;this.rel='stylesheet'">
-  <noscript>
-    <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-  </noscript>
+  <!-- Additional Schema for Election Coverage -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Top Aspirants Kenya 2027",
+      "description": "Leading candidates for 2027 Kenyan General Election",
+      "numberOfItems": 6,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "William Ruto", "url": "https://siasahub.co.ke/aspirant/william-ruto" },
+        { "@type": "ListItem", "position": 2, "name": "Raila Odinga", "url": "https://siasahub.co.ke/aspirant/raila-odinga" },
+        { "@type": "ListItem", "position": 3, "name": "Kalonzo Musyoka", "url": "https://siasahub.co.ke/aspirant/kalonzo-musyoka" },
+        { "@type": "ListItem", "position": 4, "name": "Musalia Mudavadi", "url": "https://siasahub.co.ke/aspirant/musalia-mudavadi" },
+        { "@type": "ListItem", "position": 5, "name": "Martha Karua", "url": "https://siasahub.co.ke/aspirant/martha-karua" },
+        { "@type": "ListItem", "position": 6, "name": "Eugene Wamalwa", "url": "https://siasahub.co.ke/aspirant/eugene-wamalwa" }
+      ]
+    }
+  </script>
 
+  <!--  CSS INLINE-->
   <style>
     * {
       margin: 0;
@@ -73,9 +100,10 @@
       width: 100%;
       overflow-x: hidden;
       color: white;
-      font-family: -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
     }
 
+    /* loader and top line */
     #top-loader-line {
       position: fixed;
       top: 0;
@@ -84,7 +112,8 @@
       height: 3px;
       background: linear-gradient(90deg, #bb0000, #ff4444);
       z-index: 10001;
-      transition: width 0.3s ease;
+      transition: width 0.25s ease-out;
+      box-shadow: 0 0 6px #ff0000;
     }
 
     #initial-loader {
@@ -96,26 +125,30 @@
       justify-content: center;
       background: #000;
       z-index: 10000;
+      transition: opacity 0.4s ease;
+      backdrop-filter: blur(0px);
     }
 
     .loader-logo-img {
-      width: 120px;
+      width: 130px;
       height: auto;
-      animation: fadeInUp 0.6s ease-out;
+      animation: fadeInUp 0.5s ease-out;
+      filter: drop-shadow(0 0 8px rgba(187, 0, 0, 0.3));
     }
 
     .loader-sub {
-      font-size: 10px;
-      color: #666;
+      font-size: 11px;
+      color: #aaa;
       margin-top: 20px;
-      letter-spacing: 2px;
+      letter-spacing: 3px;
       text-transform: uppercase;
+      font-weight: 500;
     }
 
     @keyframes fadeInUp {
       from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
       }
 
       to {
@@ -124,7 +157,14 @@
       }
     }
 
-    /* PWA Banner Styles */
+    /* quick placeholder for root content (avoid FOUC) */
+    #root {
+      min-height: 100vh;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* PWA banner */
     #pwa-banner {
       position: fixed;
       bottom: 70px;
@@ -133,81 +173,196 @@
       background: rgba(17, 17, 17, 0.98);
       backdrop-filter: blur(20px);
       padding: 16px;
-      border-radius: 16px;
+      border-radius: 20px;
       display: none;
       align-items: center;
-      border: 1px solid rgba(187, 0, 0, 0.3);
+      justify-content: space-between;
+      border: 1px solid rgba(187, 0, 0, 0.4);
       z-index: 9999;
+      font-family: inherit;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    #pwa-banner button {
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    #pwa-btn:hover {
+      background: #e00000 !important;
+      transform: scale(0.97);
+    }
+
+    /* Hardware accelerated loader */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+      }
     }
   </style>
+
+  <!-- Preload hero image  -->
+  <link rel="preload" href="/image/siasa.png" as="image" />
+
+  <!-- Bootstrap CSS loaded as async + on-demand (non-blocking) -->
+  <link rel="preload" href="/bootstrap/css/bootstrap.min.css" as="style" id="bootstrapPreload">
+  <noscript>
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+  </noscript>
+  <script>
+    (function () {
+      var bootstrapCSS = document.createElement('link');
+      bootstrapCSS.rel = 'stylesheet';
+      bootstrapCSS.href = '/bootstrap/css/bootstrap.min.css';
+      bootstrapCSS.media = 'print';
+      bootstrapCSS.onload = function () { this.media = 'all'; };
+      document.head.appendChild(bootstrapCSS);
+    })();
+  </script>
 </head>
 
 <body>
   <div id="top-loader-line"></div>
-
   <div id="initial-loader">
-    <img src="/image/siasa.png" alt="SiasaHub" class="loader-logo-img" />
-    <div class="loader-sub">CAMPAIGN COMMAND CENTER</div>
+    <img src="/image/siasa.png" alt="SiasaHub | Kenya Elections 2027" class="loader-logo-img" />
+    <div class="loader-sub">📊 MANIFESTO HUB · 2027 DATA CENTER</div>
   </div>
-
   <div id="pwa-banner">
-    <div style="flex: 1;">
-      <strong style="font-size: 14px; display: block;">Add Siasa Hub to Home Screen</strong>
-      <span style="font-size: 11px; color: #aaa;">Faster access & offline support</span>
+    <div style="flex:1;">
+      <strong style="font-size: 14px; display: block;">📲 Siasa Hub App</strong>
+      <span style="font-size: 11px; color: #ccc;">Install for faster updates & offline mode</span>
     </div>
     <button id="pwa-btn"
-      style="background: #bb0000; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; margin-right: 8px;">Install</button>
-    <button id="pwa-close" style="background: none; border: none; color: #fff;">✕</button>
+      style="background:#bb0000; color:#fff; border:none; padding:8px 18px; border-radius:40px; font-weight:600; margin-right:8px;">Install</button>
+    <button id="pwa-close"
+      style="background:transparent; border:none; color:#fff; font-size:20px; line-height:1;">✕</button>
   </div>
-
   <div id="root"></div>
 
   <script>
-    // 1. Loader Animation Logic
+    // --------------------------------------------------------------
+    // loader 
+    // --------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      const loader = document.getElementById('initial-loader');
+      const line = document.getElementById('top-loader-line');
+      if (line) line.style.width = '60%';
+    });
+
     window.addEventListener('load', () => {
       const loader = document.getElementById('initial-loader');
       const line = document.getElementById('top-loader-line');
-      line.style.width = '100%';
+      const rootEl = document.getElementById('root');
+      if (line) line.style.width = '100%';
       setTimeout(() => {
-        loader.style.opacity = '0';
-        setTimeout(() => loader.style.display = 'none', 400);
-      }, 500);
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.style.display = 'none';
+            if (rootEl) rootEl.style.opacity = '1';
+          }, 350);
+        } else {
+          if (rootEl) rootEl.style.opacity = '1';
+        }
+      }, 400);
     });
 
-    // 2. PWA Logic
+    // --------------------------------------------------------------
+    // 2. PWA Installation with improved UX
+    // --------------------------------------------------------------
     let deferredPrompt;
-    window.addEventListener("beforeinstallprompt", (e) => {
+    window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      if (!localStorage.getItem("pwa-dismissed")) {
-        setTimeout(() => document.getElementById("pwa-banner").style.display = "flex", 3000);
+      const dismissed = localStorage.getItem('pwa-dismissed');
+      if (!dismissed) {
+        setTimeout(() => {
+          const banner = document.getElementById('pwa-banner');
+          if (banner) banner.style.display = 'flex';
+        }, 2800);
       }
     });
 
-    document.getElementById("pwa-btn").addEventListener("click", async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") document.getElementById("pwa-banner").style.display = "none";
-        deferredPrompt = null;
-      }
-    });
+    const pwaBtn = document.getElementById('pwa-btn');
+    const pwaClose = document.getElementById('pwa-close');
+    if (pwaBtn) {
+      pwaBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            document.getElementById('pwa-banner').style.display = 'none';
+            localStorage.setItem('pwa-installed', 'true');
+          }
+          deferredPrompt = null;
+        } else {
+          // fallback: maybe already installed
+          document.getElementById('pwa-banner').style.display = 'none';
+        }
+      });
+    }
+    if (pwaClose) {
+      pwaClose.addEventListener('click', () => {
+        document.getElementById('pwa-banner').style.display = 'none';
+        localStorage.setItem('pwa-dismissed', 'true');
+      });
+    }
 
-    document.getElementById("pwa-close").addEventListener("click", () => {
-      document.getElementById("pwa-banner").style.display = "none";
-      localStorage.setItem("pwa-dismissed", "true");
-    });
+
+    if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW not registered", err));
+      });
+    }
 
 
-
-
-
-
-
-
+    const updateCopyright = () => {
+      const yearSpan = document.querySelector('.current-year');
+      if (yearSpan) yearSpan.innerText = new Date().getFullYear();
+    };
+    setTimeout(updateCopyright, 100);
   </script>
 
-  <script type="module" src="/src/main.jsx"></script>
+
+  <script type="module" src="/src/main.jsx" async></script>
+
+
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700&display=swap"
+    media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700&display=swap"
+      rel="stylesheet">
+  </noscript>
+
+  <!--  preload background pattern or assets to avoid layout shit -->
+  <style>
+    body {
+      background: #000;
+    }
+
+    #root:empty {
+      background: radial-gradient(circle at 20% 30%, #0a0a0a, #000000);
+      min-height: 100vh;
+    }
+
+    #root:empty::after {
+      content: "📊 Loading Siasa Hub 2027 Data...";
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-size: 14px;
+      color: #444;
+      letter-spacing: 0.5px;
+    }
+  </style>
+
+
+  <link rel="preconnect" href="https://www.google-analytics.com" />
+  <link rel="dns-prefetch" href="https://region1.google-analytics.com" />
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 </body>
 
 </html>
