@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { Home, UserCheck, ShoppingBag, User, LayoutDashboard, Settings } from "lucide-react";
 import { useAuth } from "../components/hooks/useAuth";
-
 import AppLoadingBar from "./LoadingBar";
 
 const clickScale = keyframes`
@@ -17,27 +16,22 @@ const NavContainer = styled.nav`
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: 65px;
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 9999;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.06);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   
-  /* This handles the "hiding" part */
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  transform: translateY(${(props) => (props.$isVisible ? "0" : "120%")});
-  
-  /* Force hardware acceleration for smoother hide/show */
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(${(props) => (props.$isVisible ? "0" : "110%")});
   will-change: transform;
 `;
 
 const NavItem = styled(Link)`
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -45,30 +39,33 @@ const NavItem = styled(Link)`
   flex: 1;
   height: 100%;
   text-decoration: none;
-  gap: 4px;
-  
-  /* REMOVES THE UNNECESSARY BOX */
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
-  background: transparent;
+  gap: 2px;
+
+  /* --- BOX REMOVAL SECTION --- */
+  -webkit-tap-highlight-color: transparent; 
+  -webkit-tap-highlight-color: rgba(0,0,0,0); /* Secondary fallback */
+  outline: none; /* Removes the focus square */
   border: none;
+  background: transparent;
   user-select: none;
 
-  &:active, &:focus, &:hover {
+  &:focus, &:active, &:hover, &:visited {
     outline: none;
     background: transparent;
-    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    border: none;
+    -webkit-tap-highlight-color: transparent;
   }
+  /* --------------------------- */
 
   &:active {
-    animation: ${clickScale} 0.1s ease-in-out;
+    animation: ${clickScale} 0.15s ease-in-out;
   }
 
   span {
-    font-size: 10px;
-    font-weight: ${(props) => (props.$active ? "700" : "500")};
-    color: ${(props) => (props.$active ? "#10b981" : "#8e8e93")};
-    transition: color 0.2s ease;
+    font-size: 11px;
+    font-weight: ${(props) => (props.$active ? "900" : "500")};
+    color: ${(props) => (props.$active ? "#10b981" : "#71717a")};
+    transition: all 0.2s ease;
   }
 `;
 
@@ -76,55 +73,43 @@ const NavMenu = () => {
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
+  const scrollTimeout = useRef(null);
   const loadingBarRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => {
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+
       const currentScrollY = window.scrollY;
+      const scrollDifference = Math.abs(currentScrollY - lastScrollY.current);
 
-      // 1. Threshold: If we haven't moved at least 5px, don't do anything
-      if (Math.abs(currentScrollY - lastScrollY.current) < 5) return;
-
-      if (currentScrollY > lastScrollY.current && currentScrollY > 70) {
-        // Scrolling Down - Hide it
-        setIsVisible(false);
-      } else {
-        // Scrolling Up - Show it
-        setIsVisible(true);
+      if (scrollDifference > 10) {
+        if (currentScrollY > lastScrollY.current && currentScrollY > 70) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
       }
-
       lastScrollY.current = currentScrollY;
+
+      // Auto-appear after 2.5s stop
+      scrollTimeout.current = setTimeout(() => {
+        setIsVisible(true);
+      }, 2500);
     };
 
-    // Attach to window, but use capture: false and passive: true
     window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Speculative pre-fetch of main sections
-    setTimeout(() => {
-      import("../components/leaders/leadersPage");
-      import("../components/marketplace/marketPage");
-    }, 2000);
-
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    };
   }, []);
 
-  // Completion of loading bar on route change
-  useEffect(() => {
-    if (loadingBarRef.current) {
-      loadingBarRef.current.complete();
-    }
-  }, [location.pathname]);
+  const { isLeaderAuthenticated, isAdmin, isMarketAdmin } = useAuth();
 
-  const { user, isLeaderAuthenticated, isAdmin, isMarketAdmin } = useAuth();
-  
-  // Dynamic navigation items based on role
   const getProfileItem = () => {
-    if (isAdmin() || isMarketAdmin()) {
-      return { path: "/marketplace-admin", label: "Admin", icon: Settings };
-    }
-    if (isLeaderAuthenticated) {
-      return { path: "/aspirant-dashboard", label: "Dashboard", icon: LayoutDashboard };
-    }
+    if (isAdmin() || isMarketAdmin()) return { path: "/marketplace-admin", label: "Admin", icon: Settings };
+    if (isLeaderAuthenticated) return { path: "/aspirant-dashboard", label: "Dashboard", icon: LayoutDashboard };
     return { path: "/profile", label: "Profile", icon: User };
   };
 
@@ -138,35 +123,25 @@ const NavMenu = () => {
   return (
     <>
       <AppLoadingBar color="#10b981" ref={loadingBarRef} shadow={true} />
-
       <NavContainer $isVisible={isVisible}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path ||
-            (item.path === "/marketplace" && location.pathname.startsWith("/marketplace"));
+            (item.path === "/marketplace/shop" && location.pathname.startsWith("/marketplace"));
 
           return (
             <NavItem
               key={item.path}
               to={item.path}
               $active={isActive}
-              onMouseEnter={() => {
-                // Speculative pre-fetching of route components
-                if (item.path === "/") import("../components/home/Home");
-                if (item.path === "/leaders") import("../components/leaders/leadersPage");
-                if (item.path === "/marketplace/shop") import("../components/marketplace/marketPage");
-                if (item.path === "/profile") import("../components/Wallet/WalletPage");
-              }}
               onClick={() => {
-                if (location.pathname !== item.path) {
-                  loadingBarRef.current?.continuousStart();
-                }
+                if (location.pathname !== item.path) loadingBarRef.current?.continuousStart();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             >
               <item.icon
-                size={22}
-                strokeWidth={isActive ? 2.5 : 2}
-                color={isActive ? "#10b981" : "#8e8e93"}
+                size={24}
+                strokeWidth={isActive ? 3 : 2} // Bolder when active
+                color={isActive ? "#10b981" : "#000000ff"}
               />
               <span>{item.label}</span>
             </NavItem>

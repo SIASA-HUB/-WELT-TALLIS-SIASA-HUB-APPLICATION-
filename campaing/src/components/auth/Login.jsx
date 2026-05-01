@@ -1,4 +1,4 @@
-// pages/LoginPage.jsx - Fixed Token Storage & Role Redirection
+// pages/LoginPage.jsx - Complete with registration check
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Fingerprint,
+  UserPlus,
 } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoadingBar from "../../utils/LoadingBar";
@@ -298,6 +299,24 @@ const SecurityBadge = styled.div`
   }
 `;
 
+const InfoAlert = styled.div`
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  color: #93c5fd;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  svg {
+    flex-shrink: 0;
+    color: #3b82f6;
+  }
+`;
+
 // ==========================================
 // LOGIN PAGE COMPONENT
 // ==========================================
@@ -311,7 +330,14 @@ const LoginPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [loginData, setLoginData] = useState({ username: "", password: "" });
+
+  // Check if user needs to register based on localStorage
+  const needsRegistration = () => {
+    const isRegistered = localStorage.getItem('isRegistered');
+    return !isRegistered || isRegistered !== 'true';
+  };
 
   // Role-based redirect helper
   const getRedirectPathByRole = (role) => {
@@ -335,12 +361,36 @@ const LoginPage = () => {
   useEffect(() => {
     loadingBarRef.current?.continuousStart();
 
+    // Check for registration flag from navigation state
     if (location.state?.registered) {
-      setSuccessMessage("Registration successful! Please login with your credentials.");
+      setSuccessMessage(location.state.message || "Registration successful! Please login with your credentials.");
+
+      // Auto-fill email if provided
+      if (location.state?.email) {
+        setLoginData(prev => ({ ...prev, username: location.state.email }));
+      }
+
+      // Clear registration flag after showing message
+      setTimeout(() => {
+        if (location.state?.registered) {
+          // Don't clear the state immediately to avoid flicker
+        }
+      }, 500);
+    }
+
+    // Check if user is not registered and show info message
+    if (needsRegistration()) {
+      setInfoMessage("👋 Welcome! Please create an account to access all features of Siasa-Hub.");
+    }
+
+    // Also check if user has attempted to access protected route without registration
+    const fromProtected = localStorage.getItem('attempted_protected_route');
+    if (fromProtected === 'true') {
+      setInfoMessage("Please register or login to access this page.");
+      localStorage.removeItem('attempted_protected_route');
     }
 
     // Only redirect if fully authenticated AND we have a local token
-    // This prevents "ghost sessions" from cookies auto-redirecting a user who intentionally logged out
     const hasLocalToken = localStorage.getItem("access_token") || localStorage.getItem("token");
     if (isAuthenticated && authUser && hasLocalToken) {
       const redirectPath = getRedirectPathByRole(authUser.role);
@@ -354,12 +404,14 @@ const LoginPage = () => {
     const { name, value } = e.target;
     setLoginData((prev) => ({ ...prev, [name]: value }));
     if (errorMessage) setErrorMessage("");
+    if (infoMessage && !needsRegistration()) setInfoMessage("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
+    setInfoMessage("");
 
     if (!loginData.username || !loginData.password) {
       setErrorMessage("Please fill in all fields");
@@ -377,14 +429,18 @@ const LoginPage = () => {
     setIsSubmitting(true);
     loadingBarRef.current?.continuousStart();
 
-      try {
-        const result = await login(loginData.username, loginData.password);
-        if (result.success) {
-          const user = result.user;
-          const userRole = user?.role || "user";
-          localStorage.removeItem("was_aspirant");
+    try {
+      const result = await login(loginData.username, loginData.password);
+      if (result.success) {
+        const user = result.user;
+        const userRole = user?.role || "user";
+        localStorage.removeItem("was_aspirant");
 
-          loadingBarRef.current?.complete();
+        // Clear registration flags since user has successfully logged in
+        localStorage.setItem('isRegistered', 'true');
+        localStorage.removeItem('needsLogin');
+
+        loadingBarRef.current?.complete();
 
         // Redirect based on role
         const redirectPath = getRedirectPathByRole(userRole);
@@ -405,6 +461,11 @@ const LoginPage = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to handle registration redirect
+  const handleRegisterRedirect = () => {
+    navigate('/register');
   };
 
   return (
@@ -434,6 +495,12 @@ const LoginPage = () => {
                   <CheckCircle size={18} />
                   <span>{successMessage}</span>
                 </SuccessAlert>
+              )}
+              {infoMessage && (
+                <InfoAlert>
+                  <UserPlus size={18} />
+                  <span>{infoMessage}</span>
+                </InfoAlert>
               )}
               {errorMessage && (
                 <ErrorAlert>
@@ -489,7 +556,9 @@ const LoginPage = () => {
 
               <RegisterPrompt>
                 Don't have an account?
-                <Link to="/register">Create Account</Link>
+                <Link to="/register" onClick={handleRegisterRedirect}>
+                  Create Account
+                </Link>
               </RegisterPrompt>
             </LoginBody>
           </LoginCard>

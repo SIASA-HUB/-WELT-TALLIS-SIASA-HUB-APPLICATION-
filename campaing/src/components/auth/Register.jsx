@@ -374,10 +374,22 @@ const RegistrationPage = () => {
 
       // Since our api instance returns response.data directly
       if (response.success) {
+        // IMPORTANT: Store registration status in localStorage
+        localStorage.setItem('isRegistered', 'true');
+
+        // Also store user email for reference (optional but helpful)
+        localStorage.setItem('userEmail', formData.personal_email.trim());
+
+        // Store registration timestamp (optional)
+        localStorage.setItem('registrationTime', new Date().toISOString());
+
+        // You can also store a flag that indicates registration is complete
+        localStorage.setItem('registrationCompleted', 'true');
+
         toast.success(
           `Welcome ${formData.real_name.split(" ")[0]}! 100 points added to your wallet! 🎉`,
         );
-        
+
         // Handle redirect if present
         const params = new URLSearchParams(window.location.search);
         const redirect = params.get('redirect');
