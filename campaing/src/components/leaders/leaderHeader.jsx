@@ -1098,6 +1098,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   // Handle support - requires authentication
   const handleSupportClick = () => {
+    if (isSupported) return; // Completely disable if already joined
     if (!currentUserId) {
       setShowSupportRegisterModal(true);
       return;
@@ -1349,7 +1350,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       </AddStoryButton>
 
       <StickyActionBar $visible={actionBarVisible}>
-        <SupportButton $active={isSupported} onClick={handleSupportClick} style={{ flex: 1 }}>
+        <SupportButton 
+          $active={isSupported} 
+          onClick={handleSupportClick} 
+          style={{ flex: 1, cursor: isSupported ? 'default' : 'pointer', opacity: isSupported ? 0.8 : 1 }}
+        >
           {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
           {isSupported ? "JOINED" : "JOIN CAMPAIGN"}
           {displaySupport > 0 && <span className="count">{formatNumber(displaySupport)}</span>}
@@ -1387,7 +1392,13 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               <SupportButton
                 $active={isSupported}
                 onClick={handleSupportClick}
-                style={{ width: 'fit-content', padding: '10px 24px', borderRadius: '12px' }}
+                style={{ 
+                  width: 'fit-content', 
+                  padding: '10px 24px', 
+                  borderRadius: '12px',
+                  cursor: isSupported ? 'default' : 'pointer',
+                  opacity: isSupported ? 0.8 : 1
+                }}
               >
                 {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
                 {isSupported ? "JOINED CAMPAIGN" : "JOIN CAMPAIGN"}
