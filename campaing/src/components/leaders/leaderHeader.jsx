@@ -311,7 +311,26 @@ const SupportButton = styled.button`
 
   &:hover {
     transform: ${(props) => (props.$active ? "none" : "scale(1.05) translateY(-2px)")};
-    box-shadow: ${(props) => (props.$active ? "none" : "0 6px 20px rgba(239, 68, 68, 0.5)")};
+    box-shadow: ${(props) => (props.$active ? "none" : "0 6px 25px rgba(239, 68, 68, 0.6)")};
+    filter: brightness(1.1);
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: 0.5s;
+    pointer-events: none;
+    animation: ${(props) => (!props.$active ? shimmer : "none")} 3s infinite;
   }
 
   .count {
@@ -319,6 +338,7 @@ const SupportButton = styled.button`
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 11px;
+    backdrop-filter: blur(4px);
   }
 `;
 
@@ -1184,15 +1204,12 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const getRichShareText = () => {
     const seasonMsg = getSeasonalMessage();
     return `🇰🇪 *VOTE ${leader?.name?.toUpperCase()} FOR ${normalizePosition(leader?.position)?.toUpperCase()}* 🇰🇪\n\n` +
-      `🌸 *${seasonMsg}* 🌸\n\n` +
+      `🔥 *${seasonMsg}*\n\n` +
       `🌟 "${leader?.slogan || "Together we rise, together we win!"}"\n\n` +
-      `📊 ${formatNumber(supportCount)} supporters already joined!\n` +
-      `📍 County: ${leader?.county || "Kenya"}\n` +
-      `🏛️ Party: ${leader?.party || "Independent"}\n\n` +
-      `👉 JOIN THE MOVEMENT TODAY & DEMAND ACTION!\n` +
-      `🔗 ${canonicalUrl}\n\n` +
-      `*(Wait 3 seconds for the image preview to load before sending)*\n\n` +
-      `#SiasaHub #${leader?.name?.replace(/\s/g, '')} #DemandAction #Kenya2027`;
+      `📊 Join ${formatNumber(supportCount)} supporters!\n` +
+      `📍 ${leader?.county || "Kenya"}\n\n` +
+      `👉 ${canonicalUrl}\n\n` +
+      `#${leader?.name?.replace(/\s/g, '')} #SiasaHub #Kenya2027`;
   };
 
   const shareToWhatsApp = () => {
@@ -1363,7 +1380,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           <Share2 size={22} />
         </ActionButton>
         <ActionButton $bg="#dc2626" onClick={handleAddStoryClick} style={{ flex: 1, borderRadius: 12, justifyContent: 'center' }}>
-          <TrendingUp size={18} /> POST STORY
+          <Sparkles size={18} /> POST STORY
         </ActionButton>
       </StickyActionBar>
 

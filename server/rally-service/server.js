@@ -71,6 +71,14 @@ app.use(
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === ".mp4") {
+        res.setHeader("Content-Type", "video/mp4");
+      } else if (ext === ".webm") {
+        res.setHeader("Content-Type", "video/webm");
+      } else if (ext === ".mov") {
+        res.setHeader("Content-Type", "video/quicktime");
+      }
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
     },

@@ -342,7 +342,7 @@ const ProductCard = ({ product }) => {
           </UrgencyBadge>
         ) : Math.random() > 0.8 ? (
           <UrgencyBadge $bg="#0f172a">
-             Limited Stock
+            Limited Stock
           </UrgencyBadge>
         ) : null}
 
@@ -374,7 +374,8 @@ const ProductCard = ({ product }) => {
           )}
         </PriceTag>
         <SupportLabel>
-          <Sparkles size={10} /> Support Your Candidate
+          <Sparkles size={8} />
+          <span style={{ color: "red" }}>Support Candidates</span>
         </SupportLabel>
         {/* Description moved to product details page */}
       </Content>

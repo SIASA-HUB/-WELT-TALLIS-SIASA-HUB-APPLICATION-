@@ -66,8 +66,8 @@ app.use(express.urlencoded({ extended: true, limit: "1000mb" }));
 
 // Possible upload directories (in order of priority)
 const possibleUploadPaths = [
-  path.join(__dirname, "src", "uploads"),           // src/uploads
   path.join(__dirname, "uploads"),                   // root/uploads
+  path.join(__dirname, "src", "uploads"),           // src/uploads
   path.join(__dirname, "..", "uploads"),             // parent/uploads
   path.join(process.cwd(), "uploads"),               // cwd/uploads
 ];
@@ -83,12 +83,12 @@ for (const testPath of possibleUploadPaths) {
   }
 }
 
-// If none exists, create one
+// If none exists, create one in the ROOT (not src)
 if (!actualUploadsPath) {
-  actualUploadsPath = path.join(__dirname, "src", "uploads");
+  actualUploadsPath = path.join(__dirname, "uploads");
   fs.mkdirSync(actualUploadsPath, { recursive: true });
   fs.mkdirSync(path.join(actualUploadsPath, "endorsements"), { recursive: true });
-  console.log(`📁 Created uploads directory: ${actualUploadsPath}`);
+  console.log(`📁 Created uploads directory at root: ${actualUploadsPath}`);
 }
 
 Logger.info(`📁 Serving static files from: ${actualUploadsPath}`);
@@ -121,6 +121,12 @@ app.use(
         res.setHeader("Content-Type", "image/webp");
       } else if (ext === ".gif") {
         res.setHeader("Content-Type", "image/gif");
+      } else if (ext === ".mp4") {
+        res.setHeader("Content-Type", "video/mp4");
+      } else if (ext === ".webm") {
+        res.setHeader("Content-Type", "video/webm");
+      } else if (ext === ".mov") {
+        res.setHeader("Content-Type", "video/quicktime");
       }
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
