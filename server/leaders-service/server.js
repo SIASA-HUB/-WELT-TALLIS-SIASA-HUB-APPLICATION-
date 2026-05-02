@@ -159,7 +159,7 @@ io.on("connection", (socket) => {
 
 process.on("uncaughtException", (error) => {
   Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
-  
+
   const isConnectionError = [
     'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'
   ].includes(error.code);
@@ -173,9 +173,9 @@ process.on("uncaughtException", (error) => {
 });
 
 process.on("unhandledRejection", (reason) => {
-  Logger.error("🌀 UNHANDLED PROMISE REJECTION", { 
+  Logger.error("🌀 UNHANDLED PROMISE REJECTION", {
     message: reason?.message || reason,
-    stack: reason?.stack 
+    stack: reason?.stack
   });
 });
 
@@ -207,7 +207,7 @@ app.use((req, res, next) => {
     const route = req.route ? req.route.path : req.path;
     end({ method: req.method, route, code: res.statusCode });
   });
-  
+
   if (!req.originalUrl.startsWith('/uploads')) {
     Logger.info("Incoming Request", { method: req.method, path: req.originalUrl, ip: req.ip });
   }
@@ -298,7 +298,7 @@ const HOST = process.env.HOST || "0.0.0.0";
     await initDB();
 
     server.listen(PORT, HOST, () => {
-      console.log(`✅ Leaders Service running on ${HOST}:${PORT}`);
+      console.log(` Leaders Service running on ${HOST}:${PORT}`);
       Logger.info("Server started", { port: PORT, migrationsRan });
     });
 

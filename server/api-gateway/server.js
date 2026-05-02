@@ -155,9 +155,6 @@ const createProxy = (targetUrl) => {
     selfHandleResponse: false,
     proxyTimeout: 900000,
     timeout: 900000,
-    pathRewrite: {
-      '^/api/v1': '/v1'
-    },
     on: {
       proxyReq: (proxyReq, req) => {
 
