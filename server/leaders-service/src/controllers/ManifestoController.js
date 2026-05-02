@@ -186,7 +186,7 @@ const getManifestoStats = asyncHandler(async (req, res) => {
 // ===== UNIFIED VOTE ON AGENDA ITEM =====
 const voteManifestoAgenda = asyncHandler(async (req, res) => {
   const { agenda_id, vote_type = "approve" } = req.body;
-  const user_id = req.user?.user_id || req.body.user_id;
+  const user_id = req.userId || req.user?.user_id || req.body.user_id;
 
   if (!agenda_id || !user_id) {
     return res.status(400).json({ success: false, message: "agenda_id and user_id are required" });
@@ -239,7 +239,7 @@ const voteManifestoAgenda = asyncHandler(async (req, res) => {
 const voteOnManifesto = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { agenda_item_id, vote_type = "approve" } = req.body;
-  const user_id = req.user?.user_id || req.body.user_id;
+  const user_id = req.userId || req.user?.user_id || req.body.user_id;
 
   if (!agenda_item_id || !user_id) {
     return res.status(400).json({ success: false, message: "agenda_item_id and user_id are required" });
@@ -302,7 +302,7 @@ const getManifestoUserVotes = asyncHandler(async (req, res) => {
 const trackManifestoView = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { read_time = 0 } = req.body;
-  const user_id = req.user?.user_id || null;
+  const user_id = req.userId || req.user?.user_id || null;
 
   if (!manifestoId) {
     return res.status(400).json({ success: false, message: "manifestoId is required" });
@@ -330,7 +330,7 @@ const trackManifestoView = asyncHandler(async (req, res) => {
 const trackShare = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { platform = 'generic' } = req.body;
-  const user_id = req.user?.user_id || null;
+  const user_id = req.userId || req.user?.user_id || null;
 
   if (!manifestoId) {
     return res.status(400).json({ success: false, message: "manifestoId is required" });
@@ -359,7 +359,7 @@ const trackShare = asyncHandler(async (req, res) => {
 const trackReadTime = asyncHandler(async (req, res) => {
   const { manifestoId } = req.params;
   const { user_id, read_time } = req.body;
-  const authenticatedUser = req.user?.user_id || null;
+  const authenticatedUser = req.userId || req.user?.user_id || null;
 
   if (!manifestoId || read_time == null) {
     return res.status(400).json({ success: false, message: "manifestoId and read_time are required" });

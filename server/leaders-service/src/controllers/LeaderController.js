@@ -828,7 +828,7 @@ const getPopularLeaders = asyncHandler(async (req, res) => {
 const boostLeader = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
   const { user_id, amount } = req.body;
-  const finalUserId = req.user?.user_id || user_id;
+  const finalUserId = req.userId || req.user?.user_id || user_id;
   const boostAmount = parseInt(amount) || 10;
   const allowedAmounts = [10, 50, 100, 500];
 
@@ -1360,7 +1360,7 @@ const getLeaderStats = asyncHandler(async (req, res) => {
   }
 
   try {
-    const userId = req.user?.user_id || req.query.user_id;
+    const userId = req.userId || req.user?.user_id || req.query.user_id;
 
     const [followers, endorsements, views, shares, manifestos, supports, userSupport] = await Promise.all([
       safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leaderId]),

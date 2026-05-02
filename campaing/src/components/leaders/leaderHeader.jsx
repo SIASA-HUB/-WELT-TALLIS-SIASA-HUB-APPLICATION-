@@ -1038,7 +1038,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
     const fetchData = async () => {
       try {
         if (leader?.leader_id) {
-          const statsRes = await api.get(`/leaders/${leader.leader_id}/stats`);
+          const userIdParam = currentUserId ? `?user_id=${currentUserId}` : '';
+          const statsRes = await api.get(`/leaders/${leader.leader_id}/stats${userIdParam}`);
           if (statsRes.success && statsRes.data) {
             setSupportCount(statsRes.data.support_count || 0);
             setViewsCount(statsRes.data.views || 0);
@@ -1283,8 +1284,8 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const leaderImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
   const isVerified = leader?.verification === 1 || leader?.verification === "verified";
-  const displayViews = leader?.stats?.views || viewsCount;
-  const displaySupport = leader?.stats?.endorsements || supportCount;
+  const displayViews = viewsCount > 0 ? viewsCount : (leader?.stats?.views || 0);
+  const displaySupport = supportCount > 0 ? supportCount : (leader?.stats?.endorsements || 0);
 
   // Ensure shareTitle and shareDescription are defined for helmet
   const shareTitle = `${leader?.name} for ${normalizePosition(leader?.position)} | SiasaHub`;

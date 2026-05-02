@@ -591,9 +591,63 @@ const ManifestoPage = ({ leaderName, leaderId, onBack }) => {
           <Share2 size={18} />
         </FixedHeader>
         <ErrorContainer>
-          <AlertCircle size={48} />
-          <p>{error || "No manifesto available"}</p>
-          <button onClick={onBack}>Go Back</button>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "24px",
+            padding: "40px 20px"
+          }}>
+            <div style={{
+              width: "80px",
+              height: "80px",
+              background: "rgba(187, 0, 0, 0.1)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "10px"
+            }}>
+              <TrendingUp size={40} color={KENYA.red} />
+            </div>
+            <h2 style={{
+              fontFamily: "Playfair Display, serif",
+              fontSize: "32px",
+              fontWeight: "900",
+              color: "white",
+              margin: 0
+            }}>Manifesto Coming Soon</h2>
+            <p style={{
+              fontSize: "18px",
+              color: KENYA.muted,
+              maxWidth: "400px",
+              margin: "0 auto",
+              lineHeight: "1.6"
+            }}>
+              We are refining the vision. Keep supporting to make it highly valuable. Great things are worth the wait.
+            </p>
+            <button 
+              onClick={onBack}
+              style={{
+                background: "white",
+                color: "black",
+                padding: "14px 40px",
+                borderRadius: "50px",
+                fontSize: "14px",
+                fontWeight: "900",
+                textTransform: "uppercase",
+                letterSpacing: "2px",
+                border: "none",
+                cursor: "pointer",
+                marginTop: "20px",
+                transition: "transform 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.target.style.transform = "scale(1.05)"}
+              onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+            >
+              Keep Supporting
+            </button>
+          </div>
         </ErrorContainer>
       </Page>
     );

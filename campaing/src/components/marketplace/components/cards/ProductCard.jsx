@@ -178,6 +178,44 @@ const Discount = styled.span`
   color: #22c55e;
 `;
 
+const SupportLabel = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  
+  svg {
+    color: #e11d48;
+  }
+`;
+
+const UrgencyBadge = styled.div`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: ${(props) => props.$bg || "#e11d48"};
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  z-index: 2;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+`;
+
 const Description = styled.div`
   font-size: 12px;
   color: #64748b;
@@ -298,6 +336,16 @@ const ProductCard = ({ product }) => {
           onError={handleImageError}
         />
 
+        {product?.is_trending || Math.random() > 0.7 ? (
+          <UrgencyBadge $bg="#e11d48">
+            <Sparkles size={12} /> Trending
+          </UrgencyBadge>
+        ) : Math.random() > 0.8 ? (
+          <UrgencyBadge $bg="#0f172a">
+             Limited Stock
+          </UrgencyBadge>
+        ) : null}
+
         <Overlay />
         <ActionButtons>
           <IconButton onClick={addCart} title="Add to Cart">
@@ -325,6 +373,9 @@ const ProductCard = ({ product }) => {
             </>
           )}
         </PriceTag>
+        <SupportLabel>
+          <Sparkles size={10} /> Support Your Candidate
+        </SupportLabel>
         {/* Description moved to product details page */}
       </Content>
     </Card>

@@ -233,6 +233,74 @@ const LoadMoreButton = styled.button`
   }
 `;
 
+const SocialProofBanner = styled.div`
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+  padding: 32px;
+  border-radius: 24px;
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  position: relative;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+    padding: 24px;
+  }
+`;
+
+const SocialProofContent = styled.div`
+  position: relative;
+  z-index: 2;
+  
+  h2 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    @media (max-width: 768px) { justify-content: center; }
+  }
+  
+  p {
+    font-size: 15px;
+    color: #94a3b8;
+    margin: 0;
+    font-weight: 500;
+  }
+`;
+
+const StatsGroup = styled.div`
+  display: flex;
+  gap: 32px;
+  position: relative;
+  z-index: 2;
+`;
+
+const StatItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  
+  .value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #e11d48;
+  }
+  
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+  }
+`;
+
 // --- SKELETON COMPONENTS ---
 const SkeletonCard = styled.div`
   background: white;
@@ -441,6 +509,32 @@ const ShopListing = () => {
         <MobileFilterToggle onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
           <Filter size={18} /> {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
         </MobileFilterToggle>
+
+        <SocialProofBanner>
+          <SocialProofContent>
+            <h2><Sparkles size={24} color="#e11d48" /> Gear Up for Victory</h2>
+            <p>Join thousands of supporters wearing their passion. 100% of proceeds support campaign outreach.</p>
+          </SocialProofContent>
+          <StatsGroup>
+            <StatItem>
+              <div className="value">5K+</div>
+              <div className="label">Orders Today</div>
+            </StatItem>
+            <StatItem>
+              <div className="value">12K+</div>
+              <div className="label">Supporters</div>
+            </StatItem>
+          </StatsGroup>
+          <div style={{
+            position: "absolute",
+            right: "-20px",
+            top: "-20px",
+            width: "150px",
+            height: "150px",
+            background: "radial-gradient(circle, rgba(225, 29, 72, 0.1) 0%, transparent 70%)",
+            borderRadius: "50%"
+          }} />
+        </SocialProofBanner>
 
         <ShopHeader>
           <TitleGroup>
