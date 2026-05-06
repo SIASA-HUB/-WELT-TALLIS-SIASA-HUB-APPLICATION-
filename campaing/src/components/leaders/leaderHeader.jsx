@@ -997,7 +997,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
       const userId = loginRes.user.user_id || loginRes.user.id;
       setCurrentUserId(userId);
       setCurrentUser(loginRes.user);
-      
+
       // Persist auth state to localStorage so auto-join works for other candidates
       const token = loginRes.accessToken || loginRes.token;
       if (token) {
@@ -1089,17 +1089,17 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
     const checkTimer = () => {
       if (isSupported || showSupportRegisterModal) return;
-      
+
       const storageKey = `dismissed_share_${leader?.slug}`;
       const dismissedAt = localStorage.getItem(storageKey);
-      
+
       if (dismissedAt) {
         const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000;
         if (Date.now() - parseInt(dismissedAt, 10) < fiveDaysInMs) {
           return; // Skip showing if dismissed within 5 days
         }
       }
-      
+
       setShowSharePrompt(true);
     };
 
@@ -1222,7 +1222,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
 
   const handleNativeShare = async () => {
     const text = getRichShareText();
-    
+
     if (navigator.share) {
       try {
         let filesArray = [];
@@ -1235,14 +1235,14 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               fetchUrl = window.location.origin + fetchUrl;
             }
             if (fetchUrl.startsWith('http')) {
-               // Ensure we try to fetch as a blob from a remote server with correct cors
-               // If it's a cross-origin request without CORS headers, it might fail.
-               const response = await fetch(fetchUrl);
-               const blob = await response.blob();
-               const file = new File([blob], 'campaign_image.jpg', { type: blob.type });
-               if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                 filesArray = [file];
-               }
+              // Ensure we try to fetch as a blob from a remote server with correct cors
+              // If it's a cross-origin request without CORS headers, it might fail.
+              const response = await fetch(fetchUrl);
+              const blob = await response.blob();
+              const file = new File([blob], 'campaign_image.jpg', { type: blob.type });
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                filesArray = [file];
+              }
             }
           } catch (e) {
             console.warn("Could not fetch image for native share, but we will share the text.", e);
@@ -1253,11 +1253,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           title: `${leader?.name} Campaign`,
           text: text,
         };
-        
+
         if (filesArray.length > 0) {
           shareData.files = filesArray;
         }
-        
+
         await navigator.share(shareData);
         setToastMessage("Shared successfully! 🎉");
       } catch (err) {
@@ -1344,14 +1344,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </VerifiedBadge>
       </SideActions>
 
-      <AddStoryButton $visible={!showAddStoryModal && !showSupportRegisterModal} onClick={handleAddStoryClick}>
-        <TrendingUp size={16} /> 📢 ENDORSE ME
-      </AddStoryButton>
 
       <StickyActionBar $visible={actionBarVisible}>
-        <SupportButton 
-          $active={isSupported} 
-          onClick={handleSupportClick} 
+        <SupportButton
+          $active={isSupported}
+          onClick={handleSupportClick}
           style={{ flex: 1, cursor: isSupported ? 'default' : 'pointer', opacity: isSupported ? 0.8 : 1 }}
         >
           {isSupported ? <CheckCircle size={18} /> : <TrendingUp size={18} />}
@@ -1360,9 +1357,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         </SupportButton>
         <ActionButton $bg="rgba(255, 255, 255, 0.1)" onClick={() => setShowSharePrompt(true)} style={{ width: 56, height: 56, borderRadius: 12, justifyContent: 'center' }}>
           <Share2 size={22} />
-        </ActionButton>
-        <ActionButton $bg="#dc2626" onClick={handleAddStoryClick} style={{ flex: 1, borderRadius: 12, justifyContent: 'center' }}>
-          <Sparkles size={18} /> POST STORY
         </ActionButton>
       </StickyActionBar>
 
@@ -1391,9 +1385,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
               <SupportButton
                 $active={isSupported}
                 onClick={handleSupportClick}
-                style={{ 
-                  width: 'fit-content', 
-                  padding: '10px 24px', 
+                style={{
+                  width: 'fit-content',
+                  padding: '10px 24px',
                   borderRadius: '12px',
                   cursor: isSupported ? 'default' : 'pointer',
                   opacity: isSupported ? 0.8 : 1
@@ -1524,7 +1518,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         <ModalOverlay onClick={() => setShowSupportRegisterModal(false)}>
           <SupportRegisterModal onClick={(e) => e.stopPropagation()}>
             <CloseButton onClick={() => setShowSupportRegisterModal(false)}><X size={18} /></CloseButton>
-            
+
             <div style={{ textAlign: "center", marginBottom: "16px" }}>
               <UserPlus size={48} color="#ef4444" style={{ marginBottom: "8px" }} />
               <FormTitle>Join {leader?.name?.split(" ")[0]}'s Campaign!</FormTitle>
@@ -1579,7 +1573,7 @@ const LeaderHeader = memo(({ leader, onBack }) => {
                 {isSubmittingSupport ? "JOINING..." : "JOIN CAMPAIGN NOW"}
               </SubmitButton>
             </form>
-            
+
             <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "16px", textAlign: "center" }}>
               Already have an account? <span onClick={redirectToRegister} style={{ color: "#ef4444", cursor: "pointer" }}>Login instead</span>
             </p>

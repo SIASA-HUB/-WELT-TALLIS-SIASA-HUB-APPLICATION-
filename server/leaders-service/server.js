@@ -104,8 +104,9 @@ app.use(['/api/v1/uploads', '/uploads'], (req, res, next) => {
 // ============================================
 
 const io = socketIo(server, {
+  path: "/socket.io/",
   cors: {
-    origin: "*",
+    origin: "https://siasahub.co.ke",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],

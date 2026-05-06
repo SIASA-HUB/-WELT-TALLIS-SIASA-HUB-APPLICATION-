@@ -286,6 +286,27 @@ const getActiveBattles = asyncHandler(async (req, res) => {
       });
     }
 
+    // Fetch reactions for all these battles to ensure persistence on refresh
+    const battleIds = battles.map(b => b.battle_id);
+    let reactionsMap = {};
+    if (battleIds.length > 0) {
+      try {
+        const reactionStats = await safeQuery(
+          `SELECT battle_id, reaction, COUNT(*) as count 
+           FROM battle_reactions 
+           WHERE battle_id IN (${battleIds.map(() => '?').join(',')})
+           GROUP BY battle_id, reaction`,
+          battleIds
+        );
+        reactionStats.forEach(rs => {
+          if (!reactionsMap[rs.battle_id]) reactionsMap[rs.battle_id] = {};
+          reactionsMap[rs.battle_id][rs.reaction] = rs.count;
+        });
+      } catch (e) {
+        Logger.error("Error fetching reactions for active battles:", e);
+      }
+    }
+
     const formattedBattles = battles.map((battle) => {
       let left = {};
       let right = {};
@@ -312,6 +333,7 @@ const getActiveBattles = asyncHandler(async (req, res) => {
         status: battle.status,
         created_at: battle.created_at,
         expires_at: battle.expires_at,
+        reactions: reactionsMap[battle.battle_id] || {},
       };
     });
 
