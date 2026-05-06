@@ -1,5 +1,5 @@
 require("dotenv").config();
-// Forced restart to pick up global secret changes
+// Forced restart to pick up global secret changes - RESTART TRIGGER
 
 const express = require("express");
 const helmet = require("helmet");
@@ -52,10 +52,37 @@ if (!fs.existsSync(leadersUploadDir)) {
   console.log("✅ Created leaders uploads directory:", leadersUploadDir);
 }
 
+// Create battles subdirectory inside uploads
+const battlesUploadDir = path.join(uploadsDir, "battles");
+if (!fs.existsSync(battlesUploadDir)) {
+  fs.mkdirSync(battlesUploadDir, { recursive: true });
+  console.log("✅ Created battles uploads directory:", battlesUploadDir);
+}
+
 /**
  * FIXED STATIC SERVING logic:
  * This handles /uploads/leaders (direct) AND /api/v1/uploads/leaders (via Gateway)
  */
+app.use(
+  "/uploads/battles",
+  express.static(path.join(uploadsDir, "battles"), {
+    setHeaders: (res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
+
+app.use(
+  "/uploads/leaders",
+  express.static(path.join(uploadsDir, "leaders"), {
+    setHeaders: (res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
+
 app.use(
   "/uploads",
   express.static(uploadsDir, {

@@ -18,8 +18,23 @@ const {
   getUserVotes,
   getBattleStats,
   countdownTick,
-
+  uploadBattleImage
 } = require("../controllers/BattleController");
+
+const multer = require("multer");
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "./uploads/battles";
+    if (!require("fs").existsSync(dir)) {
+      require("fs").mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `battle_${Date.now()}_${file.originalname}`);
+  }
+});
+const upload = multer({ storage });
 
 // ================================
 // BATTLE ROUTES (ORDER MATTERS!)
@@ -42,6 +57,7 @@ router.post("/vote", voteBattle);
 router.post("/reaction", addReaction);
 router.post("/comment", addComment);
 router.post("/countdown", countdownTick);
+router.post("/upload-image", upload.single("image"), uploadBattleImage);
 
 // Battle specific (with ID - MUST be last)
 router.get("/:battleId", getBattleById);

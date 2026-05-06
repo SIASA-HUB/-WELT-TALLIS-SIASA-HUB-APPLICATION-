@@ -1173,43 +1173,26 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const canonicalUrl = window.location.href;
   const shareImageUrl = buildImageUrl(leader?.image_url || leader?.primary_image);
 
-  const getSeasonalMessage = () => {
-    const today = new Date();
-    const month = today.getMonth(); // 0 = Jan, 4 = May
-    const date = today.getDate();
-
-    // Specific holidays
-    if (month === 4 && date === 1) return "👷 Happy Labor Day! Demand better working conditions by choosing the right leader today. Take Action Now!";
-    if (month === 5 && date === 1) return "🇰🇪 Happy Madaraka Day! Reclaim your power. Support a leader who fights for you. Act Now!";
-    if (month === 9 && date === 20) return "🇰🇪 Happy Mashujaa Day! Be a hero for your community. Stand with leadership that delivers. Join the movement!";
-    if (month === 11 && date === 12) return "🇰🇪 Happy Jamhuri Day! Celebrate our republic by demanding accountability. Make your voice heard today!";
-    
-    // Seasonal alternating messages
-    if (month >= 2 && month <= 4) {
-      return "🌱 A season of growth requires strong roots. Demand action and support a leader who builds for the future. Join us now!";
-    }
-    if (month >= 5 && month <= 7) {
-      return "☀️ It's time for bright ideas and bold action. Don't wait on the sidelines—support the change we need today!";
-    }
-    if (month >= 8 && month <= 10) {
-      return "🍂 As the year winds down, our fight ramps up. Demand real action for your community. Stand with us now!";
-    }
-    if (month === 11 || month <= 1) {
-      return "✨ A new season brings new opportunities. Demand better for your family. Support visionary leadership today!";
-    }
-    
-    return `✨ Make today count! Demand real action and support true leadership for your community. Act Now!`;
+  const getDynamicShareMessage = () => {
+    const messages = [
+      "🗳️ Make history! Stand with the leader who delivers.",
+      "🔥 Momentum is building! Join the movement today.",
+      "🚀 Action speaks louder! Support visionary leadership.",
+      "⚡ Power to the people! Stand with a leader for all.",
+      "🌟 Your voice matters! Help build a better community.",
+      "📢 Speak up for change! Join the winning campaign.",
+      "🤝 Unity is strength! Together we can achieve more."
+    ];
+    const day = new Date().getDay(); // 0-6
+    return messages[day];
   };
 
   const getRichShareText = () => {
-    const seasonMsg = getSeasonalMessage();
-    return `🇰🇪 *VOTE ${leader?.name?.toUpperCase()} FOR ${normalizePosition(leader?.position)?.toUpperCase()}* 🇰🇪\n\n` +
-      `🔥 *${seasonMsg}*\n\n` +
-      `🌟 "${leader?.slogan || "Together we rise, together we win!"}"\n\n` +
-      `📊 Join ${formatNumber(supportCount)} supporters!\n` +
-      `📍 ${leader?.county || "Kenya"}\n\n` +
+    const dynamicMsg = getDynamicShareMessage();
+    return `🇰🇪 *VOTE ${leader?.name?.toUpperCase()}* 🇰🇪\n\n` +
+      `${dynamicMsg}\n\n` +
       `👉 ${canonicalUrl}\n\n` +
-      `#${leader?.name?.replace(/\s/g, '')} #SiasaHub #Kenya2027`;
+      `#SiasaHub #Kenya2027`;
   };
 
   const shareToWhatsApp = () => {
@@ -1269,7 +1252,6 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         const shareData = {
           title: `${leader?.name} Campaign`,
           text: text,
-          url: canonicalUrl
         };
         
         if (filesArray.length > 0) {

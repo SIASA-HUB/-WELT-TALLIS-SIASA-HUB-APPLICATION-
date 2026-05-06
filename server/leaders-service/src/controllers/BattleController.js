@@ -2,6 +2,7 @@
 
 const Logger = require("../utils/logger/logger");
 const LeaderModel = require("../models/LeadersModel");
+const slugify = require("slugify");
 const {
   asyncHandler,
   bcrypt,
@@ -11,6 +12,8 @@ const {
   db: { safeQuery, safeQueryOne },
   utils: { getKenyaTimeISO },
 } = require("../../../global/index");
+const path = require("path");
+const fs = require("fs");
 
 // Socket.IO instance (will be set from server)
 let io;
@@ -53,48 +56,81 @@ const setIo = (socketIo) => {
   io = socketIo;
 };
 
+// Upload battle image
+const uploadBattleImage = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No image uploaded" });
+  }
+
+  // In a real scenario, we'd use processAndSaveImages, but for now let's return the path
+  // Assume the file is already processed by a middleware or saved to a temp dir
+  const imageUrl = `/uploads/battles/${req.file.filename}`;
+
+  res.status(200).json({
+    success: true,
+    imageUrl: imageUrl
+  });
+});
+
 // Create a new battle (FIXED - no undefined values)
 const createBattle = asyncHandler(async (req, res) => {
   const {
     challenger1_id,
     challenger2_id,
+    challenger1_custom,
+    challenger2_custom,
     created_by,
     duration,
     title,
+    question,
     host_id,
     host_name,
   } = req.body;
 
 
-  if (!challenger1_id || !challenger2_id) {
+  if ((!challenger1_id && !challenger1_custom) || (!challenger2_id && !challenger2_custom)) {
     return res.status(400).json({
       success: false,
       message: "Both challengers are required",
     });
   }
 
-  if (challenger1_id === challenger2_id) {
-    return res.status(400).json({
-      success: false,
-      message: "Cannot create a battle with the same aspirant",
-    });
-  }
-
   try {
-    // Get challenger details - REMOVED status = 'active' filter
-    const challenger1 = await safeQueryOne(
-      `SELECT leader_id, name, party, position_running_for, 
-              COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
-       FROM leaders WHERE leader_id = ?`,
-      [challenger1_id],
-    );
+    let challenger1, challenger2;
 
-    const challenger2 = await safeQueryOne(
-      `SELECT leader_id, name, party, position_running_for,
-              COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
-       FROM leaders WHERE leader_id = ?`,
-      [challenger2_id],
-    );
+    if (challenger1_id) {
+      challenger1 = await safeQueryOne(
+        `SELECT leader_id, name, party, position_running_for, 
+                COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
+         FROM leaders WHERE leader_id = ?`,
+        [challenger1_id],
+      );
+    } else {
+      challenger1 = {
+        leader_id: `custom_${Date.now()}_1`,
+        name: challenger1_custom.name,
+        party: challenger1_custom.party,
+        position_running_for: challenger1_custom.position,
+        primary_image: challenger1_custom.image
+      };
+    }
+
+    if (challenger2_id) {
+      challenger2 = await safeQueryOne(
+        `SELECT leader_id, name, party, position_running_for,
+                COALESCE((SELECT image_url FROM leader_images WHERE leader_id = leaders.leader_id AND is_primary = 1 LIMIT 1), image_url) as primary_image
+         FROM leaders WHERE leader_id = ?`,
+        [challenger2_id],
+      );
+    } else {
+      challenger2 = {
+        leader_id: `custom_${Date.now()}_2`,
+        name: challenger2_custom.name,
+        party: challenger2_custom.party,
+        position_running_for: challenger2_custom.position,
+        primary_image: challenger2_custom.image
+      };
+    }
 
 
     if (!challenger1 || !challenger2) {
@@ -112,7 +148,10 @@ const createBattle = asyncHandler(async (req, res) => {
 
 
     // FIXED: Handle undefined values - convert to null explicitly
-    const finalTitle = title && title.trim() !== "" ? title : null;
+    const finalTitle = title && title.trim() !== "" ? title : `${challenger1.name} vs ${challenger2.name}`;
+    const slugSource = question && question.trim() !== "" ? question : finalTitle;
+    const battleSlug = slugify(slugSource, { lower: true, strict: true }) + '-' + crypto.randomBytes(3).toString('hex');
+
     const finalHostId =
       host_id && host_id !== "undefined" ? host_id : created_by || null;
     const finalHostName =
@@ -127,14 +166,16 @@ const createBattle = asyncHandler(async (req, res) => {
 
     // Create battle in database
     await safeQuery(
-      `INSERT INTO battles (battle_id, challenger1_id, challenger2_id, challenger1_data, challenger2_data, 
+      `INSERT INTO battles (battle_id, slug, question, challenger1_id, challenger2_id, challenger1_data, challenger2_data, 
                            votes_left, votes_right, status, created_by, created_at, expires_at,
                            title, host_id, host_name, gift_total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         battleId,
-        challenger1_id,
-        challenger2_id,
+        battleSlug,
+        question || null,
+        challenger1.leader_id,
+        challenger2.leader_id,
         JSON.stringify(challenger1),
         JSON.stringify(challenger2),
         0,
@@ -157,7 +198,9 @@ const createBattle = asyncHandler(async (req, res) => {
 
     const battle = {
       id: battleId,
+      slug: battleSlug,
       title: finalTitle,
+      question: question || null,
       hostId: finalHostId,
       hostName: finalHostName,
       left: {
@@ -200,7 +243,7 @@ const createBattle = asyncHandler(async (req, res) => {
       message: "Battle created successfully",
       data: battle,
     });
-    } catch (error) {
+  } catch (error) {
     Logger.error("Create battle error:", { error: error.message });
     res.status(500).json({
       success: false,
@@ -220,37 +263,59 @@ const getActiveBattles = asyncHandler(async (req, res) => {
       return res.status(200).json({
         success: true,
         source: "redis",
-        data: JSON.parse(cached),
+        data: cached,
       });
     }
 
     const battles = await safeQuery(
-      `SELECT battle_id, challenger1_data, challenger2_data, votes_left, votes_right, 
+      `SELECT battle_id, slug, question, challenger1_data, challenger2_data, votes_left, votes_right, 
               views, status, created_at, expires_at, title, host_name, gift_total
        FROM battles 
        WHERE status = 'active' AND expires_at > NOW()
-       ORDER BY created_at DESC
+       ORDER BY (votes_left + votes_right) DESC, created_at DESC
        LIMIT 50`,
       [],
     );
 
+    if (!Array.isArray(battles)) {
+      return res.status(200).json({
+        success: true,
+        source: "database",
+        count: 0,
+        data: [],
+      });
+    }
 
-    const formattedBattles = battles.map((battle) => ({
-      id: battle.battle_id,
-      title: battle.title,
-      hostName: battle.host_name,
-      left: JSON.parse(battle.challenger1_data),
-      right: JSON.parse(battle.challenger2_data),
-      votesLeft: battle.votes_left,
-      votesRight: battle.votes_right,
-      views: battle.views || 0,
-      giftTotal: battle.gift_total || 0,
-      status: battle.status,
-      created_at: battle.created_at,
-      expires_at: battle.expires_at,
-    }));
+    const formattedBattles = battles.map((battle) => {
+      let left = {};
+      let right = {};
 
-    await redis.setex(cacheKey, 30, JSON.stringify(formattedBattles));
+      try {
+        left = typeof battle.challenger1_data === 'string' ? JSON.parse(battle.challenger1_data) : battle.challenger1_data;
+        right = typeof battle.challenger2_data === 'string' ? JSON.parse(battle.challenger2_data) : battle.challenger2_data;
+      } catch (e) {
+        Logger.error(`JSON Parse error for battle ${battle.battle_id}:`, e);
+      }
+
+      return {
+        id: battle.battle_id,
+        slug: battle.slug,
+        title: battle.title,
+        question: battle.question,
+        hostName: battle.host_name,
+        left: left || {},
+        right: right || {},
+        votesLeft: battle.votes_left || 0,
+        votesRight: battle.votes_right || 0,
+        views: battle.views || 0,
+        giftTotal: battle.gift_total || 0,
+        status: battle.status,
+        created_at: battle.created_at,
+        expires_at: battle.expires_at,
+      };
+    });
+
+    await redis.set(cacheKey, JSON.stringify(formattedBattles), 30);
 
     res.status(200).json({
       success: true,
@@ -259,10 +324,11 @@ const getActiveBattles = asyncHandler(async (req, res) => {
       data: formattedBattles,
     });
   } catch (error) {
-    Logger.error("Get active battles error:", error);
+    Logger.error("Get active battles error:", { message: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: "Error fetching battles",
+      error: error.message
     });
   }
 });
@@ -275,7 +341,7 @@ const getCompletedBattles = asyncHandler(async (req, res) => {
   try {
     const cached = await redis.get(cacheKey);
     if (cached && offset === 0) {
-      const data = JSON.parse(cached);
+      const data = cached;
       return res.status(200).json({
         success: true,
         source: "redis",
@@ -289,7 +355,7 @@ const getCompletedBattles = asyncHandler(async (req, res) => {
     }
 
     const battles = await safeQuery(
-      `SELECT battle_id, challenger1_data, challenger2_data, votes_left, votes_right, 
+      `SELECT battle_id, slug, question, challenger1_data, challenger2_data, votes_left, votes_right, 
               views, status, created_at, ended_at, expires_at, title, host_name, gift_total
        FROM battles 
        WHERE status = 'ended' 
@@ -299,22 +365,46 @@ const getCompletedBattles = asyncHandler(async (req, res) => {
     );
 
     const total = await safeQueryOne(
-      `SELECT COUNT(*) as total FROM battles WHERE status = 'ended'`,
+      "SELECT COUNT(*) as total FROM battles WHERE status = 'ended'"
     );
 
+    if (!Array.isArray(battles)) {
+      return res.status(200).json({
+        success: true,
+        source: "database",
+        count: 0,
+        data: [],
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: 0,
+        },
+      });
+    }
+
     const formattedBattles = battles.map((battle) => {
-      const left = JSON.parse(battle.challenger1_data);
-      const right = JSON.parse(battle.challenger2_data);
-      const isLeftWinner = battle.votes_left > battle.votes_right;
+      let left = {};
+      let right = {};
+
+      try {
+        left = typeof battle.challenger1_data === 'string' ? JSON.parse(battle.challenger1_data) : battle.challenger1_data;
+        right = typeof battle.challenger2_data === 'string' ? JSON.parse(battle.challenger2_data) : battle.challenger2_data;
+      } catch (e) {
+        Logger.error(`JSON Parse error for battle ${battle.battle_id}:`, e);
+      }
+
+      const isLeftWinner = (battle.votes_left || 0) > (battle.votes_right || 0);
 
       return {
         id: battle.battle_id,
+        slug: battle.slug,
         title: battle.title,
+        question: battle.question,
         hostName: battle.host_name,
-        left,
-        right,
-        votesLeft: battle.votes_left,
-        votesRight: battle.votes_right,
+        left: left || {},
+        right: right || {},
+        votesLeft: battle.votes_left || 0,
+        votesRight: battle.votes_right || 0,
         views: battle.views || 0,
         giftTotal: battle.gift_total || 0,
         status: battle.status,
@@ -322,13 +412,13 @@ const getCompletedBattles = asyncHandler(async (req, res) => {
         ended_at: battle.ended_at || battle.expires_at,
         expires_at: battle.expires_at,
         winner: isLeftWinner ? left : right,
-        winnerMargin: Math.abs(battle.votes_left - battle.votes_right),
-        totalVotes: battle.votes_left + battle.votes_right,
+        winnerMargin: Math.abs((battle.votes_left || 0) - (battle.votes_right || 0)),
+        totalVotes: (battle.votes_left || 0) + (battle.votes_right || 0),
       };
     });
 
     if (offset === 0) {
-      await redis.setex(cacheKey, 300, JSON.stringify(formattedBattles));
+      await redis.set(cacheKey, JSON.stringify(formattedBattles), 300);
     }
 
     res.status(200).json({
@@ -341,10 +431,11 @@ const getCompletedBattles = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    Logger.error("Get completed battles error:", error);
+    Logger.error("Get completed battles error:", { message: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
-      message: "Error fetching completed battles",
+      message: "Error fetching battles",
+      error: error.message
     });
   }
 });
@@ -355,11 +446,11 @@ const getBattleById = asyncHandler(async (req, res) => {
 
   try {
     const battle = await safeQueryOne(
-      `SELECT battle_id, challenger1_data, challenger2_data, votes_left, votes_right, 
+      `SELECT battle_id, slug, question, challenger1_data, challenger2_data, votes_left, votes_right, 
               views, status, created_at, expires_at, ended_at, title, host_name, gift_total
        FROM battles 
-       WHERE battle_id = ?`,
-      [battleId],
+       WHERE battle_id = ? OR slug = ?`,
+      [battleId, battleId],
     );
 
     if (!battle) {
@@ -369,27 +460,59 @@ const getBattleById = asyncHandler(async (req, res) => {
       });
     }
 
-    // Increment views
+    // Increment views using the actual database ID
     await safeQuery(
       `UPDATE battles SET views = views + 1 WHERE battle_id = ?`,
-      [battleId],
+      [battle.battle_id],
     );
 
     const formattedBattle = {
       id: battle.battle_id,
+      slug: battle.slug,
       title: battle.title,
+      question: battle.question,
       hostName: battle.host_name,
-      left: JSON.parse(battle.challenger1_data),
-      right: JSON.parse(battle.challenger2_data),
+      left: typeof battle.challenger1_data === 'string' ? JSON.parse(battle.challenger1_data || '{}') : (battle.challenger1_data || {}),
+      right: typeof battle.challenger2_data === 'string' ? JSON.parse(battle.challenger2_data || '{}') : (battle.challenger2_data || {}),
       votesLeft: battle.votes_left,
       votesRight: battle.votes_right,
-      views: battle.views + 1,
+      views: (battle.views || 0) + 1,
       giftTotal: battle.gift_total || 0,
       status: battle.status,
       created_at: battle.created_at,
       expires_at: battle.expires_at,
       ended_at: battle.ended_at,
     };
+
+    // Get county distribution stats
+    const countyStats = await safeQuery(
+      `SELECT county, COUNT(*) as total,
+       SUM(CASE WHEN candidate_id = ? THEN 1 ELSE 0 END) as left_votes,
+       SUM(CASE WHEN candidate_id = ? THEN 1 ELSE 0 END) as right_votes
+       FROM battle_votes 
+       WHERE battle_id = ? AND county IS NOT NULL
+       GROUP BY county
+       ORDER BY total DESC
+       LIMIT 5`,
+      [formattedBattle.left?.leader_id, formattedBattle.right?.leader_id, battle.battle_id]
+    );
+
+    formattedBattle.countyStats = countyStats;
+
+    // Get real reaction counts
+    const reactionStats = await safeQuery(
+      `SELECT reaction, COUNT(*) as count 
+       FROM battle_reactions 
+       WHERE battle_id = ? 
+       GROUP BY reaction`,
+      [battle.battle_id]
+    );
+    
+    const reactionCounts = {};
+    reactionStats.forEach(r => {
+      reactionCounts[r.reaction] = r.count;
+    });
+    formattedBattle.reactions = reactionCounts;
 
     res.status(200).json({
       success: true,
@@ -406,7 +529,7 @@ const getBattleById = asyncHandler(async (req, res) => {
 
 // Vote in a battle (UPDATED with Socket.IO room)
 const voteBattle = asyncHandler(async (req, res) => {
-  const { battle_id, candidate_id, device_id } = req.body;
+  const { battle_id, candidate_id, device_id, county } = req.body;
 
 
   if (!battle_id || !candidate_id) {
@@ -430,7 +553,7 @@ const voteBattle = asyncHandler(async (req, res) => {
     }
 
     const battle = await safeQueryOne(
-      `SELECT battle_id, challenger1_id, challenger2_id, votes_left, votes_right, status
+      `SELECT battle_id, challenger1_id, challenger2_id, challenger1_data, challenger2_data, votes_left, votes_right, status
        FROM battles 
        WHERE battle_id = ? AND status = 'active'`,
       [battle_id],
@@ -443,20 +566,36 @@ const voteBattle = asyncHandler(async (req, res) => {
       });
     }
 
-    const isLeft = battle.challenger1_id === candidate_id;
-    const isRight = battle.challenger2_id === candidate_id;
+    let isLeft = String(battle.challenger1_id) === String(candidate_id);
+    let isRight = String(battle.challenger2_id) === String(candidate_id);
 
     if (!isLeft && !isRight) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid candidate for this battle",
-      });
+      // Fallback: check inside the JSON data if ID columns were null (for older records)
+      const challenger1 = JSON.parse(battle.challenger1_data || '{}');
+      const challenger2 = JSON.parse(battle.challenger2_data || '{}');
+
+      const isLeftData = challenger1.leader_id === candidate_id;
+      const isRightData = challenger2.leader_id === candidate_id;
+
+      if (!isLeftData && !isRightData) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid candidate for this battle",
+        });
+      }
+
+      // If we found them in data but not in columns, continue with data flags
+      if (isLeftData) {
+        isLeft = true;
+      } else if (isRightData) {
+        isRight = true;
+      }
     }
 
     await safeQuery(
-      `INSERT INTO battle_votes (battle_id, candidate_id, device_id, created_at)
-       VALUES (?, ?, ?, ?)`,
-      [battle_id, candidate_id, device_id, getKenyaTimeISO()],
+      `INSERT INTO battle_votes (battle_id, candidate_id, device_id, county, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [battle_id, candidate_id, device_id, county || null, getKenyaTimeISO()],
     );
 
     let newVotesLeft = battle.votes_left;
@@ -595,6 +734,7 @@ const sendGift = asyncHandler(async (req, res) => {
 // Add reaction to battle
 const addReaction = asyncHandler(async (req, res) => {
   const { battle_id, reaction, device_id } = req.body;
+  Logger.info("Add reaction request:", { battle_id, reaction, device_id });
 
   if (!battle_id || !reaction) {
     return res.status(400).json({
@@ -898,7 +1038,7 @@ const getTopCreators = asyncHandler(async (req, res) => {
       return res.status(200).json({
         success: true,
         source: "redis",
-        data: JSON.parse(cached),
+        data: cached,
       });
     }
 
@@ -919,7 +1059,7 @@ const getTopCreators = asyncHandler(async (req, res) => {
       joinedAt: c.created_at,
     }));
 
-    await redis.setex(cacheKey, 300, JSON.stringify(formattedCreators));
+    await redis.set(cacheKey, JSON.stringify(formattedCreators), 300);
 
     res.status(200).json({
       success: true,
@@ -945,7 +1085,7 @@ const getTrendingBattles = asyncHandler(async (req, res) => {
       return res.status(200).json({
         success: true,
         source: "redis",
-        data: JSON.parse(cached),
+        data: cached,
       });
     }
 
@@ -977,7 +1117,7 @@ const getTrendingBattles = asyncHandler(async (req, res) => {
         (battle.gift_total || 0) * 3,
     }));
 
-    await redis.setex(cacheKey, 60, JSON.stringify(formattedBattles));
+    await redis.set(cacheKey, JSON.stringify(formattedBattles), 60);
 
     res.status(200).json({
       success: true,
@@ -1217,5 +1357,6 @@ module.exports = {
   cleanupExpiredBattles,
   getBattleStats,
   countdownTick,
+  uploadBattleImage,
   setIo,
 };

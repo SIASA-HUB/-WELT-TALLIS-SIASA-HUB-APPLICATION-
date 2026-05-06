@@ -25,3 +25,23 @@
 2026-04-20 16:10:53 [ERROR] [global-service]: ❌ Redis error:
 2026-04-20 16:10:53 [WARN] [global-service]: ⚠️ Redis connection closed
 2026-04-20 16:10:53 [INFO] [global-service]: 🔄 Redis reconnecting...
+2026-05-06 20:32:35 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-06 20:32:35 [WARN] [global-service]: [Redis] Connection closed
+2026-05-06 20:32:35 [INFO] [global-service]: [Redis] Reconnecting...
+2026-05-06 20:32:35 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-06 20:33:04 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-06 20:33:04 [WARN] [global-service]: [Redis] Connection closed
+2026-05-06 20:33:04 [INFO] [global-service]: [Redis] Reconnecting...
+2026-05-06 20:33:04 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-06 20:37:43 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-06 20:37:43 [WARN] [global-service]: [Redis] Connection closed
+2026-05-06 20:37:43 [INFO] [global-service]: [Redis] Reconnecting...
+2026-05-06 20:37:43 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-06 20:41:15 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-06 20:41:15 [WARN] [global-service]: [Redis] Connection closed
+2026-05-06 20:41:15 [INFO] [global-service]: [Redis] Reconnecting...
+2026-05-06 20:41:15 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-06 20:59:13 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-06 20:59:13 [WARN] [global-service]: [Redis] Connection closed
+2026-05-06 20:59:13 [INFO] [global-service]: [Redis] Reconnecting...
+2026-05-06 20:59:13 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.

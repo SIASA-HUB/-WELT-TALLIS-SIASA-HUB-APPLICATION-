@@ -24,6 +24,7 @@ import TrendingManifestos from "./manifestos/TredingManifestos";
 import SEO from "../../utils/SEO";
 
 const LeaderCard = lazy(() => import("./leadersCard"));
+const BattleArena = lazy(() => import("./battle/batlleArena"));
 
 // API Configuration
 import API from "../../api/config";
@@ -592,8 +593,10 @@ const LeadersPage = () => {
         </SearchContainer>
       </StickySearchWrapper>
 
-      {/* Trending manifestos section - now scrolls with content (not sticky) */}
-      <TrendingManifestos leaders={[]} compact={true} />
+
+      <Suspense fallback={null}>
+        <BattleArena />
+      </Suspense>
 
       {searchTerm && (
         <div style={{ maxWidth: 800, margin: "0 auto", padding: "12px 20px", background: "#f9fafb" }}>

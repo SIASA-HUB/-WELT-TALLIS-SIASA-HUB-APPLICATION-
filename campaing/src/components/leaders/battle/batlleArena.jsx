@@ -1,4 +1,4 @@
-// BattleArena.js - Simplified Version (No Ended Battles, Fixed Keyframes)
+// BattleArena.js - Simplified Version (No Registered Aspirants, Custom Only)
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
@@ -16,18 +16,31 @@ import {
   X,
   Check,
   Search,
-  Gift,
   Volume2,
   VolumeX,
   Flame,
   Zap,
   Heart,
   Crown,
+  Activity,
+  Plus,
+  TrendingUp,
+  Share2
 } from "lucide-react";
+import BattleCard from "./battleCard";
 
-const API_BASE = "/api/v1/users";
-const SOCKET_URL = "/api/v1/users";
-const BATTLE_API = `${API_BASE}/battles`;
+// ==================== CONSTANTS ====================
+const KENYAN_COUNTIES = [
+  "Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita Taveta", "Garissa", "Wajir", "Mandera", "Marsabit",
+  "Isiolo", "Meru", "Tharaka-Nithi", "Embu", "Kitui", "Machakos", "Makueni", "Nyandarua", "Nyeri", "Kirinyaga",
+  "Murang'a", "Kiambu", "Turkana", "West Pokot", "Samburu", "Trans Nzoia", "Uasin Gishu", "Elgeyo Marakwet", "Nandi", "Baringo",
+  "Laikipia", "Nakuru", "Narok", "Kajiado", "Kericho", "Bomet", "Kakamega", "Vihiga", "Bungoma", "Busia",
+  "Siaya", "Kisumu", "Homa Bay", "Migori", "Kisii", "Nyamira", "Nairobi"
+].sort();
+
+const API_BASE = "/api/v1/leaders";
+const SOCKET_URL = "/";
+const BATTLE_API = "/api/v1/battles";
 
 // ==================== ANIMATIONS ====================
 const slideIn = keyframes`
@@ -99,38 +112,14 @@ const HeaderButtons = styled.div`
   align-items: center;
 `;
 
-const IconButton = styled.button`
-  background: ${({ $active }) => ($active ? "#ff4444" : "#f5f5f5")};
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-
-  svg {
-    color: ${({ $active }) => ($active ? "white" : "#666")};
-    width: 18px;
-    height: 18px;
-  }
-
-  &:hover {
-    transform: scale(0.95);
-    background: ${({ $active }) => ($active ? "#ff5555" : "#e8e8e8")};
-  }
-`;
-
-const CreateButton = styled.button`
-  background: #1e3c72;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-weight: 600;
+const HeaderButton = styled.button`
+  background: ${(props) => (props.$primary ? "#ff4444" : "#f8f9fa")};
+  color: ${(props) => (props.$primary ? "white" : "#666")};
+  border: 1px solid ${(props) => (props.$primary ? "#ff4444" : "#e0e0e0")};
+  padding: 6px 12px;
+  border-radius: 10px;
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -138,395 +127,262 @@ const CreateButton = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background: #152c54;
+    background: ${(props) => (props.$primary ? "#e63946" : "#f1f3f5")};
     transform: translateY(-1px);
   }
 `;
 
-const RefreshButton = styled.button`
-  background: #f5f5f5;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  cursor: pointer;
-  color: #666;
+const BattleFeed = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    background: #e8e8e8;
-  }
-`;
-
-const BattleScroll = styled.div`
-  display: flex;
-  gap: 12px;
   overflow-x: auto;
-  padding: 16px;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-
+  gap: 16px;
+  padding: 16px 20px;
+  background: transparent;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  
   &::-webkit-scrollbar {
-    height: 4px;
+    display: none; /* Chrome, Safari, Opera */
   }
 
-  &::-webkit-scrollbar-track {
-    background: #f0f0f0;
-    border-radius: 4px;
+  @media (max-width: 640px) {
+    padding: 12px 16px;
+    gap: 12px;
   }
-
-  &::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 4px;
-  }
-`;
-
-import BattleCard from "./battleCard";
-
-const LoadingSpinner = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-  color: #999;
 `;
 
 const EmptyState = styled.div`
+  padding: 32px 16px;
   text-align: center;
-  padding: 60px 20px;
-  color: #999;
-
-  svg {
-    margin-bottom: 16px;
-    opacity: 0.5;
-  }
-
-  p {
-    margin: 8px 0;
-    font-size: 14px;
-  }
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #e2e8f0;
+  margin: 16px;
+  border-radius: 16px;
 `;
 
-// Modal Styles
 const ModalOverlay = styled.div`
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
-  z-index: 10000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(5px);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  z-index: 1000;
   padding: 20px;
-  animation: ${modalFadeIn} 0.2s ease;
 `;
 
 const ModalContent = styled.div`
-  background: #0a0a0f;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 480px;
-  max-height: 85vh;
-  overflow-y: auto;
+  background: #1a1a2e;
+  width: 100%;
+  max-width: 450px;
+  border-radius: 24px;
   padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  animation: ${modalFadeIn} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  max-height: 90vh;
+  overflow-y: auto;
 `;
 
 const ModalHeader = styled.div`
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  align-items: center;
+  margin-bottom: 24px;
 
   h2 {
-    font-size: 18px;
-    font-weight: 700;
     color: white;
+    font-size: 20px;
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   button {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
     border: none;
+    color: #888;
     width: 32px;
     height: 32px;
     border-radius: 50%;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    color: white;
+    transition: 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
   }
 `;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 12px 12px 12px 40px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
+  padding: 12px 16px;
   color: white;
-  font-size: 13px;
   margin-bottom: 16px;
-
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-  }
+  font-size: 14px;
+  transition: 0.2s;
 
   &:focus {
     outline: none;
     border-color: #ff4444;
-  }
-`;
-
-const LeaderList = styled.div`
-  max-height: 200px;
-  overflow-y: auto;
-  margin-bottom: 16px;
-`;
-
-const LeaderItem = styled.div`
-  background: ${({ $selected }) =>
-    $selected ? "rgba(255, 68, 68, 0.15)" : "rgba(255, 255, 255, 0.03)"};
-  border: 1px solid
-    ${({ $selected }) => ($selected ? "#ff4444" : "rgba(255, 255, 255, 0.05)")};
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s;
-
-  &:hover {
-    background: rgba(255, 68, 68, 0.1);
-  }
-`;
-
-const LeaderAvatar = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff4444, #ff8844);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 16px;
-  color: white;
-  overflow: hidden;
-  flex-shrink: 0;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-`;
-
-const LeaderInfo = styled.div`
-  flex: 1;
-
-  h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: white;
-    margin: 0 0 4px;
-  }
-
-  p {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
-    margin: 0;
+    background: rgba(255, 255, 255, 0.08);
   }
 `;
 
 const VsDivider = styled.div`
   text-align: center;
+  color: #ff4444;
+  font-weight: 900;
   font-size: 14px;
-  font-weight: 700;
-  color: #ff8844;
-  margin: 8px 0;
-`;
-
-const DurationOptions = styled.div`
+  margin: 10px 0;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 16px 0;
-`;
+  align-items: center;
+  gap: 10px;
 
-const DurationOption = styled.button`
-  flex: 1;
-  background: ${({ $selected }) =>
-    $selected ? "#ff4444" : "rgba(255, 255, 255, 0.05)"};
-  border: none;
-  border-radius: 30px;
-  padding: 8px;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #ff5555;
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
   }
 `;
 
-const CreateBattleButton = styled.button`
+const DurationOptions = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+`;
+
+const DurationOption = styled.button`
+  background: ${(props) =>
+    props.$selected ? "#ff4444" : "rgba(255, 255, 255, 0.05)"};
+  border: 1px solid
+    ${(props) => (props.$selected ? "#ff4444" : "rgba(255, 255, 255, 0.1)")};
+  color: ${(props) => (props.$selected ? "white" : "#aaa")};
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+
+  &:hover {
+    background: ${(props) => (props.$selected ? "#e63946" : "rgba(255, 255, 255, 0.1)")};
+  }
+`;
+
+const CreateButton = styled.button`
   width: 100%;
-  background: linear-gradient(135deg, #ff4444, #ff8844);
-  border: none;
-  border-radius: 40px;
-  padding: 12px;
+  background: #ff4444;
   color: white;
-  font-size: 14px;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  transition: 0.3s;
+
+  &:hover {
+    background: #e63946;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(255, 68, 68, 0.2);
+  }
 
   &:disabled {
-    opacity: 0.5;
+    background: #444;
     cursor: not-allowed;
+    transform: none;
   }
 `;
 
 const VoiceControl = styled.button`
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #1e3c72;
+  position: absolute;
+  top: 16px;
+  right: 140px;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
-  color: white;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 20;
 
   &:hover {
-    background: #152c54;
+    background: rgba(255, 255, 255, 0.2);
+    color: #333;
   }
 `;
 
-const GiftAlert = styled.div`
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: linear-gradient(135deg, #ff4444, #ff8844);
-  border-radius: 12px;
-  padding: 12px 20px;
-  color: white;
+const LoadingState = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
-  z-index: 10001;
-  animation: ${slideIn} 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  font-weight: 600;
+  padding: 40px;
+  color: #666;
 `;
 
-// ==================== HELPER FUNCTIONS ====================
-const getDeviceId = () => {
-  let deviceId = localStorage.getItem("battle_device_id");
-  if (!deviceId) {
-    deviceId = `device_${Math.random().toString(36).substring(7)}_${Date.now()}`;
-    localStorage.setItem("battle_device_id", deviceId);
-  }
-  return deviceId;
-};
-
-// ==================== MAIN COMPONENT ====================
-const BattleArena = ({ currentUser = null }) => {
+const BattleArena = ({ currentUser }) => {
   const [battles, setBattles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedLeft, setSelectedLeft] = useState(null);
-  const [selectedRight, setSelectedRight] = useState(null);
-  const [selectedDuration, setSelectedDuration] = useState("7d");
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [selectedDuration, setSelectedDuration] = useState("1d");
   const [giftAlerts, setGiftAlerts] = useState([]);
-  const [comments, setComments] = useState({});
-  const [modalSearch, setModalSearch] = useState("");
-  const [submittingVote, setSubmittingVote] = useState({});
+  const [showCountyModal, setShowCountyModal] = useState(false);
+  const [pendingVote, setPendingVote] = useState(null);
+  const [voterCounty, setVoterCounty] = useState(localStorage.getItem("user_county") || "");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+
   const [countdowns, setCountdowns] = useState({});
   const [reactionCounts, setReactionCounts] = useState({});
   const [floatingReactions, setFloatingReactions] = useState({});
-  const [openComments, setOpenComments] = useState(null);
+  const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState("");
+  const [battleQuestion, setBattleQuestion] = useState("");
 
-  const [availableLeaders, setAvailableLeaders] = useState([]);
-  const [leadersLoading, setLeadersLoading] = useState(false);
+  const [customLeft, setCustomLeft] = useState({ name: "", party: "", position: "", image: "", file: null });
+  const [customRight, setCustomRight] = useState({ name: "", party: "", position: "", image: "", file: null });
+  const [endedBattles, setEndedBattles] = useState([]);
+  const [showEnded, setShowEnded] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const socketRef = useRef(null);
-  const voteCooldownRef = useRef({});
 
   const durationOptions = [
-    { value: "1h", label: "1h" },
-    { value: "3h", label: "3h" },
-    { value: "6h", label: "6h" },
-    { value: "12h", label: "12h" },
-    { value: "1d", label: "1d" },
-    { value: "3d", label: "3d" },
-    { value: "7d", label: "7d" },
+    { label: "1 Hour", value: "1h" },
+    { label: "12 Hours", value: "12h" },
+    { label: "1 Day", value: "1d" },
+    { label: "3 Days", value: "3d" },
+    { label: "1 Week", value: "7d" },
   ];
-
-  const fetchLeadersForModal = async () => {
-    setLeadersLoading(true);
-    try {
-      const res = await axios.get(`${API_BASE}/leaders`, {
-        params: { limit: 100 }
-      });
-
-      let leaders = [];
-      if (res.data?.success && Array.isArray(res.data.data)) {
-        res.data.data.forEach(group => {
-          if (group.leaders && Array.isArray(group.leaders)) {
-            leaders = [...leaders, ...group.leaders];
-          }
-        });
-      }
-      
-      const uniqueLeaders = [];
-      const seenIds = new Set();
-      for (const leader of leaders) {
-        if (!seenIds.has(leader.leader_id)) {
-          seenIds.add(leader.leader_id);
-          uniqueLeaders.push(leader);
-        }
-      }
-      
-      setAvailableLeaders(uniqueLeaders);
-    } catch (err) {
-      console.error("Error fetching leaders:", err);
-      setAvailableLeaders([]);
-    } finally {
-      setLeadersLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showCreateModal && availableLeaders.length === 0 && !leadersLoading) {
-      fetchLeadersForModal();
-    }
-  }, [showCreateModal]);
 
   useEffect(() => {
     socketRef.current = io(SOCKET_URL, {
@@ -534,7 +390,7 @@ const BattleArena = ({ currentUser = null }) => {
       reconnection: true,
     });
 
-    socketRef.current.on("connect", () => );
+    socketRef.current.on("connect", () => console.log("Connected to battle socket"));
     socketRef.current.on("vote-update", (data) => {
       setBattles((prev) =>
         prev.map((b) =>
@@ -582,10 +438,38 @@ const BattleArena = ({ currentUser = null }) => {
     return () => socketRef.current?.disconnect();
   }, []);
 
+  // --- COUNTDOWN TIMER LOGIC ---
+  useEffect(() => {
+    const timerInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const newCountdowns = {};
+
+      battles.forEach(battle => {
+        if (!battle.expires_at) return;
+        const expiresStr = typeof battle.expires_at === 'string' && !battle.expires_at.includes('T')
+          ? battle.expires_at.replace(' ', 'T')
+          : battle.expires_at;
+        const expiry = new Date(expiresStr).getTime();
+        const remaining = Math.max(0, expiry - now);
+        newCountdowns[battle.id] = remaining;
+      });
+
+      setCountdowns(newCountdowns);
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [battles]);
+
   const fetchBattles = useCallback(async () => {
+    setLoading(true);
     try {
-      const activeRes = await axios.get(`${BATTLE_API}/active`);
+      const [activeRes, endedRes] = await Promise.all([
+        axios.get(`${BATTLE_API}/active`),
+        axios.get(`${BATTLE_API}/completed`)
+      ]);
+
       if (activeRes.data?.success) setBattles(activeRes.data.data);
+      if (endedRes.data?.success) setEndedBattles(endedRes.data.data);
     } catch (err) {
       console.error("Error fetching battles:", err);
     } finally {
@@ -597,267 +481,323 @@ const BattleArena = ({ currentUser = null }) => {
     fetchBattles();
   }, [fetchBattles]);
 
-  const vote = async (battleId, candidateId) => {
-    if (voteCooldownRef.current[battleId]) return;
-    voteCooldownRef.current[battleId] = true;
-    setTimeout(() => delete voteCooldownRef.current[battleId], 500);
-
-    setSubmittingVote((prev) => ({ ...prev, [battleId]: true }));
+  const castVote = async (battleId, candidateId, county) => {
     try {
-      const deviceId = getDeviceId();
       const res = await axios.post(`${BATTLE_API}/vote`, {
         battle_id: battleId,
         candidate_id: candidateId,
-        device_id: deviceId,
+        device_id: currentUser?.user_id || "guest",
+        county: county
       });
-
-      if (res.data?.success) {
-        socketRef.current?.emit("battle-vote", {
-          battleId,
-          candidateId,
-          votesLeft: res.data.data.votes_left,
-          votesRight: res.data.data.votes_right,
-        });
-      }
+      console.log("Vote response:", res.data);
+      // Refresh battles to show updated counts
+      fetchBattles();
     } catch (err) {
-      console.error("Vote error:", err);
-    } finally {
-      setSubmittingVote((prev) => ({ ...prev, [battleId]: false }));
+      console.error("Error voting:", err.response?.data || err.message);
     }
   };
 
-  const addReaction = async (battleId, emoji) => {
+  const handleVote = (battleId, candidateId) => {
+    setPendingVote({ battleId, candidateId });
+    setShowCountyModal(true);
+  };
+
+  const handleSelectCounty = (county) => {
+    setVoterCounty(county);
+    localStorage.setItem("user_county", county);
+    setShowCountyModal(false);
+    if (pendingVote) {
+      castVote(pendingVote.battleId, pendingVote.candidateId, county);
+      setPendingVote(null);
+    }
+  };
+
+  const handleAddReaction = async (battleId, reaction) => {
     try {
-      const deviceId = getDeviceId();
       await axios.post(`${BATTLE_API}/reaction`, {
         battle_id: battleId,
-        reaction: emoji,
-        device_id: deviceId,
+        reaction,
+        device_id: currentUser?.user_id || "guest",
       });
-      socketRef.current?.emit("battle-reaction", { battleId, reaction: emoji });
     } catch (err) {
-      console.error("Reaction error:", err);
+      console.error("Error adding reaction:", err);
     }
   };
 
-  const addComment = async (battleId) => {
+  const handleAddComment = async (battleId) => {
     if (!newComment.trim()) return;
     try {
-      const deviceId = getDeviceId();
       await axios.post(`${BATTLE_API}/comment`, {
         battle_id: battleId,
         comment: newComment,
-        device_id: deviceId,
+        user_name: currentUser?.name || "Guest User",
+        device_id: currentUser?.user_id || "guest",
       });
       setNewComment("");
     } catch (err) {
-      console.error("Comment error:", err);
+      console.error("Error adding comment:", err);
     }
   };
 
-  const sendGift = async (battleId, giftValue) => {
-    try {
-      await axios.post(`${BATTLE_API}/gift`, {
-        battle_id: battleId,
-        gift_value: giftValue,
-        device_id: getDeviceId(),
-      });
-      setGiftAlerts((prev) => [
-        ...prev,
-        { id: Date.now(), message: `🎉 ${giftValue} coins sent!` },
-      ]);
-      setTimeout(() => setGiftAlerts((prev) => prev.slice(1)), 3000);
-    } catch (err) {
-      console.error("Gift error:", err);
-    }
+  const handleImageUpload = async (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await axios.post(`${BATTLE_API}/upload-image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return res.data.imageUrl;
   };
 
   const createBattle = async () => {
-    if (!selectedLeft || !selectedRight) return;
+    if (!customLeft.name || !customRight.name) return;
+
+    setUploading(true);
     try {
-      const res = await axios.post(`${BATTLE_API}/create`, {
-        challenger1_id: selectedLeft.leader_id,
-        challenger2_id: selectedRight.leader_id,
+      let finalLeftImage = customLeft.image;
+      let finalRightImage = customRight.image;
+
+      if (customLeft.file) {
+        finalLeftImage = await handleImageUpload(customLeft.file);
+      }
+      if (customRight.file) {
+        finalRightImage = await handleImageUpload(customRight.file);
+      }
+
+      const payload = {
+        challenger1_id: null,
+        challenger2_id: null,
+        challenger1_custom: { ...customLeft, image: finalLeftImage },
+        challenger2_custom: { ...customRight, image: finalRightImage },
         duration: selectedDuration,
-        title: `${selectedLeft.name} vs ${selectedRight.name}`,
-      });
+        title: `${customLeft.name} vs ${customRight.name}`,
+        question: battleQuestion,
+        created_by: currentUser?.user_id || "guest",
+        host_name: currentUser?.name || "Guest Host"
+      };
+
+      const res = await axios.post(`${BATTLE_API}/create`, payload);
       if (res.data?.success) {
         setBattles([res.data.data, ...battles]);
         setShowCreateModal(false);
-        setSelectedLeft(null);
-        setSelectedRight(null);
-        setModalSearch("");
+        setCustomLeft({ name: "", party: "", position: "", image: "", file: null });
+        setCustomRight({ name: "", party: "", position: "", image: "", file: null });
+        setBattleQuestion("");
       }
     } catch (err) {
       console.error("Create battle error:", err);
+    } finally {
+      setUploading(false);
     }
   };
-
-  const filteredLeaders = availableLeaders.filter((l) =>
-    l.name?.toLowerCase().includes(modalSearch.toLowerCase()),
-  );
-
-  if (loading && battles.length === 0) {
-    return (
-      <BattleContainer>
-        <BattleHeader>
-          <Title>
-            <Swords size={16} /> ASPIRANT BATTLES <LiveBadge>LIVE</LiveBadge>
-          </Title>
-          <CreateButton disabled>+ Create Battle</CreateButton>
-        </BattleHeader>
-        <LoadingSpinner>
-          <Loader size={24} /> Loading battles...
-        </LoadingSpinner>
-      </BattleContainer>
-    );
-  }
 
   return (
     <BattleContainer>
       <BattleHeader>
         <Title>
-          <Swords size={16} /> ASPIRANT BATTLES <LiveBadge>LIVE</LiveBadge>
+          <Swords size={20} color="#ff4444" />
+          Battle Arena
+          {battles.length > 0 && <LiveBadge>LIVE</LiveBadge>}
         </Title>
         <HeaderButtons>
-          <IconButton
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            $active={soundEnabled}
-          >
-            {soundEnabled ? <Volume2 /> : <VolumeX />}
-          </IconButton>
-          <RefreshButton onClick={fetchBattles}>
-            <RefreshCw size={16} />
-          </RefreshButton>
-          <CreateButton onClick={() => setShowCreateModal(true)}>
-            + Create Battle
-          </CreateButton>
+          {endedBattles.length > 0 && (
+            <HeaderButton onClick={() => setShowEnded(!showEnded)}>
+              <Clock size={16} /> {showEnded ? "Live Feed" : "Ended"}
+            </HeaderButton>
+          )}
+          <RefreshCw
+            size={16}
+            style={{ cursor: 'pointer', opacity: 0.5 }}
+            onClick={fetchBattles}
+            className={loading ? "animate-spin" : ""}
+          />
+          <HeaderButton onClick={() => setShowCreateModal(true)} $primary>
+            <Plus size={16} /> New Battle
+          </HeaderButton>
         </HeaderButtons>
       </BattleHeader>
 
-      {battles.length === 0 ? (
-        <EmptyState>
-          <Swords size={48} />
-          <p>No active battles</p>
-          <CreateButton onClick={() => setShowCreateModal(true)}>
-            Create First Battle
-          </CreateButton>
-        </EmptyState>
-      ) : (
-        <BattleScroll>
-          {battles.map((battle) => (
+      <BattleFeed>
+        {loading ? (
+          <LoadingState>
+            <Loader size={32} className="animate-spin" />
+            <p>Entering the arena...</p>
+          </LoadingState>
+        ) : showEnded ? (
+          endedBattles.length > 0 ? (
+            endedBattles.map((battle) => (
+              <BattleCard
+                key={battle.id}
+                battle={battle}
+                onVote={handleVote}
+                onAddReaction={handleAddReaction}
+                onAddComment={handleAddComment}
+                countdowns={countdowns}
+                reactionCounts={reactionCounts}
+                floatingReactions={floatingReactions}
+                comments={comments}
+                currentUser={currentUser}
+                isEnded={true}
+              />
+            ))
+          ) : (
+            <EmptyState>
+              <p>No ended battles yet.</p>
+            </EmptyState>
+          )
+        ) : battles.length > 0 ? (
+          battles.map((battle) => (
             <BattleCard
               key={battle.id}
               battle={battle}
+              onVote={handleVote}
+              onAddReaction={handleAddReaction}
+              onAddComment={handleAddComment}
+
               countdowns={countdowns}
               reactionCounts={reactionCounts}
               floatingReactions={floatingReactions}
               comments={comments}
-              openComments={openComments}
-              setOpenComments={setOpenComments}
-              newComment={newComment}
               setNewComment={setNewComment}
-              onVote={vote}
-              onAddReaction={addReaction}
-              onAddComment={addComment}
-              onSendGift={sendGift}
+              newComment={newComment}
               currentUser={currentUser}
             />
-          ))}
-        </BattleScroll>
+          ))
+        ) : (
+          <EmptyState>
+            <p>The arena is currently quiet. Why not start a battle?</p>
+            <HeaderButton onClick={() => setShowCreateModal(true)} $primary style={{ marginTop: '12px' }}>
+              Launch First Battle
+            </HeaderButton>
+            {/* Overlay to close custom aspirants modal */}
+          </EmptyState>
+        )}
+      </BattleFeed>
+
+      {showCountyModal && (
+        <ModalOverlay onClick={() => setShowCountyModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h2 style={{ marginBottom: '20px', textAlign: 'center' }}>Where are you voting from?</h2>
+            <p style={{ opacity: 0.7, fontSize: '14px', textAlign: 'center', marginBottom: '20px' }}>
+              Select your county to participate in this battle and see regional trends.
+            </p>
+            <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {voterCounty && (
+                <button
+                  onClick={() => handleSelectCounty(voterCounty)}
+                  style={{
+                    gridColumn: '1 / -1',
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #ff4444 0%, #ff8844 100%)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 900,
+                    marginBottom: '10px'
+                  }}
+                >
+                  Vote as {voterCounty} (Current)
+                </button>
+              )}
+              {KENYAN_COUNTIES.map(county => (
+                <button
+                  key={county}
+                  onClick={() => handleSelectCounty(county)}
+                  style={{
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  {county}
+                </button>
+              ))}
+            </div>
+          </ModalContent>
+        </ModalOverlay>
       )}
 
-      {giftAlerts.map((alert) => (
-        <GiftAlert key={alert.id}>
-          <Gift size={20} />
-          {alert.message}
-        </GiftAlert>
-      ))}
-
-      {/* Create Battle Modal */}
       {showCreateModal && (
         <ModalOverlay onClick={() => setShowCreateModal(false)}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <h2>
-                <Swords size={18} /> Create Battle
-              </h2>
-              <button onClick={() => setShowCreateModal(false)}>
-                <X size={18} />
-              </button>
+              <h2><Swords size={18} /> Launch Battle</h2>
+              <button onClick={() => setShowCreateModal(false)}><X size={18} /></button>
             </ModalHeader>
 
             <SearchInput
-              placeholder="Search aspirant..."
-              value={modalSearch}
-              onChange={(e) => setModalSearch(e.target.value)}
+              placeholder="Battle Question (e.g. Who is more fit for Nairobi?)"
+              value={battleQuestion}
+              onChange={(e) => setBattleQuestion(e.target.value)}
+              style={{ marginBottom: '24px' }}
             />
 
-            <LeaderList>
-              {leadersLoading ? (
-                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
-                  <Loader size={24} /> Loading leaders...
-                </div>
-              ) : filteredLeaders.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
-                  No leaders found
-                </div>
-              ) : (
-                filteredLeaders.map((l) => (
-                  <LeaderItem
-                    key={l.leader_id}
-                    $selected={selectedLeft?.leader_id === l.leader_id}
-                    onClick={() => setSelectedLeft(l)}
-                  >
-                    <LeaderAvatar>
-                      {l.image_url ? (
-                        <img src={l.image_url} alt={l.name} />
-                      ) : (
-                        l.name?.charAt(0).toUpperCase()
-                      )}
-                    </LeaderAvatar>
-                    <LeaderInfo>
-                      <h4>{l.name}</h4>
-                      <p>{l.party || "No party"} • {l.position || "Candidate"}</p>
-                    </LeaderInfo>
-                    {selectedLeft?.leader_id === l.leader_id && <Check size={16} color="#ff4444" />}
-                  </LeaderItem>
-                ))
-              )}
-            </LeaderList>
+            <div style={{ color: 'white', fontSize: '14px', marginBottom: '12px', fontWeight: 600 }}>Challenger 1</div>
+            <div style={{ display: 'grid', gap: '8px', marginBottom: '24px' }}>
+              <SearchInput placeholder="Aspirant Name" value={customLeft.name} onChange={e => setCustomLeft({ ...customLeft, name: e.target.value })} style={{ margin: 0 }} />
+              <SearchInput placeholder="Political Party" value={customLeft.party} onChange={e => setCustomLeft({ ...customLeft, party: e.target.value })} style={{ margin: 0 }} />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="file"
+                  id="left-image"
+                  hidden
+                  onChange={e => setCustomLeft({ ...customLeft, file: e.target.files[0], image: URL.createObjectURL(e.target.files[0]) })}
+                />
+                <label
+                  htmlFor="left-image"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: '10px',
+                    color: 'rgba(255,255,255,0.5)',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    border: '1px dashed rgba(255,255,255,0.2)',
+                    textAlign: 'center'
+                  }}
+                >
+                  {customLeft.file ? customLeft.file.name : "Upload Photo or Video"}
+                </label>
+              </div>
+            </div>
 
             <VsDivider>VS</VsDivider>
 
-            <LeaderList>
-              {leadersLoading ? (
-                <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.5)" }}>
-                  <Loader size={24} /> Loading leaders...
-                </div>
-              ) : (
-                filteredLeaders
-                  .filter((l) => l.leader_id !== selectedLeft?.leader_id)
-                  .map((l) => (
-                    <LeaderItem
-                      key={l.leader_id}
-                      $selected={selectedRight?.leader_id === l.leader_id}
-                      onClick={() => setSelectedRight(l)}
-                    >
-                      <LeaderAvatar>
-                        {l.image_url ? (
-                          <img src={l.image_url} alt={l.name} />
-                        ) : (
-                          l.name?.charAt(0).toUpperCase()
-                        )}
-                      </LeaderAvatar>
-                      <LeaderInfo>
-                        <h4>{l.name}</h4>
-                        <p>{l.party || "No party"} • {l.position || "Candidate"}</p>
-                      </LeaderInfo>
-                      {selectedRight?.leader_id === l.leader_id && <Check size={16} color="#ff4444" />}
-                    </LeaderItem>
-                  ))
-              )}
-            </LeaderList>
+            <div style={{ color: 'white', fontSize: '14px', marginBottom: '12px', fontWeight: 600, marginTop: '12px' }}>Challenger 2</div>
+            <div style={{ display: 'grid', gap: '8px', marginBottom: '24px' }}>
+              <SearchInput placeholder="Aspirant Name" value={customRight.name} onChange={e => setCustomRight({ ...customRight, name: e.target.value })} style={{ margin: 0 }} />
+              <SearchInput placeholder="Political Party" value={customRight.party} onChange={e => setCustomRight({ ...customRight, party: e.target.value })} style={{ margin: 0 }} />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="file"
+                  id="right-image"
+                  hidden
+                  onChange={e => setCustomRight({ ...customRight, file: e.target.files[0], image: URL.createObjectURL(e.target.files[0]) })}
+                />
+                <label
+                  htmlFor="right-image"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: '10px',
+                    color: 'rgba(255,255,255,0.5)',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    border: '1px dashed rgba(255,255,255,0.2)',
+                    textAlign: 'center'
+                  }}
+                >
+                  {customRight.file ? customRight.file.name : "Upload Photo or Video"}
+                </label>
+              </div>
+            </div>
 
             <DurationOptions>
               {durationOptions.map((opt) => (
@@ -871,12 +811,13 @@ const BattleArena = ({ currentUser = null }) => {
               ))}
             </DurationOptions>
 
-            <CreateBattleButton
+            <CreateButton
               onClick={createBattle}
-              disabled={!selectedLeft || !selectedRight}
+              disabled={uploading || !customLeft.name || !customRight.name}
             >
-              <Swords size={16} /> Start Battle
-            </CreateBattleButton>
+              {uploading ? <Loader size={18} className="animate-spin" /> : <Swords size={18} />}
+              {uploading ? "Uploading Data..." : "Launch Battle Now"}
+            </CreateButton>
           </ModalContent>
         </ModalOverlay>
       )}

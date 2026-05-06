@@ -51,6 +51,7 @@ const {
   trackShare,
   trackTimeSpent,
   handleSupport,
+  trackClick,
 } = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
@@ -81,6 +82,7 @@ router.get("/analytics/county", getLeaderAnalyticsByCounty);
 router.get("/analytics/constituency", getLeaderAnalyticsByConstituency);
 router.get("/analytics/ward", getLeaderAnalyticsByWard);
 router.get("/analytics/position", getLeaderAnalyticsByPosition);
+router.post("/analytics/click", trackClick);
 
 // ============================================================
 // INTERACTION & TRACKING ROUTES (NEW)

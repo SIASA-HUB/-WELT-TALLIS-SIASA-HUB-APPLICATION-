@@ -4,7 +4,7 @@ import API from '../api/config';
 
 class ClickTracker {
   constructor() {
-    this.trackingEndpoint = `${API.BASE}/users/analytics/click`;
+    this.trackingEndpoint = `${API.BASE}/leaders/analytics/click`;
     this.userId = null;
     this.isInitialized = false;
   }

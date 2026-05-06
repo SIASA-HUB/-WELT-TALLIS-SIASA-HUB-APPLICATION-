@@ -65,6 +65,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/socket.io": {
+        target: "http://localhost:8009",
+        ws: true,
+        changeOrigin: true,
+      },
     },
     headers: {
       "Access-Control-Allow-Origin": "*",

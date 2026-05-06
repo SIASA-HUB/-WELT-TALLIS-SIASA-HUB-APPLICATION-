@@ -5,7 +5,6 @@ import SEO from "../../utils/SEO";
 
 // 1. LAZY LOAD TRENDING
 const TrendingSection = lazy(() => import("../treading/treading"));
-const OnboardingGuide = lazy(() => import("./OnboardingGuide"));
 
 const progressMove = keyframes`
   0% { width: 0%; }
@@ -202,13 +201,13 @@ const SiasaApp = () => {
       />
       <HomePageWrapper>
         <MainContent>
-          <Suspense fallback={<div />}>
-            <OnboardingGuide />
-          </Suspense>
+
 
           <Suspense fallback={<LoadingFallback />}>
             <TrendingSection />
           </Suspense>
+
+
 
         </MainContent>
       </HomePageWrapper>

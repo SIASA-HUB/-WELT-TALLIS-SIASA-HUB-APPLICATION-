@@ -40,6 +40,7 @@ const LoginPage = lazy(() => import("./components/auth/Login"));
 const ProductDetails = lazy(() => import("./components/marketplace/pages/ProductDetails"));
 const Checkout = lazy(() => import("./components/marketplace/checkout/checkout"));
 const MyOrders = lazy(() => import("./components/marketplace/pages/MyOrders"));
+const BattleDetails = lazy(() => import("./components/leaders/battle/BattleDetails"));
 
 const GlobalStyle = createGlobalStyle`
   * {
@@ -270,6 +271,10 @@ const AppLayout = () => {
             <Route path="/aspirants/:slug" element={<LeaderInsightPage />} />
             <Route path="/leaders/:id" element={<LeaderInsightPage />} />
             <Route path="/leaders" element={<LeadersPage />} />
+            
+            {/* ===== BATTLE ROUTES ===== */}
+            <Route path="/battle/:slug" element={<BattleDetails />} />
+            <Route path="/battle/:id" element={<BattleDetails />} />
 
             <Route path="/county/:county/position/:position" element={<LeaderListingPage />} />
             <Route path="/county/:county" element={<LeadersPage />} />

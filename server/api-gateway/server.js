@@ -113,12 +113,12 @@ app.use(helmet({
 // Body parsers — only for non-proxied routes (health, sitemap, etc.)
 
 app.use((req, res, next) => {
-  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/');
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/');
   if (isProxied) return next(); // skip body parser — let proxy forward raw body
   express.json({ limit: "1mb" })(req, res, next);
 });
 app.use((req, res, next) => {
-  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/');
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/');
   if (isProxied) return next();
   express.urlencoded({ extended: true, limit: "1mb" })(req, res, next);
 });
@@ -211,7 +211,29 @@ app.use(["/api/v1/uploads/marketplace", "/uploads/marketplace"], createProxy(SER
 app.use(["/api/v1/uploads/rallies", "/uploads/rallies"], createProxy(SERVICES.rallies));
 app.use(["/api/v1/uploads/users", "/uploads/users"], createProxy(SERVICES.users));
 app.use(["/api/v1/uploads/products", "/uploads/products"], createProxy(SERVICES.marketplace));
+app.use(["/api/v1/uploads/battles", "/uploads/battles"], createProxy(SERVICES.leaders));
 
+
+// ============================================
+// SOCKET.IO PROXY (For real-time battles)
+// ============================================
+const socketProxy = createProxyMiddleware({
+  target: SERVICES.leaders,
+  changeOrigin: true,
+  ws: true,
+  pathFilter: '/socket.io',
+  logLevel: 'debug',
+  on: {
+    proxyReq: (proxyReq, req) => {
+      Logger.info(`[WS PROXY] Connecting to ${SERVICES.leaders}${proxyReq.path}`);
+    },
+    error: (err, req, res) => {
+      Logger.error(`[WS PROXY ERROR] ${err.message}`);
+    }
+  }
+});
+
+app.use(socketProxy);
 
 // ============================================
 // SERVICE PROXY ROUTES
@@ -230,8 +252,6 @@ app.use("/api/v1/cart", createProxy(SERVICES.marketplace));
 app.use("/api/v1/upload", createProxy(SERVICES.marketplace)); // ← image upload
 app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
 app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
-
-
 
 // ============================================
 // SITEMAP.XML — Dynamic sitemap for Google crawling
@@ -385,6 +405,14 @@ const server = app.listen(PORT, HOST, () => {
   });
 
 });
+
+// Handle WebSocket upgrades
+server.on('upgrade', (req, socket, head) => {
+  if (req.url.startsWith('/socket.io')) {
+    socketProxy.upgrade(req, socket, head);
+  }
+});
+
 
 // Graceful shutdown
 process.on("SIGINT", () => {

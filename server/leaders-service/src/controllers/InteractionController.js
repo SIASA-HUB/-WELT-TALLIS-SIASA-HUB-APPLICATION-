@@ -422,6 +422,27 @@ const handleSupport = asyncHandler(async (req, res) => {
   }
 });
 
+const trackClick = asyncHandler(async (req, res) => {
+  const { element_id, element_class, element_tag, page_url, text_content, user_id } = req.body;
+  const ip = req.ip;
+
+  try {
+    // Optionally log to DB if a table exists, for now just log and return OK
+    Logger.info("Click Tracked", { 
+      element_id, 
+      element_tag, 
+      page_url, 
+      text_content, 
+      user_id,
+      ip 
+    });
+
+    res.status(200).json({ success: true, message: "Click tracked" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = {
   handleInteraction,
   postComment,
@@ -431,4 +452,5 @@ module.exports = {
   trackShare,
   trackTimeSpent,
   handleSupport,
+  trackClick,
 };

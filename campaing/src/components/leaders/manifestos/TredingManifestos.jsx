@@ -645,7 +645,7 @@ const TrendingManifestos = ({ userId, currentUser, limit = 5, onEmpty }) => {
                             color={isRising ? '#22c55e' : '#f59e0b'}
                           />
                         </div>
-                        <span className={isRising ? 'vote-badge' : 'vote-badge-new'} $isRising={isRising}>
+                        <span className={isRising ? 'vote-badge' : 'vote-badge-new'}>
                           {votes} {votes === 1 ? 'Vote' : 'Votes'}
                         </span>
                         {votes > 0 && <span className="active-tag">Active</span>}

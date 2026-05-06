@@ -9,12 +9,17 @@ import {
   Users,
   Heart,
   Zap,
+  Activity,
   Clock,
   X,
   Gift,
   Swords,
   Send,
+  Share2,
+  MapPin,
+  Link2,
 } from "lucide-react";
+import { buildImageUrl } from "../../../utils/imageUtils";
 
 // ==================== ANIMATIONS ====================
 const slideIn = keyframes`
@@ -64,15 +69,23 @@ const countdownPulse = keyframes`
 
 // ==================== STYLED COMPONENTS ====================
 const BattleCardStyled = styled.div`
-  min-width: 320px;
-  height: 540px;
+  flex: 0 0 ${props => props.$isSingleView ? '100%' : '320px'};
+  max-width: ${props => props.$isSingleView ? '800px' : '320px'};
+  height: ${props => props.$isSingleView ? '600px' : '440px'};
   background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0f 100%);
-  border-radius: 20px;
+  border-radius: ${props => props.$isSingleView ? '32px' : '20px'};
   overflow: hidden;
   position: relative;
   scroll-snap-align: center;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   animation: ${slideIn} 0.4s ease-out;
+  border: ${props => props.$isSingleView ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.05)'};
+  margin: ${props => props.$isSingleView ? '0 auto' : '0'};
+
+  @media (max-width: 480px) {
+    flex: 0 0 280px;
+    height: 400px;
+  }
 `;
 
 const LiveIndicator = styled.div`
@@ -137,6 +150,118 @@ const BattleTitle = styled.div`
     padding: 4px 12px;
     border-radius: 20px;
     display: inline-block;
+  }
+`;
+
+const BattleQuestion = styled.div`
+  position: absolute;
+  top: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  text-align: center;
+  color: white;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  padding: 12px 20px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 800;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-transform: none;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  font-family: 'Inter', sans-serif;
+`;
+
+const ViewDetailsBtn = styled.button`
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: #ff4444;
+    border-color: #ff4444;
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 68, 68, 0.4);
+  }
+
+  svg { color: #ff4444; transition: color 0.3s; }
+  &:hover svg { color: white; }
+`;
+
+const ShareButton = styled.button`
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ff4444;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    background: #ff6666;
+    transform: scale(1.1) rotate(5deg);
+  }
+`;
+
+const CountyPrompt = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+
+  h3 { color: white; margin-bottom: 20px; }
+  select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    background: #1a1a2e;
+    color: white;
+    border: 1px solid #ff4444;
+  }
+  button {
+    background: #ff4444;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
   }
 `;
 
@@ -234,6 +359,7 @@ const CandidateSide = styled.div`
 
   ${({ $left }) => $left && `left: 0;`}
   ${({ $right }) => $right && `right: 0;`}
+  background: #000;
 `;
 
 const CandidateImage = styled.img`
@@ -245,6 +371,38 @@ const CandidateImage = styled.img`
   ${CandidateSide}:hover & {
     transform: scale(1.05);
   }
+`;
+
+const CandidateMedia = ({ src, alt, ...props }) => {
+  const isVideo = src?.toLowerCase().endsWith('.mp4');
+
+  if (isVideo) {
+    return (
+      <CandidateImage
+        as="video"
+        src={src}
+        autoPlay
+        muted
+        loop
+        playsInline
+        style={{ objectFit: 'cover' }}
+        {...props}
+      />
+    );
+  }
+
+  return <CandidateImage src={src} alt={alt} {...props} />;
+};
+
+const Ripple = styled.div`
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 68, 68, 0.6);
+  pointer-events: none;
+  z-index: 20;
+  animation: ${tapRipple} 0.6s ease-out forwards;
 `;
 
 const CandidateInfo = styled.div`
@@ -263,38 +421,36 @@ const CandidateName = styled.div`
   align-items: center;
   justify-content: center;
   gap: 6px;
+  text-transform: capitalize;
 `;
 
 const CandidateParty = styled.div`
   font-size: 10px;
   color: rgba(255, 255, 255, 0.7);
   margin-top: 4px;
+  text-transform: capitalize;
+  text-align: center;
 `;
 
 const CandidatePosition = styled.div`
   font-size: 9px;
   color: rgba(255, 255, 255, 0.5);
   margin-top: 2px;
+  text-align: center;
 `;
 
 const TapHint = styled.div`
   position: absolute;
-  bottom: 80px;
-  ${({ $left }) => $left && `left: 12px;`}
-  ${({ $right }) => $right && `right: 12px;`}
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border: none;
-  padding: 6px 14px;
-  border-radius: 30px;
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 800;
   display: flex;
   align-items: center;
   gap: 6px;
   z-index: 15;
   pointer-events: none;
+  background: #ff4444;
+  box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+  animation: ${livePulse} 2s infinite;
 `;
 
 const ProgressContainer = styled.div`
@@ -629,15 +785,25 @@ const BattleCard = ({
   onAddComment,
   onSendGift,
   currentUser,
+  isSingleView = false,
 }) => {
   const [ripples, setRipples] = useState({});
   const [localReactionCounts, setLocalReactionCounts] = useState({});
+  const [showCountyPrompt, setShowCountyPrompt] = useState(false);
+  const [selectedCounty, setSelectedCounty] = useState("");
+  const [pendingVote, setPendingVote] = useState(null);
+
+  const counties = [
+    "Nairobi", "Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita Taveta", "Garissa", "Wajir", "Mandera", "Marsabit", "Isiolo", "Meru", "Tharaka-Nithi", "Embu", "Kitui", "Machakos", "Makueni", "Nyandarua", "Nyeri", "Kirinyaga", "Murang'a", "Kiambu", "Turkana", "West Pokot", "Samburu", "Trans Nzoia", "Uasin Gishu", "Elgeyo Marakwet", "Nandi", "Baringo", "Laikipia", "Nakuru", "Narok", "Kajiado", "Kericho", "Bomet", "Kakamega", "Vihiga", "Bungoma", "Busia", "Siaya", "Kisumu", "Homa Bay", "Migori", "Kisii", "Nyamira"
+  ];
 
   useEffect(() => {
     if (reactionCounts && reactionCounts[battle?.id]) {
       setLocalReactionCounts(reactionCounts[battle.id]);
+    } else if (battle?.reactions) {
+      setLocalReactionCounts(battle.reactions);
     }
-  }, [reactionCounts, battle?.id]);
+  }, [reactionCounts, battle?.id, battle?.reactions]);
 
   const total = (battle.votesLeft || 0) + (battle.votesRight || 0);
   const leftPercent = total ? ((battle.votesLeft || 0) / total) * 100 : 50;
@@ -656,8 +822,37 @@ const BattleCard = ({
         delete newRipples[rippleKey];
         return newRipples;
       });
-    }, 500);
+    }, 1000);
+
     onVote(battle.id, candidateId);
+  };
+
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/battle/${battle.slug || battle.id}`;
+    const dayMessages = [
+      "🔥 Who wins? VOTE NOW!",
+      "🗳️ Make your choice! THE BATTLE IS LIVE!",
+      "⚡ THE ULTIMATE SHOWDOWN! Stand with your candidate!",
+      "🚀 MOMENTUM ALERT! Who has your support?",
+      "🌟 LEADERSHIP CLASH! Cast your vote today!",
+      "📢 SPEAK UP! Join the most intense battle of the day!",
+      "🤝 THE PEOPLE'S CHOICE! Who takes the lead?"
+    ];
+    const day = new Date().getDay();
+    const shareText = `${dayMessages[day]}\n\n${battle.left?.name} vs ${battle.right?.name}\n\n${battle.question}\n\n👉 ${shareUrl}\n#SiasaHub`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Battle: ${battle.left?.name} vs ${battle.right?.name}`,
+          text: shareText,
+        });
+      } catch (err) { }
+    } else {
+      navigator.clipboard.writeText(`${shareText}`);
+      alert("Campaign message & link copied! 📋");
+    }
   };
 
   const handleReactionClick = async (emoji) => {
@@ -668,29 +863,28 @@ const BattleCard = ({
     await onAddReaction(battle.id, emoji);
   };
 
-  const reactions = ["🔥", "❤️", "😂", "👏", "💯"];
+  const reactions = ["❤️", "😂", "👏", "💯"];
 
   if (!battle) return null;
 
   return (
-    <BattleCardStyled>
+    <BattleCardStyled $isSingleView={isSingleView}>
       <LiveIndicator>🔴 LIVE</LiveIndicator>
       <CountdownTimer>
         <Clock size={12} />
         <span>{formatCountdown(timeRemaining)}</span>
       </CountdownTimer>
 
-      {battle.title && (
-        <BattleTitle>
-          <span>{battle.title}</span>
-        </BattleTitle>
+      <ViewDetailsBtn onClick={() => window.location.href = `/battle/${battle.slug || battle.id}`}>
+        <Activity size={14} /> Analytics
+      </ViewDetailsBtn>
+
+      {battle.question && (
+        <BattleQuestion>
+          {battle.question}
+        </BattleQuestion>
       )}
 
-      {battle.hostName && (
-        <HostBadge>
-          <Crown size={10} /> {battle.hostName}
-        </HostBadge>
-      )}
 
       {isLeftWinner ? (
         <>
@@ -712,9 +906,9 @@ const BattleCard = ({
         $left
         onClick={(e) => handleVoteWithRipple("left", battle.left?.leader_id, e)}
       >
-        <CandidateImage
+        <CandidateMedia
           src={
-            battle.left?.primary_image ||
+            buildImageUrl(battle.left?.primary_image) ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(battle.left?.name || "")}&background=ff4444&color=fff&size=300&bold=true`
           }
           alt={battle.left?.name}
@@ -724,10 +918,10 @@ const BattleCard = ({
         />
         <CandidateInfo>
           <CandidateName>
-            {battle.left?.name?.split(" ")[0]}
+            {battle.left?.name}
             {isLeftWinner && <Crown size={14} color="#ffd700" />}
           </CandidateName>
-          <CandidateParty>{battle.left?.political_party}</CandidateParty>
+          <CandidateParty>{battle.left?.party || battle.left?.political_party}</CandidateParty>
           <CandidatePosition>
             {battle.left?.position_running_for}
           </CandidatePosition>
@@ -738,19 +932,11 @@ const BattleCard = ({
         {Object.entries(ripples)
           .filter(([key]) => key.includes(`${battle.id}-left`))
           .map(([key, ripple]) => (
-            <div
+            <Ripple
               key={key}
               style={{
-                position: "absolute",
                 left: ripple.x - 20,
                 top: ripple.y - 20,
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "rgba(255, 68, 68, 0.6)",
-                animation: tapRipple,
-                pointerEvents: "none",
-                zIndex: 20,
               }}
             />
           ))}
@@ -765,9 +951,9 @@ const BattleCard = ({
           handleVoteWithRipple("right", battle.right?.leader_id, e)
         }
       >
-        <CandidateImage
+        <CandidateMedia
           src={
-            battle.right?.primary_image ||
+            buildImageUrl(battle.right?.primary_image) ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(battle.right?.name || "")}&background=ff8844&color=fff&size=300&bold=true`
           }
           alt={battle.right?.name}
@@ -777,10 +963,10 @@ const BattleCard = ({
         />
         <CandidateInfo>
           <CandidateName>
-            {battle.right?.name?.split(" ")[0]}
+            {battle.right?.name}
             {!isLeftWinner && <Crown size={14} color="#ffd700" />}
           </CandidateName>
-          <CandidateParty>{battle.right?.political_party}</CandidateParty>
+          <CandidateParty>{battle.right?.party || battle.right?.political_party}</CandidateParty>
           <CandidatePosition>
             {battle.right?.position_running_for}
           </CandidatePosition>
@@ -791,19 +977,12 @@ const BattleCard = ({
         {Object.entries(ripples)
           .filter(([key]) => key.includes(`${battle.id}-right`))
           .map(([key, ripple]) => (
-            <div
+            <Ripple
               key={key}
               style={{
-                position: "absolute",
                 left: ripple.x - 20,
                 top: ripple.y - 20,
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "rgba(255, 68, 68, 0.6)",
-                animation: tapRipple,
-                pointerEvents: "none",
-                zIndex: 20,
+                background: "rgba(68, 255, 68, 0.6)",
               }}
             />
           ))}
@@ -830,9 +1009,6 @@ const BattleCard = ({
         <MessageCircle size={12} /> {comments?.[battle.id]?.length || 0}
       </CommentButton>
 
-      <GiftButton onClick={() => onSendGift && onSendGift(battle.id, 10)}>
-        <Gift size={10} /> Send Gift
-      </GiftButton>
 
       <CommentsSection $open={openComments === battle.id}>
         <CommentsHeader>
@@ -884,6 +1060,31 @@ const BattleCard = ({
             )}
           </ReactionBtn>
         ))}
+        <ShareButton onClick={handleShare} title="Share Battle">
+          <Share2 size={16} />
+        </ShareButton>
+        <ShareButton
+          onClick={() => {
+            const shareUrl = `${window.location.origin}/battle/${battle.slug || battle.id}`;
+            const dayMessages = [
+              "🔥 Who wins? VOTE NOW!",
+              "🗳️ Make your choice! THE BATTLE IS LIVE!",
+              "⚡ THE ULTIMATE SHOWDOWN! Stand with your candidate!",
+              "🚀 MOMENTUM ALERT! Who has your support?",
+              "🌟 LEADERSHIP CLASH! Cast your vote today!",
+              "📢 SPEAK UP! Join the most intense battle of the day!",
+              "🤝 THE PEOPLE'S CHOICE! Who takes the lead?"
+            ];
+            const day = new Date().getDay();
+            const shareText = `${dayMessages[day]}\n\n${battle.left?.name} vs ${battle.right?.name}\n\n${battle.question}\n\n👉 ${shareUrl}\n#SiasaHub`;
+            navigator.clipboard.writeText(shareText);
+            alert("Campaign message & link copied! 📋");
+          }}
+          title="Copy Link"
+          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', width: '32px', height: '32px' }}
+        >
+          <Link2 size={14} />
+        </ShareButton>
       </ReactionButtons>
 
       {floatingReactions?.[battle.id]?.map((r, i) => (
@@ -900,22 +1101,7 @@ const BattleCard = ({
 
       <BattleStats>
         <StatItem>
-          <Eye size={10} /> {formatNumber(battle.views || 0)}
-        </StatItem>
-        <StatItem>
-          <Users size={10} /> {formatNumber(total)} votes
-        </StatItem>
-        <StatItem>
-          <Heart size={10} />{" "}
-          {formatNumber(
-            Object.values(localReactionCounts || {}).reduce(
-              (a, b) => a + b,
-              0,
-            ),
-          )}
-        </StatItem>
-        <StatItem>
-          <Gift size={10} /> {formatNumber(battle.giftTotal || 0)}
+          <Users size={12} /> {formatNumber(total)} Active Votes
         </StatItem>
       </BattleStats>
     </BattleCardStyled>
