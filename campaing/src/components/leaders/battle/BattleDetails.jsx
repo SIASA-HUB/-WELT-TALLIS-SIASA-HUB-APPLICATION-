@@ -316,7 +316,7 @@ const BattleDetails = () => {
 
     // Socket implementation
     socketRef.current = io(SOCKET_URL, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       reconnection: true,
     });
 

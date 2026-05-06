@@ -113,12 +113,12 @@ app.use(helmet({
 // Body parsers — only for non-proxied routes (health, sitemap, etc.)
 
 app.use((req, res, next) => {
-  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/');
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io');
   if (isProxied) return next(); // skip body parser — let proxy forward raw body
   express.json({ limit: "1mb" })(req, res, next);
 });
 app.use((req, res, next) => {
-  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/');
+  const isProxied = req.path.startsWith('/api/v1/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io');
   if (isProxied) return next();
   express.urlencoded({ extended: true, limit: "1mb" })(req, res, next);
 });
@@ -221,7 +221,6 @@ const socketProxy = createProxyMiddleware({
   target: SERVICES.leaders,
   changeOrigin: true,
   ws: true,
-  pathFilter: '/socket.io',
   logLevel: 'debug',
   on: {
     proxyReq: (proxyReq, req) => {
@@ -233,7 +232,8 @@ const socketProxy = createProxyMiddleware({
   }
 });
 
-app.use(socketProxy);
+// Explicitly handle /socket.io path
+app.use('/socket.io', socketProxy);
 
 // ============================================
 // SERVICE PROXY ROUTES
