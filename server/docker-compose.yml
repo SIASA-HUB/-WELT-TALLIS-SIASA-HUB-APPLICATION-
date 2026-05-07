@@ -15,6 +15,9 @@ services:
         condition: service_healthy
       socketio-service:
         condition: service_started
+    volumes:
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   users-service:
     build:
@@ -30,6 +33,9 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   wallet-service:
     build:
@@ -45,6 +51,10 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
+      - ./wallet-service/uploads:/usr/src/app/wallet-service/uploads
 
   leaders-service:
     build:
@@ -63,7 +73,12 @@ services:
       rabbitmq:
         condition: service_started
     volumes:
+      # Leaders uploads (for profile pictures, documents, etc.)
       - ./leaders-service/uploads:/usr/src/app/leaders-service/uploads
+      # Battle uploads (for battle images and videos)
+      - ./leaders-service/uploads/battles:/usr/src/app/leaders-service/uploads/battles
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   rally-service:
     build:
@@ -81,6 +96,8 @@ services:
         condition: service_healthy
     volumes:
       - ./rally-service/uploads:/usr/src/app/rally-service/uploads
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   endorsement-service:
     build:
@@ -98,6 +115,8 @@ services:
         condition: service_healthy
     volumes:
       - ./endorsement-service/uploads:/usr/src/app/endorsement-service/uploads
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   marketplace-service:
     build:
@@ -115,6 +134,8 @@ services:
         condition: service_healthy
     volumes:
       - ./marketplace-service/uploads:/usr/src/app/marketplace-service/uploads
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
 
   socketio-service:
     build:
@@ -128,25 +149,18 @@ services:
     depends_on:
       redis:
         condition: service_started
-
-  socketio-service:
-    build:
-      context: .
-      dockerfile: socketio-service/Dockerfile
-    container_name: socketio-service
-    ports:
-      - "8010:8010"
-    env_file:
-      - .env
-    depends_on:
-      redis:
-        condition: service_started
+    volumes:
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
     container_name: shared-redis
     volumes:
       - redis-data:/data
+    ports:
+      - "6379:6379"
 
   db:
     image: mariadb:11
@@ -156,6 +170,8 @@ services:
       - .env
     volumes:
       - db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -170,6 +186,9 @@ services:
       - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_prometheus prometheus_port 15692
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
 
   prometheus:
     image: prom/prometheus:latest
