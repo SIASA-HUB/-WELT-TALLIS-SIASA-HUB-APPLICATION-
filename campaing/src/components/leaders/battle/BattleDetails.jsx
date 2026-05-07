@@ -6,760 +6,414 @@ import axios from "axios";
 import {
   ChevronLeft,
   Loader,
-  TrendingUp,
-  MapPin,
   Activity,
-  MessageSquare,
-  Zap,
-  Brain,
-  TrendingDown,
-  BarChart,
-  Target,
-  Sparkles,
-  ShieldCheck,
   BarChart3,
-  Clock,
-  Share2,
-  Heart,
-  Users,
-  Link2
+  MapPin,
+  TrendingUp,
+  ArrowDown,
+  Info
 } from "lucide-react";
-import {
-  BarChart as RechartsBarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Cell
-} from "recharts";
 import io from "socket.io-client";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell 
+} from 'recharts';
 import BattleCard from "./battleCard";
-import { buildImageUrl } from "../../../utils/imageUtils";
 
 const SOCKET_URL = window.location.origin;
 
 const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const PageWrapper = styled.div`
-  min-height: 100vh;
+const bounce = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+`;
+
+const FeedWrapper = styled.div`
+  height: 100vh;
+  width: 100vw;
   background: #000;
   color: white;
-  padding: 20px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const BattleSection = styled.section`
+  height: 100vh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  position: relative;
+  background: #000;
+  overflow-y: auto;
+  
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const Header = styled.div`
-  width: 100%;
-  max-width: 1000px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 32px;
-  animation: ${fadeIn} 0.5s ease-out;
-`;
-
-const NavGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  position: fixed;
+  top: 40px;
+  left: 20px;
+  z-index: 1000;
 `;
 
 const BackButton = styled.button`
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: white;
-  transition: all 0.2s;
+  transition: all 0.3s;
 
-  &:hover { 
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateX(-4px);
-  }
+  &:hover { background: #ff4444; border-color: #ff4444; }
 `;
 
-const Title = styled.h1`
-  font-size: 24px;
-  font-weight: 800;
-  margin: 0;
-  background: linear-gradient(135deg, #fff 0%, #aaa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-`;
-
-const MainGrid = styled.div`
+const AnalyticsSection = styled.div`
+  padding: 40px 20px 100px;
+  background: linear-gradient(to bottom, transparent, #0a0a0f);
   width: 100%;
   max-width: 600px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  animation: ${fadeIn} 0.6s ease-out 0.1s both;
+  margin: 0 auto;
+  animation: ${fadeIn} 0.6s ease-out;
 `;
 
+const SectionTitle = styled.h2`
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 
+  svg { color: #ff4444; }
+`;
 
-const GlassCard = styled.div`
+const ChartContainer = styled.div`
+  height: 300px;
   background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
-  padding: 24px;
-  width: 100%;
+  padding: 20px;
+  margin-bottom: 30px;
+  backdrop-filter: blur(10px);
 `;
 
-const AnalyticsCard = styled(GlassCard)`
-  border-top: 2px solid #ff1f1f;
-`;
-
-const CandidateMedia = styled.div`
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 4px solid ${props => props.$color};
-  box-shadow: 0 0 20px ${props => props.$color}44;
-  margin-bottom: 12px;
-  background: #111;
-  display: inline-block;
-
-  img, video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-`;
-
-const InsightGrid = styled.div`
+const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 20px;
-
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-  }
+  gap: 15px;
+  margin-bottom: 30px;
 `;
 
-const InsightItem = styled.div`
+const StatCard = styled.div`
   background: rgba(255, 255, 255, 0.03);
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  
-  .label { font-size: 11px; opacity: 0.5; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
-  .value { font-size: 18px; font-weight: 800; color: ${props => props.$color || 'white'}; }
-`;
-
-const StatItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-
-  .icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: ${props => props.$color || '#ff4444'};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-  }
-
-  .info {
-    display: flex;
-    flex-direction: column;
-    label { font-size: 12px; color: rgba(255,255,255,0.5); }
-    span { font-size: 18px; font-weight: 700; }
-  }
-`;
-
-const ProgressSection = styled.div`
-  margin-top: 10px;
-`;
-
-const ProgressBar = styled.div`
-  height: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  overflow: hidden;
-  display: flex;
-  margin: 12px 0;
-`;
-
-const ProgressFill = styled.div`
-  height: 100%;
-  width: ${props => props.$width}%;
-  background: ${props => props.$color};
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-`;
-
-const CandidateStat = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-  
-  .name { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.8); }
-  .value { font-size: 14px; font-weight: 700; color: ${props => props.$color}; }
-`;
-
-const LeadingBadge = styled.div`
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  padding: 20px;
+  text-align: center;
+
+  .label { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 8px; }
+  .value { font-size: 24px; font-weight: 900; color: #fff; }
 `;
 
-const ShareAction = styled.button`
-  background: #e11d48;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 700;
+const ScrollHint = styled.div`
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #be123c;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(225, 29, 72, 0.2);
-  }
-`;
-
-const ActivityItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 13px;
-
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .text {
-    flex: 1;
-    color: rgba(255,255,255,0.8);
-    span { color: #e11d48; font-weight: 700; }
-  }
-
-  .time {
-    font-size: 11px;
-    color: rgba(255,255,255,0.4);
-  }
+  opacity: 0.6;
+  animation: ${bounce} 2s infinite;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  pointer-events: none;
+  z-index: 10;
 `;
 
 const BattleDetails = () => {
   const { id, slug } = useParams();
   const navigate = useNavigate();
-  const [battle, setBattle] = useState(null);
+  const [battles, setBattles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [countdowns, setCountdowns] = useState({});
+  const [comments, setComments] = useState({});
+  const [reactionCounts, setReactionCounts] = useState({});
+  const [floatingReactions, setFloatingReactions] = useState({});
+  const [openComments, setOpenComments] = useState(null);
+  const [newComment, setNewComment] = useState("");
+  const [scoreAnimations, setScoreAnimations] = useState({});
+  
   const socketRef = useRef(null);
 
-  const battleId = id || slug;
-
   useEffect(() => {
-    const fetchBattle = async () => {
+    const fetchBattles = async () => {
       try {
-        const res = await axios.get(`/api/v1/battles/${battleId}`);
+        const res = await axios.get("/api/v1/battles/active");
         if (res.data?.success) {
-          setBattle(res.data.data);
-        } else {
-          setError("Battle not found");
+          const allBattles = res.data.data;
+          const requestedId = id || slug;
+          if (requestedId) {
+            const index = allBattles.findIndex(b => b.id === requestedId || b.slug === requestedId);
+            if (index > -1) {
+              const [requested] = allBattles.splice(index, 1);
+              allBattles.unshift(requested);
+            }
+          }
+          
+          // Initialize states
+          const initialComments = {};
+          const initialReactions = {};
+          allBattles.forEach(b => {
+            initialComments[b.id] = b.comments || [];
+            initialReactions[b.id] = b.reactions || {};
+          });
+          
+          setBattles(allBattles);
+          setComments(initialComments);
+          setReactionCounts(initialReactions);
         }
       } catch (err) {
-        setError("Error fetching battle");
+        setError("Error loading battles");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBattle();
+    fetchBattles();
 
-    // Socket implementation
     socketRef.current = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
     });
 
-    socketRef.current.on("connect", () => {
-      console.log("Connected to battle room:", battleId);
-      socketRef.current.emit("join-battle", battleId);
+    socketRef.current.on("vote-update", (data) => {
+      setBattles(prev => prev.map(b => 
+        b.id === data.battleId ? { ...b, votesLeft: data.votesLeft, votesRight: data.votesRight, countyStats: data.countyStats } : b
+      ));
+      setScoreAnimations(prev => ({ ...prev, [data.battleId]: true }));
+      setTimeout(() => setScoreAnimations(prev => ({ ...prev, [data.battleId]: false })), 500);
     });
 
-    socketRef.current.on("vote-update", (data) => {
-      if (data.battleId === battleId || data.slug === battleId) {
-        setBattle(prev => prev ? {
+    socketRef.current.on("reaction-update", (data) => {
+      setReactionCounts(prev => ({
+        ...prev,
+        [data.battleId]: { ...prev[data.battleId], [data.reaction]: data.reactionCount }
+      }));
+      
+      const rid = Date.now();
+      setFloatingReactions(prev => ({
+        ...prev,
+        [data.battleId]: [...(prev[data.battleId] || []), { id: rid, emoji: data.reaction }]
+      }));
+      setTimeout(() => {
+        setFloatingReactions(prev => ({
           ...prev,
-          votesLeft: data.votesLeft,
-          votesRight: data.votesRight
-        } : null);
-
-        // Add to recent activity
-        setRecentActivity(prev => [
-          {
-            id: Date.now(),
-            type: 'vote',
-            candidate: data.candidateId === battle?.left?.leader_id ? battle?.left?.name : battle?.right?.name,
-            county: data.county || 'Somewhere',
-            time: 'Just now'
-          },
-          ...prev.slice(0, 4)
-        ]);
-      }
+          [data.battleId]: (prev[data.battleId] || []).filter(r => r.id !== rid)
+        }));
+      }, 2000);
     });
 
     socketRef.current.on("comment-update", (data) => {
-      if (data.battleId === battleId) {
-        setRecentActivity(prev => [
-          {
-            id: Date.now(),
-            type: 'comment',
-            text: data.comment.text,
-            user: data.comment.user_name,
-            time: 'Just now'
-          },
-          ...prev.slice(0, 4)
-        ]);
-      }
+      setComments(prev => ({
+        ...prev,
+        [data.battleId]: [...(prev[data.battleId] || []), data.comment]
+      }));
     });
 
-    return () => {
-      socketRef.current?.disconnect();
-    };
-  }, [battleId]);
+    return () => socketRef.current?.disconnect();
+  }, [id, slug]);
 
-  const handleVote = async (bId, candidateId) => {
+  useEffect(() => {
+    const timerInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const newCountdowns = {};
+      battles.forEach(battle => {
+        if (!battle.expires_at) return;
+        const expiry = new Date(battle.expires_at).getTime();
+        newCountdowns[battle.id] = Math.max(0, expiry - now);
+      });
+      setCountdowns(newCountdowns);
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, [battles]);
+
+  const onVote = async (battleId, candidateId) => {
     try {
-      // The actual vote logic is handled in BattleCard, 
-      // but we can refresh local state if needed.
+      const deviceId = localStorage.getItem('siasahub_device_id') || `device_${Math.random().toString(36).substr(2, 9)}`;
+      if (!localStorage.getItem('siasahub_device_id')) {
+        localStorage.setItem('siasahub_device_id', deviceId);
+      }
+
+      await axios.post("/api/v1/battles/vote", {
+        battle_id: battleId,
+        candidate_id: candidateId,
+        device_id: deviceId,
+        county: 'Nairobi' 
+      });
     } catch (err) {
-      console.error(err);
+      console.error("Vote error:", err);
     }
   };
 
-  const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const dayMessages = [
-      "🔥 Who wins? VOTE NOW!",
-      "🗳️ Make your choice! THE BATTLE IS LIVE!",
-      "⚡ THE ULTIMATE SHOWDOWN! Stand with your candidate!",
-      "🚀 MOMENTUM ALERT! Who has your support?",
-      "🌟 LEADERSHIP CLASH! Cast your vote today!",
-      "📢 SPEAK UP! Join the most intense battle of the day!",
-      "🤝 THE PEOPLE'S CHOICE! Who takes the lead?"
-    ];
-    const day = new Date().getDay();
-    const shareText = `${dayMessages[day]}\n\n${battle.left?.name} vs ${battle.right?.name}\n\n${battle.question}\n\n👉 ${shareUrl}\n#SiasaHub`;
+  const onAddReaction = async (battleId, emoji) => {
+    try {
+      const deviceId = localStorage.getItem('siasahub_device_id') || `device_${Math.random().toString(36).substr(2, 9)}`;
+      await axios.post("/api/v1/battles/reaction", {
+        battle_id: battleId,
+        reaction: emoji,
+        device_id: deviceId
+      });
+    } catch (err) {
+      console.error("Reaction error:", err);
+    }
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Battle: ${battle.left?.name} vs ${battle.right?.name}`,
-          text: shareText,
-        });
-      } catch (err) { }
-    } else {
-      navigator.clipboard.writeText(`${shareText}`);
-      alert("Campaign message & link copied! 📋");
+  const onAddComment = async (battleId) => {
+    if (!newComment.trim()) return;
+    try {
+      const deviceId = localStorage.getItem('siasahub_device_id') || `device_${Math.random().toString(36).substr(2, 9)}`;
+      await axios.post("/api/v1/battles/comment", {
+        battle_id: battleId,
+        text: newComment,
+        user_name: 'Guest',
+        device_id: deviceId
+      });
+      setNewComment("");
+    } catch (err) {
+      console.error("Comment error:", err);
     }
   };
 
   if (loading) return (
-    <PageWrapper>
-      <Loader size={48} className="animate-spin" style={{ marginTop: '100px', opacity: 0.5 }} />
-      <p style={{ marginTop: '20px', color: 'rgba(255,255,255,0.5)' }}>Analyzing battle data...</p>
-    </PageWrapper>
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+      <Loader className="animate-spin" size={40} color="#ff4444" />
+    </div>
   );
-
-  if (error || !battle) return (
-    <PageWrapper>
-      <Header>
-        <NavGroup>
-          <BackButton onClick={() => navigate('/')}><ChevronLeft /></BackButton>
-          <Title>Battle Not Found</Title>
-        </NavGroup>
-      </Header>
-      <GlassCard>
-        <p style={{ color: 'rgba(255,255,255,0.6)' }}>{error || "This battle might have ended or been removed."}</p>
-        <button onClick={() => navigate('/')} style={{ marginTop: '20px', background: '#ff4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px' }}>Go Home</button>
-      </GlassCard>
-    </PageWrapper>
-  );
-
-  const totalVotes = (battle.votesLeft || 0) + (battle.votesRight || 0);
-  const leftPercent = totalVotes > 0 ? Math.round((battle.votesLeft / totalVotes) * 100) : 50;
-  const rightPercent = 100 - leftPercent;
-  const isLeftLeading = (battle.votesLeft || 0) > (battle.votesRight || 0);
 
   return (
-    <PageWrapper>
+    <FeedWrapper>
       <Header>
-        <NavGroup>
-          <BackButton onClick={() => navigate('/')}><ChevronLeft /></BackButton>
-          <Title>{battle.title || "Battle Arena"}</Title>
-        </NavGroup>
-        <ShareAction onClick={handleShare}>
-          <Share2 size={18} /> Share Battle
-        </ShareAction>
+        <BackButton onClick={() => navigate('/')}><ChevronLeft /></BackButton>
       </Header>
 
-      {battle.question && (
-        <div style={{
-          width: '100%',
-          maxWidth: '1000px',
-          background: 'linear-gradient(135deg, #ff1f1f 0%, #a30000 100%)',
-          padding: '40px 24px',
-          borderRadius: '32px',
-          marginBottom: '32px',
-          textAlign: 'center',
-          boxShadow: '0 20px 50px rgba(255, 31, 31, 0.3)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          animation: 'fadeIn 0.8s ease-out',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1) 0%, transparent 70%)'
-          }} />
-          <div style={{ fontSize: '13px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '4px', marginBottom: '12px', fontWeight: 900 }}>The Main Battle Question</div>
-          <div style={{ fontSize: '36px', fontWeight: 900, color: 'white', lineHeight: 1.1, textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>{battle.question}</div>
-        </div>
-      )}
+      {battles.map((battle, index) => {
+        const totalVotes = (battle.votesLeft || 0) + (battle.votesRight || 0);
+        const chartData = battle.countyStats ? battle.countyStats.map(s => ({
+          name: s.county,
+          total: s.total,
+          left: s.left_votes,
+          right: s.right_votes
+        })) : [];
 
-       <MainGrid>
-         <div style={{ maxWidth: '420px', margin: '0 auto', width: '100%' }}>
-           <BattleCard
-             battle={battle}
-             onVote={handleVote}
-             onAddReaction={(bId, emoji) => {
-               axios.post(`/api/v1/battles/reaction`, {
-                 battle_id: bId,
-                 reaction: emoji,
-                 device_id: 'guest'
-               }).then(res => {
-                 if (res.data.success) {
-                   setBattle(prev => ({
-                     ...prev,
-                     reactions: {
-                       ...prev.reactions,
-                       [emoji]: (prev.reactions?.[emoji] || 0) + 1
-                     }
-                   }));
-                 }
-               });
-             }}
-             isSingleView={true}
-           />
-         </div>
+        return (
+          <BattleSection key={battle.id}>
+            <div style={{ height: '100vh', width: '100%', flexShrink: 0, position: 'relative' }}>
+              <BattleCard
+                battle={battle}
+                countdowns={countdowns}
+                reactionCounts={reactionCounts}
+                floatingReactions={floatingReactions}
+                comments={comments}
+                openComments={openComments}
+                setOpenComments={setOpenComments}
+                newComment={newComment}
+                setNewComment={setNewComment}
+                scoreAnimations={scoreAnimations}
+                onVote={onVote}
+                onAddReaction={onAddReaction}
+                onAddComment={onAddComment}
+                onSendGift={() => alert("Gifting coming soon!")}
+                isSingleView={true}
+              />
+              <ScrollHint>
+                <span>Swipe Up / Scroll Down for Stats</span>
+                <ArrowDown size={14} />
+              </ScrollHint>
+            </div>
 
-        <AnalyticsCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-            <TrendingUp size={22} color="#ff1f1f" />
-            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Voter Momentum</h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-            <div style={{ textAlign: 'center' }}>
-              <CandidateMedia $color="#ff4444">
-               {battle.left?.primary_image?.endsWith('.mp4') ? (
-                  <video 
-                    src={buildImageUrl(battle.left.primary_image)} 
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline 
-                    crossOrigin="anonymous"
-                  />
+            <AnalyticsSection>
+              <SectionTitle><BarChart3 size={20} /> Leading Counties</SectionTitle>
+              <ChartContainer>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ background: '#1a1a2e', border: 'none', borderRadius: '12px', fontSize: '12px' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                      <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                        {chartData.map((entry, i) => (
+                          <Cell key={`cell-${i}`} fill={i % 2 === 0 ? '#ff4444' : '#ff8844'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <img src={buildImageUrl(battle.left?.primary_image) || "/placeholder-aspirant.png"} crossOrigin="anonymous" />
-                )}
-              </CandidateMedia>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: 'white', textTransform: 'capitalize' }}>{battle.left?.name}</div>
-              <div style={{ fontSize: '32px', fontWeight: 900, color: '#ff4444', marginTop: '4px' }}>{leftPercent}%</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <CandidateMedia $color="#2563eb">
-                {battle.right?.primary_image?.endsWith('.mp4') ? (
-                  <video 
-                    src={buildImageUrl(battle.right.primary_image)} 
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline 
-                    crossOrigin="anonymous"
-                  />
-                ) : (
-                  <img src={buildImageUrl(battle.right?.primary_image) || "/placeholder-aspirant.png"} crossOrigin="anonymous" />
-                )}
-              </CandidateMedia>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: 'white', textTransform: 'capitalize' }}>{battle.right?.name}</div>
-              <div style={{ fontSize: '32px', fontWeight: 900, color: '#2563eb', marginTop: '4px' }}>{rightPercent}%</div>
-            </div>
-          </div>
-
-          <ProgressSection>
-            <ProgressBar>
-              <ProgressFill $width={leftPercent} $color="#ff4444" />
-              <ProgressFill $width={rightPercent} $color="#2563eb" />
-            </ProgressBar>
-          </ProgressSection>
-
-          <InsightGrid>
-            <InsightItem $color="#ffc107">
-              <div className="label"><Brain size={14} /> AI Prediction</div>
-              <div className="value">{leftPercent > rightPercent ? battle.left?.name : battle.right?.name}</div>
-              <div style={{ fontSize: '10px', opacity: 0.5 }}>Estimated Win Probability: {Math.max(leftPercent, rightPercent)}%</div>
-            </InsightItem>
-            <InsightItem $color="#4caf50">
-              <div className="label"><Target size={14} /> Voter Intent</div>
-              <div className="value">Positive</div>
-              <div style={{ fontSize: '10px', opacity: 0.5 }}>Sentiment Index: 8.4/10</div>
-            </InsightItem>
-          </InsightGrid>
-        </AnalyticsCard>
-
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <Sparkles size={20} color="#eab308" />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Siasa AI Insights</h3>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', borderLeft: '4px solid #ff1f1f' }}>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
-                Current trajectory shows <strong style={{ color: '#ff4444' }}>{battle.left?.name}</strong> leading in {battle.voterCounties || 1} counties. AI suggests high momentum in metropolitan areas.
-              </div>
-            </div>
-            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', borderLeft: '4px solid #2563eb' }}>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
-                Voter engagement for <strong style={{ color: '#2563eb' }}>{battle.right?.name}</strong> has spiked by 12% in the last hour following recent comment activity.
-              </div>
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Activity size={18} color="#eab308" />
-            <h4 style={{ margin: 0, fontSize: '16px' }}>Voter Participation</h4>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <StatItem $color="rgba(225, 29, 72, 0.2)">
-              <div className="icon"><Users size={20} color="#e11d48" /></div>
-              <div className="info">
-                <label>Total Votes</label>
-                <span>{totalVotes.toLocaleString()}</span>
-              </div>
-            </StatItem>
-
-            <StatItem $color="rgba(34, 197, 94, 0.2)">
-              <div className="icon"><MapPin size={20} color="#22c55e" /></div>
-              <div className="info">
-                <label>Counties</label>
-                <span>{battle.voterCounties || 1}</span>
-              </div>
-            </StatItem>
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Activity size={18} color="#eab308" />
-            <h4 style={{ margin: 0, fontSize: '16px' }}>Live Activity</h4>
-          </div>
-
-          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-            {recentActivity.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-                Waiting for interactions...
-              </p>
-            ) : (
-              recentActivity.map(act => (
-                <ActivityItem key={act.id}>
-                  <div className="avatar">
-                    {act.type === 'vote' ? <TrendingUp size={14} /> : <MessageSquare size={14} />}
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '12px' }}>
+                    No regional data yet... Be the first to vote!
                   </div>
-                  <div className="text">
-                    {act.type === 'vote' ? (
-                      <>Voted for <span>{act.candidate}</span> from {act.county}</>
-                    ) : (
-                      <><span>{act.user}</span>: {act.text.substring(0, 30)}...</>
-                    )}
-                  </div>
-                  <div className="time">{act.time}</div>
-                </ActivityItem>
-              ))
-            )}
-          </div>
-        </GlassCard>
+                )}
+              </ChartContainer>
 
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-            <BarChart size={20} color="#ff1f1f" />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>County Distribution</h3>
-          </div>
+              <SectionTitle><TrendingUp size={20} /> Engagement Metrics</SectionTitle>
+              <StatsGrid>
+                <StatCard>
+                  <div className="label">Total Votes</div>
+                  <div className="value">{totalVotes.toLocaleString()}</div>
+                </StatCard>
+                <StatCard>
+                  <div className="label">Comments</div>
+                  <div className="value">{(comments[battle.id] || []).length}</div>
+                </StatCard>
+              </StatsGrid>
 
-          <div style={{ height: '300px', width: '100%' }}>
-            {(battle.countyStats && battle.countyStats.length > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsBarChart data={battle.countyStats}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="county" stroke="rgba(255,255,255,0.5)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="rgba(255,255,255,0.5)" fontSize={10} tickLine={false} axisLine={false} />
-                  <RechartsTooltip
-                    contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                  <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                    {battle.countyStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#ff4444' : '#2563eb'} />
-                    ))}
-                  </Bar>
-                </RechartsBarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.8 }}>
-                <Activity size={40} color="#ff4444" style={{ marginBottom: '12px', opacity: 0.5 }} />
-                <div style={{ fontSize: '16px', fontWeight: 700 }}>Projected Regional Trends</div>
-                <div style={{ fontSize: '12px', opacity: 0.5, textAlign: 'center', maxWidth: '200px', marginTop: '4px' }}>
-                  Awaiting more votes for precise regional mapping.
-                </div>
-                <div style={{ width: '100%', height: '100px', marginTop: '20px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.02), transparent)', borderRadius: '12px' }} />
+              <div style={{ textAlign: 'center', opacity: 0.3, padding: '40px 0' }}>
+                <TrendingUp size={40} style={{ marginBottom: '10px' }} />
+                <p style={{ fontSize: '12px' }}>LIVE BATTLE MOMENTUM</p>
               </div>
-            )}
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <Sparkles size={20} color="#eab308" />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Siasa AI Insight</h3>
-          </div>
-
-          <div style={{ padding: '20px', background: 'rgba(255,193,7,0.05)', borderRadius: '16px', border: '1px solid rgba(255,193,7,0.2)' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#ffc107', marginBottom: '8px' }}>🚀 Growth Strategy</div>
-            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, margin: 0 }}>
-              Based on current momentum, <strong style={{ color: '#ff4444' }}>{battle.left?.name}</strong> needs 12% more engagement to secure the lead.
-              <br /><br />
-              <strong style={{ color: 'white' }}>Action:</strong> Share this battle to your WhatsApp status to get your preferred leader to the top!
-            </p>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button 
-                onClick={handleShare}
-                style={{ 
-                  flex: 1, padding: '12px', background: '#ffc107', color: 'black', 
-                  border: 'none', borderRadius: '12px', fontWeight: 900, cursor: 'pointer' 
-                }}
-              >
-                SHARE TO APPS
-              </button>
-              <button 
-                onClick={() => {
-                  const shareUrl = window.location.href;
-                  const dayMessages = [
-                    "🔥 Who wins? VOTE NOW!",
-                    "🗳️ Make your choice! THE BATTLE IS LIVE!",
-                    "⚡ THE ULTIMATE SHOWDOWN! Stand with your candidate!",
-                    "🚀 MOMENTUM ALERT! Who has your support?",
-                    "🌟 LEADERSHIP CLASH! Cast your vote today!",
-                    "📢 SPEAK UP! Join the most intense battle of the day!",
-                    "🤝 THE PEOPLE'S CHOICE! Who takes the lead?"
-                  ];
-                  const day = new Date().getDay();
-                  const shareText = `${dayMessages[day]}\n\n${battle.left?.name} vs ${battle.right?.name}\n\n${battle.question}\n\n👉 ${shareUrl}\n#SiasaHub`;
-                  navigator.clipboard.writeText(shareText);
-                  alert("Campaign message & link copied! 📋");
-                }}
-                style={{ 
-                  padding: '12px', background: 'rgba(255,255,255,0.1)', color: 'white', 
-                  border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontWeight: 900, cursor: 'pointer' 
-                }}
-                title="Copy Link"
-              >
-                <Link2 size={18} />
-              </button>
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <Heart size={20} color="#ff4444" />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Live Reaction Analytics</h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-            {['❤️', '😂', '👏', '💯'].map(emoji => (
-              <div key={emoji} style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: '24px', marginBottom: '4px' }}>{emoji}</div>
-                <div style={{ fontSize: '18px', fontWeight: 900 }}>{battle.reactions?.[emoji] || 0}</div>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', color: 'rgba(255,255,255,0.7)' }}>Battle Integrity</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <ShieldCheck size={18} color="#22c55e" />
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Verified Battle</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Blockchain tracked votes</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Clock size={18} color="#94a3b8" />
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Active Status</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Live monitoring enabled</div>
-              </div>
-            </div>
-          </div>
-        </GlassCard>
-      </MainGrid>
-    </PageWrapper>
+            </AnalyticsSection>
+          </BattleSection>
+        );
+      })}
+    </FeedWrapper>
   );
 };
 

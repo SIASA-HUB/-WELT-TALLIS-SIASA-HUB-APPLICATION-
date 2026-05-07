@@ -63,6 +63,7 @@ const SERVICES = {
   endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://localhost:8003",
   marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://localhost:8004",
   reaction: process.env.REACTION_SERVICE_URL || "http://localhost:8005",
+  socketio: process.env.SOCKETIO_SERVICE_URL || "http://localhost:8010",
 };
 
 
@@ -218,16 +219,16 @@ app.use(["/api/v1/uploads/battles", "/uploads/battles"], createProxy(SERVICES.le
 // SOCKET.IO PROXY (For real-time battles)
 // ============================================
 const socketProxy = createProxyMiddleware({
-  target: SERVICES.leaders,
+  target: SERVICES.socketio,
   changeOrigin: true,
   ws: true,
   logLevel: 'debug',
   on: {
     proxyReq: (proxyReq, req) => {
-      Logger.info(`[WS PROXY] Connecting to ${SERVICES.leaders}${proxyReq.path}`);
+      Logger.info(`[WS PROXY] ${req.method} ${req.url} → ${SERVICES.socketio}${proxyReq.path}`);
     },
     error: (err, req, res) => {
-      Logger.error(`[WS PROXY ERROR] ${err.message}`);
+      Logger.error(`[WS PROXY ERROR] Target: ${SERVICES.socketio} - Error: ${err.message}`);
     }
   }
 });
@@ -405,14 +406,6 @@ const server = app.listen(PORT, HOST, () => {
   });
 
 });
-
-// Handle WebSocket upgrades
-server.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith('/socket.io')) {
-    socketProxy.upgrade(req, socket, head);
-  }
-});
-
 
 // Graceful shutdown
 process.on("SIGINT", () => {

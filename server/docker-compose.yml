@@ -13,6 +13,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+      socketio-service:
+        condition: service_started
 
   users-service:
     build:
@@ -113,6 +115,32 @@ services:
         condition: service_healthy
     volumes:
       - ./marketplace-service/uploads:/usr/src/app/marketplace-service/uploads
+
+  socketio-service:
+    build:
+      context: .
+      dockerfile: socketio-service/Dockerfile
+    container_name: socketio-service
+    ports:
+      - "8010:8010"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_started
+
+  socketio-service:
+    build:
+      context: .
+      dockerfile: socketio-service/Dockerfile
+    container_name: socketio-service
+    ports:
+      - "8010:8010"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_started
 
   redis:
     image: redis:alpine

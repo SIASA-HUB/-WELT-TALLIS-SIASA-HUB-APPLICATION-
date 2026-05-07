@@ -15,8 +15,17 @@ const {
 const path = require("path");
 const fs = require("fs");
 
-// Socket.IO instance (will be set from server)
-let io;
+// Socket.IO Client to dedicated service
+const { io: ioClient } = require("socket.io-client");
+const SOCKET_SERVICE_URL = process.env.SOCKET_SERVICE_URL || "http://localhost:8010";
+const socket = ioClient(SOCKET_SERVICE_URL, {
+  transports: ["websocket"],
+  reconnection: true
+});
+
+socket.on("connect", () => {
+  Logger.info("📡 Leaders-Service connected to Socket-Service");
+});
 
 // Helper to get duration in milliseconds
 const getDurationMs = (duration) => {
@@ -51,9 +60,9 @@ const formatMySQLDateTime = (date) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-// Set Socket.IO instance
+// Set Socket.IO instance (No longer used locally)
 const setIo = (socketIo) => {
-  io = socketIo;
+  // io = socketIo;
 };
 
 // Upload battle image
@@ -227,12 +236,10 @@ const createBattle = asyncHandler(async (req, res) => {
     };
 
     // Emit real-time event for new battle
-    if (io) {
-      io.emit("new-battle", {
-        battleId,
-        battle,
-      });
-    }
+    socket.emit("battle-broadcast", {
+      type: "new-battle",
+      battle
+    });
 
     Logger.info(
       `Battle created: ${battleId} - ${challenger1.name} vs ${challenger2.name}`,
@@ -529,7 +536,7 @@ const getBattleById = asyncHandler(async (req, res) => {
        GROUP BY reaction`,
       [battle.battle_id]
     );
-    
+
     const reactionCounts = {};
     reactionStats.forEach(r => {
       reactionCounts[r.reaction] = r.count;
@@ -637,17 +644,29 @@ const voteBattle = asyncHandler(async (req, res) => {
     await redis.del("battles:active");
     await redis.del("battles:completed");
 
-    // Emit real-time vote update to battle room
-    if (io) {
-      io.to(`battle_${battle_id}`).emit("vote-update", {
-        battleId: battle_id,
-        votesLeft: newVotesLeft,
-        votesRight: newVotesRight,
-        candidateId: candidate_id,
-        deviceId: device_id,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Get updated county distribution for real-time analysis
+    const countyStats = await safeQuery(
+      `SELECT county, COUNT(*) as total,
+       SUM(CASE WHEN candidate_id = ? THEN 1 ELSE 0 END) as left_votes,
+       SUM(CASE WHEN candidate_id = ? THEN 1 ELSE 0 END) as right_votes
+       FROM battle_votes 
+       WHERE battle_id = ? AND county IS NOT NULL
+       GROUP BY county
+       ORDER BY total DESC
+       LIMIT 5`,
+      [battle.challenger1_id, battle.challenger2_id, battle_id]
+    );
+
+    // Emit real-time vote update to dedicated service
+    socket.emit("vote-broadcast", {
+      battleId: battle_id,
+      votesLeft: newVotesLeft,
+      votesRight: newVotesRight,
+      countyStats: countyStats,
+      candidateId: candidate_id,
+      deviceId: device_id,
+      timestamp: new Date().toISOString(),
+    });
 
     Logger.info(
       `Vote recorded: ${battle_id} - ${candidate_id} from ${device_id}`,
@@ -722,16 +741,15 @@ const sendGift = asyncHandler(async (req, res) => {
     await redis.del("battles:top-creators");
 
     // Emit real-time gift update
-    if (io) {
-      io.to(`battle_${battle_id}`).emit("gift-update", {
-        battleId: battle_id,
-        giftValue: gift_value,
-        giftTotal: newGiftTotal,
-        userName: user_name || "Anonymous",
-        deviceId: device_id,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Emit real-time gift update to dedicated service
+    socket.emit("gift-broadcast", {
+      battleId: battle_id,
+      giftValue: gift_value,
+      giftTotal: newGiftTotal,
+      userName: user_name || "Anonymous",
+      deviceId: device_id,
+      timestamp: new Date().toISOString(),
+    });
 
     Logger.info(`Gift sent: ${battle_id} - ${gift_value} coins from ${device_id}`);
 
@@ -790,16 +808,14 @@ const addReaction = asyncHandler(async (req, res) => {
       [battle_id, reaction],
     );
 
-    // Emit real-time reaction update
-    if (io) {
-      io.to(`battle_${battle_id}`).emit("reaction-update", {
-        battleId: battle_id,
-        reaction,
-        reactionCount: reactionCount?.count || 0,
-        deviceId: device_id,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Emit real-time reaction update to dedicated service
+    socket.emit("reaction-broadcast", {
+      battleId: battle_id,
+      reaction,
+      reactionCount: reactionCount?.count || 0,
+      deviceId: device_id,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(200).json({
       success: true,
@@ -887,15 +903,13 @@ const addComment = asyncHandler(async (req, res) => {
       created_at: getKenyaTimeISO(),
     };
 
-    // Emit real-time comment update
-    if (io) {
-      io.to(`battle_${battle_id}`).emit("comment-update", {
-        battleId: battle_id,
-        comment: newComment,
-        deviceId: device_id,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Emit real-time comment update to dedicated service
+    socket.emit("comment-broadcast", {
+      battleId: battle_id,
+      comment: newComment,
+      deviceId: device_id,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(200).json({
       success: true,

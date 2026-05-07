@@ -5,8 +5,6 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const knex = require("knex");
-const http = require("http");
-const socketIo = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 
@@ -32,7 +30,6 @@ const battleRoutes = require("./src/routes/battle");
 const battleController = require("./src/controllers/BattleController");
 
 const app = express();
-const server = http.createServer(app);
 
 // ============================================
 // UPLOADS DIRECTORY - CREATE AND SERVE STATIC FILES
@@ -99,133 +96,7 @@ app.use(['/api/v1/uploads', '/uploads'], (req, res, next) => {
   next();
 });
 
-// ============================================
-// SOCKET.IO CONFIGURATION
-// ============================================
-
-const io = socketIo(server, {
-  path: "/socket.io/",
-  cors: {
-    origin: "https://siasahub.co.ke",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  },
-  transports: ["websocket", "polling"],
-  allowEIO3: true,
-});
-
-battleController.setIo(io);
-const connectedClients = new Map();
-
-io.on("connection", (socket) => {
-  console.log("🔌 New client connected:", socket.id);
-  connectedClients.set(socket.id, socket);
-
-  socket.on("join-battle", (battleId) => {
-    socket.join(`battle_${battleId}`);
-    console.log(`📡 Client ${socket.id} joined battle: ${battleId}`);
-    socket.emit("joined-battle", { battleId, success: true });
-  });
-
-  socket.on("leave-battle", (battleId) => {
-    socket.leave(`battle_${battleId}`);
-    console.log(`Client ${socket.id} left battle: ${battleId}`);
-  });
-
-  socket.on("battle-vote", (data) => {
-    const { battleId, candidateId, deviceId, votesLeft, votesRight } = data;
-    io.to(`battle_${battleId}`).emit("vote-update", {
-      battleId,
-      votesLeft,
-      votesRight,
-      candidateId,
-      deviceId,
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  socket.on("battle-reaction", (data) => {
-    const { battleId, reaction, deviceId, reactionCount } = data;
-    io.to(`battle_${battleId}`).emit("reaction-update", {
-      battleId,
-      reaction,
-      reactionCount,
-      deviceId,
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  socket.on("battle-comment", (data) => {
-    const { battleId, comment, deviceId, userName } = data;
-    io.to(`battle_${battleId}`).emit("comment-update", {
-      battleId,
-      comment: {
-        id: `cmt_${Date.now()}`,
-        user: userName || "Anonymous",
-        text: comment,
-        created_at: new Date().toISOString(),
-      },
-      deviceId,
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  socket.on("battle-created", (data) => {
-    io.emit("new-battle", data);
-  });
-
-  socket.on("disconnect", (reason) => {
-    console.log("🔌 Client disconnected:", socket.id);
-    connectedClients.delete(socket.id);
-  });
-});
-
-// ============================================
-// PROCESS ERROR HANDLERS
-// ============================================
-
-process.on("uncaughtException", (error) => {
-  Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
-
-  const isConnectionError = [
-    'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'
-  ].includes(error.code);
-
-  if (!isConnectionError && !error.message.toLowerCase().includes('redis')) {
-    Logger.error("Stopping process due to fatal exception...");
-    setTimeout(() => process.exit(1), 1000);
-  } else {
-    Logger.warn("Maintaining process after connection-related exception.");
-  }
-});
-
-process.on("unhandledRejection", (reason) => {
-  Logger.error("🌀 UNHANDLED PROMISE REJECTION", {
-    message: reason?.message || reason,
-    stack: reason?.stack
-  });
-});
-
-// ============================================
-// MIDDLEWARES
-// ============================================
-
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net", "*"],
-      },
-    },
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-  }),
-);
-
+// body parsers
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
@@ -260,7 +131,6 @@ app.get("/health", (req, res) => {
     status: "ok",
     uptime: process.uptime(),
     timestamp: Date.now(),
-    sockets: connectedClients.size,
     uploadsPath: uploadsDir
   });
 });
@@ -325,7 +195,7 @@ const HOST = process.env.HOST || "0.0.0.0";
     migrationsRan = await runMigrations();
     await initDB();
 
-    server.listen(PORT, HOST, () => {
+    const server = app.listen(PORT, HOST, () => {
       console.log(` Leaders Service running on ${HOST}:${PORT}`);
       Logger.info("Server started", { port: PORT, migrationsRan });
     });
