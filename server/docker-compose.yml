@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
+    restart: unless-stopped
     ports:
       - "8009:8009"
     env_file:
@@ -18,12 +19,15 @@ services:
     volumes:
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   users-service:
     build:
       context: .
       dockerfile: users-service/Dockerfile
     container_name: users-service
+    restart: unless-stopped
     ports:
       - "8002:8002"
     env_file:
@@ -36,12 +40,15 @@ services:
     volumes:
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   wallet-service:
     build:
       context: .
       dockerfile: wallet-service/Dockerfile
     container_name: wallet-service
+    restart: unless-stopped
     ports:
       - "8008:8008"
     env_file:
@@ -55,12 +62,15 @@ services:
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
       - ./wallet-service/uploads:/usr/src/app/wallet-service/uploads
+    networks:
+      - siasa-network
 
   leaders-service:
     build:
       context: .
       dockerfile: leaders-service/Dockerfile
     container_name: leaders-service
+    restart: unless-stopped
     ports:
       - "8006:8006"
     env_file:
@@ -73,18 +83,19 @@ services:
       rabbitmq:
         condition: service_started
     volumes:
-      # Leaders uploads (for profile pictures, documents, etc.)
       - ./leaders-service/uploads:/usr/src/app/leaders-service/uploads
-      # Battle uploads (for battle images and videos)
       - ./leaders-service/uploads/battles:/usr/src/app/leaders-service/uploads/battles
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   rally-service:
     build:
       context: .
       dockerfile: rally-service/Dockerfile
     container_name: rally-service
+    restart: unless-stopped
     ports:
       - "8001:8001"
     env_file:
@@ -98,12 +109,15 @@ services:
       - ./rally-service/uploads:/usr/src/app/rally-service/uploads
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   endorsement-service:
     build:
       context: .
       dockerfile: endorsement-service/Dockerfile
     container_name: endorsement-service
+    restart: unless-stopped
     ports:
       - "8003:8003"
     env_file:
@@ -117,12 +131,15 @@ services:
       - ./endorsement-service/uploads:/usr/src/app/endorsement-service/uploads
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   marketplace-service:
     build:
       context: .
       dockerfile: marketplace-service/Dockerfile
     container_name: marketplace-service
+    restart: unless-stopped
     ports:
       - "8004:8004"
     env_file:
@@ -136,12 +153,15 @@ services:
       - ./marketplace-service/uploads:/usr/src/app/marketplace-service/uploads
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
 
   socketio-service:
     build:
       context: .
       dockerfile: socketio-service/Dockerfile
     container_name: socketio-service
+    restart: unless-stopped
     ports:
       - "8010:8010"
     env_file:
@@ -152,15 +172,19 @@ services:
     volumes:
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
-    restart: unless-stopped
+    networks:
+      - siasa-network
 
   redis:
     image: redis:alpine
     container_name: shared-redis
+    restart: always
     volumes:
       - redis-data:/data
     ports:
       - "6379:6379"
+    networks:
+      - siasa-network
 
   db:
     image: mariadb:11
@@ -172,6 +196,8 @@ services:
       - db-data:/var/lib/mysql
     ports:
       - "3306:3306"
+    networks:
+      - siasa-network
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -182,6 +208,7 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: shared-rabbitmq
+    restart: always
     environment:
       - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_prometheus prometheus_port 15692
     volumes:
@@ -189,10 +216,13 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - siasa-network
 
   prometheus:
     image: prom/prometheus:latest
     container_name: monitoring-prometheus
+    restart: unless-stopped
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
@@ -201,11 +231,13 @@ services:
       - '--storage.tsdb.path=/prometheus'
     ports:
       - "9090:9090"
-    restart: unless-stopped
+    networks:
+      - siasa-network
 
   grafana:
     image: grafana/grafana:latest
     container_name: monitoring-grafana
+    restart: unless-stopped
     ports:
       - "3001:3000"
     volumes:
@@ -214,18 +246,24 @@ services:
       - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
-    restart: unless-stopped
     depends_on:
       - prometheus
+    networks:
+      - siasa-network
 
 networks:
-  default:
-    name: siasa-network
+  siasa-network:
     external: true
+    name: siasa-network
 
 volumes:
   redis-data:
+    external: true
   db-data:
+    external: true
   rabbitmq-data:
+    external: true
   prometheus-data:
+    external: true
   grafana-data:
+    external: true
