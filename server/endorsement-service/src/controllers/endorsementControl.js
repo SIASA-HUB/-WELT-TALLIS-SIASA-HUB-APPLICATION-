@@ -300,6 +300,7 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
               boost_count, total_boost_amount, created_at, status
        FROM endorsements 
        WHERE status = 'active'
+         AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
     `;
     let queryParams = [];
 
@@ -395,6 +396,7 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
               boost_count, total_boost_amount, created_at
        FROM endorsements 
        WHERE leader_id = ? AND status = 'active' AND (boost_count > 0 OR total_boost_amount > 0)
+         AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
        ORDER BY total_boost_amount DESC, boost_count DESC, created_at DESC
        LIMIT ?`,
       [leaderId, limit]
@@ -408,6 +410,7 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
                 boost_count, total_boost_amount, created_at
          FROM endorsements 
          WHERE leader_id = ? AND status = 'active'
+           AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
          ORDER BY created_at DESC
          LIMIT ?`,
         [leaderId, limit]
@@ -449,10 +452,10 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
               (likes + views + shares + comments + COALESCE(boost_count, 0) * 5) as trending_score
        FROM endorsements 
        WHERE leader_id = ? AND status = 'active'
-         AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+         AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
        ORDER BY trending_score DESC, created_at DESC
        LIMIT ?`,
-      [leaderId, days, limit]
+      [leaderId, limit]
     );
 
     if (!endorsements || endorsements.length === 0) {
@@ -464,6 +467,7 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
                 0 as trending_score
          FROM endorsements 
          WHERE leader_id = ? AND status = 'active'
+           AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
          ORDER BY created_at DESC
          LIMIT ?`,
         [leaderId, limit]

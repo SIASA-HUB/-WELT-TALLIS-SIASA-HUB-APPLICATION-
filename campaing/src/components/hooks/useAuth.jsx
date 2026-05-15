@@ -1,4 +1,4 @@
-// hooks/useAuth.jsx - Stable, keeps you logged in even when backend fails
+// hooks/useAuth.jsx - Unified Authentication System
 import {
   createContext,
   useContext,
@@ -12,20 +12,27 @@ import api from "../../api/api";
 const AuthContext = createContext(null);
 
 // ========== HELPERS ==========
+const getCookie = (name) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+};
+
 const getStoredToken = () => {
-  return localStorage.getItem("access_token") || localStorage.getItem("token");
+  return localStorage.getItem("access_token") || localStorage.getItem("token") || getCookie("refresh_token");
 };
 
 const isTokenExpired = (token) => {
   if (!token) return true;
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return true;
+    if (parts.length !== 3) return false; // If not JWT, assume valid (some session IDs)
     const payload = JSON.parse(atob(parts[1]));
     if (!payload.exp) return false;
     return Date.now() > payload.exp * 1000;
   } catch {
-    return true;
+    return false;
   }
 };
 
@@ -33,9 +40,12 @@ const clearAuthData = () => {
   console.log('[AUTH] Clearing all local authentication data');
   const keys = [
     "access_token", "token", "csrf_token", "user_data", "token_expiry",
-    "leaderToken", "aspirant_token", "admin_token"
+    "leaderToken", "aspirant_token", "admin_token", "user_info", "isRegistered"
   ];
   keys.forEach(k => localStorage.removeItem(k));
+  // Clear common cookies
+  document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  document.cookie = "user_info=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 };
 
 const decodeJWT = (token) => {
@@ -47,7 +57,6 @@ const decodeJWT = (token) => {
     const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
     return JSON.parse(decoded);
   } catch (error) {
-    console.error("Error decoding JWT:", error);
     return null;
   }
 };
@@ -62,182 +71,112 @@ export const AuthProvider = ({ children }) => {
   const [csrfToken, setCsrfToken] = useState(null);
   const authCheckDoneRef = useRef(false);
 
-  // OPTIMISTIC AUTH: detect sessions from localStorage immediately
-  useEffect(() => {
-    // User Session
-    const userToken = localStorage.getItem("access_token");
-    const storedUser = localStorage.getItem("user_data");
-    if (userToken && storedUser) {
+  // UNIFIED SESSION RESTORATION
+  const restoreSession = useCallback(() => {
+    // 1. Check User Session
+    const userToken = getStoredToken();
+    const storedUser = localStorage.getItem("user_data") || getCookie("user_info");
+    const isRegistered = localStorage.getItem("isRegistered") === "true";
+
+    if (userToken || storedUser || isRegistered) {
       try {
-        const parsed = JSON.parse(storedUser);
-        setUser(parsed);
+        let parsedUser = null;
+        if (storedUser) {
+          parsedUser = typeof storedUser === 'string' && storedUser.startsWith('{')
+            ? JSON.parse(storedUser)
+            : storedUser;
+        }
+
+        setUser(parsedUser);
         setIsAuthenticated(true);
-      } catch (e) { }
+        // Sync to localStorage if found in cookie
+        if (storedUser && !localStorage.getItem("user_data")) {
+          localStorage.setItem("user_data", typeof storedUser === 'string' ? storedUser : JSON.stringify(storedUser));
+        }
+      } catch (e) {
+        console.error("Session restoration error:", e);
+      }
     }
 
-    // Leader Session
+    // 2. Check Leader Session
     const leaderToken = localStorage.getItem("leaderToken");
     const storedLeader = localStorage.getItem("leaderData");
-    if (leaderToken && storedLeader) {
+    if (leaderToken || storedLeader) {
       try {
-        const parsed = JSON.parse(storedLeader);
+        const parsed = storedLeader ? JSON.parse(storedLeader) : null;
         setLeader(parsed);
         setIsLeaderAuthenticated(true);
       } catch (e) { }
     }
   }, []);
 
-  /**
-   * NEW: setLeaderSession
-   * Manually pushes leader data into state immediately after login
-   * to avoid the "refresh to see dashboard" issue.
-   */
-  const setLeaderSession = useCallback((authData) => {
-    if (!authData) return;
+  const setUserSession = useCallback((data) => {
+    if (!data) return;
+    setUser(data);
+    setIsAuthenticated(true);
+    localStorage.setItem("user_data", JSON.stringify(data));
+    localStorage.setItem("isRegistered", "true");
+  }, []);
 
-    // Support various response structures (data.leader or direct data)
-    const leaderObj = authData.leader || authData.data || authData;
-    const token = authData.token || authData.accessToken;
-
-    // 1. Update State synchronously
-    setLeader(leaderObj);
+  const setLeaderSession = useCallback((data) => {
+    if (!data) return;
+    setLeader(data);
     setIsLeaderAuthenticated(true);
-    setIsLoading(false);
-
-    // 2. Persist to Storage
-    if (token) localStorage.setItem("leaderToken", token);
-    localStorage.setItem("leaderData", JSON.stringify(leaderObj));
-    if (leaderObj.leader_id) {
-      localStorage.setItem("currentLeaderId", leaderObj.leader_id);
-    }
-
-    // 3. Mark check as done to prevent fetchLeader from overriding this immediately
-    authCheckDoneRef.current = true;
+    localStorage.setItem("leaderData", JSON.stringify(data));
+    if (data.token) localStorage.setItem("leaderToken", data.token);
   }, []);
 
-  const fetchCsrfToken = useCallback(async () => {
-    const token = getStoredToken();
-    if (!token) return null;
-    try {
-      const response = await api.get("/users/csrf-token");
-      if (response?.success) {
-        setCsrfToken(response.csrfToken);
-        return response.csrfToken;
-      }
-    } catch (error) {
-      console.debug("CSRF token fetch skipped:", error?.message);
-    }
-    return null;
-  }, []);
+
 
   const fetchUser = useCallback(async () => {
-    const token = getStoredToken();
-    if (!token) return null;
     try {
       const response = await api.get("/users/me");
       if (response?.success && response?.data) {
-        setUser(response.data);
-        setIsAuthenticated(true);
-        localStorage.setItem("user_data", JSON.stringify(response.data));
+        setUserSession(response.data);
         return response.data;
-      } else {
-        setIsAuthenticated(false);
-        return null;
       }
+      return null;
     } catch (error) {
       if (error?.response?.status === 401) {
-        console.log("[AUTH] /me returned 401, checkAuthStatus will attempt refresh");
         setIsAuthenticated(false);
         setUser(null);
-      } else {
-        console.warn("Auth check network/server error, using cached user", error.message);
       }
       return null;
     }
-  }, []);
-
-  const fetchLeader = useCallback(async () => {
-    const token = localStorage.getItem("leaderToken");
-    if (!token) return null;
-    try {
-      const response = await api.get("/leaders/profile/me");
-      if (response?.success && response?.data) {
-        setLeader(response.data);
-        setIsLeaderAuthenticated(true);
-        localStorage.setItem("leaderData", JSON.stringify(response.data));
-        return response.data;
-      } else {
-        console.warn("[AUTH] Leader profile returned non-success, keeping optimistic session.");
-        return null;
-      }
-    } catch (error) {
-      const status = error?.response?.status;
-      if (status === 401 || status === 403) {
-        console.warn("[AUTH] Leader token rejected by server, clearing leader session.");
-        setIsLeaderAuthenticated(false);
-        setLeader(null);
-        localStorage.removeItem("leaderToken");
-        localStorage.removeItem("leaderData");
-        localStorage.removeItem("currentLeaderId");
-      } else {
-        console.warn("[AUTH] Leader auth check failed (network/server), keeping cached session.", error.message);
-      }
-      return null;
-    }
-  }, []);
+  }, [setUserSession]);
 
   const checkAuthStatus = useCallback(async (force = false) => {
     if (authCheckDoneRef.current && !force) return;
+
+    setIsLoading(true);
     try {
       const token = getStoredToken();
       const leaderToken = localStorage.getItem("leaderToken");
 
-      if (!token && !leaderToken) {
-        setIsLoading(false);
-        authCheckDoneRef.current = true;
-        return;
-      }
-
       if (token) {
-        const userData = await fetchUser();
-        if (userData) {
-          await fetchCsrfToken();
-        } else {
-          const refreshResponse = await api.post("/users/refresh").catch(() => null);
-          if (refreshResponse?.success && refreshResponse?.accessToken) {
-            console.log("[AUTH] Refresh successful in checkAuthStatus");
-            const newToken = refreshResponse.accessToken;
-            localStorage.setItem("access_token", newToken);
-            localStorage.setItem("token", newToken);
-
-            const newUser = await fetchUser();
-            if (newUser) {
-              setIsAuthenticated(true);
-              setUser(newUser);
-            }
-          } else {
-            if (token && isTokenExpired(token)) {
-              console.warn("[AUTH] Session expired and refresh failed.");
-              localStorage.removeItem("access_token");
-              localStorage.removeItem("token");
-              setUser(null);
-              setIsAuthenticated(false);
-            }
-          }
-        }
+        await fetchUser();
       }
 
       if (leaderToken) {
-        await fetchLeader();
+        try {
+          const res = await api.get("/leaders/profile/me");
+          if (res?.success && res?.data) {
+            setLeaderSession(res.data);
+          }
+        } catch (e) { }
       }
-
     } catch (error) {
       console.error("Auth check error:", error);
     } finally {
       setIsLoading(false);
       authCheckDoneRef.current = true;
     }
-  }, [fetchUser, fetchLeader, fetchCsrfToken]);
+  }, [fetchUser, setLeaderSession]);
+
+  useEffect(() => {
+    restoreSession();
+    checkAuthStatus();
+  }, [restoreSession, checkAuthStatus]);
 
   const login = async (username, password) => {
     try {
@@ -245,25 +184,12 @@ export const AuthProvider = ({ children }) => {
       if (response?.success && response?.accessToken) {
         const token = response.accessToken;
         localStorage.setItem("access_token", token);
-        localStorage.setItem("token", token);
-        if (response.expiresIn) {
-          localStorage.setItem("token_expiry", Date.now() + response.expiresIn * 1000);
-        }
-        if (response.csrfToken) {
-          localStorage.setItem("csrf_token", response.csrfToken);
-          setCsrfToken(response.csrfToken);
-        }
         const userData = response.user || response.data;
-        if (userData) {
-          localStorage.setItem("user_data", JSON.stringify(userData));
-          setUser(userData);
-        }
-        setIsAuthenticated(true);
+        setUserSession(userData);
         return { success: true, user: userData };
       }
       return { success: false, message: response?.message || "Login failed" };
     } catch (error) {
-      console.error("Login error:", error);
       return {
         success: false,
         message: error.response?.data?.message || error?.message || "Login failed",
@@ -285,100 +211,10 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (_) { }
 
-    const { clearAuthData } = await import("../../api/api");
-    clearAuthData(target);
-
-    if (target === 'all' || (target === 'user' && !isLeaderAuthenticated)) {
-      window.location.href = "/login";
-    } else if (target === 'leader') {
-      window.location.href = "/login-aspirant";
-    }
+    clearAuthData();
+    window.location.href = "/login";
     return { success: true };
   };
-
-  const refreshToken = async () => {
-    const token = getStoredToken();
-    if (!token) return { success: false };
-    try {
-      const response = await api.post("/users/refresh");
-      if (response?.success && response?.accessToken) {
-        const newToken = response.accessToken;
-        localStorage.setItem("access_token", newToken);
-        localStorage.setItem("token", newToken);
-        if (response.expiresIn) {
-          localStorage.setItem("token_expiry", Date.now() + response.expiresIn * 1000);
-        }
-        if (response.csrfToken) {
-          localStorage.setItem("csrf_token", response.csrfToken);
-          setCsrfToken(response.csrfToken);
-        }
-        await checkAuthStatus();
-        return { success: true };
-      }
-      return { success: false };
-    } catch (error) {
-      console.debug("Token refresh error:", error?.message);
-      return { success: false };
-    }
-  };
-
-  // Role helpers
-  const getUserRole = () => {
-    if (user?.role) return user.role;
-    if (isLeaderAuthenticated) return "aspirant";
-    return "user";
-  };
-
-  const hasRole = (requiredRole) => {
-    if (!requiredRole) return true;
-
-    const currentUserRole = (getUserRole() || "user").toLowerCase();
-    const normalizedRequiredRole = requiredRole.toLowerCase();
-
-    console.debug(`[AUTH] Role check: current='${currentUserRole}', required='${normalizedRequiredRole}', isLeaderAuth=${isLeaderAuthenticated}`);
-
-    if (normalizedRequiredRole === 'aspirant' || normalizedRequiredRole === 'leader') {
-      if (isLeaderAuthenticated) return true;
-      const hasToken = !!localStorage.getItem("leaderToken");
-      if (hasToken) return true;
-      return false;
-    }
-
-    if (!isAuthenticated && !isLeaderAuthenticated) {
-      return false;
-    }
-
-    const roleHierarchy = {
-      user: 1,
-      aspirant: 1,
-      leader: 1,
-      market_admin: 2,
-      admin: 3,
-      super_admin: 4,
-      ceo: 5
-    };
-
-    const userLevel = roleHierarchy[currentUserRole] || 0;
-    const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
-
-    if (requiredLevel === 0 && normalizedRequiredRole !== 'user') return false;
-
-    const permitted = userLevel >= requiredLevel;
-    if (!permitted) {
-      console.warn(`[AUTH] Permission denied: required ${normalizedRequiredRole} (level ${requiredLevel}), but user is ${currentUserRole} (level ${userLevel})`);
-    }
-    return permitted;
-  };
-
-  const isAdmin = () => hasRole("admin");
-  const isSuperAdmin = () => hasRole("super_admin");
-  const isCEO = () => hasRole("ceo");
-  const isMarketAdmin = () => hasRole("market_admin");
-
-  useEffect(() => {
-    authCheckDoneRef.current = false;
-    checkAuthStatus();
-  }, [checkAuthStatus]);
 
   const value = {
     user,
@@ -389,16 +225,19 @@ export const AuthProvider = ({ children }) => {
     csrfToken,
     login,
     logout,
-    refreshToken,
-    getUserRole,
-    hasRole,
-    isAdmin,
-    isSuperAdmin,
-    isCEO,
-    isMarketAdmin,
     checkAuthStatus,
     fetchUser,
-    setLeaderSession, // <--- EXPOSED TO UI
+    setUserSession,
+    setLeaderSession,
+    hasRole: (role) => {
+      if (role === 'aspirant') return isLeaderAuthenticated;
+      if (role === 'admin') return user?.role === 'admin' || user?.role === 'super_admin';
+      if (role === 'market_admin') return user?.role === 'market_admin' || user?.role === 'admin';
+      if (role === 'user') return isAuthenticated;
+      return false;
+    },
+    isAdmin: () => user?.role === 'admin' || user?.role === 'super_admin',
+    isMarketAdmin: () => user?.role === 'market_admin',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -410,14 +249,5 @@ export const useAuth = () => {
   return context;
 };
 
-export const decodeToken = (token) => decodeJWT(token);
 export const getToken = () => getStoredToken();
-export const getDecodedUserFromToken = () => {
-  const token = getToken();
-  return token ? decodeJWT(token) : null;
-};
-
-export const isLoggedIn = () => {
-  const token = getStoredToken();
-  return !!token;
-};
+export const isLoggedIn = () => !!getStoredToken() || localStorage.getItem("isRegistered") === "true";

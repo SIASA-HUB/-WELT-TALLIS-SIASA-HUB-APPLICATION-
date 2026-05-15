@@ -7,9 +7,8 @@ const {
   getRechargePackages,
   initiateDeposit,
   directDeposit,
-  handlePesapalIPN,
   initiateStkPush,
-  handleMpesaCallback,
+  handleInternalMpesaCallback,
   checkPaymentStatus,
   useWalletForEndorsement,
   getTransactionHistory,
@@ -49,9 +48,8 @@ router.get("/health", (req, res) => res.json({ success: true, status: "ok", serv
 router.get("/packages", getRechargePackages);
 router.get("/recharge-packages", getRechargePackages);
 
-// Pesapal & M-Pesa callbacks MUST be public (external payment providers call them)
-router.post("/pesapal-ipn", handlePesapalIPN);
-router.post("/mpesa/callback", handleMpesaCallback);
+// M-Pesa callbacks MUST be public (external payment providers call them)
+router.post("/mpesa/internal-callback", handleInternalMpesaCallback);
 
 // ============================================================
 // AUTHENTICATED USER ROUTES
@@ -93,6 +91,20 @@ router.post("/deposit", authenticate, walletLimiter, initiateDeposit);
 
 /** M-Pesa STK Push — require auth so we get JWT user_id */
 router.post("/mpesa/stkpush", authenticate, walletLimiter, initiateStkPush);
+
+/** Reward points for engagement */
+router.post("/reward", authenticate, async (req, res) => {
+  const { action, amount = 10 } = req.body;
+  const user_id = req.user?.userId;
+  if (!user_id) return res.status(401).json({ success: false, message: "Auth required" });
+  
+  try {
+    const result = await addPoints(user_id, amount, `Reward for ${action || 'engagement'}`);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 /** Use wallet for endorsement — JWT user_id is used in controller */
 router.post("/use", authenticate, walletLimiter, useWalletForEndorsement);

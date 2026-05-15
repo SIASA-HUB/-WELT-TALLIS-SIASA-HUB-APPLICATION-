@@ -8,6 +8,7 @@ import TrendingManifestos from "../leaders/manifestos/TredingManifestos";
 import RalliesSection from "../rallies/ralliessection";
 import TrendingLeaders from "../leaders/TrendingLeaders";
 import SloganSection from "../footer/Footer";
+// import CivicAwareness from "../home/CivicAwareness";
 
 
 const MerchAdsCarousel = lazy(() => import("../marketplace/components/MerchAdsCarousel"));
@@ -206,7 +207,7 @@ const TrendingSection = () => {
     <TrendingContainer>
       <LoadingBar ref={loadingBarRef} color="#ff5c01" height={3} />
       <TopFypHeader />
-
+      
       <ContentWrapper>
         {/* ── 1. TRENDING LEADERS ── */}
         {hasLeaders && (

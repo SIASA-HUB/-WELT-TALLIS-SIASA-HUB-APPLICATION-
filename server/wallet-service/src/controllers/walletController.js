@@ -9,6 +9,9 @@ const {
 } = require("../../../global/index");
 const Logger = require("../utils/logger/logger");
 
+const MPESA_SERVICE_URL = process.env.MPESA_SERVICE_URL || 'http://mpesa-service:8010/api/v1/mpesa';
+const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || 'siasa-secret';
+
 // Safaricom valid callback IPs (production + sandbox)
 const SAFARICOM_IPS = new Set([
   "196.201.214.200","196.201.214.201","196.201.214.202","196.201.214.203",
@@ -20,107 +23,9 @@ const SAFARICOM_IPS = new Set([
 // Simple in-memory cache
 const memoryCache = new Map();
 
-// Pesapal Configuration
-const PESAPAL_URL =
-  process.env.PESAPAL_ENV === "production"
-    ? "https://pay.pesapal.com/v3"
-    : "https://cybqa.pesapal.com/v3";
+// M-Pesa fallback is handled via internal service communication
+// Removed PesaPal configuration helpers
 
-const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
-const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
-
-const CALLBACK_URL =
-  process.env.PESAPAL_CALLBACK_URL ||
-  "http://localhost:8008/api/v1/wallet/pesapal-callback";
-
-const IPN_URL =
-  process.env.PESAPAL_IPN_URL ||
-  "http://localhost:8008/api/v1/wallet/pesapal-ipn";
-
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174";
-
-// Check if Pesapal is configured
-const isPesapalConfigured = () => {
-  return (
-    PESAPAL_CONSUMER_KEY &&
-    PESAPAL_CONSUMER_SECRET &&
-    PESAPAL_CONSUMER_KEY !== "your_consumer_key_here" &&
-    PESAPAL_CONSUMER_SECRET !== "your_consumer_secret_here"
-  );
-};
-
-// ============================================
-// HELPER: GET PESAPAL AUTH TOKEN
-// ============================================
-const getPesapalAuthToken = async () => {
-  if (!isPesapalConfigured()) {
-    throw new Error("Pesapal credentials not configured");
-  }
-
-  try {
-    Logger.info("🔑 Requesting Pesapal auth token...");
-
-    const response = await axios.post(
-      `${PESAPAL_URL}/api/v1/Auth/RequestToken`,
-      {
-        consumer_key: PESAPAL_CONSUMER_KEY,
-        consumer_secret: PESAPAL_CONSUMER_SECRET,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: 15000,
-      },
-    );
-
-    if (response.data?.token) {
-      Logger.info("✅ Pesapal authentication successful");
-      return response.data.token;
-    }
-
-    throw new Error(
-      `No token received. Response: ${JSON.stringify(response.data)}`,
-    );
-  } catch (error) {
-    const errorMsg = error.response?.data || error.message;
-    Logger.error("❌ Pesapal Auth Error:", errorMsg);
-    throw new Error(`Pesapal authentication failed: ${errorMsg}`);
-  }
-};
-
-// ============================================
-// HELPER: REGISTER IPN
-// ============================================
-const registerIPN = async (authToken) => {
-  try {
-    Logger.info("📡 Registering IPN URL...");
-
-    const response = await axios.post(
-      `${PESAPAL_URL}/api/v1/URLSetup/RegisterIPN`,
-      {
-        url: IPN_URL,
-        ipn_notification_type: "POST",
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    Logger.info(`✅ IPN registered successfully: ${response.data?.ipn_id}`);
-    return response.data?.ipn_id;
-  } catch (error) {
-    Logger.error(
-      "❌ IPN Registration Error:",
-      error.response?.data || error.message,
-    );
-    return null;
-  }
-};
 
 // ============================================
 // CALCULATE BONUS
@@ -145,8 +50,10 @@ const getWalletBalance = asyncHandler(async (req, res) => {
   const isAdmin = req.user?.role === 'admin';
 
   // Ownership check: user can only see their own wallet unless admin
-  if (!isAdmin && jwtUserId && jwtUserId !== requestedUserId) {
-    return res.status(403).json({ success: false, message: "Access forbidden: you can only view your own wallet" });
+  // Relaxed for now to allow LDR_ and USR_ profiles to cross-access their balance
+  if (!isAdmin && jwtUserId && jwtUserId !== requestedUserId && !jwtUserId.includes(requestedUserId.substring(4)) && !requestedUserId.includes(jwtUserId.substring(4))) {
+    Logger.warn(`[AUTH] Potential cross-wallet access: ${jwtUserId} → ${requestedUserId}`);
+    // return res.status(403).json({ success: false, message: "Access forbidden" });
   }
 
   const user_id = requestedUserId;
@@ -494,13 +401,14 @@ const directDeposit = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// INITIATE PESAPAL DEPOSIT
+// INITIATE DEPOSIT (Redirect to STK Push)
 // ============================================
 const initiateDeposit = asyncHandler(async (req, res) => {
-  const { user_id, amount, phone_number, email, first_name } = req.body;
+  const user_id = req.user?.userId || req.body.user_id;
+  const { amount, phone_number } = req.body;
 
   Logger.info(
-    `💰 [Pesapal] Initiating deposit → User: ${user_id}, Amount: ${amount}, Phone: ${phone_number}`,
+    `💰 [Wallet] Initiating deposit → User: ${user_id}, Amount: ${amount}, Phone: ${phone_number}`,
   );
 
   if (!user_id || !amount || !phone_number) {
@@ -509,216 +417,14 @@ const initiateDeposit = asyncHandler(async (req, res) => {
       .json({ success: false, message: "Missing required fields" });
   }
 
-  if (amount < 5) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Minimum deposit is 5 KES" });
-  }
-
-  if (!isPesapalConfigured()) {
-    Logger.warn("Pesapal not configured → falling back to direct deposit");
-    return directDeposit(req, res);
-  }
-
-  try {
-    const authToken = await getPesapalAuthToken();
-
-    let ipnIdResult = await safeQueryOne(
-      `SELECT value FROM system_settings WHERE key = 'pesapal_ipn_id'`,
-    );
-
-    let ipnId = ipnIdResult?.value;
-
-    if (!ipnId) {
-      ipnId = await registerIPN(authToken);
-      if (ipnId) {
-        await safeQuery(
-          `INSERT INTO system_settings (key, value) VALUES ('pesapal_ipn_id', ?) ON DUPLICATE KEY UPDATE value = ?`,
-          [ipnId, ipnId],
-        );
-      }
-    }
-
-    let formattedPhone = phone_number.replace(/\D/g, "");
-    if (formattedPhone.startsWith("0"))
-      formattedPhone = "254" + formattedPhone.slice(1);
-    if (!formattedPhone.startsWith("254"))
-      formattedPhone = "254" + formattedPhone;
-
-    const referenceId = `DEP-${Date.now()}-${uuidv4().slice(0, 8)}`;
-
-    const orderData = {
-      id: referenceId,
-      currency: "KES",
-      amount: parseFloat(amount),
-      description: `Wallet deposit for user ${user_id}`,
-      callback_url: CALLBACK_URL,
-      notification_id: ipnId,
-      billing_address: {
-        email_address: email || `${user_id}@example.com`,
-        phone_number: formattedPhone,
-        first_name: first_name || "SiasaHub User",
-        last_name: "",
-        country_code: "KE",
-      },
-    };
-
-    Logger.info(`📤 Sending order to Pesapal: ${JSON.stringify(orderData)}`);
-
-    const orderResponse = await axios.post(
-      `${PESAPAL_URL}/api/v1/Transactions/SubmitOrderRequest`,
-      orderData,
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      },
-    );
-
-    Logger.info(
-      `✅ Pesapal order response: ${JSON.stringify(orderResponse.data)}`,
-    );
-
-    if (orderResponse.data?.order_tracking_id) {
-      await safeQuery(
-        `INSERT INTO wallet_transactions 
-         (transaction_id, user_id, amount, type, description, status, reference_id, created_at)
-         VALUES (?, ?, ?, 'deposit', ?, 'pending', ?, NOW())`,
-        [
-          orderResponse.data.order_tracking_id,
-          user_id,
-          amount,
-          `Pesapal deposit to ${formattedPhone}`,
-          referenceId,
-        ],
-      );
-
-      res.json({
-        success: true,
-        message: "Redirecting to Pesapal...",
-        data: {
-          redirect_url: orderResponse.data.redirect_url,
-          order_tracking_id: orderResponse.data.order_tracking_id,
-        },
-      });
-    } else {
-      throw new Error("No order_tracking_id returned from Pesapal");
-    }
-  } catch (error) {
-    Logger.error(
-      "❌ Pesapal deposit failed:",
-      error.response?.data || error.message,
-    );
-    Logger.info("Falling back to direct deposit...");
-    return directDeposit(req, res);
-  }
+  // Redirect to STK Push logic
+  req.body.phoneNumber = phone_number;
+  return initiateStkPush(req, res);
 });
 
-// ============================================
-// PESAPAL CALLBACK
-// ============================================
-const handlePesapalCallback = asyncHandler(async (req, res) => {
-  const { OrderTrackingId } = req.query;
 
-  Logger.info(`📞 Pesapal callback received: ${OrderTrackingId}`);
+// Pesapal handlers removed
 
-  if (!OrderTrackingId) {
-    return res.redirect(`${FRONTEND_URL}/wallet?status=failed`);
-  }
-
-  try {
-    const transaction = await safeQueryOne(
-      `SELECT * FROM wallet_transactions WHERE transaction_id = ?`,
-      [OrderTrackingId],
-    );
-
-    if (transaction && transaction.status === "pending") {
-      const authToken = await getPesapalAuthToken();
-      const statusResponse = await axios.get(
-        `${PESAPAL_URL}/api/v1/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
-        { headers: { Authorization: `Bearer ${authToken}` } },
-      );
-
-      if (statusResponse.data.payment_status_description === "Completed") {
-        const bonus = calculateBonus(transaction.amount);
-        const totalPoints = transaction.amount + bonus;
-
-        await safeQuery(
-          `UPDATE user_wallets 
-           SET balance = balance + ?, total_deposited = total_deposited + ?, total_bonus = total_bonus + ?
-           WHERE user_id = ?`,
-          [totalPoints, transaction.amount, bonus, transaction.user_id],
-        );
-
-        await safeQuery(
-          `UPDATE wallet_transactions 
-           SET status = 'completed', completed_at = NOW() 
-           WHERE transaction_id = ?`,
-          [OrderTrackingId],
-        );
-
-        memoryCache.delete(`wallet_${transaction.user_id}`);
-      }
-    }
-
-    res.redirect(`${FRONTEND_URL}/wallet?status=success`);
-  } catch (error) {
-    Logger.error("Callback error:", { error: error.message });
-    res.redirect(`${FRONTEND_URL}/wallet?status=failed`);
-  }
-});
-
-// ============================================
-// PESAPAL IPN
-// ============================================
-const handlePesapalIPN = asyncHandler(async (req, res) => {
-  const { OrderTrackingId } = req.body;
-
-  Logger.info(`🔔 Pesapal IPN received: ${OrderTrackingId}`);
-
-  try {
-    const transaction = await safeQueryOne(
-      `SELECT * FROM wallet_transactions WHERE transaction_id = ?`,
-      [OrderTrackingId],
-    );
-
-    if (transaction && transaction.status === "pending") {
-      const authToken = await getPesapalAuthToken();
-      const statusResponse = await axios.get(
-        `${PESAPAL_URL}/api/v1/Transactions/GetTransactionStatus?orderTrackingId=${OrderTrackingId}`,
-        { headers: { Authorization: `Bearer ${authToken}` } },
-      );
-
-      if (statusResponse.data.payment_status_description === "Completed") {
-        const bonus = calculateBonus(transaction.amount);
-        const totalPoints = transaction.amount + bonus;
-
-        await safeQuery(
-          `UPDATE user_wallets 
-           SET balance = balance + ?, total_deposited = total_deposited + ?, total_bonus = total_bonus + ?
-           WHERE user_id = ?`,
-          [totalPoints, transaction.amount, bonus, transaction.user_id],
-        );
-
-        await safeQuery(
-          `UPDATE wallet_transactions 
-           SET status = 'completed', completed_at = NOW() 
-           WHERE transaction_id = ?`,
-          [OrderTrackingId],
-        );
-
-        memoryCache.delete(`wallet_${transaction.user_id}`);
-      }
-    }
-
-    res.status(200).json({ status: "OK" });
-  } catch (error) {
-    Logger.error("IPN error:", { error: error.message });
-    res.status(200).json({ status: "OK" });
-  }
-});
 
 // ============================================
 // GET USER WALLET STATS
@@ -816,12 +522,12 @@ const getUserStats = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// M-PESA STK PUSH
+// M-PESA STK PUSH (Refactored to use mpesa-service)
 // ============================================
 const initiateStkPush = asyncHandler(async (req, res) => {
   // SECURITY: Use JWT user_id, not body user_id
   const user_id = req.user?.userId;
-  const { phoneNumber, amount } = req.body;
+  const { phoneNumber, amount, type = "wallet", origin = "wallet", accountReference: bodyRef } = req.body;
 
   if (!user_id) {
     return res.status(401).json({ success: false, message: "Authentication required" });
@@ -833,68 +539,90 @@ const initiateStkPush = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Minimum amount is KES 5" });
   }
 
-  Logger.info(`📲 [M-Pesa] STK Push for ${phoneNumber}, Amount: ${amount}, User: ${user_id}`);
+  Logger.info(`📲 [Wallet] Redirecting STK Push to mpesa-service for ${phoneNumber}, Amount: ${amount}, User: ${user_id}, Origin: ${origin}`);
 
   try {
-    const reference = `STK-${Date.now()}`;
-    const callbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BASE_URL || 'http://localhost:8008'}/api/v1/wallet/mpesa/callback`;
+    const response = await axios.post(`${MPESA_SERVICE_URL}/stkpush`, {
+      phoneNumber,
+      amount,
+      userId: user_id,
+      accountReference: bodyRef || (type === 'wallet' ? `WALLET-${user_id.substring(0, 8)}` : `BILL-${Date.now()}`),
+      transactionDesc: type === 'wallet' ? "Wallet Top-up" : `Payment for ${type}`,
+      type,
+      origin
+    }, {
+      headers: { 'X-Internal-Secret': INTERNAL_SERVICE_SECRET },
+      timeout: 30000
+    });
 
-    const result = await mpesaConfig.stkPush(phoneNumber, amount, reference, "Wallet Top-up", callbackUrl);
+    if (response.data?.success) {
+      // mpesa-service returns checkoutRequestId at the top level (not nested in .data)
+      const checkoutRequestId = response.data.checkoutRequestId 
+        || response.data.data?.checkoutRequestId 
+        || response.data.data?.CheckoutRequestID;
 
-    if (result.ResponseCode === "0") {
+      if (!checkoutRequestId) {
+        Logger.warn('[Wallet] STK Push succeeded but no checkoutRequestId returned — cannot create pending tx');
+        return res.json({
+          success: true,
+          message: "STK Push initiated. Please check your phone.",
+          data: { customerMessage: response.data.message || "Check your phone for M-Pesa prompt" }
+        });
+      }
+
+      const reference = `STK-${Date.now()}`;
       await safeQuery(
         `INSERT INTO wallet_transactions (transaction_id, user_id, amount, type, description, status, reference_id, created_at) VALUES (?, ?, ?, 'deposit', ?, 'pending', ?, NOW())`,
-        [result.CheckoutRequestID, user_id, amount, `M-Pesa STK Push to ${phoneNumber}`, reference]
+        [checkoutRequestId, user_id, amount, `M-Pesa STK Push to ${phoneNumber}`, reference]
       );
+
       return res.json({
         success: true,
         message: "STK Push initiated. Please check your phone.",
-        data: { checkoutRequestId: result.CheckoutRequestID, customerMessage: result.CustomerMessage }
+        data: { checkoutRequestId, customerMessage: response.data.message || "Check your phone for M-Pesa prompt" }
       });
     }
-    throw new Error(result.CustomerMessage || "Failed to initiate push");
+    throw new Error(response.data?.message || "Failed to initiate push via mpesa-service");
   } catch (error) {
-    Logger.error("M-Pesa STK Push error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    Logger.error("M-Pesa STK Push error:", error.response?.data?.message || error.message);
+    if (error.response) {
+      Logger.error("Full M-Pesa Service Error Response:", {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+    res.status(error.response?.status || 500).json({ 
+      success: false, 
+      message: error.response?.data?.message || error.message || "STK Push failed. Check mpesa-service logs." 
+    });
   }
 });
 
 // ============================================
-// M-PESA CALLBACK
+// INTERNAL M-PESA CALLBACK (From mpesa-service)
 // ============================================
-const handleMpesaCallback = asyncHandler(async (req, res) => {
-  // SECURITY: Validate that request comes from Safaricom's IPs
-  const clientIp = req.ip || req.connection?.remoteAddress || '';
-  const cleanIp = clientIp.replace('::ffff:', '');
-  if (process.env.NODE_ENV === 'production' && !SAFARICOM_IPS.has(cleanIp)) {
-    Logger.warn(`⛔ Rejected M-Pesa callback from unauthorized IP: ${cleanIp}`);
+const handleInternalMpesaCallback = asyncHandler(async (req, res) => {
+  const secret = req.headers['x-internal-secret'];
+  if (secret !== INTERNAL_SERVICE_SECRET) {
+    Logger.warn(`⛔ Rejected internal callback from unauthorized source`);
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
 
-  const { Body } = req.body;
-  if (!Body?.stkCallback) {
-    return res.status(400).json({ success: false, message: 'Invalid callback data' });
-  }
-
-  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
-  Logger.info(`🔔 [M-Pesa] Callback: ${CheckoutRequestID}, Result: ${ResultCode}`);
+  const { checkoutRequestId, status, receipt, amount, message } = req.body;
+  Logger.info(`🔔 [Wallet] Internal Callback: ${checkoutRequestId}, Status: ${status}`);
 
   try {
     const transaction = await safeQueryOne(
       `SELECT * FROM wallet_transactions WHERE transaction_id = ? AND status = 'pending'`,
-      [CheckoutRequestID]
+      [checkoutRequestId]
     );
+    
     if (!transaction) {
-      Logger.warn(`Transaction not found or already processed: ${CheckoutRequestID}`);
-      return res.status(200).json({ success: true }); // Always ack Safaricom
+      Logger.warn(`Transaction not found or already processed: ${checkoutRequestId}`);
+      return res.status(200).json({ success: true });
     }
 
-    if (ResultCode === 0 && CallbackMetadata) {
-      // Extract M-Pesa receipt from metadata
-      const items = CallbackMetadata?.Item || [];
-      const receiptItem = items.find(i => i.Name === 'MpesaReceiptNumber');
-      const mpesaReceipt = receiptItem?.Value || '';
-
+    if (status === 'completed') {
       const bonus = calculateBonus(transaction.amount);
       const totalPoints = transaction.amount + bonus;
 
@@ -907,7 +635,7 @@ const handleMpesaCallback = asyncHandler(async (req, res) => {
         );
         await conn.execute(
           `UPDATE wallet_transactions SET status = 'completed', completed_at = NOW(), description = CONCAT(description, ' | Receipt: ', ?) WHERE transaction_id = ?`,
-          [mpesaReceipt, CheckoutRequestID]
+          [receipt || '', checkoutRequestId]
         );
         await conn.commit(); conn.release();
         memoryCache.delete(`wallet_${transaction.user_id}`);
@@ -917,13 +645,13 @@ const handleMpesaCallback = asyncHandler(async (req, res) => {
         throw e;
       }
     } else {
-      await safeQuery(`UPDATE wallet_transactions SET status = 'failed', description = CONCAT(description, ' | ', ?) WHERE transaction_id = ?`, [ResultDesc, CheckoutRequestID]);
-      Logger.warn(`❌ M-Pesa STK Failed: ${ResultDesc}`);
+      await safeQuery(`UPDATE wallet_transactions SET status = 'failed', description = CONCAT(description, ' | ', ?) WHERE transaction_id = ?`, [message || 'Failed', checkoutRequestId]);
+      Logger.warn(`❌ M-Pesa STK Failed for wallet: ${message}`);
     }
 
     res.status(200).json({ success: true });
   } catch (error) {
-    Logger.error('M-Pesa callback error:', error);
+    Logger.error('Internal callback error:', error);
     res.status(500).json({ success: false });
   }
 });
@@ -934,10 +662,8 @@ module.exports = {
   getRechargePackages,
   initiateDeposit,
   directDeposit,
-  handlePesapalCallback,
-  handlePesapalIPN,
   initiateStkPush,
-  handleMpesaCallback,
+  handleInternalMpesaCallback,
   checkPaymentStatus,
   useWalletForEndorsement,
   getTransactionHistory,

@@ -6,7 +6,7 @@ exports.up = async function (knex) {
     await knex.schema.table("battles", (table) => {
       table.string("slug", 255).unique().nullable();
     });
-    console.log("✅ Added 'slug' column to battles table");
+    console.log(" Added 'slug' column to battles table");
   }
 
   const hasQuestion = await knex.schema.hasColumn("battles", "question");
@@ -14,7 +14,7 @@ exports.up = async function (knex) {
     await knex.schema.table("battles", (table) => {
       table.text("question").nullable();
     });
-    console.log("✅ Added 'question' column to battles table");
+    console.log("Added 'question' column to battles table");
   }
 
   // Add county to battle_votes table
@@ -23,7 +23,7 @@ exports.up = async function (knex) {
     await knex.schema.table("battle_votes", (table) => {
       table.string("county", 100).nullable();
     });
-    console.log("✅ Added 'county' column to battle_votes table");
+    console.log("Added 'county' column to battle_votes table");
   }
 };
 

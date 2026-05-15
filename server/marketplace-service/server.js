@@ -20,20 +20,11 @@ const dotenv = require("dotenv");
 const multer = require("multer");
 const fs = require("fs");
 const knex = require("knex");
-const client = require("prom-client");
+// const client = require("prom-client");
 
-// Prometheus Metrics Setup
-const register = new client.Registry();
-client.collectDefaultMetrics({ register });
-
-// Custom metrics
-const httpRequestDurationMicroseconds = new client.Histogram({
-  name: 'http_request_duration_seconds',
-  help: 'Duration of HTTP requests in seconds',
-  labelNames: ['method', 'route', 'code'],
-  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
-});
-register.registerMetric(httpRequestDurationMicroseconds);
+// Metrics Disabled
+const register = { contentType: 'text/plain', metrics: () => Promise.resolve('') };
+const httpRequestDurationMicroseconds = { startTimer: () => () => {} };
 
 
 // Load environment variables
@@ -49,14 +40,15 @@ const environment = process.env.NODE_ENV || "development";
 const db = knex(knexConfig[environment]);
 
 // Import routes with error handling
-let productRoutes, cartRoutes, orderRoutes;
+let productRoutes, cartRoutes, orderRoutes, paymentRoutes;
 try {
   productRoutes = require("./src/routes/productRoutes");
   cartRoutes = require("./src/routes/cartRoutes");
   orderRoutes = require("./src/routes/orderRoutes");
-  console.log("✅ Routes loaded successfully");
+  paymentRoutes = require("./src/routes/paymentRoutes");
+  console.log(" Routes loaded successfully");
 } catch (error) {
-  console.error("❌ Failed to load routes:", error.message);
+  console.error("Failed to load routes:", error.message);
   // Create fallback routes
   const router = express.Router();
   router.get("/", (req, res) => {
@@ -178,6 +170,7 @@ app.post("/api/v1/upload", upload.single("image"), (req, res) => {
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/orders", orderRoutes);
+app.use("/api/v1/marketplace/payments", paymentRoutes);
 
 
 
@@ -245,50 +238,51 @@ app.use((err, req, res, next) => {
 
 // ============ SERVER STARTUP ============
 
-const startServer = async () => {
-  try {
-    // Run migrations
-    console.log("🔄 Running database migrations...");
-    await db.migrate.latest();
-    console.log("✅ Migrations completed successfully");
+console.log(`Attempting to start server on port ${PORT}...`);
 
-    // Create uploads directory
-    const uploadsDir = path.join(__dirname, "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+const server = app.listen(PORT, () => {
+  Logger.info(` Marketplace service running on port ${PORT}`);
+  console.log(`Local: http://localhost:${PORT}`);
+
+  // Run background tasks AFTER server starts
+  (async () => {
+    try {
+      // Run migrations
+      console.log(" Running database migrations...");
+      await db.migrate.latest();
+      console.log(" Migrations completed successfully");
+
+      // Create uploads directory
+      const uploadsDir = path.join(__dirname, "uploads");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Initialize database connection
+      await initDB();
+      Logger.info(" Database connected successfully");
+    } catch (err) {
+      console.error(" Background startup task failed:", err);
     }
-
-    // Initialize database connection
-    await initDB();
-    Logger.info("✅ Database connected successfully");
-
-    // Start server
-    app.listen(PORT, "0.0.0.0", () => {
-      Logger.info(`🚀 Marketplace service running on port ${PORT}`);
-      console.log(`
-  ═══════════════════════════════════════════════════════
-  📡 Local:            http://localhost:${PORT}
-  📦 Products API:     http://localhost:${PORT}/api/v1/products
-  🛒 Cart API:         http://localhost:${PORT}/api/v1/user/cart
-  📸 Upload API:       http://localhost:${PORT}/api/v1/upload
-  💚 Health Check:     http://localhost:${PORT}/health
-  🔧 Debug Tables:     http://localhost:${PORT}/debug/tables
-  ═══════════════════════════════════════════════════════
-      `);
-    });
-  } catch (error) {
-    Logger.error("Failed to start server:", error);
-    console.error("❌ Failed to start server:", error.message);
-    process.exit(1);
-  }
-};
-
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  Logger.info("Shutting down gracefully...");
-  await db.destroy();
-  process.exit(0);
+  })();
 });
+
+// Handle server errors
+server.on('error', (err) => {
+  console.error(" Server failed to bind:", err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use.`);
+  }
+  process.exit(1);
+});
+
+const shutdown = () => {
+  console.log("Shutting down...");
+  server.close(async () => {
+    await db.destroy();
+    process.exit(0);
+  });
+};
 
 process.on("SIGTERM", async () => {
   Logger.info("Shutting down gracefully...");
@@ -296,5 +290,5 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
-// Start the server
-startServer();
+
+

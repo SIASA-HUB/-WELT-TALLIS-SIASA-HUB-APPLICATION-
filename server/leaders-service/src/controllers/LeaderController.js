@@ -199,16 +199,18 @@ const getLeaderById = asyncHandler(async (req, res) => {
       [safeLeaderId]
     );
 
-    const endorsements = await safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [safeLeaderId]);
-    const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [safeLeaderId]);
-    // SAFE: leaders_boosts table may not exist yet in production — return zeros gracefully
-    let boosts = { count: 0, total_amount: 0 };
-    try {
-      const boostResult = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [safeLeaderId]);
-      if (boostResult) boosts = boostResult;
-    } catch (boostErr) {
-      Logger.warn(`[GET LEADER] leaders_boosts table not found (run migrations): ` + boostErr.message);
-    }
+    // Optimized stats query - combine multiple counts into one round-trip
+    const statsQuery = await safeQueryOne(`
+      SELECT 
+        (SELECT COUNT(*) FROM endorsements WHERE leader_id = ? AND status = 'active') as endorsements_count,
+        (SELECT COUNT(*) FROM leader_followers WHERE leader_id = ?) as followers_count,
+        (SELECT COUNT(*) FROM leader_shares WHERE leader_id = ?) as shares_count,
+        (SELECT COUNT(*) FROM leader_likes WHERE leader_id = ?) as likes_count,
+        (SELECT COUNT(*) FROM leader_comments WHERE leader_id = ?) as comments_count,
+        (SELECT COUNT(*) FROM leaders_boosts WHERE leader_id = ?) as boost_count,
+        (SELECT SUM(amount) FROM leaders_boosts WHERE leader_id = ?) as total_boost_amount
+    `, [safeLeaderId, safeLeaderId, safeLeaderId, safeLeaderId, safeLeaderId, safeLeaderId, safeLeaderId]);
+
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [safeLeaderId]);
 
     // Return relative paths â€” the API gateway and frontend handle full URL construction
@@ -227,12 +229,15 @@ const getLeaderById = asyncHandler(async (req, res) => {
           social_url: formatImageUrl(img.social_url)
         })),
         stats: {
-          endorsements: endorsements?.count || 0,
-          followers: followers?.count || 0,
+          endorsements: statsQuery?.endorsements_count || 0,
+          followers: statsQuery?.followers_count || 0,
           views: leader.views || 0,
+          shares: statsQuery?.shares_count || 0,
+          likes: statsQuery?.likes_count || 0,
+          comments: statsQuery?.comments_count || 0,
           boost_score: leader.boost_score || 0,
-          boost_count: boosts?.count || 0,
-          total_boost_amount: boosts?.total_amount || 0
+          boost_count: statsQuery?.boost_count || 0,
+          total_boost_amount: statsQuery?.total_boost_amount || 0
         },
         social_links: socialLinks
       }
@@ -376,10 +381,21 @@ const registerAspirant = asyncHandler(async (req, res) => {
       Logger.warn("Cache clear error:", cacheErr);
     }
 
+    // Generate JWT token for auto-login
+    const token = generateAccessToken({
+      leaderId: leaderId,
+      userId: leaderId,
+      name: name,
+      role: "aspirant",
+      position: position,
+      party: party
+    }, "7d");
+
     res.status(201).json({
       success: true,
       message: "Registration successful!",
       data: {
+        token,
         leader_id: leaderId,
         name,
         email: email || null,
@@ -542,21 +558,17 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
       [leader.leader_id]
     );
 
-    // Get ALL stats properly
-    const endorsements = await safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [leader.leader_id]);
-    const followers = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leader.leader_id]);
-    const shares = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`, [leader.leader_id]);
-    const likes = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`, [leader.leader_id]);
-    const comments = await safeQueryOne(`SELECT COUNT(*) as count FROM leader_comments WHERE leader_id = ?`, [leader.leader_id]);
-
-    // Safe boost stats
-    let boosts = { count: 0, total_amount: 0 };
-    try {
-      const boostResult = await safeQueryOne(`SELECT COUNT(*) as count, SUM(amount) as total_amount FROM leaders_boosts WHERE leader_id = ?`, [leader.leader_id]);
-      if (boostResult) boosts = boostResult;
-    } catch (boostErr) {
-      Logger.warn(`leaders_boosts table not found: ` + boostErr.message);
-    }
+    // Optimized stats query - combine multiple counts into one round-trip
+    const statsQuery = await safeQueryOne(`
+      SELECT 
+        (SELECT COUNT(*) FROM endorsements WHERE leader_id = ? AND status = 'active') as endorsements_count,
+        (SELECT COUNT(*) FROM leader_followers WHERE leader_id = ?) as followers_count,
+        (SELECT COUNT(*) FROM leader_shares WHERE leader_id = ?) as shares_count,
+        (SELECT COUNT(*) FROM leader_likes WHERE leader_id = ?) as likes_count,
+        (SELECT COUNT(*) FROM leader_comments WHERE leader_id = ?) as comments_count,
+        (SELECT COUNT(*) FROM leaders_boosts WHERE leader_id = ?) as boost_count,
+        (SELECT SUM(amount) FROM leaders_boosts WHERE leader_id = ?) as total_boost_amount
+    `, [leader.leader_id, leader.leader_id, leader.leader_id, leader.leader_id, leader.leader_id, leader.leader_id, leader.leader_id]);
 
     const socialLinks = await safeQuery(`SELECT id, type, url FROM leader_portfolio WHERE leader_id = ?`, [leader.leader_id]);
 
@@ -576,15 +588,15 @@ const getLeaderBySlug = asyncHandler(async (req, res) => {
           social_url: formatImageUrl(img.social_url)
         })),
         stats: {
-          endorsements: endorsements?.count || 0,
-          followers: followers?.count || 0,
+          endorsements: statsQuery?.endorsements_count || 0,
+          followers: statsQuery?.followers_count || 0,
           views: leader.views || 0,
-          shares: shares?.count || 0,
-          likes: likes?.count || 0,
-          comments: comments?.count || 0,
+          shares: statsQuery?.shares_count || 0,
+          likes: statsQuery?.likes_count || 0,
+          comments: statsQuery?.comments_count || 0,
           boost_score: leader.boost_score || 0,
-          boost_count: boosts?.count || 0,
-          total_boost_amount: boosts?.total_amount || 0
+          boost_count: statsQuery?.boost_count || 0,
+          total_boost_amount: statsQuery?.total_boost_amount || 0
         },
         social_links: socialLinks
       }
@@ -1362,21 +1374,24 @@ const getLeaderStats = asyncHandler(async (req, res) => {
   try {
     const userId = req.userId || req.user?.user_id || req.query.user_id;
 
-    const [followers, endorsements, views, shares, manifestos, supports, userSupport] = await Promise.all([
+    const [followers, endorsements, views, shares, manifestos, supports, userSupport, boostStats] = await Promise.all([
       safeQueryOne(`SELECT COUNT(*) as count FROM leader_followers WHERE leader_id = ?`, [leaderId]),
       safeQueryOne(`SELECT COUNT(*) as count FROM endorsements WHERE leader_id = ? AND status = 'active'`, [leaderId]),
       safeQueryOne(`SELECT COUNT(*) as count FROM leader_views WHERE leader_id = ?`, [leaderId]),
       safeQueryOne(`SELECT COUNT(*) as count FROM leader_shares WHERE leader_id = ?`, [leaderId]),
       safeQueryOne(`SELECT COUNT(*) as count FROM manifestos WHERE leader_id = ?`, [leaderId]),
       safeQueryOne(`SELECT COUNT(*) as count FROM leader_likes WHERE leader_id = ?`, [leaderId]),
-      userId ? safeQueryOne(`SELECT 1 FROM leader_likes WHERE leader_id = ? AND user_id = ?`, [leaderId, userId]) : Promise.resolve(null)
+      userId ? safeQueryOne(`SELECT 1 FROM leader_likes WHERE leader_id = ? AND user_id = ?`, [leaderId, userId]) : Promise.resolve(null),
+      safeQueryOne(`SELECT boost_count, total_boost_amount FROM leaders WHERE leader_id = ?`, [leaderId])
     ]);
 
     const endorsementCount = endorsements?.count || 0;
     const viewCount = views?.count || 0;
     const shareCount = shares?.count || 0;
     const supportCount = supports?.count || 0;
-    const trendingScore = viewCount + (shareCount * 5) + (endorsementCount * 10) + (supportCount * 2);
+    const boostCount = boostStats?.boost_count || 0;
+    const totalBoostAmount = boostStats?.total_boost_amount || 0;
+    const trendingScore = viewCount + (shareCount * 5) + (endorsementCount * 10) + (supportCount * 2) + (boostCount * 20);
 
     res.status(200).json({
       success: true,
@@ -1386,6 +1401,8 @@ const getLeaderStats = asyncHandler(async (req, res) => {
         views: viewCount,
         shares: shareCount,
         support_count: supportCount,
+        boost_count: boostCount,
+        total_boost_amount: totalBoostAmount,
         is_supporting: !!userSupport,
         manifestos_count: manifestos?.count || 0,
         trending_score: trendingScore
@@ -1769,6 +1786,59 @@ const generateSitemap = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Handle M-Pesa payment callback for verification
+ */
+const handlePaymentCallback = asyncHandler(async (req, res) => {
+  const secret = req.headers['x-internal-secret'];
+  if (secret !== (process.env.INTERNAL_SERVICE_SECRET || 'siasa-secret')) {
+    return res.status(403).json({ success: false, message: "Unauthorized" });
+  }
+
+  const { accountReference, status, receipt } = req.body;
+  const leaderId = accountReference;
+
+  if (status === 'completed' && leaderId) {
+    try {
+      await safeQuery(`UPDATE leaders SET verification = 1, updated_at = NOW() WHERE leader_id = ?`, [leaderId]);
+      await redis.del(`leader:${leaderId}`);
+      await redis.del('global:all_leaders');
+      Logger.info(`✅ Leader ${leaderId} verified via M-Pesa callback. Receipt: ${receipt}`);
+    } catch (e) {
+      Logger.error(`❌ Failed to verify leader ${leaderId} from callback:`, e);
+    }
+  }
+
+  res.status(200).json({ success: true });
+});
+
+/**
+ * Handle M-Pesa payment callback for boost
+ */
+const handleBoostCallback = asyncHandler(async (req, res) => {
+  const secret = req.headers['x-internal-secret'];
+  if (secret !== (process.env.INTERNAL_SERVICE_SECRET || 'siasa-secret')) {
+    return res.status(403).json({ success: false, message: "Unauthorized" });
+  }
+
+  const { accountReference, status, amount } = req.body;
+  const leaderId = accountReference;
+
+  if (status === 'completed' && leaderId) {
+    try {
+      // Increase boost score based on amount
+      const boostValue = Math.floor(amount / 10); // Example logic: 10 KES = 1 boost point
+      await safeQuery(`UPDATE leaders SET boost_score = boost_score + ?, updated_at = NOW() WHERE leader_id = ?`, [boostValue, leaderId]);
+      await redis.del(`leader:${leaderId}`);
+      Logger.info(`🚀 Leader ${leaderId} boosted via M-Pesa callback. Amount: ${amount}`);
+    } catch (e) {
+      Logger.error(`❌ Failed to boost leader ${leaderId} from callback:`, e);
+    }
+  }
+
+  res.status(200).json({ success: true });
+});
+
 module.exports = {
   startLeaderWorkers,
   createLeader,
@@ -1797,5 +1867,7 @@ module.exports = {
   getAllLeaders,
   getLeaderAdminStats,
   getAllLeadersPublic,
-  generateSitemap
+  generateSitemap,
+  handlePaymentCallback,
+  handleBoostCallback
 };

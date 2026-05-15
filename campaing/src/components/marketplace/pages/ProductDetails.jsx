@@ -326,22 +326,39 @@ const ProductDetails = () => {
     setLoading(true);
     try {
       let res;
-      if (slug && isNaN(slug)) {
+      // If slug is a number, it's likely an ID. If it contains non-digits, it's a slug.
+      const isSlug = slug && isNaN(Number(slug));
+      
+      if (isSlug) {
+        console.log(`[ProductDetails] Fetching by slug: ${slug}`);
         res = await api.get(`/products/slug/${slug}`);
       } else {
+        console.log(`[ProductDetails] Fetching by id: ${slug}`);
         res = await api.get(`/products/${slug}`);
       }
 
-      const productData = res?.data;
-      if (productData) {
-        setProduct(productData);
-        const sizes = typeof productData.sizes === "string"
-          ? productData.sizes.split(",").map(s => s.trim()).filter(Boolean)
-          : (productData.sizes || []);
+      if (res?.success && res.data) {
+        setProduct(res.data);
+        const sizes = typeof res.data.sizes === "string"
+          ? res.data.sizes.split(",").map(s => s.trim()).filter(Boolean)
+          : (res.data.sizes || []);
         if (sizes.length > 0) setSelectedSize(sizes[0]);
+
+        // Reward 10 points for browsing
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          api.post("/wallet/reward", { action: "browsing product", amount: 10 }, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => {}); // Silent fail
+        }
+      } else {
+        console.warn("[ProductDetails] Product not found in response:", res);
+        setProduct(null);
       }
     } catch (error) {
-      console.error("Error fetching product:", error);
+      console.error("[ProductDetails] Error fetching product:", error);
+      toast.error("Failed to load product details.");
+      setProduct(null);
     } finally {
       setLoading(false);
     }

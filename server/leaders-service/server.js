@@ -1,5 +1,5 @@
 require("dotenv").config();
-// Forced restart to pick up global secret changes - RESTART TRIGGER
+console.log("DEBUG: server.js execution started");
 
 const express = require("express");
 const helmet = require("helmet");
@@ -9,20 +9,11 @@ const path = require("path");
 const fs = require("fs");
 
 const Logger = require("./src/utils/logger/logger");
-const client = require("prom-client");
+// const client = require("prom-client");
 
-// Prometheus Metrics Setup
-const register = new client.Registry();
-client.collectDefaultMetrics({ register });
-
-// Custom metrics
-const httpRequestDurationMicroseconds = new client.Histogram({
-  name: 'http_request_duration_seconds',
-  help: 'Duration of HTTP requests in seconds',
-  labelNames: ['method', 'route', 'code'],
-  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
-});
-register.registerMetric(httpRequestDurationMicroseconds);
+// Metrics Disabled
+const register = { contentType: 'text/plain', metrics: () => Promise.resolve('') };
+const httpRequestDurationMicroseconds = { startTimer: () => () => {} };
 
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/Leader");
@@ -187,31 +178,48 @@ async function runMigrations() {
 // ============================================
 
 const PORT = process.env.PORT || 8006;
-const HOST = process.env.HOST || "0.0.0.0";
 
-(async () => {
-  let migrationsRan = false;
-  try {
-    migrationsRan = await runMigrations();
-    await initDB();
 
-    const server = app.listen(PORT, HOST, () => {
-      console.log(` Leaders Service running on ${HOST}:${PORT}`);
-      Logger.info("Server started", { port: PORT, migrationsRan });
-    });
+const server = app.listen(PORT, () => {
+  console.log(` Leaders Service running on port ${PORT}`);
+  Logger.info("Server started", { port: PORT });
 
-    const shutdown = () => {
-      server.close(async () => {
-        await db.destroy();
-        process.exit(0);
-      });
-    };
+  // Run background tasks AFTER server starts
+  (async () => {
+    try {
+      console.log("🔄 Checking migrations...");
+      await runMigrations();
+      console.log("✅ Migrations check complete.");
 
-    process.on("SIGTERM", shutdown);
-    process.on("SIGINT", shutdown);
+      console.log("🚀 Initializing Database...");
+      await initDB();
+      console.log("✅ Database initialized.");
+    } catch (err) {
+      console.error("❌ Background startup task failed:", err);
+    }
+  })();
+});
 
-  } catch (error) {
-    console.error("Failed to start application:", error);
-    process.exit(1);
+// Handle server errors
+server.on('error', (err) => {
+  console.error("❌ Server failed to bind:", err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use.`);
   }
-})();
+  process.exit(1);
+});
+
+const shutdown = () => {
+  console.log("Shutting down...");
+  server.close(async () => {
+    await db.destroy();
+    process.exit(0);
+  });
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+
+console.log("DEBUG: server.js execution reached end of file");
+
+console.log("DEBUG: server.js execution reached end of file");

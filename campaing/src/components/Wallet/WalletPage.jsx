@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import walletApi from "./ApiConfig";
+import api from "../../api/api";
 import WalletRecharge from "./Wallet";
 
 // Animations
@@ -310,6 +311,8 @@ const ProfilePage = () => {
     txCount: 0
   });
 
+  const [supportedLeaders, setSupportedLeaders] = useState([]);
+
   useEffect(() => {
     const initProfile = async () => {
       try {
@@ -334,6 +337,7 @@ const ProfilePage = () => {
 
         setUserData(user);
 
+        // Fetch wallet stats
         const res = await walletApi.get(`/users/${user.user_id}/stats`);
         if (res.success) {
           setStats({
@@ -342,6 +346,18 @@ const ProfilePage = () => {
             deposited: res.data.total_deposited || 0,
             txCount: res.data.transaction_count || 0
           });
+        }
+
+        // Fetch supported leaders
+        if (user.role !== 'aspirant' && user.role !== 'admin') {
+          try {
+            const supportedRes = await api.get(`/leaders/user/${user.user_id}/supported`);
+            if (supportedRes.data?.success) {
+              setSupportedLeaders(supportedRes.data.data || []);
+            }
+          } catch (err) {
+            console.error("Failed to fetch supported leaders:", err);
+          }
         }
       } catch (err) {
         console.error("Profile init error:", err);
@@ -389,7 +405,7 @@ const ProfilePage = () => {
         <MainWalletCard>
           <HugeBalance>
             <div className="lab">
-              <WalletIcon size={14} /> Available Siasa Points
+              <Award size={14} /> Strategic Influence Points
             </div>
             <div className="val">
               {stats.balance.toLocaleString()}
@@ -415,7 +431,7 @@ const ProfilePage = () => {
 
         <QuickActions>
           <ActionItem primary onClick={() => setShowWalletModal(true)}>
-            <CreditCard size={18} /> Recharge
+            <CreditCard size={18} /> Get Points
           </ActionItem>
           <ActionItem onClick={() => navigate("/leaders")}>
             <TrendingUp size={18} /> Endorse
@@ -455,6 +471,45 @@ const ProfilePage = () => {
             </InfoRow>
           </DetailGroup>
         </UserDetailsCard>
+
+        {userData?.role !== 'aspirant' && userData?.role !== 'admin' && supportedLeaders.length > 0 && (
+          <div style={{ marginTop: '30px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '16px' }}>
+              My Aspirants
+            </div>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {supportedLeaders.map(leader => (
+                <div key={leader.leader_id} style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  border: '1px solid rgba(255, 255, 255, 0.03)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer'
+                }} onClick={() => navigate(`/leader/${leader.slug}`)}>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px', overflow: 'hidden', background: '#333'
+                  }}>
+                    {leader.profile_image ? (
+                      <img src={leader.profile_image} alt={leader.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#10b981', color: '#000', fontWeight: '800', fontSize: '18px' }}>
+                        {leader.name?.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>{leader.name}</div>
+                    <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>{leader.position} • {leader.county}</div>
+                  </div>
+                  <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </ContentWrapper>
 

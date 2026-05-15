@@ -1,28 +1,12 @@
 export const category = [
-  {
-    img: "/images/halfcoat.jpeg",
-    name: "Campaign Reflectors",
-    slug: "reflector",
-    off: "Bulk Discount",
-  },
-  {
-    img: "/images/cap.jpg",
-    name: "Political Caps",
-    slug: "caps",
-    off: "Custom Branding",
-  },
-  {
-    img: "/images/tshirts.jpg",
-    name: "Campaign Tshirts",
-    slug: "tshirts",
-    off: "High Quality",
-  },
-  {
-    img: "/images/flag.jpg",
-    name: "Handheld Flags",
-    slug: "flags",
-    off: "Event Ready",
-  },
+  { img: "/images/shoes.jpg", name: "Shoes", slug: "shoes", off: "Premium Campaign" },
+  { img: "/images/cap.jpg", name: "Caps", slug: "caps", off: "Custom Branding" },
+  { img: "/images/hoodies.jpg", name: "Hoodies", slug: "hoodies", off: "Limited Edition" },
+  { img: "/images/tshirts.jpg", name: "T-Shirts", slug: "tshirts", off: "Best Sellers" },
+  { img: "/images/jackets.jpg", name: "Jackets", slug: "jackets", off: "Executive Wear" },
+  { img: "/images/kits.jpg", name: "Supporter Kits", slug: "kits", off: "Value Packs" },
+  { img: "/images/halfcoat.jpeg", name: "Reflectors", slug: "reflectors", off: "Bulk Discount" },
+  { img: "/images/flag.jpg", name: "Flags", slug: "flags", off: "Event Ready" },
 ];
 
 export const filter = [
@@ -30,10 +14,8 @@ export const filter = [
     name: "Product Categories",
     value: "category",
     items: [
-      "Campaign Reflectors",
-      "Political Caps",
-      "Campaign Tshirts",
-      "Handheld Flags",
+      "Shoes", "Caps", "Hoodies", "T-Shirts", "Jackets",
+      "Supporter Kits", "Reflectors", "Flags",
     ],
   },
   {
@@ -46,4 +28,13 @@ export const filter = [
     value: "size",
     items: ["S", "M", "L", "XL", "XXL"],
   },
+];
+
+export const SEGMENTS = [
+  { id: "presidential", label: "Presidential Taste", minPrice: 8000 },
+  { id: "governor", label: "Governor Taste", minPrice: 5000 },
+  { id: "senator", label: "Senator Taste", minPrice: 3500 },
+  { id: "mp", label: "MP Taste", minPrice: 2500 },
+  { id: "mca", label: "MCA Taste", minPrice: 1500 },
+  { id: "supporter", label: "Supporter Taste", maxPrice: 2000 },
 ];

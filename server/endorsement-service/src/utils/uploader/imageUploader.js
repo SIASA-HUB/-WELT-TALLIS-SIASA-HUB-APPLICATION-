@@ -4,13 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-// Configure multer with memory storage
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 1000 * 1024 * 1024 }, // 1000MB limit
-});
-
 // Base directories
 // FIX: ../../../ goes from src/utils/uploader -> src/utils -> src -> endorsement-service root
 // This matches Docker volume: ./endorsement-service/uploads -> /usr/src/app/endorsement-service/uploads
@@ -36,12 +29,35 @@ const generateFileName = (originalName) => {
   return `${timestamp}_${random}${ext}`;
 };
 
+// Configure multer with disk storage for large file support (videos)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const dateDir = path.join(ENDORSEMENTS_DIR, String(year), month);
+    
+    if (!fs.existsSync(dateDir)) {
+      fs.mkdirSync(dateDir, { recursive: true });
+    }
+    cb(null, dateDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, generateFileName(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 1000 * 1024 * 1024 }, // 1000MB limit
+});
+
 // Main upload middleware
 const uploadEndorsementMedia = (req, res, next) => {
   upload.single("media")(req, res, async (err) => {
     if (err) {
       console.error("Multer error:", err);
-      return next();
+      return res.status(400).json({ success: false, message: "File upload error", error: err.message });
     }
 
     if (!req.file) {
@@ -54,37 +70,25 @@ const uploadEndorsementMedia = (req, res, next) => {
     const isImage = file.mimetype.startsWith("image/");
 
     console.log(
-      `ðŸ“ Processing file: ${file.originalname}, type: ${file.mimetype}, size: ${file.size}`,
+      `📸 Processing file on disk: ${file.filename}, type: ${file.mimetype}, size: ${file.size}`,
     );
 
     if (!isImage && !isVideo) {
       console.log("Unsupported media type");
+      // Cleanup file if unsupported
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       return next();
     }
 
     try {
-      // Create date-based folder structure
+      // Create URL for the file based on its saved path
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
-      const dateDir = path.join(ENDORSEMENTS_DIR, String(year), month);
+      
+      const mediaUrl = `/uploads/endorsements/${year}/${month}/${file.filename}`;
 
-      if (!fs.existsSync(dateDir)) {
-        fs.mkdirSync(dateDir, { recursive: true });
-        console.log(`ðŸ“ Created directory: ${dateDir}`);
-      }
-
-      // Generate filename and save
-      const fileName = generateFileName(file.originalname);
-      const filePath = path.join(dateDir, fileName);
-
-      // Save file to disk
-      fs.writeFileSync(filePath, file.buffer);
-
-      // Create URL for the file
-      const mediaUrl = `/uploads/endorsements/${year}/${month}/${fileName}`;
-
-      console.log(`âœ… File saved: ${mediaUrl}`);
+      console.log(`✅ File saved on disk: ${mediaUrl}`);
 
       // Attach to request for controller to use
       req.mediaUrl = mediaUrl;
@@ -93,7 +97,7 @@ const uploadEndorsementMedia = (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error("Error saving file:", error);
+      console.error("Error processing disk file:", error);
       next();
     }
   });

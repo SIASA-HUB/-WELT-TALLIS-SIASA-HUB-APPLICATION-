@@ -9,6 +9,17 @@ services:
       - "8009:8009"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - LEADERS_SERVICE_URL=http://leaders-service:8006
+      - USERS_SERVICE_URL=http://users-service:8002
+      - WALLET_SERVICE_URL=http://wallet-service:8008
+      - MARKETPLACE_SERVICE_URL=http://marketplace-service:8004
+      - ENDORSEMENT_SERVICE_URL=http://endorsement-service:8003
+      - RALLY_SERVICE_URL=http://rally-service:8001
+      - SOCKETIO_SERVICE_URL=http://socketio-service:8010
+      - MPESA_SERVICE_URL=http://mpesa-service:8011
+      - REDIS_URL=redis://redis:6379
     depends_on:
       redis:
         condition: service_started
@@ -32,6 +43,10 @@ services:
       - "8002:8002"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
     depends_on:
       redis:
         condition: service_started
@@ -53,6 +68,11 @@ services:
       - "8008:8008"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
+      - MPESA_SERVICE_URL=http://mpesa-service:8011/api/v1/mpesa
     depends_on:
       redis:
         condition: service_started
@@ -75,6 +95,11 @@ services:
       - "8006:8006"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://rabbitmq:5672
     depends_on:
       redis:
         condition: service_started
@@ -100,6 +125,10 @@ services:
       - "8001:8001"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
     depends_on:
       redis:
         condition: service_started
@@ -122,6 +151,10 @@ services:
       - "8003:8003"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
     depends_on:
       redis:
         condition: service_started
@@ -144,6 +177,11 @@ services:
       - "8004:8004"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
+      - MPESA_SERVICE_URL=http://mpesa-service:8011/api/v1/mpesa
     depends_on:
       redis:
         condition: service_started
@@ -166,9 +204,35 @@ services:
       - "8010:8010"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
     depends_on:
       redis:
         condition: service_started
+    volumes:
+      - ./global:/usr/src/app/global
+      - ./.env:/usr/src/app/.env
+    networks:
+      - siasa-network
+
+  mpesa-service:
+    build:
+      context: .
+      dockerfile: mpesa-service/Dockerfile
+    container_name: mpesa-service
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./global:/usr/src/app/global
       - ./.env:/usr/src/app/.env
@@ -253,17 +317,11 @@ services:
 
 networks:
   siasa-network:
-    external: true
-    name: siasa-network
+    driver: bridge
 
 volumes:
   redis-data:
-    external: true
   db-data:
-    external: true
   rabbitmq-data:
-    external: true
   prometheus-data:
-    external: true
   grafana-data:
-    external: true

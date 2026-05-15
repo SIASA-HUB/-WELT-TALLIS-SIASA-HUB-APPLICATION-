@@ -43,6 +43,8 @@ function marketPage() {
             <Route path="/cart" exact element={<Cart />} />
             <Route path="/checkout" exact element={<Checkout />} />
             <Route path="/shop/:id" exact element={<ProductDetails />} />
+            <Route path="/product/:slug" exact element={<ProductDetails />} />
+            <Route path="*" element={<Home />} />
           </Routes>
         </Content>
       </Container>

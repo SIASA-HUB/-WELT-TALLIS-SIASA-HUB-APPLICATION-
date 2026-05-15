@@ -133,6 +133,32 @@ const WelcomeBanner = styled.div`
       font-size: 15px;
       max-width: 500px;
     }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .upgrade-btn {
+      background: white;
+      color: #1e3c72;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      }
+    }
   }
 
   .visuals {
@@ -727,6 +753,14 @@ const DashboardOverview = ({ leader }) => {
             Managing campaign for <strong>{leader?.position}</strong> •{" "}
             {leader?.county || leader?.constituency || "Kenya"}
           </p>
+          {!verificationStatus && (
+            <div className="actions">
+              <button className="upgrade-btn" onClick={() => window.location.hash = "#billing"}>
+                <Zap size={14} fill="#1e3c72" />
+                GO PREMIUM
+              </button>
+            </div>
+          )}
         </div>
         <div className="visuals">
           <div className="emoji" style={{ fontSize: '64px', animation: 'pulse 2s infinite' }}>
@@ -909,16 +943,16 @@ const DashboardOverview = ({ leader }) => {
               <Crown size={20} color="#eab308" />
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Campaign Performance</h3>
             </div>
-            
+
             <div style={{ marginTop: '24px', padding: '24px', background: '#f8fafc', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
-               <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Current Ranking</div>
-               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '8px' }}>
-                  <span style={{ fontSize: '48px', fontWeight: 900, color: '#1e3c72' }}>#{Math.max(1, 15 - Math.floor(stats.endorsement_count / 10))}</span>
-                  <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 600 }}>of {leader?.county || "Kenya"} Candidates</span>
-               </div>
-               <div style={{ marginTop: '16px', fontSize: '14px', color: '#0f172a', fontWeight: 500, lineHeight: '1.5' }}>
-                  Your profile ranks in the <strong>Top 15%</strong> of most viewed manifestos in {leader?.county || "your region"}. Boost your score to reach #1.
-               </div>
+              <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Current Ranking</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '8px' }}>
+                <span style={{ fontSize: '48px', fontWeight: 900, color: '#1e3c72' }}>#{Math.max(1, 15 - Math.floor(stats.endorsement_count / 10))}</span>
+                <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 600 }}>of {leader?.county || "Kenya"} Candidates</span>
+              </div>
+              <div style={{ marginTop: '16px', fontSize: '14px', color: '#0f172a', fontWeight: 500, lineHeight: '1.5' }}>
+                Your profile ranks in the <strong>Top 15%</strong> of most viewed manifestos in {leader?.county || "your region"}. Boost your score to reach #1.
+              </div>
             </div>
 
             <div className="status-grid">

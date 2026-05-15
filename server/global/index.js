@@ -20,7 +20,6 @@ const db = require("./config/db");
 const redis = require("./config/redis");
 const rateLimiter = require("./rateLimit/index");
 const logger = require("./logger/logger");
-const mpesa = require("./mpesa/index");
 const { getKenyaTimeISO, getKenyaTimeFormatted } = require("./utils/timeStamps");
 const { sendEmail } = require("./utils/emailHelper");
 
@@ -234,15 +233,6 @@ module.exports = {
 
   // --- Logger ---
   logger: logger,
-
-  // --- M-Pesa ---
-  mpesa: {
-    stkPush: mpesa.stkPush.bind(mpesa),
-    queryStatus: mpesa.queryStatus.bind(mpesa),
-    formatPhoneNumber: mpesa.formatPhoneNumber.bind(mpesa),
-    getAccessToken: mpesa.getAccessToken.bind(mpesa),
-    simulateCallback: mpesa.simulateCallback.bind(mpesa),
-  },
 
   // --- Utilities ---
   utils: {

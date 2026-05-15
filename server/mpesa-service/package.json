@@ -1,0 +1,25 @@
+{
+  "name": "mpesa-service",
+  "version": "1.0.0",
+  "description": "Centralized M-Pesa Service for SiasaHub",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "helmet": "^7.2.0",
+    "knex": "^3.2.10",
+    "morgan": "^1.10.1",
+    "mysql2": "^3.22.3",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

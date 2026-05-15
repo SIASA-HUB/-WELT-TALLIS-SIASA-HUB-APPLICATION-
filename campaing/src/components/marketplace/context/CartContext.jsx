@@ -11,19 +11,33 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState([]);
-
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Error loading cart:", e);
+  const [cartItems, setCartItems] = useState(() => {
+    try {
+      const savedCart = localStorage.getItem("cart");
+      const marketCart = localStorage.getItem("marketplace_cart");
+      
+      let items = [];
+      if (savedCart) items = JSON.parse(savedCart);
+      
+      if (marketCart) {
+        const parsedMarket = JSON.parse(marketCart);
+        if (Array.isArray(parsedMarket)) {
+          parsedMarket.forEach(mItem => {
+            const mid = mItem.product_id || mItem._id || mItem.id;
+            if (!items.find(i => (i.product_id || i._id || i.id) === mid)) {
+              items.push(mItem);
+            }
+          });
+        }
+        // Defer removal to an effect or just do it here
+        setTimeout(() => localStorage.removeItem("marketplace_cart"), 0);
       }
+      return items;
+    } catch (e) {
+      console.error("Error initializing cart:", e);
+      return [];
     }
-  }, []);
+  });
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
@@ -32,12 +46,13 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product) => {
     setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id);
+      const productId = product.product_id || product._id || product.id;
+      const existingItem = prevItems.find((item) => (item.product_id || item._id || item.id) === productId);
 
       if (existingItem) {
         // Update quantity if item already exists
         return prevItems.map((item) =>
-          item.id === product.id
+          (item.product_id || item._id || item.id) === productId
             ? {
                 ...item,
                 quantity: (item.quantity || 1) + (product.quantity || 1),

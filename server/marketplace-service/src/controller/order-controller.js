@@ -147,7 +147,7 @@ const placeOrder = async (req, res) => {
 
     const result = await safeQuery(
       `INSERT INTO orders (order_number, user_id, customer_name, customer_email, customer_phone, address, total_amount, items, status, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', NOW(), NOW())`,
       [
         orderNumber,
         userId || null,
@@ -291,7 +291,7 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const validStatuses = ["pending", "processed", "shipped", "completed", "cancelled"];
+    const validStatuses = ["pending_payment", "paid", "pending", "processed", "shipped", "completed", "cancelled"];
     if (!validStatuses.includes(status)) return res.status(400).json({ success: false, message: "Invalid status" });
     const order = await safeQueryOne(`SELECT id FROM orders WHERE id = ?`, [id]);
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });

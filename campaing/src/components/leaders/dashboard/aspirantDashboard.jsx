@@ -540,6 +540,7 @@ const AspirantDashboard = () => {
       case "rally": return <CreateRally leaderId={leaderId} onRallyCreated={handleRallyCreated} />;
       case "supporters": return <SupportersSection leader={leader} />;
       case "analytics": return <AnalyticsSection leader={leader} />;
+      case "billing": return <AccountBillingSection leader={leader} />;
       case "settings": return <ProfileSettingsSection leader={leader} />;
       default: return (
         <>
@@ -556,6 +557,7 @@ const AspirantDashboard = () => {
     { id: "rally", label: "Create Rally", icon: <MapPin size={18} />, badge: rallyCount },
     { id: "supporters", label: "Supporters", icon: <Users size={18} /> },
     { id: "analytics", label: "Analytics", icon: <TrendingUp size={18} /> },
+    { id: "billing", label: "Billing & Payments", icon: <CreditCard size={18} /> },
     { id: "settings", label: "Profile & Settings", icon: <Settings size={18} /> },
   ];
 

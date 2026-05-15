@@ -25,6 +25,7 @@ import SEO from "../../utils/SEO";
 
 const LeaderCard = lazy(() => import("./leadersCard"));
 const BattleArena = lazy(() => import("./battle/batlleArena"));
+// import CivicAwareness from "../home/CivicAwareness"; // Removed from here
 
 // API Configuration
 import API from "../../api/config";
@@ -592,7 +593,6 @@ const LeadersPage = () => {
           </RegisterButton>
         </SearchContainer>
       </StickySearchWrapper>
-
 
       <Suspense fallback={null}>
         <BattleArena />

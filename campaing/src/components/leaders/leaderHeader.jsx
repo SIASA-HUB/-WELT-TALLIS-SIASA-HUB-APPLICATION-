@@ -39,7 +39,8 @@ import {
   LogIn,
   Mail,
   Lock,
-  UserPlus
+  UserPlus,
+  Flame
 } from "lucide-react";
 import api from "../../api/api";
 import { buildImageUrl } from "../../utils/imageUtils";
@@ -56,9 +57,15 @@ const fadeIn = keyframes`
 `;
 
 const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+`;
+
+const glow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #dc2626); }
+  50% { filter: drop-shadow(0 0 10px #ef4444); }
+  100% { filter: drop-shadow(0 0 2px #dc2626); }
 `;
 
 const shimmer = keyframes`
@@ -211,23 +218,64 @@ const BoostButton = styled.button`
   cursor: pointer;
   background: none;
   border: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
   .boost-icon {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #dc2626;
-    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
     color: white;
+    animation: ${pulse} 2s infinite;
   }
 
   .boost-text {
-    font-size: 8px;
-    font-weight: 500;
-    color: #dc2626;
+    font-size: 9px;
+    font-weight: 700;
+    color: #ef4444;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &:hover {
+    transform: scale(1.1) translateY(-2px);
+    .boost-icon {
+      box-shadow: 0 8px 25px rgba(220, 38, 38, 0.6);
+    }
+  }
+`;
+
+const FloatingBoostAction = styled.button`
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 50px;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.5);
+  animation: ${pulse} 2s infinite;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+
+  &:hover {
+    transform: scale(1.05) translateY(-4px);
+    box-shadow: 0 15px 40px rgba(220, 38, 38, 0.7);
+  }
+
+  @media (min-width: 768px) {
+    display: none;
   }
 `;
 
@@ -837,24 +885,81 @@ const LeaderMeta = styled.div`
 
 const StatsRow = styled.div`
   display: flex;
-  gap: 20px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const StatChip = styled.div`
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #e5e7eb;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 80px;
+  padding: 0 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+
+  &:last-child {
+    border-right: none;
+  }
   
+  .stat-label {
+    font-size: 10px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   .stat-number {
     font-weight: 800;
     color: white;
-    font-size: 16px;
+    font-size: 18px;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+
+    small {
+      font-size: 10px;
+      color: #9ca3af;
+      font-weight: 500;
+    }
   }
+
+  .stat-trend {
+    font-size: 9px;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+`;
+
+const TrendingBadge = styled.div`
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+  animation: ${glow} 2s infinite;
 `;
 
 const PositionBadge = styled.div`
@@ -937,6 +1042,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
   const [isSupported, setIsSupported] = useState(false);
   const [supportCount, setSupportCount] = useState(0);
   const [viewsCount, setViewsCount] = useState(0);
+  const [boostCount, setBoostCount] = useState(0);
+  const [totalBoostAmount, setTotalBoostAmount] = useState(0);
+  const [trendingScore, setTrendingScore] = useState(0);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
   const [showSupportRegisterModal, setShowSupportRegisterModal] = useState(false);
   const [actionBarVisible, setActionBarVisible] = useState(false);
@@ -1063,6 +1171,9 @@ const LeaderHeader = memo(({ leader, onBack }) => {
           if (statsRes.success && statsRes.data) {
             setSupportCount(statsRes.data.support_count || 0);
             setViewsCount(statsRes.data.views || 0);
+            setBoostCount(statsRes.data.boost_count || 0);
+            setTotalBoostAmount(statsRes.data.total_boost_amount || 0);
+            setTrendingScore(statsRes.data.trending_score || 0);
             setIsSupported(statsRes.data.is_supporting || false);
           }
         }
@@ -1370,6 +1481,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             <LeaderName>
               {leader?.name} {isVerified && <CheckCircle size={16} color="#10b981" />}
             </LeaderName>
+            {trendingScore > 100 && (
+              <TrendingBadge>
+                <Flame size={12} fill="white" /> TRENDING
+              </TrendingBadge>
+            )}
             <LeaderMeta>
               <span><Trophy size={14} /> {normalizePosition(leader?.position)}</span>
               <span><MapPin size={14} /> {leader?.county}</span>
@@ -1377,8 +1493,23 @@ const LeaderHeader = memo(({ leader, onBack }) => {
             </LeaderMeta>
 
             <StatsRow>
-              <StatChip><EyeIcon size={14} /> <span className="stat-number">{formatNumber(displayViews)}</span> Views</StatChip>
-              <StatChip><Heart size={14} /> <span className="stat-number">{formatNumber(displaySupport)}</span> Joined</StatChip>
+              <StatChip>
+                <div className="stat-label"><EyeIcon size={12} /> Reach</div>
+                <div className="stat-number">{formatNumber(displayViews)}</div>
+              </StatChip>
+              <StatChip>
+                <div className="stat-label"><TrendingUp size={12} /> Boosts</div>
+                <div className="stat-number">{formatNumber(boostCount)}</div>
+              </StatChip>
+              <StatChip>
+                <div className="stat-label"><Sparkles size={12} /> Raised</div>
+                <div className="stat-number"><small>KES</small> {formatNumber(totalBoostAmount)}</div>
+              </StatChip>
+              <StatChip>
+                <div className="stat-label"><Users size={12} /> Supporters</div>
+                <div className="stat-number">{formatNumber(displaySupport)}</div>
+                <div className="stat-trend"><TrendingUp size={10} /> Live</div>
+              </StatChip>
             </StatsRow>
 
             <div style={{ marginTop: 16, marginBottom: 16 }}>
@@ -1589,6 +1720,11 @@ const LeaderHeader = memo(({ leader, onBack }) => {
         onComplete={handleBoostSuccess}
         currentUserId={currentUserId}
       />
+      
+      <FloatingBoostAction onClick={() => setShowBoostModal(true)}>
+        <Flame size={20} />
+        BOOST {leader?.name?.split(" ")[0]?.toUpperCase()}
+      </FloatingBoostAction>
 
       {toastMessage && <Toast><Sparkles size={14} /> {toastMessage}</Toast>}
     </PageContainer>

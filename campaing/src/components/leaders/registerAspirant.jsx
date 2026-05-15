@@ -687,16 +687,26 @@ const RegisterAspirant = () => {
       const successMessage = resData?.message || resData?.data?.message || "Registration successful! Please login.";
 
       if (isSuccess) {
+        const leaderData = resData.data;
+        const token = leaderData.token;
+
+        // Store auth data for auto-login
+        localStorage.setItem("leader_token", token);
+        localStorage.setItem("token", token);
+        localStorage.setItem("leader_id", leaderData.leader_id);
+        localStorage.setItem("user_data", JSON.stringify(leaderData));
+        localStorage.setItem("leaderData", JSON.stringify(leaderData));
+        
         toast.update(toastId, {
-          render: successMessage,
+          render: "Registration successful! Redirecting to your dashboard...",
           type: "success",
           isLoading: false,
           autoClose: 3000,
         });
 
         setTimeout(() => {
-          navigate("/login-aspirant");
-        }, 2000);
+          navigate("/aspirant-dashboard");
+        }, 1500);
       } else {
         const errorMsg = resData?.message || response?.data?.message || "Registration failed. Please try again.";
         toast.update(toastId, {

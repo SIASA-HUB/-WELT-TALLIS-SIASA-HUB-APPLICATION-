@@ -7,6 +7,7 @@ import {
   Shield, Package, ChevronRight,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import axios from "axios";
 import API from "../../../api/config";
 
@@ -156,6 +157,24 @@ const Checkout = () => {
       if (res.data.success) {
         const order = res.data.data;
         setPlacedOrder(order);
+
+        // If M-Pesa, trigger STK Push
+        if (formData.paymentMethod === "mpesa") {
+          try {
+            toast.info("Initiating M-Pesa payment... Please check your phone.");
+            const token = localStorage.getItem("access_token");
+            await axios.post(`${API.WALLET}/mpesa/stkpush`, {
+              phoneNumber: formData.phone,
+              amount: total,
+              orderId: order.id || order._id
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          } catch (stkErr) {
+            console.error("STK Push error:", stkErr);
+            toast.warn("Could not trigger M-Pesa prompt automatically. Please pay manually.");
+          }
+        }
 
         // Save to localStorage for quick access
         const existing = JSON.parse(localStorage.getItem("my_orders") || "[]");

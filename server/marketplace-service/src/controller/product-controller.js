@@ -152,7 +152,9 @@ const getProducts = async (req, res) => {
       minPrice,
       maxPrice,
       sizes,
-      sort = "newest"
+      sort = "newest",
+      segment,
+      county
     } = req.query;
 
     const cacheKey = getCacheKey("products:list", req.query);
@@ -187,13 +189,23 @@ const getProducts = async (req, res) => {
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    if (minPrice) {
-      sql += ` AND price >= ?`;
-      params.push(parseFloat(minPrice));
-    }
-    if (maxPrice) {
-      sql += ` AND price <= ?`;
-      params.push(parseFloat(maxPrice));
+    // Segment-based price tiers (aspirant levels)
+    const segmentPrices = {
+      presidential: { min: 8000 },
+      governor: { min: 5000 },
+      senator: { min: 3500 },
+      mp: { min: 2500 },
+      mca: { min: 1500 },
+      supporter: { max: 2000 },
+    };
+
+    if (segment && segmentPrices[segment]) {
+      const tier = segmentPrices[segment];
+      if (tier.min) { sql += ` AND price >= ?`; params.push(tier.min); }
+      if (tier.max) { sql += ` AND price <= ?`; params.push(tier.max); }
+    } else {
+      if (minPrice) { sql += ` AND price >= ?`; params.push(parseFloat(minPrice)); }
+      if (maxPrice) { sql += ` AND price <= ?`; params.push(parseFloat(maxPrice)); }
     }
 
     if (sizes) {
@@ -208,6 +220,11 @@ const getProducts = async (req, res) => {
     switch (sort) {
       case "price_asc": sql += ` ORDER BY price ASC`; break;
       case "price_desc": sql += ` ORDER BY price DESC`; break;
+      case "popular": sql += ` ORDER BY rating DESC, created_at DESC`; break;
+      case "trending": sql += ` ORDER BY featured DESC, created_at DESC`; break;
+      case "bestselling": sql += ` ORDER BY stock ASC, created_at DESC`; break;
+      case "top_rated": sql += ` ORDER BY rating DESC`; break;
+      case "new": sql += ` ORDER BY created_at DESC`; break;
       default: sql += ` ORDER BY created_at DESC`;
     }
 

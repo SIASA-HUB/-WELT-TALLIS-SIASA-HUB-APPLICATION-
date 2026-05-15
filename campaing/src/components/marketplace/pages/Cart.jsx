@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
+import axios from "axios";
 import TextInput from "../components/TextInput";
 import Button from "../components/Button";
 import { getCart, addToCart, updateCartItem, removeFromCart, placeOrder } from "../components/api"; // adjust path as needed
@@ -294,12 +295,11 @@ const InputLabel = styled.label`
 const Cart = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const { clearCart: clearContext, addToCart: addToContext, removeFromCart: removeFromContext } = useCart();
+  const { cartItems, clearCart: clearContext, addToCart: addToContext, removeFromCart: removeFromContext, updateQuantity } = useCart();
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(false);
-  const [cartItems, setCartItems] = useState([]);
   const [buttonLoad, setButtonLoad] = useState(false);
-  const [summary, setSummary] = useState({ subtotal: 0, shipping: 0, total: 0 });
+  const [backendSummary, setBackendSummary] = useState({ subtotal: 0, shipping: 0, total: 0 });
 
   const [deliveryDetails, setDeliveryDetails] = useState({
     firstName: "",
@@ -327,22 +327,11 @@ const Cart = () => {
     setLoading(true);
     try {
       const response = await getCart();
-      // The response is already the data from your API: { success, data, summary }
-      // (assuming the api instance unwraps axios.data)
-      if (response?.success === true && Array.isArray(response.data)) {
-        setCartItems(response.data);
-        setSummary(response.summary || { subtotal: 0, shipping: 0, total: 0 });
-      } else if (Array.isArray(response)) {
-        // fallback if response is directly the array
-        setCartItems(response);
-      } else {
-        console.warn("Unexpected cart response:", response);
-        setCartItems([]);
+      if (response?.success === true) {
+        setBackendSummary(response.summary || { subtotal: 0, shipping: 0, total: 0 });
       }
     } catch (error) {
       console.error("Error fetching cart:", error);
-      toast.error("Could not load cart. Please try again.");
-      setCartItems([]);
     } finally {
       setLoading(false);
     }
@@ -387,6 +376,8 @@ const Cart = () => {
 
 
 
+  const [paymentMethod, setPaymentMethod] = useState("mpesa");
+
   const placeOrderHandler = async () => {
     if (
       !deliveryDetails.firstName ||
@@ -411,37 +402,94 @@ const Cart = () => {
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
       const userId = user?.user_id || user?.id || userData?.user_id || null;
 
-      console.log("User from auth:", user);
-      console.log("User from localStorage:", userData);
-      console.log("Final userId being sent:", userId);
-
-      const totalAmount = summary.total || calculateSubtotal();
+      const totalAmount = calculateSubtotal();
 
       const orderDetails = {
-        userId: userId,  // Now correctly includes USR-cb90a8db-afc9
+        userId: userId,
         guestName: `${deliveryDetails.firstName} ${deliveryDetails.lastName}`,
         guestEmail: deliveryDetails.emailAddress,
         guestPhone: deliveryDetails.phoneNumber,
         address: deliveryDetails.completeAddress,
         totalAmount,
-        payment_method: "cod",
+        payment_method: paymentMethod,
         items: cartItems.map((item) => ({
-          productId: item.product_id,
-          name: item.name,
+          productId: item.product_id || item.id,
+          name: item.name || item.title,
           quantity: item.quantity,
           price: getPrice(item),
         })),
       };
 
-      console.log("Placing order with details:", orderDetails);
-      await placeOrder(token, orderDetails);
+      toast.info("Placing your order...");
+      const orderRes = await placeOrder(token, orderDetails);
+      
+      if (!orderRes?.success) {
+        throw new Error(orderRes?.message || "Failed to place order");
+      }
+
+      const orderId = orderRes.data?.id;
+
+      // If M-Pesa, trigger STK Push and POLL
+      if (paymentMethod === "mpesa") {
+        try {
+          toast.info("Initiating M-Pesa payment... Please check your phone.");
+          
+          // Call marketplace payment endpoint
+          const API_MARKETPLACE = `${localStorage.getItem('VITE_API_URL') || '/api/v1'}/marketplace`;
+          const mpesaRes = await axios.post(`${API_MARKETPLACE}/payments/mpesa/stkpush`, {
+            orderId: orderId,
+            phoneNumber: deliveryDetails.phoneNumber.startsWith('254') ? deliveryDetails.phoneNumber : '254' + deliveryDetails.phoneNumber.replace(/^0/, '')
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (mpesaRes.data?.success) {
+            const checkoutId = mpesaRes.data.data.checkoutRequestId;
+            
+            // Polling for status
+            let attempts = 0;
+            const pollInterval = setInterval(async () => {
+              attempts++;
+              try {
+                const statusRes = await axios.get(`${API_MARKETPLACE}/payments/status/${checkoutId}`);
+                if (statusRes.data?.status === "paid") {
+                  clearInterval(pollInterval);
+                  toast.success("Payment successful! Order confirmed.");
+                  clearContext();
+                  navigate("/marketplace");
+                } else if (statusRes.data?.status === "failed") {
+                  clearInterval(pollInterval);
+                  toast.error("Payment failed. Please try again.");
+                }
+              } catch (e) {
+                console.error("Polling error:", e);
+              }
+
+              if (attempts >= 20) {
+                clearInterval(pollInterval);
+                toast.warn("Payment verification is taking longer than usual. We'll update your order status soon.");
+                navigate("/marketplace");
+              }
+            }, 5000);
+            
+            return; // Exit handler, polling will handle navigation
+          } else {
+             throw new Error(mpesaRes.data?.message || "Failed to initiate M-Pesa payment");
+          }
+        } catch (stkErr) {
+          console.error("STK Push error:", stkErr);
+          toast.error("M-Pesa initiation failed: " + (stkErr.response?.data?.message || stkErr.message));
+          return;
+        }
+      }
+
+      // For non-mpesa or if already paid (unlikely here)
       toast.success("Order placed successfully!");
-      setCartItems([]);
-      setReload(!reload);
+      clearContext();
       navigate("/marketplace");
     } catch (error) {
       console.error("Order error:", error);
-      toast.error(error.response?.data?.message || "Failed to place order. Please try again.");
+      toast.error(error.response?.data?.message || error.message || "Failed to place order. Please try again.");
     } finally {
       setButtonLoad(false);
     }
@@ -454,7 +502,10 @@ const Cart = () => {
     }
   };
 
-  if (!isAuthenticated) {
+  // Updated auth check: check context state OR direct token/registration flag
+  const loggedIn = isAuthenticated || (localStorage.getItem("isRegistered") === "true") || !!localStorage.getItem("access_token");
+
+  if (!loggedIn) {
     return (
       <Container>
         <EmptyCart>
@@ -464,7 +515,7 @@ const Cart = () => {
           <Button
             text="Go to Login"
             onClick={() => navigate("/login")}
-            style={{ background: "#e11d48", border: "none" }}
+            style={{ background: "#1a1a2e", border: "none" }}
           />
         </EmptyCart>
       </Container>
@@ -554,7 +605,7 @@ const Cart = () => {
                     <CartItemRow key={item.id}>
                       <ProductInfo>
                         <ProductImage
-                          src={item.image || "https://via.placeholder.com/80"}
+                          src={item.image || "https://ui-avatars.com/api/?name=P&background=1e3c72&color=fff"}
                           alt={item.name}
                         />
                         <ProductDetails>
@@ -666,7 +717,7 @@ const Cart = () => {
                       {cartItems.reduce((acc, i) => acc + (i.quantity || 0), 0)} items)
                     </span>
                     <span>
-                      KES {summary.subtotal?.toLocaleString() || calculateSubtotal().toLocaleString()}
+                      KES {calculateSubtotal().toLocaleString()}
                     </span>
                   </SummaryRow>
 
@@ -682,9 +733,39 @@ const Cart = () => {
                   <SummaryRow total>
                     <span>Total</span>
                     <span>
-                      KES {summary.total?.toLocaleString() || calculateSubtotal().toLocaleString()}
+                      KES {calculateSubtotal().toLocaleString()}
                     </span>
                   </SummaryRow>
+
+                  <div style={{ marginTop: '10px' }}>
+                    <SectionTitle style={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '14px' }}>
+                      Payment Method
+                    </SectionTitle>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <label style={{ flex: 1, cursor: 'pointer' }}>
+                        <input 
+                          type="radio" 
+                          name="payment" 
+                          value="mpesa" 
+                          checked={paymentMethod === 'mpesa'} 
+                          onChange={() => setPaymentMethod('mpesa')}
+                          style={{ marginRight: '8px' }}
+                        />
+                        <span style={{ fontSize: '13px', color: paymentMethod === 'mpesa' ? '#fff' : '#94a3b8' }}>M-Pesa</span>
+                      </label>
+                      <label style={{ flex: 1, cursor: 'pointer' }}>
+                        <input 
+                          type="radio" 
+                          name="payment" 
+                          value="cod" 
+                          checked={paymentMethod === 'cod'} 
+                          onChange={() => setPaymentMethod('cod')}
+                          style={{ marginRight: '8px' }}
+                        />
+                        <span style={{ fontSize: '13px', color: paymentMethod === 'cod' ? '#fff' : '#94a3b8' }}>Cash</span>
+                      </label>
+                    </div>
+                  </div>
 
                   <Button
                     text={buttonLoad ? "Processing..." : "Place Order"}

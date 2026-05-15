@@ -5,6 +5,7 @@ const Logger = require("../utils/logger/logger");
 const getCart = async (req, res) => {
   try {
     const userId = req.userId || req.query.userId;
+    Logger.info(`[CART] Fetching cart for userId: ${userId}`);
     
     if (!userId) {
       return res
@@ -47,6 +48,7 @@ const addToCart = async (req, res) => {
   try {
     const userId = req.userId || req.body.userId;
     const { productId, quantity = 1 } = req.body;
+    Logger.info(`[CART] Adding to cart: userId=${userId}, productId=${productId}, quantity=${quantity}`);
 
     if (!userId || !productId) {
       return res

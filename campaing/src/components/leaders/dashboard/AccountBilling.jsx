@@ -1,915 +1,397 @@
-// AccountBillingSection.js - Real Backend Integration with M-Pesa STK Push
-import React, { useState, useEffect } from "react";
+// AccountBilling.jsx - Premium Billing with STK Push Polling
+import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck,
-  Smartphone,
-  BarChart3,
-  Rocket,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  TrendingUp,
-  CreditCard,
-  Zap,
-  ChevronRight,
-  Lock,
-  Sparkles,
-  X,
-  Loader,
+  ShieldCheck, Smartphone, BarChart3, Rocket, CheckCircle2,
+  AlertCircle, Zap, Lock, Sparkles, X, Loader2, Receipt,
+  CheckCheck, RefreshCw, Phone
 } from "lucide-react";
 import api from "../../../api/api";
 
-// --- Animations ---
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
+const fadeIn = keyframes`from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); }`;
+const pulseGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
 `;
 
-const spin = keyframes`
-  to { transform: rotate(360deg); }
-`;
-
-// --- Pricing Data (Based on Founder's Directive) ---
-const PRICING = {
-  president: {
-    verification: 250000,
-    analytics: { monthly: 416667, yearly: 5000000 },
-    boost: 200000,
-    leaderboard: 100000,
-  },
-  governor: {
-    verification: 70000,
-    analytics: { monthly: 15000, yearly: 100000 },
-    boost: 50000,
-    leaderboard: 15000,
-  },
-  senator: {
-    verification: 50000,
-    analytics: { monthly: 15000, yearly: 100000 },
-    boost: 5000,
-    leaderboard: 15000,
-  },
-  mp: {
-    verification: 60000,
-    analytics: { monthly: 15000, yearly: 100000 },
-    boost: 5000,
-    leaderboard: 15000,
-  },
-  womenRep: {
-    verification: 20000,
-    analytics: { monthly: 1000, yearly: 8000 },
-    boost: 2000,
-    leaderboard: 10000,
-  },
-  mca: {
-    verification: 10000,
-    analytics: { monthly: 1000, yearly: 8000 },
-    boost: 1000,
-    leaderboard: 5000,
-  },
+const T = {
+  primary: "#1e3c72", light: "#2a5298", accent: "#E11D48",
+  bg: "#f8fafc", card: "#ffffff", surface: "#f1f5f9",
+  border: "rgba(0,0,0,0.07)", text: "#0f172a", muted: "#64748b",
+  success: "#10B981", warning: "#F59E0B", error: "#EF4444",
 };
 
-// --- Styled Components ---
-const Container = styled.div`
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
-  background: #f5f7fa;
-  min-height: 100vh;
-  animation: ${fadeInUp} 0.3s ease-out;
-`;
+const PRICING = {
+  president: { verification: 250000, analytics: 416667, boost: 200000 },
+  governor:  { verification: 70000,  analytics: 15000,  boost: 50000  },
+  senator:   { verification: 50000,  analytics: 15000,  boost: 5000   },
+  mp:        { verification: 60000,  analytics: 15000,  boost: 5000   },
+  womenRep:  { verification: 20000,  analytics: 1000,   boost: 2000   },
+  mca:       { verification: 10000,  analytics: 1000,   boost: 1000   },
+};
 
-const Header = styled.div`
-  margin-bottom: 32px;
-`;
+const Wrap = styled.div`max-width: 1100px; margin: 0 auto; padding: 32px 20px; animation: ${fadeIn} 0.4s ease;`;
 
-const TitleSection = styled.div`
-  h1 {
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0 0 4px;
-    color: #1a1a2e;
-    letter-spacing: -0.3px;
-  }
-  p {
-    margin: 0;
-    color: #6c757d;
-    font-size: 13px;
-  }
-`;
-
-const PositionCard = styled.div`
-  background: white;
-  border-radius: 16px;
-  padding: 16px 20px;
-  margin-bottom: 32px;
-  border: 1px solid #e9ecef;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+const PageHead = styled.div`
+  margin-bottom: 36px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
   flex-wrap: wrap;
-  gap: 16px;
-
-  .title {
-    font-size: 13px;
-    color: #6c757d;
-    margin-bottom: 4px;
-  }
-
-  .position {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1a1a2e;
-  }
+  h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; color: ${T.text}; }
+  p  { color: ${T.muted}; font-size: 14px; margin: 0; }
 `;
 
-const BillingToggle = styled.div`
-  display: flex;
-  gap: 8px;
-  background: #f1f3f5;
-  padding: 4px;
-  border-radius: 40px;
-  width: fit-content;
-  margin-bottom: 24px;
+const PosTag = styled.div`
+  background: #eff6ff; border: 1px solid #bfdbfe; padding: 7px 14px; border-radius: 100px;
+  font-size: 13px; font-weight: 700; color: ${T.primary};
+  display: flex; align-items: center; gap: 6px;
 `;
 
-const ToggleButton = styled.button`
-  padding: 8px 24px;
-  border-radius: 40px;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  background: ${(props) => (props.active ? "white" : "transparent")};
-  color: ${(props) => (props.active ? "#1e3c72" : "#6c757d")};
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: ${(props) =>
-    props.active ? "0 1px 3px rgba(0,0,0,0.05)" : "none"};
-
-  &:hover {
-    color: #1e3c72;
-  }
+const Grid = styled.div`
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px; margin-bottom: 40px;
 `;
 
-const ServicesGrid = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
+const PlanCard = styled(motion.div)`
+  background: ${T.card}; border: 1px solid ${T.border}; border-radius: 22px;
+  padding: 26px; display: flex; flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: border-color .25s, box-shadow .25s;
+  &:hover { border-color: ${T.primary}; box-shadow: 0 10px 28px rgba(30,60,114,0.1); }
 `;
 
-const ServiceCard = styled.div`
-  background: white;
-  border-radius: 20px;
-  border: 1px solid #e9ecef;
-  overflow: hidden;
-  transition: all 0.2s;
-
-  &:hover {
-    border-color: #1e3c72;
-  }
+const PIcon = styled.div`
+  width: 48px; height: 48px; background: ${T.surface}; border: 1px solid ${T.border};
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  color: ${T.primary}; margin-bottom: 18px;
 `;
 
-const ServiceHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: #fafbfc;
-  border-bottom: 1px solid #e9ecef;
+const PName = styled.h3`font-size: 17px; font-weight: 800; color: ${T.text}; margin: 0 0 4px;`;
+const PDesc = styled.p`font-size: 12px; color: ${T.muted}; margin: 0 0 16px; line-height: 1.5;`;
 
-  @media (max-width: 640px) {
-    flex-wrap: wrap;
-  }
+const PPrice = styled.div`
+  margin-bottom: 16px;
+  .amt { font-size: 26px; font-weight: 900; color: ${T.primary}; }
+  .per { font-size: 12px; color: ${T.muted}; margin-left: 4px; }
 `;
 
-const IconBox = styled.div`
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #f1f3f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #1e3c72;
+const Features = styled.div`display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; flex: 1;`;
+const Feat = styled.div`
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: ${T.muted};
+  svg { color: ${T.success}; flex-shrink: 0; }
 `;
 
-const ServiceInfo = styled.div`
-  flex: 1;
-
-  h3 {
-    margin: 0 0 4px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #1a1a2e;
-  }
-
-  p {
-    margin: 0;
-    font-size: 12px;
-    color: #6c757d;
-  }
+const PayBtn = styled(motion.button)`
+  width: 100%; padding: 13px; background: ${T.primary}; color: white;
+  border: none; border-radius: 12px; font-size: 14px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  &:hover { background: ${T.light}; }
 `;
 
-const PriceTag = styled.div`
-  text-align: right;
-
-  .amount {
-    font-size: 22px;
-    font-weight: 700;
-    color: #1a1a2e;
-  }
-
-  .period {
-    font-size: 11px;
-    color: #6c757d;
-  }
-
-  @media (max-width: 640px) {
-    text-align: left;
-  }
+const TxTable = styled.div`
+  background: ${T.card}; border: 1px solid ${T.border};
+  border-radius: 22px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 `;
 
-const ServiceBody = styled.div`
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+const TxHead = styled.div`
+  padding: 18px 22px; border-bottom: 1px solid ${T.border};
+  display: flex; justify-content: space-between; align-items: center;
+  background: ${T.surface};
+  h2 { font-size: 16px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; color: ${T.text}; }
 `;
 
-const Features = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+const TxRow = styled.div`
+  padding: 13px 22px;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  border-bottom: 1px solid #f1f5f9; align-items: center; font-size: 13px;
+  &:last-child { border-bottom: none; }
 `;
 
-const Feature = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #495057;
-
-  svg {
-    width: 14px;
-    height: 14px;
-    color: #10b981;
-  }
+const SBadge = styled.span`
+  padding: 3px 9px; border-radius: 100px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  background: ${p => p.$s === 'completed' ? 'rgba(16,185,129,.1)' : p.$s === 'pending' ? 'rgba(245,158,11,.1)' : 'rgba(239,68,68,.1)'};
+  color:      ${p => p.$s === 'completed' ? T.success : p.$s === 'pending' ? T.warning : T.error};
 `;
 
-const PayButton = styled.button`
-  padding: 10px 24px;
-  background: #1e3c72;
-  color: white;
-  border: none;
-  border-radius: 40px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #152c54;
-    transform: translateY(-1px);
-  }
-
-  &:disabled {
-    background: #adb5bd;
-    cursor: not-allowed;
-    transform: none;
-  }
+// Modal
+const Overlay = styled(motion.div)`
+  position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(8px);
+  z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
 `;
 
-const TransactionSection = styled.div`
-  background: white;
-  border-radius: 20px;
-  border: 1px solid #e9ecef;
-  overflow: hidden;
-  margin-top: 8px;
-`;
-
-const SectionHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: #fafbfc;
-  border-bottom: 1px solid #e9ecef;
-
-  h4 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a1a2e;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-`;
-
-const TransactionRow = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 1fr;
-  padding: 12px 20px;
-  border-bottom: 1px solid #f1f3f5;
-  font-size: 13px;
-
-  &:hover {
-    background: #fafbfc;
-  }
-
-  .service {
-    font-weight: 500;
-    color: #1a1a2e;
-  }
-  .date {
-    color: #6c757d;
-  }
-  .ref {
-    color: #6c757d;
-    font-family: monospace;
-    font-size: 11px;
-  }
-  .amount {
-    text-align: right;
-    font-weight: 600;
-    color: #1e3c72;
-  }
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 48px;
-  color: #adb5bd;
-
-  svg {
-    margin-bottom: 12px;
-    opacity: 0.5;
-  }
-`;
-
-// Payment Modal
-const PaymentModal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: ${fadeInUp} 0.2s ease;
-`;
-
-const ModalContent = styled.div`
-  background: white;
-  border-radius: 20px;
-  max-width: 400px;
-  width: 90%;
-  padding: 24px;
-  text-align: center;
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-
-  h3 {
-    margin: 0;
-    font-size: 18px;
-    color: #1a1a2e;
-  }
-
-  button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6c757d;
-  }
+const Modal = styled(motion.div)`
+  background: white; border-radius: 28px; width: 100%; max-width: 400px;
+  padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,.15);
 `;
 
 const PhoneInput = styled.input`
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  font-size: 14px;
-  margin: 16px 0;
-  text-align: center;
+  width: 100%; background: ${T.surface}; border: 1.5px solid ${T.border};
+  border-radius: 12px; padding: 13px 16px; color: ${T.text}; font-size: 16px;
+  text-align: center; box-sizing: border-box; margin-bottom: 16px;
+  &:focus { outline: none; border-color: ${T.primary}; background: white; }
+  &::placeholder { color: ${T.muted}; }
+`;
 
-  &:focus {
-    outline: none;
-    border-color: #1e3c72;
+const StatusBox = styled.div`
+  padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 18px;
+  background: ${p => p.$t === 'success' ? 'rgba(16,185,129,.08)' : p.$t === 'error' ? 'rgba(239,68,68,.08)' : 'rgba(30,60,114,.06)'};
+  border: 1px solid ${p => p.$t === 'success' ? 'rgba(16,185,129,.2)' : p.$t === 'error' ? 'rgba(239,68,68,.2)' : 'rgba(30,60,114,.15)'};
+  .iw {
+    width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: ${p => p.$t === 'success' ? '#dcfce7' : p.$t === 'error' ? '#fee2e2' : '#dbeafe'};
+    animation: ${p => p.$t === 'waiting' ? pulseGlow : 'none'} 2s infinite;
   }
+  .title { font-size: 15px; font-weight: 800; color: ${T.text}; margin-bottom: 6px; }
+  .desc  { font-size: 12px; color: ${T.muted}; line-height: 1.5; }
 `;
 
-const StatusMessage = styled.div`
-  padding: 12px;
-  border-radius: 12px;
-  margin: 16px 0;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: center;
-  background: ${(props) =>
-    props.$type === "success"
-      ? "#d4edda"
-      : props.$type === "error"
-        ? "#f8d7da"
-        : "#e8f4fd"};
-  color: ${(props) =>
-    props.$type === "success"
-      ? "#155724"
-      : props.$type === "error"
-        ? "#721c24"
-        : "#1e3c72"};
-`;
+const Spinner = styled(Loader2)`animation: ${spin} 1s linear infinite;`;
 
-const Spinner = styled.div`
-  width: 20px;
-  height: 20px;
-  border: 2px solid #e9ecef;
-  border-top-color: #1e3c72;
-  border-radius: 50%;
-  animation: ${spin} 0.6s linear infinite;
-  display: inline-block;
-`;
-
-const getPositionKey = (position) => {
-  const pos = position?.toLowerCase() || "";
-  if (pos.includes("president")) return "president";
-  if (pos.includes("governor")) return "governor";
-  if (pos.includes("senator")) return "senator";
-  if (pos.includes("mp") || pos.includes("member of parliament")) return "mp";
-  if (pos.includes("women rep") || pos.includes("woman rep")) return "womenRep";
-  return "mca";
-};
-
-const formatPrice = (price) => {
-  if (price >= 1000000) return `${(price / 1000000).toFixed(0)}M`;
-  if (price >= 1000) return `${(price / 1000).toFixed(0)}K`;
-  return price.toString();
-};
-
+// ===================== MAIN COMPONENT =====================
 const AccountBillingSection = ({ leader = null }) => {
-  const [billingCycle, setBillingCycle] = useState("monthly");
-  const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedService, setSelectedService] = useState(null);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [txLoading, setTxLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState("input"); // input | loading | waiting | success | error
+  const [msg, setMsg] = useState("");
+  const pollRef = useRef(null);
 
-  const positionKey = getPositionKey(leader?.position);
-  const pricing = PRICING[positionKey] || PRICING.mca;
+  const posKey = (leader?.position || "").toLowerCase().includes("president") ? "president"
+    : (leader?.position || "").toLowerCase().includes("governor") ? "governor"
+    : (leader?.position || "").toLowerCase().includes("senator") ? "senator"
+    : (leader?.position || "").toLowerCase().includes("mp") ? "mp"
+    : (leader?.position || "").toLowerCase().includes("women") ? "womenRep"
+    : "mca";
+  const pr = PRICING[posKey] || PRICING.mca;
 
   useEffect(() => {
-    // Try to get user data from localStorage (multiple possible keys)
-    const userData = localStorage.getItem("user_data") ||
-      localStorage.getItem("leaderData") ||
-      localStorage.getItem("aspirant_data");
-
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUser(user);
-        // Set default phone number from user data if available
-        if (user.phone || user.phoneNumber) {
-          setPhoneNumber(user.phone || user.phoneNumber);
-        }
-        const userId = user.user_id || user.id || user._id || user.leader_id;
-        if (userId) {
-          fetchTransactions(userId);
-        }
-      } catch (e) {
-        console.error("Error parsing user data:", e);
-      }
-    }
+    const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+    if (u.phone) setPhone(u.phone.replace(/^\+?0?/, "254"));
+    fetchTx();
   }, []);
 
-  const fetchTransactions = async (userId) => {
+  const fetchTx = async () => {
+    setTxLoading(true);
     try {
-      // Using centralized API - the interceptor handles response.data extraction
-      const response = await api.get(`/wallet/transactions/${userId}?limit=10`);
-      // api interceptor already returns response.data, so response is the data object
-      if (response?.success) {
-        setTransactions(response.data || []);
-      } else if (Array.isArray(response)) {
-        setTransactions(response);
-      } else {
-        setTransactions([]);
+      const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const uid = u.leader_id || u.user_id || u.id;
+      if (uid) {
+        const res = await api.get(`/wallet/transactions/${uid}`);
+        if (res?.success) setTransactions(res.data || []);
       }
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-      setTransactions([]);
-    }
+    } catch { /* silent */ } finally { setTxLoading(false); }
   };
 
-  const handlePaymentClick = (service, amount) => {
-    if (!currentUser) {
-      alert("Please log in to make a payment");
-      return;
-    }
-    setSelectedService({ name: service, amount });
-    setShowPaymentModal(true);
-    setPaymentStatus(null);
+  const openModal = (svc) => {
+    setSelected(svc); setStep("input"); setMsg("");
+    setShowModal(true);
+    if (pollRef.current) clearInterval(pollRef.current);
   };
 
-  const processMpesaPayment = async () => {
-    if (!phoneNumber || phoneNumber.length < 10) {
-      setPaymentStatus({
-        type: "error",
-        message: "Please enter a valid phone number (e.g., 2547XXXXXXXX)",
-      });
-      return;
-    }
+  const closeModal = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setShowModal(false);
+    if (step === "success") fetchTx();
+  };
 
-    setPaymentLoading(true);
-    setPaymentStatus(null);
-
-    try {
-      // Format phone number (ensure it starts with 254)
-      let formattedPhone = phoneNumber.replace(/\s/g, "");
-      if (formattedPhone.startsWith("0")) {
-        formattedPhone = "254" + formattedPhone.substring(1);
-      }
-      if (!formattedPhone.startsWith("254")) {
-        formattedPhone = "254" + formattedPhone;
-      }
-
-      const userId = currentUser.user_id || currentUser.id || currentUser._id || currentUser.leader_id;
-      const leaderId = leader?.leader_id || leader?.id || userId;
-
-      // Call STK Push endpoint via centralized api
-      const response = await api.post("/wallet/mpesa/stkpush", {
-        phoneNumber: formattedPhone,
-        amount: selectedService.amount,
-        accountReference: selectedService.name.substring(0, 12),
-        userId: userId,
-        leader_id: leaderId,
-      });
-
-      if (response?.success) {
-        setPaymentStatus({
-          type: "success",
-          message: response.message || "Payment initiated! Check your phone for M-Pesa prompt.",
-        });
-
-        // Poll for transaction status
-        const checkoutRequestId = response.data?.checkoutRequestId;
-        if (checkoutRequestId) {
-          const checkInterval = setInterval(async () => {
-            try {
-              const statusRes = await api.get(`/wallet/status/${checkoutRequestId}`);
-              if (statusRes?.success && statusRes.data?.status === "completed") {
-                clearInterval(checkInterval);
-                setPaymentStatus({
-                  type: "success",
-                  message: "Payment successful! Service activated.",
-                });
-                // Refresh transactions
-                if (userId) {
-                  await fetchTransactions(userId);
-                }
-                setTimeout(() => {
-                  setShowPaymentModal(false);
-                  setSelectedService(null);
-                  setPhoneNumber("");
-                }, 2000);
-              } else if (statusRes?.success && statusRes.data?.status === "failed") {
-                clearInterval(checkInterval);
-                setPaymentStatus({
-                  type: "error",
-                  message: "Payment failed or cancelled.",
-                });
-              }
-            } catch (err) {
-              console.error("Error checking payment status:", err);
-            }
-          }, 3000);
-
-          // Stop polling after 60 seconds
-          setTimeout(() => {
-            clearInterval(checkInterval);
-          }, 60000);
+  const startPolling = (txId) => {
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await api.get(`/wallet/status/${txId}`);
+        if (res?.data?.status === "completed") {
+          clearInterval(pollRef.current);
+          setStep("success"); setMsg("Payment confirmed! Service activated.");
+          fetchTx();
+        } else if (res?.data?.status === "failed") {
+          clearInterval(pollRef.current);
+          setStep("error"); 
+          // Extract the failure reason from the description, e.g., "M-Pesa STK Push to 254... | Request cancelled by user"
+          const failReason = res.data.description?.split('|').pop()?.trim() || "Transaction Failed or Cancelled.";
+          setMsg(failReason);
         }
-      } else {
-        setPaymentStatus({
-          type: "error",
-          message: response?.message || "Payment failed. Please try again.",
-        });
+      } catch { /* silent */ }
+      if (attempts >= 18) {
+        clearInterval(pollRef.current);
+        setStep("error"); setMsg("STK Push Timed Out. Please try again.");
       }
-    } catch (error) {
-      console.error("Payment error:", error);
-      setPaymentStatus({
-        type: "error",
-        message: error.response?.data?.message || error.message || "Payment failed. Please check your phone number and try again.",
+    }, 5000);
+  };
+
+  const handlePay = async () => {
+    if (!phone || phone.length < 9) { setMsg("Enter a valid M-Pesa number."); return; }
+    if (selected.price > 150000) {
+      setStep("error");
+      setMsg("M-Pesa STK Push limit is KES 150,000. Please contact support or use manual Paybill for larger payments.");
+      return;
+    }
+    setStep("loading"); setMsg("");
+    try {
+      const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const formatted = phone.startsWith("0") ? "254" + phone.slice(1)
+        : phone.startsWith("+") ? phone.slice(1) : phone;
+      const res = await api.post("/wallet/mpesa/stkpush", {
+        phoneNumber: formatted, 
+        amount: selected.price,
+        accountReference: u.leader_id || u.id, // Critical for callback identification
+        userId: u.leader_id || u.user_id || u.id,
+        type: "billing",
+        origin: "billing",
       });
-    } finally {
-      setPaymentLoading(false);
+      if (res?.success) {
+        const txId = res.data?.checkoutRequestId;
+        setStep("waiting");
+        if (txId) startPolling(txId);
+      } else {
+        setStep("error"); setMsg(res?.message || "Payment initiation failed.");
+      }
+    } catch (e) {
+      setStep("error"); setMsg(e?.response?.data?.message || "Payment failed. Try again.");
     }
   };
 
   const services = [
-    {
-      id: "verification",
-      title: "Official Verification",
-      description: "Get verified badge and anti-impersonation protection",
-      price: pricing.verification,
-      period: "one-time",
-      features: [
-        "Blue verification badge",
-        "Priority search ranking",
-        "Verified filter",
-      ],
-      icon: <ShieldCheck size={22} />,
-    },
-    {
-      id: "analytics",
-      title: "Data & Analytics",
-      description: "Deep insights into voter demographics and engagement",
-      price:
-        billingCycle === "monthly"
-          ? pricing.analytics.monthly
-          : pricing.analytics.yearly,
-      period: billingCycle === "monthly" ? "month" : "year",
-      features: ["Voter demographics", "Real-time metrics", "Export reports"],
-      icon: <BarChart3 size={22} />,
-    },
-    {
-      id: "boost",
-      title: "Manifesto Boost",
-      description: "Get featured placement and increased visibility",
-      price: pricing.boost,
-      period: "month",
-      features: ["5x more visits", "Featured placement", "Priority listing"],
-      icon: <Rocket size={22} />,
-    },
-    {
-      id: "leaderboard",
-      title: "Leaderboard",
-      description: "Premium placement on national and county leaderboards",
-      price: pricing.leaderboard,
-      period: "month",
-      features: ["Top position", "Premium badge", "Increased visibility"],
-      icon: <TrendingUp size={22} />,
-    },
+    { id: "verify", title: "Official Verification", desc: "Get the verified badge and unlock premium profile visibility.", price: pr.verification, period: "one-time", icon: <ShieldCheck size={20} />, features: ["Verified badge on profile", "Priority search placement", "Credibility boost", "Trust signal for voters"] },
+    { id: "analytics", title: "Deep Analytics", desc: "Full voter demographics, reach metrics & exportable campaign data.", price: pr.analytics, period: "per month", icon: <BarChart3 size={20} />, features: ["Voter demographics", "County-level reach data", "Engagement analytics", "Excel/CSV reports"] },
+    { id: "boost", title: "Campaign Boost", desc: "Feature at top of listings & reach 5× more voters this week.", price: pr.boost, period: "per boost", icon: <Rocket size={20} />, features: ["Featured listing 7 days", "5× Visibility increase", "Social media push", "Priority placement"] },
   ];
 
   return (
-    <Container>
-      <Header>
-        <TitleSection>
-          <h1>Campaign Services</h1>
-          <p>
-            Premium features to boost your campaign • Pay directly with M-Pesa
-          </p>
-        </TitleSection>
-      </Header>
-
-      {/* Position Display */}
-      <PositionCard>
+    <Wrap>
+      <PageHead>
         <div>
-          <div className="title">Your Position</div>
-          <div className="position">{leader?.position || "MCA"}</div>
+          <h1>Campaign Billing</h1>
+          <p>Manage your premium services and campaign tools.</p>
         </div>
-        <div
-          style={{
-            fontSize: "12px",
-            color: "#10b981",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          <CheckCircle2 size={14} />
-          Auto-detected
-        </div>
-      </PositionCard>
+        <PosTag><Sparkles size={13} /> {leader?.position || "Candidate"} Level</PosTag>
+      </PageHead>
 
-      {/* Billing Toggle */}
-      <BillingToggle>
-        <ToggleButton
-          active={billingCycle === "monthly"}
-          onClick={() => setBillingCycle("monthly")}
-        >
-          Monthly
-        </ToggleButton>
-        <ToggleButton
-          active={billingCycle === "yearly"}
-          onClick={() => setBillingCycle("yearly")}
-        >
-          Yearly <span style={{ fontSize: "10px" }}>(Save 20%)</span>
-        </ToggleButton>
-      </BillingToggle>
-
-      {/* Services List */}
-      <ServicesGrid>
-        {services.map((service) => (
-          <ServiceCard key={service.id}>
-            <ServiceHeader>
-              <IconBox>{service.icon}</IconBox>
-              <ServiceInfo>
-                <h3>{service.title}</h3>
-                <p>{service.description}</p>
-              </ServiceInfo>
-              <PriceTag>
-                <div className="amount">KES {formatPrice(service.price)}</div>
-                <div className="period">/{service.period}</div>
-              </PriceTag>
-            </ServiceHeader>
-            <ServiceBody>
-              <Features>
-                {service.features.map((feature, idx) => (
-                  <Feature key={idx}>
-                    <CheckCircle2 size={12} />
-                    {feature}
-                  </Feature>
-                ))}
-              </Features>
-              <PayButton
-                onClick={() => handlePaymentClick(service.title, service.price)}
-                disabled={loading}
-              >
-                <Smartphone size={14} />
-                Pay with M-Pesa
-                <ChevronRight size={14} />
-              </PayButton>
-            </ServiceBody>
-          </ServiceCard>
+      <Grid>
+        {services.map(s => (
+          <PlanCard key={s.id} whileHover={{ y: -5 }}>
+            <PIcon>{s.icon}</PIcon>
+            <PName>{s.title}</PName>
+            <PDesc>{s.desc}</PDesc>
+            <PPrice>
+              <span className="amt">KES {s.price.toLocaleString()}</span>
+              <span className="per">/{s.period}</span>
+            </PPrice>
+            <Features>
+              {s.features.map(f => (
+                <Feat key={f}><CheckCircle2 size={14} />{f}</Feat>
+              ))}
+            </Features>
+            <PayBtn whileTap={{ scale: 0.97 }} onClick={() => openModal(s)}>
+              <Smartphone size={16} /> Pay with M-Pesa
+            </PayBtn>
+          </PlanCard>
         ))}
-      </ServicesGrid>
+      </Grid>
 
-      {/* Payment Info Note */}
-      <div
-        style={{
-          background: "#e8f4fd",
-          padding: "12px 16px",
-          borderRadius: "12px",
-          marginBottom: "24px",
-          fontSize: "12px",
-          color: "#1e3c72",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <Lock size={14} />
-        <span>
-          Secure M-Pesa payments. You'll receive a prompt on your phone to
-          complete payment.
-        </span>
-      </div>
-
-      {/* Transactions */}
-      <TransactionSection>
-        <SectionHeader>
-          <h4>
-            <Clock size={14} /> Recent Payments
-          </h4>
-          <span style={{ fontSize: "11px", color: "#6c757d" }}>
-            Last 10 transactions
-          </span>
-        </SectionHeader>
-
-        {transactions.length === 0 ? (
-          <EmptyState>
-            <CreditCard size={28} />
-            <p>No transactions yet</p>
-            <p style={{ fontSize: "11px", marginTop: "4px" }}>
-              Your payment history will appear here
-            </p>
-          </EmptyState>
-        ) : (
+      <TxTable>
+        <TxHead>
+          <h2><Receipt size={16} /> Payment History</h2>
+          <button onClick={fetchTx} style={{ background: "none", border: "none", cursor: "pointer", color: T.muted, display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+            <RefreshCw size={13} /> Refresh
+          </button>
+        </TxHead>
+        {txLoading ? (
+          <div style={{ padding: "36px", textAlign: "center", color: T.muted }}>Loading...</div>
+        ) : transactions.length > 0 ? (
           <>
-            <TransactionRow
-              style={{
-                background: "#fafbfc",
-                fontWeight: 500,
-                fontSize: "12px",
-              }}
-            >
-              <div>Service</div>
-              <div>Date</div>
-              <div>Reference</div>
-              <div style={{ textAlign: "right" }}>Amount</div>
-            </TransactionRow>
-            {transactions.map((tx, index) => (
-              <TransactionRow key={tx.id || index}>
-                <div className="service">{tx.type || "Payment"}</div>
-                <div className="date">
-                  {new Date(tx.completed_at || tx.date || Date.now()).toLocaleDateString()}
-                </div>
-                <div className="ref">{tx.transaction_id || `TXN-${tx.id || index}`}</div>
-                <div className="amount">KES {tx.amount?.toLocaleString() || 0}</div>
-              </TransactionRow>
+            <TxRow style={{ background: T.surface, fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.5px", color: T.muted }}>
+              <div>Service</div><div>Date</div><div>Amount</div><div>Status</div>
+            </TxRow>
+            {transactions.map(t => (
+              <TxRow key={t.transaction_id || t.id}>
+                <div style={{ fontWeight: 600, color: T.text }}>{t.description || "Service Payment"}</div>
+                <div style={{ color: T.muted }}>{new Date(t.created_at).toLocaleDateString("en-KE")}</div>
+                <div style={{ fontWeight: 700 }}>KES {Number(t.amount).toLocaleString()}</div>
+                <div><SBadge $s={t.status}>{t.status}</SBadge></div>
+              </TxRow>
             ))}
           </>
+        ) : (
+          <div style={{ padding: "44px", textAlign: "center", color: T.muted }}>No payment history yet.</div>
         )}
-      </TransactionSection>
+      </TxTable>
 
-      {/* Payment Modal */}
-      {showPaymentModal && selectedService && (
-        <PaymentModal onClick={() => setShowPaymentModal(false)}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <h3>M-Pesa Payment</h3>
-              <button onClick={() => setShowPaymentModal(false)}>
-                <X size={20} />
-              </button>
-            </ModalHeader>
-
-            <div style={{ marginBottom: "16px" }}>
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  marginBottom: "8px",
-                }}
-              >
-                Service
+      <AnimatePresence>
+        {showModal && (
+          <Overlay initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal}>
+            <Modal onClick={e => e.stopPropagation()} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>M-Pesa Checkout</h3>
+                <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", color: T.muted }}><X size={20} /></button>
               </div>
-              <div style={{ fontWeight: 700, fontSize: "18px" }}>
-                {selectedService.name}
+
+              <div style={{ background: T.surface, padding: "14px 18px", borderRadius: 14, marginBottom: 20, textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: T.muted }}>Paying for</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: T.text }}>{selected?.title}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: T.primary, marginTop: 4 }}>KES {selected?.price.toLocaleString()}</div>
               </div>
-              <div
-                style={{
-                  fontSize: "24px",
-                  fontWeight: 700,
-                  color: "#1e3c72",
-                  marginTop: "8px",
-                }}
-              >
-                KES {selectedService.amount.toLocaleString()}
-              </div>
-            </div>
 
-            <PhoneInput
-              type="tel"
-              placeholder="Phone Number (e.g., 254712345678)"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
+              {step === "waiting" && (
+                <StatusBox $t="waiting">
+                  <div className="iw"><Phone size={22} color={T.primary} /></div>
+                  <div className="title">Check Your Phone</div>
+                  <div className="desc">M-Pesa prompt sent to <strong>{phone}</strong>. Enter your PIN to confirm.</div>
+                </StatusBox>
+              )}
+              {step === "success" && (
+                <StatusBox $t="success">
+                  <div className="iw"><CheckCheck size={22} color={T.success} /></div>
+                  <div className="title">Payment Confirmed!</div>
+                  <div className="desc">{msg}</div>
+                </StatusBox>
+              )}
+              {step === "error" && (
+                <StatusBox $t="error">
+                  <div className="iw"><AlertCircle size={22} color={T.error} /></div>
+                  <div className="title">Payment Failed</div>
+                  <div className="desc">{msg}</div>
+                </StatusBox>
+              )}
 
-            {paymentStatus && (
-              <StatusMessage $type={paymentStatus.type}>
-                {paymentStatus.type === "success" ? (
-                  <CheckCircle2 size={16} />
-                ) : paymentStatus.type === "error" ? (
-                  <AlertCircle size={16} />
-                ) : (
-                  <Smartphone size={16} />
-                )}
-                {paymentStatus.message}
-              </StatusMessage>
-            )}
-
-            <PayButton
-              onClick={processMpesaPayment}
-              disabled={paymentLoading}
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              {paymentLoading ? (
+              {(step === "input" || step === "error") && (
                 <>
-                  <Spinner />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Smartphone size={16} />
-                  Pay KES {selectedService.amount.toLocaleString()}
+                  <label style={{ fontSize: 12, color: T.muted, marginBottom: 6, display: "block" }}>M-Pesa Phone Number</label>
+                  <PhoneInput placeholder="2547XXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)} />
+                  <PayBtn whileTap={{ scale: 0.97 }} onClick={handlePay} style={{ width: "100%", padding: 13, fontSize: 14 }}>
+                    <Smartphone size={16} /> {step === "error" ? "Try Again" : "Send STK Push"}
+                  </PayBtn>
                 </>
               )}
-            </PayButton>
 
-            <p
-              style={{
-                fontSize: "11px",
-                color: "#6c757d",
-                marginTop: "16px",
-                marginBottom: 0,
-              }}
-            >
-              You will receive an M-Pesa prompt on your phone. Enter your PIN to
-              complete payment.
-            </p>
-          </ModalContent>
-        </PaymentModal>
-      )}
-    </Container>
+              {step === "loading" && (
+                <div style={{ textAlign: "center", padding: "18px 0" }}>
+                  <Spinner size={32} color={T.primary} />
+                  <div style={{ marginTop: 10, color: T.muted, fontSize: 13 }}>Initiating M-Pesa...</div>
+                </div>
+              )}
+              {step === "waiting" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center", color: T.muted, fontSize: 11, marginTop: 8 }}>
+                  <Spinner size={12} /> Waiting for confirmation...
+                </div>
+              )}
+              {step === "success" && (
+                <PayBtn whileTap={{ scale: 0.97 }} onClick={closeModal} style={{ width: "100%", padding: 13, fontSize: 14, background: T.success, marginTop: 4 }}>
+                  <CheckCheck size={16} /> Done
+                </PayBtn>
+              )}
+
+              <div style={{ textAlign: "center", marginTop: 14, fontSize: 11, color: T.muted }}>
+                <Lock size={10} /> Secured via Safaricom M-Pesa
+              </div>
+            </Modal>
+          </Overlay>
+        )}
+      </AnimatePresence>
+    </Wrap>
   );
 };
 

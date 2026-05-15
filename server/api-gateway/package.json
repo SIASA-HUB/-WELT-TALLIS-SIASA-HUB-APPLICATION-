@@ -1,5 +1,5 @@
 {
-  "name": "leaders-service",
+  "name": "api-gateway",
   "version": "1.0.0",
   "description": "The backend API powering Siasa Hub—where Kenyans engage, approve manifestos, and shape public dialogue.",
   "main": "server.js",

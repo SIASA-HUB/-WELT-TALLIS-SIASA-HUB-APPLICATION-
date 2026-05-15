@@ -22,7 +22,7 @@ const {
   getLeaderAnalyticsByCounty, getLeaderAnalyticsByConstituency,
   getLeaderAnalyticsByWard, getLeaderAnalyticsByPosition, getLeaderDashboardAnalytics,
   requestVerification, getCompetitors, getAllLeaders, getLeaderAdminStats,
-  getAllLeadersPublic, generateSitemap,
+  getAllLeadersPublic, generateSitemap, handlePaymentCallback, handleBoostCallback
 } = require("../controllers/LeaderController");
 
 const {
@@ -52,6 +52,7 @@ const {
   trackTimeSpent,
   handleSupport,
   trackClick,
+  getSupportedLeaders,
 } = require("../controllers/InteractionController");
 
 // Apply sanitization to all routes
@@ -98,6 +99,9 @@ router.post("/:leaderId/comment", authenticate, postComment);
 // Specialized interaction tracking routes
 router.post("/:leaderId/view", optionalAuth, trackView);
 router.post("/:leaderId/share", optionalAuth, trackShare);
+router.post("/:leaderId/time-spent", optionalAuth, trackTimeSpent);
+router.post("/:leaderId/support", authenticate, handleSupport);
+router.get("/user/:userId/supported", authenticate, getSupportedLeaders);
 router.post("/:leaderId/time-spent", optionalAuth, trackTimeSpent);
 
 // ============================================================
@@ -176,5 +180,8 @@ router.delete("/:leaderId", authenticate, authorize("admin"), async (req, res) =
   const { deleteLeader } = require("../controllers/LeaderController");
   return deleteLeader(req, res);
 });
+
+router.post("/payments/callback", handlePaymentCallback);
+router.post("/boost/callback", handleBoostCallback);
 
 module.exports = router;

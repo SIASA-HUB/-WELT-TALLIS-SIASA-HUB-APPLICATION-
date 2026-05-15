@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;600;700&display=swap");
 
 
 *,
@@ -11,16 +11,24 @@
 
 html {
   scroll-behavior: smooth;
-  font-family: "Poppins", "Inter", sans-serif;
+  font-family: "Inter", "Poppins", -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
 
 body {
   min-height: 100vh;
-  background: var(--bg-main);
-  color: var(--text-main);
+  background: var(--bg-main, #ffffff);
+  color: var(--text-main, #1a1a2e);
   line-height: 1.6;
   transition: background 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
 }
 
 /* =========================
@@ -34,12 +42,12 @@ h3 {
 }
 
 p {
-  color: var(--text-muted);
+  color: var(--text-muted, #64748b);
 }
 
-
-
-body {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* =========================
+   GLOBAL OVERFLOW FIX
+========================= */
+#root {
+  overflow-x: hidden;
+}

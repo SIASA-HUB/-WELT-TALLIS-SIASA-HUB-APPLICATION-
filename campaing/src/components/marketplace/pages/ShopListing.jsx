@@ -4,6 +4,7 @@ import styled, { keyframes } from "styled-components";
 import {
   category,
   filter,
+  SEGMENTS,
 } from "../components/utils/data";
 import { Spinner, Form } from "react-bootstrap";
 import { getAllProducts } from "../components/api";
@@ -351,40 +352,51 @@ const ShopListing = () => {
   const navigate = useNavigate();
   const limit = 24;
 
-  // Helper to parse categories from URL
-  const getCategoriesFromUrl = useCallback(() => {
+  // Helper to parse URL parameters
+  const getFiltersFromUrl = useCallback(() => {
     const searchParams = new URLSearchParams(location.search);
-    const categoryParam = searchParams.get("category");
-    if (categoryParam) {
-      const match = category.find(c =>
-        c.slug.toLowerCase() === categoryParam.toLowerCase() ||
-        c.name.toLowerCase() === categoryParam.toLowerCase()
-      );
-      return match ? [match.name] : [categoryParam];
-    }
-    return [];
+    return {
+      category: searchParams.get("category"),
+      segment: searchParams.get("segment"),
+      sort: searchParams.get("sort"),
+      search: searchParams.get("search"),
+      county: searchParams.get("county"),
+      featured: searchParams.get("featured"),
+    };
   }, [location.search]);
 
   useEffect(() => {
-    const cats = getCategoriesFromUrl();
-    if (cats.length > 0) {
-      setSelectedCategories(cats);
+    const urlFilters = getFiltersFromUrl();
+    if (urlFilters.category) {
+      const match = category.find(c =>
+        c.slug.toLowerCase() === urlFilters.category.toLowerCase() ||
+        c.name.toLowerCase() === urlFilters.category.toLowerCase()
+      );
+      setSelectedCategories(match ? [match.name] : [urlFilters.category]);
     }
-  }, [getCategoriesFromUrl]);
+  }, [getFiltersFromUrl]);
+
   const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
 
     try {
+      const urlFilters = getFiltersFromUrl();
       const params = new URLSearchParams();
       params.append("limit", limit);
       params.append("offset", (pageNum - 1) * limit);
       params.append("maxPrice", priceRange);
 
       if (selectedCategories.length > 0) {
-        // Send actual names to backend, backend handles LOWER()
         params.append("categories", selectedCategories.join(","));
+      } else if (urlFilters.category) {
+        params.append("category", urlFilters.category);
       }
+
+      if (urlFilters.segment) params.append("segment", urlFilters.segment);
+      if (urlFilters.sort) params.append("sort", urlFilters.sort);
+      if (urlFilters.search) params.append("search", urlFilters.search);
+      if (urlFilters.featured) params.append("featured", urlFilters.featured);
 
       if (selectedSizes.length > 0) {
         params.append("sizes", selectedSizes.join(","));
@@ -408,7 +420,7 @@ const ShopListing = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [priceRange, selectedSizes, selectedCategories, limit]);
+  }, [priceRange, selectedSizes, selectedCategories, limit, getFiltersFromUrl]);
 
   useEffect(() => {
     // Reset page and fetch when filters change
@@ -512,8 +524,8 @@ const ShopListing = () => {
 
         <SocialProofBanner>
           <SocialProofContent>
-            <h2><Sparkles size={24} color="#e11d48" /> Gear Up for Victory</h2>
-            <p>Join thousands of supporters wearing their passion. 100% of proceeds support campaign outreach.</p>
+            <h2>🔥 Gear Up for Victory</h2>
+            <p>Join thousands of supporters wearing their passion. Premium political merchandise.</p>
           </SocialProofContent>
           <StatsGroup>
             <StatItem>

@@ -17,7 +17,7 @@ const app = express();
 // Process error handlers
 process.on("uncaughtException", (error) => {
   Logger.error("🔥 UNCAUGHT EXCEPTION", { message: error.message, stack: error.stack });
-  
+
   const isConnectionError = [
     'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'
   ].includes(error.code);
@@ -31,9 +31,9 @@ process.on("uncaughtException", (error) => {
 });
 
 process.on("unhandledRejection", (reason) => {
-  Logger.error("🌀 UNHANDLED PROMISE REJECTION", { 
+  Logger.error("🌀 UNHANDLED PROMISE REJECTION", {
     message: reason?.message || reason,
-    stack: reason?.stack 
+    stack: reason?.stack
   });
 });
 

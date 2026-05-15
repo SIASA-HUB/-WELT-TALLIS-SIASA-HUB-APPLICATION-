@@ -22,32 +22,15 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const { apiReference } = require("@scalar/express-api-reference");
-const client = require("prom-client");
+// const client = require("prom-client");
 
-// Prometheus Metrics Setup
-const register = new client.Registry();
-client.collectDefaultMetrics({ register });
-
-// Custom metrics
-const httpRequestDurationMicroseconds = new client.Histogram({
-  name: 'http_request_duration_seconds',
-  help: 'Duration of HTTP requests in microseconds',
-  labelNames: ['method', 'route', 'code'],
-  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
-});
-register.registerMetric(httpRequestDurationMicroseconds);
+// Metrics Disabled
+const register = { contentType: 'text/plain', metrics: () => Promise.resolve('') };
+const httpRequestDurationMicroseconds = { startTimer: () => () => {} };
 
 const app = express();
 
-// Metrics Middleware
-app.use((req, res, next) => {
-  const end = httpRequestDurationMicroseconds.startTimer();
-  res.on('finish', () => {
-    const route = req.route ? req.route.path : req.path;
-    end({ method: req.method, route, code: res.statusCode });
-  });
-  next();
-});
+// Metrics Middleware Disabled
 
 // Configuration
 const PORT = Number(process.env.PORT) || 8009;
@@ -55,15 +38,16 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 // Service URLs
 const SERVICES = {
-  leaders: process.env.LEADERS_SERVICE_URL || "http://localhost:8006",
-  media: process.env.MEDIA_SERVICE_URL || "http://localhost:8007",
-  rallies: process.env.RALLY_SERVICE_URL || "http://localhost:8001",
-  users: process.env.USERS_SERVICE_URL || "http://localhost:8002",
-  wallet: process.env.WALLET_SERVICE_URL || "http://localhost:8008",
-  endorsement: process.env.ENDORSEMENT_SERVICE_URL || "http://localhost:8003",
-  marketplace: process.env.MARKETPLACE_SERVICE_URL || "http://localhost:8004",
-  reaction: process.env.REACTION_SERVICE_URL || "http://localhost:8005",
-  socketio: process.env.SOCKETIO_SERVICE_URL || "http://localhost:8010",
+  leaders: (process.env.LEADERS_SERVICE_URL || "http://localhost:8006").trim(),
+  media: (process.env.MEDIA_SERVICE_URL || "http://localhost:8007").trim(),
+  rallies: (process.env.RALLY_SERVICE_URL || "http://localhost:8001").trim(),
+  users: (process.env.USERS_SERVICE_URL || "http://localhost:8002").trim(),
+  wallet: (process.env.WALLET_SERVICE_URL || "http://localhost:8008").trim(),
+  endorsement: (process.env.ENDORSEMENT_SERVICE_URL || "http://localhost:8003").trim(),
+  marketplace: (process.env.MARKETPLACE_SERVICE_URL || "http://localhost:8004").trim(),
+  reaction: (process.env.REACTION_SERVICE_URL || "http://localhost:8005").trim(),
+  socketio: (process.env.SOCKETIO_SERVICE_URL || "http://localhost:8010").trim(),
+  mpesa: (process.env.MPESA_SERVICE_URL || "http://localhost:8011").trim(),
 };
 
 
@@ -148,111 +132,70 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy generator
-const createProxy = (targetUrl) => {
-  return createProxyMiddleware({
-    target: targetUrl,
-    changeOrigin: true,
-    selfHandleResponse: false,
-    proxyTimeout: 900000,
-    timeout: 900000,
-    on: {
-      proxyReq: (proxyReq, req) => {
-
-        const parsed = new URL(req.originalUrl, 'http://localhost');
-        proxyReq.path = parsed.pathname + parsed.search;
-
-        // Forward Authorization header
-        if (req.headers.authorization) {
-          proxyReq.setHeader("Authorization", req.headers.authorization);
-        }
-        // Forward cookies (for httpOnly session tokens)
-        if (req.headers.cookie) {
-          proxyReq.setHeader("Cookie", req.headers.cookie);
-        }
-        // Forward Content-Type for POST/PUT/PATCH
-        if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.headers['content-type']) {
-          proxyReq.setHeader('Content-Type', req.headers['content-type']);
-        }
-        Logger.info(`[PROXY] ${req.method} ${req.originalUrl} → ${targetUrl}${proxyReq.path}`);
-      },
-      proxyRes: (proxyRes, req) => {
-        // Strip Secure cookie flag in dev (http, not https)
-        if (process.env.NODE_ENV !== 'production') {
-          const cookies = proxyRes.headers['set-cookie'];
-          if (cookies) {
-            proxyRes.headers['set-cookie'] = cookies.map(c =>
-              c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=None/gi, '; SameSite=Lax')
-            );
-          }
-        }
-      },
-      error: (err, req, res) => {
-        Logger.error(`[PROXY ERROR] ${req.method} ${req.originalUrl} → ${targetUrl}: ${err.message}`);
-        if (!res.headersSent) {
-          res.status(503).json({
-            success: false,
-            message: "Service temporarily unavailable — please try again",
-            path: req.originalUrl
-          });
-        }
-      }
-    }
-  });
-};
-
 // ============================================
-// UPLOADS PROXY (EACH SERVICE SERVES ITS OWN IMAGES)
+// PROXY CONFIGURATION
 // ============================================
 
-// Proxy uploads to their respective services
-app.use(["/api/v1/uploads/leaders", "/uploads/leaders"], createProxy(SERVICES.leaders));
-app.use(["/api/v1/uploads/endorsements", "/uploads/endorsements"], createProxy(SERVICES.endorsement));
-app.use(["/api/v1/uploads/marketplace", "/uploads/marketplace"], createProxy(SERVICES.marketplace));
-app.use(["/api/v1/uploads/rallies", "/uploads/rallies"], createProxy(SERVICES.rallies));
-app.use(["/api/v1/uploads/users", "/uploads/users"], createProxy(SERVICES.users));
-app.use(["/api/v1/uploads/products", "/uploads/products"], createProxy(SERVICES.marketplace));
-app.use(["/api/v1/uploads/battles", "/uploads/battles"], createProxy(SERVICES.leaders));
-
-
-// ============================================
-// SOCKET.IO PROXY (For real-time battles)
-// ============================================
-const socketProxy = createProxyMiddleware({
-  target: SERVICES.socketio,
+const proxyOptions = {
   changeOrigin: true,
-  ws: true,
-  logLevel: 'debug',
+  proxyTimeout: 90000,
+  timeout: 90000,
   on: {
     proxyReq: (proxyReq, req) => {
-      Logger.info(`[WS PROXY] ${req.method} ${req.url} → ${SERVICES.socketio}${proxyReq.path}`);
+      // Ensure headers are forwarded
+      if (req.headers.authorization) proxyReq.setHeader("Authorization", req.headers.authorization);
+      if (req.headers.cookie) proxyReq.setHeader("Cookie", req.headers.cookie);
+      
+      // Fix for POST/PUT requests with body-parser
+      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.headers['content-type']) {
+        proxyReq.setHeader('Content-Type', req.headers['content-type']);
+      }
+      
+      Logger.info(`[PROXY] ${req.method} ${req.originalUrl} → ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
     },
     error: (err, req, res) => {
-      Logger.error(`[WS PROXY ERROR] Target: ${SERVICES.socketio} - Error: ${err.message}`);
+      Logger.error(`[PROXY ERROR] ${req.method} ${req.originalUrl}: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(503).json({
+          success: false,
+          message: "Service temporarily unavailable",
+          path: req.originalUrl
+        });
+      }
     }
   }
+};
+
+// Route mapping
+const routes = [
+  { path: ["/api/v1/leaders", "/api/v1/battles", "/uploads/leaders", "/uploads/battles"], target: SERVICES.leaders },
+  { path: ["/api/v1/marketplace", "/uploads/marketplace", "/api/v1/products", "/uploads/products", "/api/v1/upload", "/api/v1/orders", "/api/v1/cart"], target: SERVICES.marketplace },
+  { path: ["/api/v1/users", "/uploads/users"], target: SERVICES.users },
+  { path: ["/api/v1/mpesa"], target: SERVICES.mpesa },
+  { path: ["/api/v1/rallies", "/uploads/rallies"], target: SERVICES.rallies },
+  { path: ["/api/v1/endorsements", "/uploads/endorsements"], target: SERVICES.endorsement },
+  { path: ["/api/v1/media", "/uploads/media"], target: SERVICES.media },
+  { path: ["/api/v1/wallet"], target: SERVICES.wallet },
+  { path: ["/api/v1/reaction", "/api/v1/reactions"], target: SERVICES.reaction },
+];
+
+// Mount proxies
+routes.forEach(route => {
+  app.use(route.path, createProxyMiddleware({
+    ...proxyOptions,
+    target: route.target,
+    pathRewrite: (path, req) => req.originalUrl, // Use originalUrl to keep full path including query
+  }));
 });
 
-// Explicitly handle /socket.io path
+// Socket.IO Proxy
+const socketProxy = createProxyMiddleware({
+  ...proxyOptions,
+  target: SERVICES.socketio,
+  ws: true,
+  logLevel: 'debug'
+});
 app.use('/socket.io', socketProxy);
-
-// ============================================
-// SERVICE PROXY ROUTES
-// ============================================
-
-app.use("/api/v1/leaders", createProxy(SERVICES.leaders));
-app.use("/api/v1/battles", createProxy(SERVICES.leaders));
-app.use("/api/v1/media", createProxy(SERVICES.media));
-app.use("/api/v1/rallies", createProxy(SERVICES.rallies));
-app.use("/api/v1/users", createProxy(SERVICES.users));
-app.use("/api/v1/wallet", createProxy(SERVICES.wallet));
-app.use("/api/v1/endorsements", createProxy(SERVICES.endorsement));
-app.use("/api/v1/products", createProxy(SERVICES.marketplace));
-app.use("/api/v1/orders", createProxy(SERVICES.marketplace));
-app.use("/api/v1/cart", createProxy(SERVICES.marketplace));
-app.use("/api/v1/upload", createProxy(SERVICES.marketplace)); // ← image upload
-app.use("/api/v1/marketplace", createProxy(SERVICES.marketplace));
-app.use("/api/v1/reactions", createProxy(SERVICES.reaction));
 
 // ============================================
 // SITEMAP.XML — Dynamic sitemap for Google crawling
@@ -375,11 +318,13 @@ app.use(
   })
 );
 
-// Metrics endpoint
+// Metrics endpoint - Disabled
+/*
 app.get("/metrics", async (req, res) => {
   res.set("Content-Type", register.contentType);
   res.end(await register.metrics());
 });
+*/
 
 // Health check
 app.get("/api/v1/health", (req, res) => {
@@ -399,12 +344,18 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const server = app.listen(PORT, HOST, () => {
-
+const server = app.listen(PORT, () => {
+  Logger.info(` API Gateway running on port ${PORT}`);
   Object.entries(SERVICES).forEach(([name, url]) => {
     console.log(`   - ${name}: ${url}`);
   });
+});
 
+// Handle WebSocket upgrades
+server.on("upgrade", (req, socket, head) => {
+  if (req.url.startsWith("/socket.io")) {
+    socketProxy.upgrade(req, socket, head);
+  }
 });
 
 // Graceful shutdown

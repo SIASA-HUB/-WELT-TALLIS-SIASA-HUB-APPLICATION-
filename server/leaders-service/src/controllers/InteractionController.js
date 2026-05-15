@@ -443,6 +443,33 @@ const trackClick = asyncHandler(async (req, res) => {
   }
 });
 
+const getSupportedLeaders = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID required" });
+  }
+
+  try {
+    const supported = await safeQuery(
+      `SELECT l.leader_id, l.name, l.county, l.constituency, l.ward, l.position, l.party, l.profile_image, l.slug, ll.created_at as joined_at
+       FROM leader_likes ll
+       JOIN leaders l ON ll.leader_id = l.leader_id
+       WHERE ll.user_id = ?
+       ORDER BY ll.created_at DESC`,
+      [userId]
+    );
+
+    res.status(200).json({
+      success: true,
+      data: Array.isArray(supported) ? supported : []
+    });
+  } catch (error) {
+    Logger.error(`Get supported leaders error: ${error.message}`);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = {
   handleInteraction,
   postComment,
@@ -453,4 +480,5 @@ module.exports = {
   trackTimeSpent,
   handleSupport,
   trackClick,
+  getSupportedLeaders,
 };

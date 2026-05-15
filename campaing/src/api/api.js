@@ -12,13 +12,12 @@ const getToken = (url = "") => {
   const leaderToken = localStorage.getItem('leaderToken');
   const userToken = localStorage.getItem('access_token') || localStorage.getItem('token');
 
-  // 1. If it's a leader or manifesto specific request, prioritize leaderToken
-  if (url.includes('/leaders/') || url.includes('/manifestos/')) {
+  // 1. If it's a leader, wallet, or mpesa request, prioritize leaderToken
+  if (url.includes('/leaders/') || url.includes('/manifestos/') || url.includes('/wallet/') || url.includes('/mpesa/')) {
     return leaderToken || userToken;
   }
   
   // 2. Fallback: if we have a leader token but no user token, use it for all requests
-  // This ensures aspirants can access shared services like rallies/endorsements
   if (leaderToken && !userToken) return leaderToken;
 
   return userToken;
