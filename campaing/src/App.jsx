@@ -43,6 +43,12 @@ const MyOrders = lazy(() => import("./components/marketplace/pages/MyOrders"));
 const BattleDetails = lazy(() => import("./components/leaders/battle/BattleDetails"));
 
 const GlobalStyle = createGlobalStyle`
+  body {
+    background-color: #000000ff;
+    color: #f8fafc;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
   * {
     margin: 0;
     padding: 0;
@@ -50,7 +56,7 @@ const GlobalStyle = createGlobalStyle`
   }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 10px; }
+  ::-webkit-scrollbar-track { background: #020617; border-radius: 10px; }
   ::-webkit-scrollbar-thumb { background: #e11d48; border-radius: 10px; }
   ::-webkit-scrollbar-thumb:hover { background: #be123c; }
 `;
@@ -61,6 +67,7 @@ const MainContent = styled.main`
   flex-direction: column;
   position: relative;
   min-height: 100vh;
+  background: #020617;
 `;
 
 const LoadingSpinner = styled.div`
@@ -225,11 +232,11 @@ const AppLayout = () => {
             } />
 
             {/* ===== MARKETPLACE ROUTES ===== */}
-            <Route path="/marketplace" element={<MarketplacePage />} />
-            <Route path="/marketplace/shop" element={<MarketplacePage />} />
-            <Route path="/marketplace/checkout" element={
+            <Route path="/marketplace/product/:slug/*" element={<MarketplacePage />} />
+            <Route path="/marketplace/shop/:id/*" element={<MarketplacePage />} />
+            <Route path="/marketplace/checkout/*" element={
               <ProtectedRoute requiredRole="user" redirectTo="/login">
-                <Checkout />
+                <MarketplacePage />
               </ProtectedRoute>
             } />
             <Route path="/marketplace/*" element={<MarketplacePage />} />
@@ -238,7 +245,6 @@ const AppLayout = () => {
             {/* ===== SEO PRODUCT ROUTES ===== */}
             <Route path="/product/:slug" element={<ProductDetails />} />
             {/* Legacy redirects */}
-            <Route path="/marketplace/shop/:id" element={<Navigate to="/marketplace" replace />} />
             <Route path="/shop/:id" element={<Navigate to="/marketplace" replace />} />
 
             {/* ===== USER ACCOUNT ROUTES ===== */}
@@ -271,7 +277,7 @@ const AppLayout = () => {
             <Route path="/aspirants/:slug" element={<LeaderInsightPage />} />
             <Route path="/leaders/:id" element={<LeaderInsightPage />} />
             <Route path="/leaders" element={<LeadersPage />} />
-            
+
             {/* ===== BATTLE ROUTES ===== */}
             <Route path="/battle/:slug" element={<BattleDetails />} />
             <Route path="/battle/:id" element={<BattleDetails />} />

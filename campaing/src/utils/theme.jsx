@@ -1,22 +1,27 @@
 // src/utils/theme.js
 export const KENYA_THEME = {
-  primary: "#BB0000", // Rich Kenyan Red
-  text: "#1e293b", // Dark Slate
-  muted: "#94a3b8", // Muted Gray
-  bg: "#f1f5f9", // Light Background
-  success: "#22c55e", // Sleek Green
-  dark: "#000000", // Deep Black/Blue
+  primary: "#e11d48", // Modern Rose Red
+  secondary: "#10b981", // Emerald Green
+  text: "#f8fafc", // Off-White Text
+  textDim: "#94a3b8", // Muted Blue-Gray
+  muted: "#475569", // Dark Slate
+  bg: "#000000ff", // Deep Oceanic Dark Background
+  card: "#0f172a", // Slate-900 Card
+  success: "#10b981",
+  dark: "#000000ff",
   white: "#ffffff",
-  border: "#e2e8f0",
+  border: "rgba(255, 255, 255, 0.1)",
+  glass: "rgba(15, 23, 42, 0.7)",
 };
 
-export const COLORS = KENYA_THEME; // Alias for backward compatibility
+export const COLORS = KENYA_THEME;
 
 export const GRADIENTS = {
-  dark: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-  primary: "linear-gradient(135deg, #BB0000 0%, #8B0000 100%)",
-  success: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-  blackToTransparent: "linear-gradient(to bottom, black, transparent)",
+  dark: "linear-gradient(135deg, #0f172a 0%, #020617 100%)",
+  primary: "linear-gradient(135deg, #e11d48 0%, #9f1239 100%)",
+  success: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+  glass: "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)",
+  blackToTransparent: "linear-gradient(to bottom, rgba(2, 6, 23, 1), rgba(2, 6, 23, 0))",
 };
 
 export const SPACING = {

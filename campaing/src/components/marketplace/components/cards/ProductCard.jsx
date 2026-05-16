@@ -183,15 +183,15 @@ const ProductCard = ({ product }) => {
 
   const displayPrice = getPrice();
   const productName = product.name || product.title || "Product";
-    const productImage = product.img || product.image || product.image_url || "https://ui-avatars.com/api/?name=Product&background=random&color=fff&size=512";
+  const productImage = product.img || product.image || product.image_url || "https://ui-avatars.com/api/?name=Product&background=random&color=fff&size=512";
   const productCategory = product.category || "Premium Collection";
   const productStock = Number(product.stock) || 20;
-  
+
   const handleAddToCart = async (e) => {
     e.stopPropagation();
     const token = localStorage.getItem("access_token");
     const productName = product.name || product.title || "Product";
-      const productImage = product.img || product.image || product.image_url || "https://ui-avatars.com/api/?name=Product&background=random&color=fff&size=512";
+    const productImage = product.img || product.image || product.image_url || "https://ui-avatars.com/api/?name=Product&background=random&color=fff&size=512";
     const displayPrice = getPrice();
 
     try {
@@ -230,6 +230,21 @@ const ProductCard = ({ product }) => {
     >
       <ImageContainer>
         <BadgesContainer>
+          {(() => {
+            const p = displayPrice;
+            let tier = null;
+            if (p >= 5000) tier = { label: "👑 Governor's Taste", bg: "#f59e0b" };
+            else if (p >= 3500) tier = { label: "🏛️ Senator's Choice", bg: "#8b5cf6" };
+            else if (p >= 2500) tier = { label: "🎖️ MP's Choice", bg: "#3b82f6" };
+            else if (p >= 1500) tier = { label: "💼 MCA's Pick", bg: "#10b981" };
+            else tier = { label: "✊ Supporter's Gear", bg: "#ef4444" };
+
+            return (
+              <div style={{ background: tier.bg, color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                {tier.label}
+              </div>
+            );
+          })()}
           {product.badge && <Badge type={product.badge}>{product.badge}</Badge>}
           {product.featured === 1 && <Badge type="Featured">Featured</Badge>}
         </BadgesContainer>

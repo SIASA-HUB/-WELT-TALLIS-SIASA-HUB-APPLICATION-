@@ -3,10 +3,26 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import db from './src/config/db.js';
 import mpesaRoutes from './src/routes/mpesa.routes.js';
 import { recordTransaction } from './src/services/transactionService.js';
 
 dotenv.config();
+
+// Database Initialization
+const initDB = async () => {
+  try {
+    console.log('📦 [M-Pesa Service] Checking database migrations...');
+    await db.migrate.latest({
+      directory: './src/migrations'
+    });
+    console.log('✅ [M-Pesa Service] Database ready.');
+  } catch (error) {
+    console.warn('⚠️ [M-Pesa Service] Migration failed (non-fatal):', error.message);
+  }
+};
+
+initDB();
 
 const app = express();
 const PORT = process.env.PORT || 8011;

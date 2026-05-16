@@ -9,10 +9,11 @@ const path = require("path");
 const knex = require("knex");
 
 const redis = require("./src/utils/redis/redis");
-const { initDB } = require("./src/configurations/db");
+const { initDB, pool } = require("./src/configurations/db");
 const userRoutes = require("./src/routes/users");
 const corsMiddleware = require("../global/middlewares/corsMiddleware");
 const knexConfig = require("./knexfile");
+const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
 const client = require("prom-client");
 
 // Prometheus Metrics Setup
@@ -111,7 +112,30 @@ app.use("/api/v1/users", userRoutes);
 const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || "0.0.0.0";
 
-const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
+// Database configuration already initialized at top
+const dbConfig = require("./src/configurations/db");
+
+async function seedAdmin() {
+  const adminEmail = 'siasahubadmin@gmail.co.ke';
+  const bcrypt = require("bcrypt");
+
+  try {
+    const admin = await dbConfig.safeQueryOne(`SELECT * FROM users WHERE email = ?`, [adminEmail]);
+    if (!admin) {
+      const hashedPassword = await bcrypt.hash('SiasaHubAdmin@2024!', 10);
+      await dbConfig.safeQuery(
+        `INSERT INTO users (user_id, name, email, password, role, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ['ADM-001', 'SiasaHub Super Admin', adminEmail, hashedPassword, 'admin', 1]
+      );
+      console.log("✅ Default admin account seeded successfully");
+    } else if (admin.role !== 'admin') {
+      await dbConfig.safeQuery(`UPDATE users SET role = 'admin', is_verified = 1 WHERE email = ?`, [adminEmail]);
+      console.log("✅ Updated existing user to admin role");
+    }
+  } catch (err) {
+    console.error("❌ Failed to seed admin account:", err.message);
+  }
+}
 
 async function startServer() {
   try {
@@ -120,8 +144,19 @@ async function startServer() {
     await initDB();
     console.log(" Database initialized");
 
-    await db.migrate.latest();
-    console.log(" Migrations up to date");
+    try {
+      await db.migrate.latest();
+      console.log("✅ Migrations up to date");
+    } catch (migrateErr) {
+      console.warn("⚠️ Migrations failed (non-fatal):", migrateErr.message);
+    }
+
+    try {
+      await seedAdmin();
+      console.log("✅ Admin seeding checked");
+    } catch (seedErr) {
+      console.warn("⚠️ Admin seeding failed:", seedErr.message);
+    }
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`Server running at http://${HOST}:${PORT}`);

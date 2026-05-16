@@ -8,6 +8,18 @@ const {
   utils: { getKenyaTimeISO },
 } = require("../../../global/index");
 
+// Helper to sanitize input data
+const sanitizeInput = (text) => {
+  if (typeof text !== "string") return text;
+  // Remove localhost, 127.0.0.1 and other internal dev URLs
+  return text
+    .replace(/localhost:[0-9]+/gi, "[REDACTED]")
+    .replace(/127\.0\.0\.1/g, "[REDACTED]")
+    .replace(/http:\/\/localhost/gi, "[REDACTED]")
+    .replace(/manifesto-service/gi, "SiasaHub")
+    .trim();
+};
+
 // ===== CREATE MANIFESTO =====
 const createManifesto = asyncHandler(async (req, res) => {
   const { leader_id, main_agenda, agenda_items } = req.body;
@@ -19,14 +31,22 @@ const createManifesto = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "At least one agenda item is required" });
   }
 
-  // Validate each agenda item has a title
-  for (const item of agenda_items) {
+  // Validate and sanitize each agenda item
+  const sanitizedAgendas = agenda_items.map(item => ({
+    ...item,
+    title: sanitizeInput(item.title),
+    description: sanitizeInput(item.description || '')
+  }));
+
+  for (const item of sanitizedAgendas) {
     if (!item.title || item.title.trim() === '') {
       return res.status(400).json({ success: false, message: "Each agenda item must have a title" });
     }
   }
 
-  const manifesto = await ManifestoModel.create(leader_id, main_agenda, agenda_items);
+  const sanitizedMainAgenda = sanitizeInput(main_agenda);
+
+  const manifesto = await ManifestoModel.create(leader_id, sanitizedMainAgenda, sanitizedAgendas);
   res.status(201).json({ success: true, data: manifesto, message: "Manifesto created successfully" });
 });
 
@@ -60,7 +80,14 @@ const updateManifesto = asyncHandler(async (req, res) => {
   }
   
   try {
-    await ManifestoModel.update(manifestoId, main_agenda, agenda_items);
+    const sanitizedMainAgenda = main_agenda ? sanitizeInput(main_agenda) : undefined;
+    const sanitizedAgendas = agenda_items ? agenda_items.map(item => ({
+      ...item,
+      title: item.title ? sanitizeInput(item.title) : undefined,
+      description: item.description ? sanitizeInput(item.description) : undefined
+    })) : undefined;
+
+    await ManifestoModel.update(manifestoId, sanitizedMainAgenda, sanitizedAgendas);
     const updatedManifesto = await ManifestoModel.findById(manifestoId);
     res.status(200).json({ success: true, data: updatedManifesto, message: "Manifesto updated successfully" });
   } catch (error) {

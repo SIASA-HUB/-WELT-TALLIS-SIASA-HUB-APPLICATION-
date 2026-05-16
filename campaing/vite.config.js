@@ -59,6 +59,8 @@ export default defineConfig({
         target: "http://localhost:8009",
         changeOrigin: true,
         secure: false,
+        timeout: 60000,
+        proxyTimeout: 60000,
       },
       "/uploads": {
         target: "http://localhost:8009",
@@ -69,6 +71,8 @@ export default defineConfig({
         target: "http://localhost:8009",
         ws: true,
         changeOrigin: true,
+        timeout: 60000,
+        proxyTimeout: 60000,
       },
     },
     headers: {

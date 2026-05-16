@@ -3,6 +3,17 @@ const { verifyAccessToken } = require("../auth/tokens");
 const { getTokenFromRequest, getUserFromCookies } = require("../auth/cookies");
 const Logger = require("../logger/logger");
 
+// Role-based Authorization Hierarchy
+const ROLE_HIERARCHY = {
+  user: 1,
+  aspirant: 2,
+  leader: 2,
+  market_admin: 3,
+  admin: 4,
+  super_admin: 5,
+  ceo: 6,
+};
+
 // Main Authentication Middleware
 const authenticate = async (req, res, next) => {
   try {
@@ -27,12 +38,35 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
-    if (decoded && decoded.userId) {
-      Logger.info(`[AUTH] Authenticated user ${decoded.userId} via ${source} for ${req.path}`);
+    // IDENTITY VALIDATION: Check for role/ID prefix consistency
+    const userId = decoded.userId || decoded.user_id;
+    const role = (decoded.role || "user").toLowerCase();
+
+    // Verify ID has a valid prefix (USR_ or LDR_)
+    const hasValidPrefix = userId.startsWith('USR-') || userId.startsWith('USR_') || 
+                           userId.startsWith('LDR-') || userId.startsWith('LDR_');
+
+    if (!hasValidPrefix && role !== 'admin' && role !== 'ceo') {
+      Logger.error(`[AUTH] Identity Conflict: ${userId} has no valid prefix`);
+      return res.status(403).json({
+        success: false,
+        message: "Authentication integrity failure. Please login again.",
+      });
     }
+
+    // DESYNC DETECTION: Compare token identity with cookie identity if present
+    const cookieUser = getUserFromCookies(req);
+    if (cookieUser && cookieUser.userId && cookieUser.userId !== userId) {
+      Logger.warn(`[AUTH] Session Desync Detected: Token ID(${userId}) != Cookie ID(${cookieUser.userId})`);
+      // We prioritize the Token (Bearer) but log the conflict
+      // In strict mode, we could reject the request here
+    }
+
+    // Attach user to request
+    Logger.info(`[AUTH] Authenticated ${role} ${userId} via ${source} for ${req.path}`);
     req.user = decoded;
-    req.userId = decoded.userId;
+    req.userId = userId;
+    req.role = role;
 
     next();
   } catch (error) {
@@ -42,34 +76,6 @@ const authenticate = async (req, res, next) => {
       message: "Authentication failed",
     });
   }
-};
-
-// Optional Authentication (doesn't fail if no token)
-const optionalAuth = async (req, res, next) => {
-  try {
-    const token = getTokenFromRequest(req);
-
-    if (token) {
-      const decoded = verifyAccessToken(token);
-      if (decoded) {
-        req.user = decoded;
-        req.userId = decoded.userId;
-      }
-    }
-
-    next();
-  } catch (error) {
-    next();
-  }
-};
-
-// Role-based Authorization Hierarchy
-const ROLE_HIERARCHY = {
-  user: 1,
-  market_admin: 2,
-  admin: 3,
-  super_admin: 4,
-  ceo: 5,
 };
 
 const authorize = (...roles) => {
@@ -92,10 +98,10 @@ const authorize = (...roles) => {
     });
 
     if (!hasPermission) {
-      Logger.warn(`[AUTH] Access denied for user ${req.user.userId}. Role: ${userRole}, Required: ${roles.join(", ")}`);
+      Logger.warn(`[AUTH] Access denied for ${userRole} ${req.user.userId}. Required: ${roles.join(", ")}`);
       return res.status(403).json({
         success: false,
-        message: "You don't have permission to access this resource",
+        message: `Permission denied. Required role: ${roles.join(" or ")}`,
       });
     }
 
@@ -110,6 +116,28 @@ const isAuthenticated = (req) => {
 
   const decoded = verifyAccessToken(token);
   return !!decoded;
+};
+
+// Optional Authentication Middleware
+const optionalAuth = async (req, res, next) => {
+  try {
+    const token = getTokenFromRequest(req);
+    if (!token) return next();
+
+    const decoded = verifyAccessToken(token);
+    if (!decoded) return next();
+
+    const userId = decoded.userId || decoded.user_id;
+    const role = (decoded.role || "user").toLowerCase();
+
+    req.user = decoded;
+    req.userId = userId;
+    req.role = role;
+
+    next();
+  } catch (error) {
+    next();
+  }
 };
 
 module.exports = {

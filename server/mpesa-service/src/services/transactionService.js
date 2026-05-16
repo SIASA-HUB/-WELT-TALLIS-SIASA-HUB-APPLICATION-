@@ -1,7 +1,9 @@
 import db from '../config/db.js';
+import Logger from '../utils/logger.js';
 
 /**
  * Record a payment transaction in the database
+ * Non-fatal: if DB is unavailable, logs warning but doesn't crash
  */
 export const recordTransaction = async (data) => {
   const {
@@ -21,18 +23,19 @@ export const recordTransaction = async (data) => {
       transaction_id: transactionId,
       phone_number: phoneNumber,
       amount: amount,
-      payment_type: type, // 'wallet', 'marketplace', 'boost'
-      aspirant_id: aspirantId,
-      order_id: orderId,
-      status: status, // 'pending', 'completed', 'failed'
-      receipt_number: receiptNumber,
-      message: message,
+      payment_type: type || 'payment',
+      aspirant_id: aspirantId || null,
+      order_id: orderId || null,
+      status: status || 'pending',
+      receipt_number: receiptNumber || null,
+      message: message || null,
       created_at: new Date(),
       updated_at: new Date()
     });
-    console.log(`✅ Transaction recorded: ${transactionId}`);
+    Logger.info(`✅ [TX] Recorded: ${transactionId} | Status: ${status} | Amount: ${amount}`);
   } catch (error) {
-    console.error('❌ Error recording transaction:', error.message);
+    // Non-fatal: table might not exist yet, or DB might be down
+    Logger.warn(`⚠️ [TX] Could not record transaction ${transactionId}: ${error.message}`);
   }
 };
 
@@ -43,7 +46,7 @@ export const getTransaction = async (transactionId) => {
   try {
     return await db('payments').where({ transaction_id: transactionId }).first();
   } catch (error) {
-    console.error('❌ Error getting transaction:', error.message);
+    Logger.warn(`⚠️ [TX] Could not get transaction ${transactionId}: ${error.message}`);
     return null;
   }
 };
@@ -57,12 +60,12 @@ export const updateTransactionStatus = async (transactionId, status, receiptNumb
       .where({ transaction_id: transactionId })
       .update({
         status: status,
-        receipt_number: receiptNumber,
-        message: message,
+        receipt_number: receiptNumber || null,
+        message: message || null,
         updated_at: new Date()
       });
-    console.log(`🔄 Transaction updated: ${transactionId} -> ${status}`);
+    Logger.info(`🔄 [TX] Updated: ${transactionId} → ${status}`);
   } catch (error) {
-    console.error('❌ Error updating transaction status:', error.message);
+    Logger.warn(`⚠️ [TX] Could not update transaction ${transactionId}: ${error.message}`);
   }
 };

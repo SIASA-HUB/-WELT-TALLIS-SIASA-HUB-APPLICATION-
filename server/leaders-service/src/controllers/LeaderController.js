@@ -11,6 +11,10 @@ const {
   crypto,
   redis,
   generateAccessToken,
+  generateRefreshToken,
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+  setUserInfoCookie,
   db: { safeQuery, safeQueryOne },
   utils: { getKenyaTimeISO },
 } = require("../../../global/index");
@@ -489,14 +493,27 @@ const loginAspirant = asyncHandler(async (req, res) => {
     }
 
     // Generate JWT token â€” Standardized via global auth utility
-    const token = generateAccessToken({
+    const userPayload = {
       leaderId: leader.leader_id,
       userId: leader.leader_id,
       name: leader.name,
       role: "aspirant",
       position: leader.position_running_for || leader.position,
       party: leader.party
-    }, "7d");
+    };
+
+    const token = generateAccessToken(userPayload, "7d");
+    const refreshToken = generateRefreshToken(userPayload, "30d");
+
+    // Set Cookies for session persistence
+    setAccessTokenCookie(res, token);
+    setRefreshTokenCookie(res, refreshToken);
+    setUserInfoCookie(res, {
+      user_id: leader.leader_id,
+      username: leader.name,
+      role: "aspirant",
+      county: leader.county
+    });
 
     // Remove sensitive data before sending response
     const { password_hash, ...leaderData } = leader;
@@ -506,8 +523,9 @@ const loginAspirant = asyncHandler(async (req, res) => {
       message: "Login successful",
       data: {
         token,
+        refreshToken,
         leader: leaderData,
-        expiresIn: 1500
+        expiresIn: 604800
       }
     });
 

@@ -294,7 +294,7 @@ const InputLabel = styled.label`
 // ======================== COMPONENT ========================
 const Cart = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, leader, isAuthenticated, isLeaderAuthenticated } = useAuth();
   const { cartItems, clearCart: clearContext, addToCart: addToContext, removeFromCart: removeFromContext, updateQuantity } = useCart();
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(false);
@@ -311,16 +311,17 @@ const Cart = () => {
 
   // Pre-fill from user data when available
   useEffect(() => {
-    if (user) {
+    const activeUser = user || leader;
+    if (activeUser) {
       setDeliveryDetails({
-        firstName: user?.real_name?.split(" ")[0] || "",
-        lastName: user?.real_name?.split(" ")[1] || "",
-        emailAddress: user?.email || "",
-        phoneNumber: user?.phone || "",
-        completeAddress: user?.address || "",
+        firstName: activeUser?.real_name?.split(" ")[0] || activeUser?.name?.split(" ")[0] || "",
+        lastName: activeUser?.real_name?.split(" ")[1] || activeUser?.name?.split(" ")[1] || "",
+        emailAddress: activeUser?.email || activeUser?.personal_email || "",
+        phoneNumber: activeUser?.phone || activeUser?.personal_phone || "",
+        completeAddress: activeUser?.address || "",
       });
     }
-  }, [user]);
+  }, [user, leader]);
 
   // Fetch cart – no token needed, api interceptor adds it
   const fetchCart = async () => {
@@ -392,7 +393,7 @@ const Cart = () => {
 
     setButtonLoad(true);
     try {
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("leaderToken");
       if (!token) {
         toast.error("Please log in to place order");
         return;
@@ -400,7 +401,8 @@ const Cart = () => {
 
       // ✅ Get userId from multiple sources
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      const userId = user?.user_id || user?.id || userData?.user_id || null;
+      const leaderData = JSON.parse(localStorage.getItem("leaderData") || "{}");
+      const userId = user?.user_id || user?.id || leader?.leader_id || leader?.id || userData?.user_id || leaderData?.leader_id || null;
 
       const totalAmount = calculateSubtotal();
 
@@ -503,7 +505,7 @@ const Cart = () => {
   };
 
   // Updated auth check: check context state OR direct token/registration flag
-  const loggedIn = isAuthenticated || (localStorage.getItem("isRegistered") === "true") || !!localStorage.getItem("access_token");
+  const loggedIn = isAuthenticated || isLeaderAuthenticated || (localStorage.getItem("isRegistered") === "true") || !!localStorage.getItem("access_token") || !!localStorage.getItem("leaderToken");
 
   if (!loggedIn) {
     return (

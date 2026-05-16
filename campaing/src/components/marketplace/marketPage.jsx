@@ -38,12 +38,12 @@ function marketPage() {
         <Navbar currentUser={user} currentLeader={leader} />
         <Content>
           <Routes>
-            <Route path="/" exact element={<Home />} />
-            <Route path="/shop" exact element={<ShopListing />} />
-            <Route path="/cart" exact element={<Cart />} />
-            <Route path="/checkout" exact element={<Checkout />} />
-            <Route path="/shop/:id" exact element={<ProductDetails />} />
-            <Route path="/product/:slug" exact element={<ProductDetails />} />
+            <Route path="/" element={<Home />} />
+            <Route path="shop" element={<ShopListing />} />
+            <Route path="cart" element={<Cart />} />
+            <Route path="checkout" element={<Checkout />} />
+            <Route path="shop/:id" element={<ProductDetails />} />
+            <Route path="product/:slug" element={<ProductDetails />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Content>

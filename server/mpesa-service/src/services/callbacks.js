@@ -64,10 +64,10 @@ export const processCallback = async (callbackData, origin = 'wallet') => {
  */
 const notifyService = async (origin, data) => {
   const serviceUrls = {
-    wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:8008/api/v1/wallet/mpesa/internal-callback',
-    marketplace: process.env.MARKETPLACE_SERVICE_URL || 'http://localhost:8004/api/v1/marketplace/payments/callback',
-    billing: process.env.LEADERS_SERVICE_URL || 'http://localhost:8006/api/v1/leaders/payments/callback',
-    boost: process.env.LEADERS_SERVICE_URL || 'http://localhost:8006/api/v1/leaders/boost/callback'
+    wallet: process.env.WALLET_SERVICE_URL || 'http://wallet-service:8008/api/v1/wallet/mpesa/internal-callback',
+    marketplace: process.env.MARKETPLACE_SERVICE_URL || 'http://marketplace-service:8004/api/v1/marketplace/payments/callback',
+    billing: process.env.LEADERS_SERVICE_URL || 'http://leaders-service:8006/api/v1/leaders/payments/callback',
+    boost: process.env.LEADERS_SERVICE_URL || 'http://leaders-service:8006/api/v1/leaders/boost/callback'
   };
 
   const url = serviceUrls[origin];

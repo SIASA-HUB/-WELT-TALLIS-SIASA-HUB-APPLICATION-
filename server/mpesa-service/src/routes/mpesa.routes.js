@@ -8,8 +8,12 @@ import { stkPushRequest, b2bPaymentRequest, handleCallback, queryTransactionStat
 const router = express.Router();
 
 const internalOrAuth = (req, res, next) => {
-  const internalSecret = req.headers['x-internal-secret'];
-  if (internalSecret && internalSecret === process.env.INTERNAL_SERVICE_SECRET) {
+  // Express lowercases all headers, so check lowercase version
+  const internalSecret = req.headers['x-internal-secret'] || req.headers['X-Internal-Secret'];
+  const expectedSecret = process.env.INTERNAL_SERVICE_SECRET || 'siasahub_internal_secret_2026';
+  if (internalSecret && internalSecret === expectedSecret) {
+    // Internal service call — skip user auth
+    req.user = { userId: req.body.userId || 'INTERNAL', role: 'service' };
     return next();
   }
   return authenticate(req, res, next);

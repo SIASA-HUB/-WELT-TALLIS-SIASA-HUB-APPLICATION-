@@ -95,14 +95,15 @@ const Checkout = () => {
 
     // Auto-fill user data
     const userData = localStorage.getItem("user_data");
-    if (userData) {
+    const leaderData = localStorage.getItem("leaderData");
+    if (userData || leaderData) {
       try {
-        const u = JSON.parse(userData);
+        const u = userData ? JSON.parse(userData) : JSON.parse(leaderData);
         setFormData(prev => ({
           ...prev,
           fullName: u.real_name || u.name || "",
           email: u.email || u.personal_email || "",
-          phone: u.phone || "",
+          phone: u.phone || u.personal_phone || "",
         }));
       } catch {}
     }
@@ -130,7 +131,8 @@ const Checkout = () => {
 
     try {
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      const userId = userData.user_id || null;
+      const leaderData = JSON.parse(localStorage.getItem("leaderData") || "{}");
+      const userId = userData.user_id || leaderData.leader_id || null;
 
       const orderPayload = {
         user_id: userId,
@@ -162,11 +164,14 @@ const Checkout = () => {
         if (formData.paymentMethod === "mpesa") {
           try {
             toast.info("Initiating M-Pesa payment... Please check your phone.");
-            const token = localStorage.getItem("access_token");
+            const token = localStorage.getItem("access_token") || localStorage.getItem("leaderToken");
             await axios.post(`${API.WALLET}/mpesa/stkpush`, {
               phoneNumber: formData.phone,
               amount: total,
-              orderId: order.id || order._id
+              orderId: order.id || order._id,
+              type: 'order',
+              origin: 'marketplace',
+              transactionDesc: `Payment for Order ${order.order_number || order.id}`
             }, {
               headers: { Authorization: `Bearer ${token}` }
             });

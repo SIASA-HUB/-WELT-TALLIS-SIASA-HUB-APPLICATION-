@@ -21,9 +21,11 @@ const NavContainer = styled.nav`
   justify-content: space-around;
   align-items: center;
   z-index: 9999;
-  background: #ffffff;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.06);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -63,8 +65,8 @@ const NavItem = styled(Link)`
 
   span {
     font-size: 11px;
-    font-weight: ${(props) => (props.$active ? "900" : "500")};
-    color: ${(props) => (props.$active ? "#10b981" : "#71717a")};
+    font-weight: ${(props) => (props.$active ? "700" : "500")};
+    color: ${(props) => (props.$active ? "#e11d48" : "#94a3b8")};
     transition: all 0.2s ease;
   }
 `;
@@ -139,9 +141,9 @@ const NavMenu = () => {
               }}
             >
               <item.icon
-                size={24}
-                strokeWidth={isActive ? 3 : 2} // Bolder when active
-                color={isActive ? "#10b981" : "#000000ff"}
+                size={22}
+                strokeWidth={isActive ? 2.5 : 1.8}
+                color={isActive ? "#e11d48" : "#94a3b8"}
               />
               <span>{item.label}</span>
             </NavItem>

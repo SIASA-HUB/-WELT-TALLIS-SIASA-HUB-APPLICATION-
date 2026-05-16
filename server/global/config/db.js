@@ -203,16 +203,9 @@ const closeDB = async () => {
   }
 };
 
-// Graceful shutdown handlers
-process.on("SIGINT", async () => {
-  await closeDB();
-  process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  await closeDB();
-  process.exit(0);
-});
+// NOTE: Do NOT call process.exit() from a shared library module.
+// Each service's server.js should handle its own graceful shutdown.
+// The closeDB function is exported for services to call explicitly.
 
 // ============================================
 // EXPORTS

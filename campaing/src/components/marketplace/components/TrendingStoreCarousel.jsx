@@ -206,6 +206,13 @@ const TrendingStoreCarousel = () => {
     if (p.price && typeof p.price === 'object') return p.price.org || p.price.mrp || 0;
     return parseFloat(p.price) || 0;
   };
+  const getProductTier = (price) => {
+    if (price >= 5000) return { label: "👑 Governor's Taste", bg: "linear-gradient(135deg, #f59e0b, #d97706)" };
+    if (price >= 3500) return { label: "🏛️ Senator's Choice", bg: "linear-gradient(135deg, #8b5cf6, #6d28d9)" };
+    if (price >= 2500) return { label: "🎖️ MP's Choice", bg: "linear-gradient(135deg, #3b82f6, #1d4ed8)" };
+    if (price >= 1500) return { label: "💼 MCA's Pick", bg: "linear-gradient(135deg, #10b981, #059669)" };
+    return { label: "✊ Supporter's Gear", bg: "linear-gradient(135deg, #ef4444, #b91c1c)" };
+  };
 
   if (loading || products.length === 0) return null;
 
@@ -226,17 +233,19 @@ const TrendingStoreCarousel = () => {
       <ScrollContainer ref={scrollRef}>
         {products.map((product, i) => {
           const price = getProductPrice(product);
-          const id = product._id || product.id;
+          const tier = getProductTier(price);
+          const slugOrId = product.slug || product._id || product.id;
+          
           return (
-            <ProductCard key={id || i} onClick={() => navigate(`/marketplace/shop/${id}`)}>
+            <ProductCard key={slugOrId} onClick={() => navigate(`/marketplace/product/${slugOrId}`)}>
               <ProductImg>
                 <img src={getProductImage(product)} alt={product.title || product.name} loading="lazy" />
-                {i < 3 && <span className="hot-badge">🔥 HOT</span>}
+                <span className="hot-badge" style={{ background: tier.bg }}>{tier.label}</span>
               </ProductImg>
               <ProductBody>
                 <div className="name">{product.title || product.name}</div>
                 <div className="price">KES {price.toLocaleString('en-KE')}</div>
-                <BuyBtn onClick={(e) => { e.stopPropagation(); navigate(`/marketplace/shop/${id}`); }}>
+                <BuyBtn onClick={(e) => { e.stopPropagation(); navigate(`/marketplace/product/${slugOrId}`); }}>
                   <ShoppingBag size={12} /> Buy Now
                 </BuyBtn>
               </ProductBody>

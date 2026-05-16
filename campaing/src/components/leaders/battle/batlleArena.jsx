@@ -1,4 +1,4 @@
-// BattleArena.js - Simplified Version (No Registered Aspirants, Custom Only)
+// BattleArena.js 
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
@@ -16,8 +16,6 @@ import {
   X,
   Check,
   Search,
-  Volume2,
-  VolumeX,
   Flame,
   Zap,
   Heart,
@@ -62,7 +60,7 @@ const modalFadeIn = keyframes`
 // ==================== STYLED COMPONENTS ====================
 const BattleContainer = styled.div`
   margin: 16px 0;
-  background: #ffffff;
+ 
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -319,27 +317,7 @@ const CreateButton = styled.button`
   }
 `;
 
-const VoiceControl = styled.button`
-  position: absolute;
-  top: 16px;
-  right: 140px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #666;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 20;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #333;
-  }
-`;
 
 const LoadingState = styled.div`
   display: flex;
@@ -822,9 +800,7 @@ const BattleArena = ({ currentUser }) => {
         </ModalOverlay>
       )}
 
-      <VoiceControl onClick={() => setSoundEnabled(!soundEnabled)}>
-        {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-      </VoiceControl>
+
     </BattleContainer>
   );
 };

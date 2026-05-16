@@ -433,9 +433,9 @@ const CommentHeader = styled.div`
 `;
 
 const CommentUserName = styled.span`
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: white;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #22c55e;
 `;
 
 const CommentTime = styled.span`
@@ -444,9 +444,10 @@ const CommentTime = styled.span`
 `;
 
 const CommentText = styled.div`
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.95);
-  line-height: 1.4;
+  font-size: 1.15rem;
+  color: white;
+  line-height: 1.5;
+  font-weight: 500;
   word-break: break-word;
 `;
 

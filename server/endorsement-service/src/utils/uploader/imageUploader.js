@@ -66,8 +66,20 @@ const uploadEndorsementMedia = (req, res, next) => {
     }
 
     const file = req.file;
-    const isVideo = file.mimetype.startsWith("video/");
-    const isImage = file.mimetype.startsWith("image/");
+    let isVideo = file.mimetype.startsWith("video/");
+    let isImage = file.mimetype.startsWith("image/");
+
+    // Fallback for mobile devices that might not send proper mimetypes or for specific formats like HEIC
+    if (!isVideo && !isImage) {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const videoExts = ['.mp4', '.mov', '.avi', '.wmv', '.mkv', '.webm', '.3gp', '.m4v'];
+      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
+      
+      if (videoExts.includes(ext)) isVideo = true;
+      if (imageExts.includes(ext)) isImage = true;
+      
+      console.log(`🔍 Fallback detection: ext=${ext}, isVideo=${isVideo}, isImage=${isImage}`);
+    }
 
     console.log(
       `📸 Processing file on disk: ${file.filename}, type: ${file.mimetype}, size: ${file.size}`,

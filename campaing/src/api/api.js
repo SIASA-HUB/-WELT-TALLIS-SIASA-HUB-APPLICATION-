@@ -10,17 +10,14 @@ const api = axios.create({
 
 const getToken = (url = "") => {
   const leaderToken = localStorage.getItem('leaderToken');
-  const userToken = localStorage.getItem('access_token') || localStorage.getItem('token');
+  const access_token = localStorage.getItem('access_token');
+  const token = localStorage.getItem('token');
 
-  // 1. If it's a leader, wallet, or mpesa request, prioritize leaderToken
-  if (url.includes('/leaders/') || url.includes('/manifestos/') || url.includes('/wallet/') || url.includes('/mpesa/')) {
-    return leaderToken || userToken;
-  }
-  
-  // 2. Fallback: if we have a leader token but no user token, use it for all requests
-  if (leaderToken && !userToken) return leaderToken;
+  // 1. If we have a leader token, use it for everything (Leaders are users too)
+  if (leaderToken) return leaderToken;
 
-  return userToken;
+  // 2. Fallback to normal user tokens
+  return access_token || token;
 };
 
 const storeAuthData = (data) => {

@@ -9,7 +9,7 @@ const {
 } = require("../../../global/index");
 const Logger = require("../utils/logger/logger");
 
-const MPESA_SERVICE_URL = process.env.MPESA_SERVICE_URL || 'http://mpesa-service:8010/api/v1/mpesa';
+const MPESA_SERVICE_URL = process.env.MPESA_SERVICE_URL || 'http://mpesa-service:8011/api/v1/mpesa';
 const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || 'siasa-secret';
 
 // Safaricom valid callback IPs (production + sandbox)
@@ -208,6 +208,31 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
         success: false,
         message: "Transaction not found",
       });
+    }
+
+    // Actively query M-Pesa service if still pending (crucial for local dev / cancellations)
+    if (transaction.status === 'pending') {
+      try {
+        const mpesaUrl = process.env.MPESA_SERVICE_URL || 'http://localhost:8011/api/v1/mpesa';
+        const axios = require('axios');
+        const statusRes = await axios.get(`${mpesaUrl}/status/${transactionId}`);
+        
+        if (statusRes.data?.success) {
+          const realStatus = statusRes.data.status;
+          if (realStatus === 'completed') {
+            // It's safer to wait for the callback to handle the balance update,
+            // but we can at least update the transaction status here if needed.
+            // For wallet, we'll let the callback handle the complex balance math,
+            // but we can still return the real status to the frontend.
+            transaction.status = 'paid'; // Treat completed as paid for frontend
+          } else if (realStatus === 'failed' || realStatus === 'cancelled') {
+             await safeQuery(`UPDATE wallet_transactions SET status = 'failed', updated_at = NOW() WHERE transaction_id = ?`, [transactionId]);
+             transaction.status = 'failed';
+          }
+        }
+      } catch (e) {
+        Logger.warn(`⚠️ Could not query live M-Pesa status for wallet tx: ${e.message}`);
+      }
     }
 
     res.json({
@@ -527,7 +552,7 @@ const getUserStats = asyncHandler(async (req, res) => {
 const initiateStkPush = asyncHandler(async (req, res) => {
   // SECURITY: Use JWT user_id, not body user_id
   const user_id = req.user?.userId;
-  const { phoneNumber, amount, type = "wallet", origin = "wallet", accountReference: bodyRef } = req.body;
+  const { phoneNumber, amount, type = "wallet", origin = "wallet", accountReference: bodyRef, transactionDesc } = req.body;
 
   if (!user_id) {
     return res.status(401).json({ success: false, message: "Authentication required" });
@@ -547,9 +572,9 @@ const initiateStkPush = asyncHandler(async (req, res) => {
       amount,
       userId: user_id,
       accountReference: bodyRef || (type === 'wallet' ? `WALLET-${user_id.substring(0, 8)}` : `BILL-${Date.now()}`),
-      transactionDesc: type === 'wallet' ? "Wallet Top-up" : `Payment for ${type}`,
-      type,
-      origin
+      transactionDesc: transactionDesc || (type === 'wallet' ? "SiasaHub Wallet Top-up" : `SiasaHub payment for ${type || 'services'}`),
+      type: type || 'wallet',
+      origin: origin || 'wallet'
     }, {
       headers: { 'X-Internal-Secret': INTERNAL_SERVICE_SECRET },
       timeout: 30000

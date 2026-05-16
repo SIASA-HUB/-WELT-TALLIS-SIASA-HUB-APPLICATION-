@@ -52,13 +52,40 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const drift = keyframes`
+  from { transform: translateY(-100px) translateX(0); opacity: 0; }
+  to { transform: translateY(100vh) translateX(100px); opacity: 0.3; }
+`;
+
 // ============================================
 // STYLED COMPONENTS
 // ============================================
+const ParticleBackground = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+`;
+
+const Particle = styled.div`
+  position: absolute;
+  width: ${props => props.$size}px;
+  height: ${props => props.$size}px;
+  background: ${props => props.$color || 'rgba(0, 0, 0, 0.05)'};
+  border-radius: 50%;
+  left: ${props => props.$left}%;
+  top: -20px;
+  animation: ${drift} ${props => props.$duration}s linear infinite;
+  animation-delay: ${props => props.$delay}s;
+`;
 const PageWrapper = styled.div`
   min-height: 100vh;
   padding-bottom: 60px;
-  background: #ffffff;
+  background: #000000ff;
 `;
 
 const LoadingWrapper = styled.div`
@@ -73,19 +100,21 @@ const LoadingWrapper = styled.div`
 // Only the search bar container is sticky
 const StickySearchWrapper = styled.div`
   position: sticky;
-  top: 0;
+  top: 0; /* Adjusted since TopNavbar is removed */
   z-index: 1000;
-  background: white;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: ${(props) =>
-    props.$hasScroll ? "0 2px 8px rgba(0, 0, 0, 0.05)" : "none"};
-  transition: box-shadow 0.2s ease;
+    props.$hasScroll ? "0 10px 30px rgba(0, 0, 0, 0.3)" : "none"};
+  transition: all 0.3s ease;
 `;
 
 const SearchContainer = styled.div`
   max-width: 800px;
   margin: 0 auto;
-  padding: 12px 20px;
+  padding: 8px 20px;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -107,25 +136,26 @@ const SearchIcon = styled.div`
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 8px 35px 8px 32px;
-  font-size: 12px;
+  padding: 10px 35px 10px 38px;
+  font-size: 13px;
   font-weight: 500;
-  border: 1.5px solid ${(props) => (props.$focused ? "#000" : "#e5e7eb")};
-  border-radius: 10px;
-  background: ${(props) => (props.$focused ? "#ffffff" : "#f9fafb")};
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
   transition: all 0.2s ease;
   outline: none;
 
   &::placeholder {
-    color: #9ca3af;
+    color: #94a3b8;
     font-weight: 400;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   &:focus {
-    background: #ffffff;
-    border-color: #000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #e11d4880;
+    box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1);
   }
 `;
 
@@ -152,23 +182,25 @@ const ClearButton = styled.button`
 `;
 
 const RegisterButton = styled.button`
-  background: #000;
-  color: white;
+  background: #ffffff;
+  color: #000000;
   border: none;
   border-radius: 10px;
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
 
   &:hover {
-    background: #333;
-    transform: translateY(-1px);
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
   }
 `;
 
@@ -187,15 +219,15 @@ const SectionHeader = styled.div`
   margin-top: 16px;
 
   h2 {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #000;
+    letter-spacing: 1px;
+    color: #f8fafc;
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   .count {
@@ -560,6 +592,19 @@ const LeadersPage = () => {
         <meta name="robots" content="index, follow" />
         <meta name="author" content="SiasaHub" />
       </SEO>
+
+      <ParticleBackground>
+        {[...Array(20)].map((_, i) => (
+          <Particle
+            key={i}
+            $size={Math.random() * 10 + 5}
+            $left={Math.random() * 100}
+            $duration={Math.random() * 10 + 10}
+            $delay={Math.random() * 10}
+            $color={i % 2 === 0 ? 'rgba(239, 68, 68, 0.05)' : 'rgba(30, 58, 138, 0.05)'}
+          />
+        ))}
+      </ParticleBackground>
 
       <LoadingWrapper>
         <LoadingBar ref={loadingBarRef} color="#000" height={2} />

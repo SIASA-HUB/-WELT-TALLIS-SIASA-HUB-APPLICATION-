@@ -13,7 +13,7 @@ const Logger = require("./src/utils/logger/logger");
 
 // Metrics Disabled
 const register = { contentType: 'text/plain', metrics: () => Promise.resolve('') };
-const httpRequestDurationMicroseconds = { startTimer: () => () => {} };
+const httpRequestDurationMicroseconds = { startTimer: () => () => { } };
 
 const { initDB } = require("./src/configurations/db");
 const leaderRoutes = require("./src/routes/Leader");
@@ -178,7 +178,6 @@ async function runMigrations() {
 // ============================================
 
 const PORT = process.env.PORT || 8006;
-
 
 const server = app.listen(PORT, () => {
   console.log(` Leaders Service running on port ${PORT}`);

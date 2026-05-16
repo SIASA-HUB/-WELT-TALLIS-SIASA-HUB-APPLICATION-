@@ -564,32 +564,54 @@ const Home = () => {
               </LocationButton>
             </PersonalizationBanner>
 
-            {/* Aspirant Segment Sections */}
-            {SEGMENTS.slice(0, 4).map(seg => {
-              const products = segmentData[seg.id] || [];
-              const isLoading = loadingSegments[seg.id] ?? !segmentData[seg.id];
+            {/* Aspirant Segment Sections - Dynamically Ordered */}
+            {(() => {
+              const isLeader = Boolean(localStorage.getItem('leaderToken') || localStorage.getItem('currentLeaderId'));
               
-              // Only show if loading OR has products
-              if (!isLoading && products.length === 0) return null;
+              const sortedSegments = [...SEGMENTS].sort((a, b) => {
+                if (isLeader) {
+                  // Leaders see premium stuff first
+                  if (a.id === 'governor') return -1;
+                  if (b.id === 'governor') return 1;
+                  if (a.id === 'senator') return -1;
+                  if (b.id === 'senator') return 1;
+                  return 0;
+                } else {
+                  // Supporters see affordable first
+                  if (a.id === 'supporter') return -1;
+                  if (b.id === 'supporter') return 1;
+                  if (a.id === 'mca') return -1;
+                  if (b.id === 'mca') return 1;
+                  return 0;
+                }
+              });
 
-              return (
-                <React.Fragment key={seg.id}>
-                  <SectionHeader ref={addSectionRef}>
-                    <SectionTitle>
-                      <span>{SEGMENT_ICONS[seg.id]} {seg.label}</span>
-                      <h2>{seg.label}</h2>
-                    </SectionTitle>
-                    <ViewAll onClick={() => handleSegmentViewAll(seg.id)}>
-                      View Collection <ChevronRight size={16} />
-                    </ViewAll>
-                  </SectionHeader>
-                  <HorizontalSlider
-                    products={products}
-                    loading={isLoading}
-                  />
-                </React.Fragment>
-              );
-            })}
+              return sortedSegments.slice(0, 4).map(seg => {
+                const products = segmentData[seg.id] || [];
+                const isLoading = loadingSegments[seg.id] ?? !segmentData[seg.id];
+                
+                // Only show if loading OR has products
+                if (!isLoading && products.length === 0) return null;
+
+                return (
+                  <React.Fragment key={seg.id}>
+                    <SectionHeader ref={addSectionRef}>
+                      <SectionTitle>
+                        <span>{SEGMENT_ICONS[seg.id]} {seg.label}</span>
+                        <h2>{seg.label}</h2>
+                      </SectionTitle>
+                      <ViewAll onClick={() => handleSegmentViewAll(seg.id)}>
+                        View Collection <ChevronRight size={16} />
+                      </ViewAll>
+                    </SectionHeader>
+                    <HorizontalSlider
+                      products={products}
+                      loading={isLoading}
+                    />
+                  </React.Fragment>
+                );
+              });
+            })()}
 
             {/* New Arrivals */}
             <SectionHeader ref={addSectionRef}>

@@ -8,17 +8,16 @@ const redis = new Redis({
   port: process.env.REDIS_PORT || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   retryStrategy: (times) => {
-    // Only try once in dev, disable silently if fails
-    if (times > 1) {
-      Logger.warn("[Redis] Cache disabled (connection failed).");
-      return null; 
+    if (times > 3) {
+      Logger.warn("[Redis] max retries reached. Cache disabled.");
+      return null; // stop reconnecting
     }
-    return 100;
+    return Math.min(times * 200, 2000);
   },
-  maxRetriesPerRequest: 1,
+  maxRetriesPerRequest: null,  // Don't throw on individual commands
   enableOfflineQueue: false,
   enableReadyCheck: false,
-  connectTimeout: 5000,
+  connectTimeout: 3000,
   lazyConnect: true,
 });
 

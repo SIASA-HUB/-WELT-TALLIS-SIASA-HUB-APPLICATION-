@@ -39,13 +39,18 @@ const isTokenExpired = (token) => {
 const clearAuthData = () => {
   console.log('[AUTH] Clearing all local authentication data');
   const keys = [
-    "access_token", "token", "csrf_token", "user_data", "token_expiry",
-    "leaderToken", "aspirant_token", "admin_token", "user_info", "isRegistered"
+    "access_token", "token", "refresh_token", "csrf_token", "user_data", "token_expiry",
+    "leaderToken", "leaderData", "aspirant_token", "admin_token", "user_info", "isRegistered",
+    "was_aspirant"
   ];
   keys.forEach(k => localStorage.removeItem(k));
-  // Clear common cookies
-  document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  document.cookie = "user_info=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  
+  // Exhaustive cookie clearing
+  const cookies = ["refresh_token", "user_info", "access_token", "csrf_secret"];
+  cookies.forEach(c => {
+    document.cookie = `${c}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+    document.cookie = `${c}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  });
 };
 
 const decodeJWT = (token) => {
@@ -123,7 +128,13 @@ export const AuthProvider = ({ children }) => {
     setLeader(data);
     setIsLeaderAuthenticated(true);
     localStorage.setItem("leaderData", JSON.stringify(data));
-    if (data.token) localStorage.setItem("leaderToken", data.token);
+    
+    const token = data.token || data.accessToken;
+    if (token) {
+      localStorage.setItem("leaderToken", token);
+      localStorage.setItem("access_token", token);
+      localStorage.setItem("token", token);
+    }
   }, []);
 
 
@@ -230,14 +241,23 @@ export const AuthProvider = ({ children }) => {
     setUserSession,
     setLeaderSession,
     hasRole: (role) => {
-      if (role === 'aspirant') return isLeaderAuthenticated;
-      if (role === 'admin') return user?.role === 'admin' || user?.role === 'super_admin';
-      if (role === 'market_admin') return user?.role === 'market_admin' || user?.role === 'admin';
-      if (role === 'user') return isAuthenticated;
+      const normalizedRole = role?.toLowerCase();
+      const userRole = (user?.role || leader?.role || "").toLowerCase();
+      
+      if (normalizedRole === 'aspirant' || normalizedRole === 'leader') return isLeaderAuthenticated;
+      if (normalizedRole === 'admin') return userRole === 'admin' || userRole === 'super_admin';
+      if (normalizedRole === 'market_admin') return userRole === 'market_admin' || userRole === 'admin';
+      
+      // CRITICAL FIX: Leaders are also "users" for shopping/wallet purposes
+      if (normalizedRole === 'user') return isAuthenticated || isLeaderAuthenticated;
+      
       return false;
     },
-    isAdmin: () => user?.role === 'admin' || user?.role === 'super_admin',
-    isMarketAdmin: () => user?.role === 'market_admin',
+    isAdmin: () => {
+      const r = (user?.role || "").toLowerCase();
+      return r === 'admin' || r === 'super_admin';
+    },
+    isMarketAdmin: () => (user?.role || "").toLowerCase() === 'market_admin',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
