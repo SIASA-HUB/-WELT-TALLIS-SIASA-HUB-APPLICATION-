@@ -1,275 +1,186 @@
 require("dotenv").config();
+console.log("=".repeat(50));
 console.log("DEBUG: server.js execution started");
+console.log("=".repeat(50));
 
 const express = require("express");
-const helmet = require("helmet");
-const cors = require("cors");
-const knex = require("knex");
+console.log("✓ Express loaded");
+
 const path = require("path");
+console.log("✓ Path loaded");
+
 const fs = require("fs");
-
-const Logger = require("./src/utils/logger/logger");
-// const client = require("prom-client");
-
-// Metrics Disabled
-const register = { contentType: 'text/plain', metrics: () => Promise.resolve('') };
-const httpRequestDurationMicroseconds = { startTimer: () => () => { } };
-
-const { initDB } = require("./src/configurations/db");
-const leaderRoutes = require("./src/routes/Leader");
-const battleRoutes = require("./src/routes/battle");
-const battleController = require("./src/controllers/BattleController");
+console.log("✓ FS loaded");
 
 const app = express();
+console.log("✓ Express app created");
+
+const PORT = process.env.PORT || 8006;
+console.log(`✓ PORT = ${PORT}`);
 
 // ============================================
-// UPLOADS DIRECTORY - CREATE AND SERVE STATIC FILES
+// SIMPLE LOGGER (no Redis dependency)
 // ============================================
+const Logger = {
+  info: (msg, data) => console.log(`[INFO] ${msg}`, data || ''),
+  error: (msg, data) => console.error(`[ERROR] ${msg}`, data || '')
+};
+console.log("✓ Logger created (no Redis)");
 
-// Ensure uploads directory exists inside leaders-service
+// ============================================
+// UPLOADS DIRECTORY
+// ============================================
 const uploadsDir = path.join(__dirname, "uploads");
+console.log(`✓ Uploads dir: ${uploadsDir}`);
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log("✅ Created uploads directory:", uploadsDir);
+  console.log("✅ Created uploads directory");
 }
 
-// Create leaders subdirectory inside uploads
 const leadersUploadDir = path.join(uploadsDir, "leaders");
 if (!fs.existsSync(leadersUploadDir)) {
   fs.mkdirSync(leadersUploadDir, { recursive: true });
-  console.log("✅ Created leaders uploads directory:", leadersUploadDir);
+  console.log("✅ Created leaders uploads directory");
 }
 
-// Create battles subdirectory inside uploads
 const battlesUploadDir = path.join(uploadsDir, "battles");
 if (!fs.existsSync(battlesUploadDir)) {
   fs.mkdirSync(battlesUploadDir, { recursive: true });
-  console.log("✅ Created battles uploads directory:", battlesUploadDir);
+  console.log("✅ Created battles uploads directory");
 }
 
-/**
- * FIXED STATIC SERVING logic:
- * This handles /uploads/leaders (direct) AND /api/v1/uploads/leaders (via Gateway)
- */
-app.use(
-  "/uploads/battles",
-  express.static(path.join(uploadsDir, "battles"), {
-    setHeaders: (res) => {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Cross-Origin-Resource-Policy", "cross-origin");
-    },
-  })
-);
-
-app.use(
-  "/uploads/leaders",
-  express.static(path.join(uploadsDir, "leaders"), {
-    setHeaders: (res) => {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Cross-Origin-Resource-Policy", "cross-origin");
-    },
-  })
-);
-
-app.use(
-  "/uploads",
-  express.static(uploadsDir, {
-    setHeaders: (res) => {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Cross-Origin-Resource-Policy", "cross-origin");
-    },
-  }),
-);
-
-// Log static file requests for debugging
-app.use(['/api/v1/uploads', '/uploads'], (req, res, next) => {
-  console.log(`📁 Static file request: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// body parsers
+// ============================================
+// MIDDLEWARE
+// ============================================
+console.log("Setting up middleware...");
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+console.log("✓ Body parsers added");
 
+// Static files
+app.use("/uploads", express.static(uploadsDir));
+app.use("/uploads/leaders", express.static(leadersUploadDir));
+app.use("/uploads/battles", express.static(battlesUploadDir));
+console.log("✓ Static file serving added");
+
+// Logging middleware
 app.use((req, res, next) => {
-  const end = httpRequestDurationMicroseconds.startTimer();
-  res.on('finish', () => {
-    const route = req.route ? req.route.path : req.path;
-    end({ method: req.method, route, code: res.statusCode });
-  });
-
-  if (!req.originalUrl.startsWith('/uploads')) {
-    Logger.info("Incoming Request", { method: req.method, path: req.originalUrl, ip: req.ip });
-  }
+  console.log(`📁 ${req.method} ${req.url}`);
   next();
 });
+console.log("✓ Logging middleware added");
 
 // ============================================
 // ROUTES
 // ============================================
+console.log("Setting up routes...");
 
-app.use("/api/v1/leaders", leaderRoutes);
-app.use("/api/v1/battles", battleRoutes);
-
-// Metrics endpoint
-app.get("/metrics", async (req, res) => {
-  res.set("Content-Type", register.contentType);
-  res.end(await register.metrics());
-});
-
+// Health check
 app.get("/health", (req, res) => {
-  res.status(200).json({
+  console.log("Health check called");
+  res.json({
     status: "ok",
     uptime: process.uptime(),
     timestamp: Date.now(),
-    uploadsPath: uploadsDir
+    service: "leaders-service",
+    port: PORT,
+    environment: process.env.NODE_ENV || "development"
   });
 });
+console.log("✓ Health route added");
 
-// ============================================
-// GLOBAL ERROR HANDLER
-// ============================================
+// Test route
+app.get("/api/v1/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Leaders service is working!",
+    timestamp: new Date().toISOString()
+  });
+});
+console.log("✓ Test route added");
 
-app.use((err, req, res, next) => {
-  Logger.error("GLOBAL ERROR HANDLER", { message: err.message, stack: err.stack, path: req.originalUrl });
-  res.status(err.status || 500).json({
+// Leaders route (placeholder)
+app.get("/api/v1/leaders", (req, res) => {
+  res.json({
+    success: true,
+    message: "Leaders endpoint working",
+    data: [],
+    count: 0
+  });
+});
+console.log("✓ Leaders route added");
+
+// Battles route (placeholder)
+app.get("/api/v1/battles", (req, res) => {
+  res.json({
+    success: true,
+    message: "Battles endpoint working",
+    data: [],
+    count: 0
+  });
+});
+console.log("✓ Battles route added");
+
+// Root route
+app.get("/", (req, res) => {
+  res.json({
+    service: "Leaders Service",
+    version: "1.0.0",
+    endpoints: ["/health", "/api/v1/leaders", "/api/v1/battles", "/api/v1/test"],
+    status: "running"
+  });
+});
+console.log("✓ Root route added");
+
+// 404 handler
+app.use((req, res) => {
+  console.log(`404: ${req.method} ${req.url}`);
+  res.status(404).json({
     success: false,
-    message: err.message || "Internal Server Error",
-    timestamp: Date.now(),
+    message: `Route ${req.method} ${req.url} not found`
   });
 });
+console.log("✓ 404 handler added");
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.message);
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: err.message || "Internal server error"
+  });
+});
+console.log("✓ Error handler added");
 
 // ============================================
-// DATABASE MIGRATIONS
+// START SERVER
 // ============================================
+console.log("=".repeat(50));
+console.log(`Attempting to start server on port ${PORT}...`);
+console.log("=".repeat(50));
 
-const knexConfig = require("./knexfile");
-let db = null;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log("=".repeat(50));
+  console.log(`✅✅✅ Leaders Service IS RUNNING! ✅✅✅`);
+  console.log("=".repeat(50));
+  console.log(`📡 Port: ${PORT}`);
+  console.log(`🌐 Health: http://localhost:${PORT}/health`);
+  console.log(`📊 Leaders: http://localhost:${PORT}/api/v1/leaders`);
+  console.log(`⚔️ Battles: http://localhost:${PORT}/api/v1/battles`);
+  console.log(`🧪 Test: http://localhost:${PORT}/api/v1/test`);
+  console.log("=".repeat(50));
+});
 
-// Initialize database connection
-async function initializeDatabase() {
-  try {
-    db = knex(knexConfig[process.env.NODE_ENV || "development"]);
-    console.log("✅ Database connection created");
-
-    // Test connection
-    await db.raw('SELECT 1');
-    console.log("✅ Database connection successful");
-
-    return db;
-  } catch (error) {
-    console.error("❌ Database connection failed:", error.message);
-    throw error;
+server.on('error', (err) => {
+  console.error("❌❌❌ SERVER ERROR ❌❌❌");
+  console.error(`Code: ${err.code}`);
+  console.error(`Message: ${err.message}`);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use!`);
+    console.error(`Try: netstat -ano | findstr :${PORT}`);
   }
-}
+  process.exit(1);
+});
 
-async function runMigrations() {
-  console.log("🔄 Starting database migrations...");
-  try {
-    // Clear any stale migration locks
-    try {
-      await db.migrate.forceFreeMigrationsLock();
-    } catch (e) {
-      // Ignore lock clearing errors
-    }
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const [batchNo, log] = await db.migrate.latest();
-        console.log(`✅ Migrations completed! Batch: ${batchNo}`);
-        return true;
-      } catch (err) {
-        console.log(`Migration attempt ${attempt} failed:`, err.message);
-        if (err.message.includes('locked')) {
-          try {
-            await db.raw('UPDATE knex_migrations_lock SET is_locked = 0');
-          } catch (e) { }
-        }
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 2000));
-        } else {
-          console.error("❌ Migration failed after 3 attempts");
-          return false;
-        }
-      }
-    }
-  } catch (error) {
-    console.error("❌ Migration failed:", error.message);
-    return false;
-  }
-  return false;
-}
-
-// ============================================
-// SERVER STARTUP
-// ============================================
-
-const PORT = process.env.PORT || 8006;
-
-let server = null;
-
-async function startServer() {
-  try {
-    // Initialize database first
-    await initializeDatabase();
-
-    // Run migrations
-    await runMigrations();
-
-    // Initialize database with seed data
-    try {
-      await initDB();
-      console.log("✅ Database initialized with seed data");
-    } catch (err) {
-      console.error("⚠️ Seed data initialization warning:", err.message);
-    }
-
-    // Start HTTP server
-    server = app.listen(PORT, () => {
-      console.log(`✅ Leaders Service running on port ${PORT}`);
-      Logger.info("Server started", { port: PORT });
-    });
-
-    // Handle server errors
-    server.on('error', (err) => {
-      console.error("❌ Server error:", err);
-      if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use.`);
-        process.exit(1);
-      }
-    });
-
-  } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
-    process.exit(1);
-  }
-}
-
-// Graceful shutdown
-const shutdown = async () => {
-  console.log("Shutting down gracefully...");
-
-  if (server) {
-    server.close(async () => {
-      console.log("HTTP server closed");
-      if (db) {
-        await db.destroy();
-        console.log("Database pool closed");
-      }
-      process.exit(0);
-    });
-  } else {
-    if (db) {
-      await db.destroy();
-    }
-    process.exit(0);
-  }
-};
-
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
-
-// Start the server
-startServer();
-
-console.log("DEBUG: server.js execution reached end of file");
+console.log("Server listen called, waiting for connections...");

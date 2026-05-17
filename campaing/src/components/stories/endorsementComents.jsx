@@ -1,4 +1,4 @@
-// components/endorsements/endorsementComents.jsx - Fixed
+// components/endorsements/endorsementComents.jsx - Fixed with larger fonts
 
 import React, { useState } from "react";
 import styled from "styled-components";
@@ -14,34 +14,36 @@ const CommentsContainer = styled.div`
 const CommentsList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 
   &::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
   }
 
   &::-webkit-scrollbar-track {
     background: #1a1a1a;
+    border-radius: 10px;
   }
 
   &::-webkit-scrollbar-thumb {
     background: #ff5c01;
-    border-radius: 4px;
+    border-radius: 10px;
   }
 `;
 
 const CommentItem = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 14px;
   animation: fadeIn 0.2s ease;
+  padding: 4px 0;
 `;
 
 const CommentAvatar = styled.div`
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ff5c01, #ff8c01);
   display: flex;
@@ -49,7 +51,9 @@ const CommentAvatar = styled.div`
   justify-content: center;
   color: white;
   font-weight: bold;
+  font-size: 18px;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255, 92, 1, 0.2);
 `;
 
 const CommentContent = styled.div`
@@ -59,34 +63,36 @@ const CommentContent = styled.div`
 const CommentHeader = styled.div`
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 6px;
   flex-wrap: wrap;
 `;
 
 const CommentUserName = styled.span`
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: white;
+  letter-spacing: 0.3px;
 `;
 
 const CommentTime = styled.span`
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.5);
 `;
 
 const CommentText = styled.div`
-  font-size: 1.2rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-word;
+  margin-bottom: 8px;
 `;
 
 const CommentActions = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 6px;
+  gap: 16px;
+  margin-top: 8px;
 `;
 
 const LikeButton = styled.button`
@@ -94,26 +100,28 @@ const LikeButton = styled.button`
   border: none;
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
-  color: ${(props) => (props.$liked ? "#ff2d55" : "rgba(255, 255, 255, 0.5)")};
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: ${(props) => (props.$liked ? "#ff2d55" : "rgba(255, 255, 255, 0.6)")};
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 20px;
+  padding: 6px 12px;
+  border-radius: 24px;
   transition: all 0.2s;
 
   &:hover {
     background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
   }
 
   svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 `;
 
 const CommentInputWrapper = styled.div`
-  padding: 16px;
+  padding: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: #0a0a0a;
 `;
@@ -128,40 +136,49 @@ const CommentInput = styled.textarea`
   flex: 1;
   background: #1a1a1a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 10px 16px;
+  border-radius: 24px;
+  padding: 12px 18px;
   color: white;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   resize: none;
-  min-height: 40px;
-  max-height: 100px;
+  min-height: 44px;
+  max-height: 120px;
   font-family: inherit;
+  line-height: 1.4;
 
   &:focus {
     outline: none;
     border-color: #ff5c01;
+    box-shadow: 0 0 0 2px rgba(255, 92, 1, 0.1);
   }
 
   &::placeholder {
     color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
   }
 `;
 
 const SendButton = styled.button`
-  background: #ff5c01;
+  background: linear-gradient(135deg, #ff5c01, #ff8c01);
   border: none;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(255, 92, 1, 0.3);
 
   &:hover {
-    background: #ff8c01;
+    background: linear-gradient(135deg, #ff8c01, #ffa01c);
     transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 92, 1, 0.4);
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 
   &:disabled {
@@ -169,13 +186,19 @@ const SendButton = styled.button`
     cursor: not-allowed;
     transform: none;
   }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;
 
 const EmptyComments = styled.div`
   text-align: center;
   color: rgba(255, 255, 255, 0.5);
-  padding: 40px 20px;
-  font-size: 0.85rem;
+  padding: 60px 20px;
+  font-size: 1rem;
+  line-height: 1.5;
 `;
 
 const EndorsementComments = ({
@@ -213,7 +236,11 @@ const EndorsementComments = ({
     <CommentsContainer>
       <CommentsList>
         {comments.length === 0 ? (
-          <EmptyComments>No comments yet. Be the first to comment!</EmptyComments>
+          <EmptyComments>
+            💬 No comments yet.
+            <br />
+            Be the first to comment!
+          </EmptyComments>
         ) : (
           comments.map((comment) => (
             <CommentItem key={comment.id}>
@@ -236,7 +263,7 @@ const EndorsementComments = ({
                     onClick={() => onLikeComment(comment.id)}
                   >
                     <Heart
-                      size={14}
+                      size={16}
                       fill={comment.liked ? "#ff2d55" : "none"}
                     />
                     <span>{comment.likes || 0}</span>
@@ -258,7 +285,7 @@ const EndorsementComments = ({
             rows={1}
           />
           <SendButton type="submit" disabled={!newComment.trim() || isSubmitting}>
-            <Send size={16} color="white" />
+            <Send size={18} color="white" />
           </SendButton>
         </InputForm>
       </CommentInputWrapper>
