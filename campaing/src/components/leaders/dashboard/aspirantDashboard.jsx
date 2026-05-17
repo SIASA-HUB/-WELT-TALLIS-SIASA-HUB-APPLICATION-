@@ -467,8 +467,9 @@ const AspirantDashboard = () => {
 
     try {
       const parsedData = JSON.parse(storedData);
-      setLeader(parsedData);
-      const leaderId = parsedData.leader_id || parsedData._id;
+      const actualLeader = parsedData.leader || parsedData;
+      setLeader(actualLeader);
+      const leaderId = actualLeader.leader_id || actualLeader._id || actualLeader.id;
       fetchRallyCount(leaderId);
       fetchManifestoStatus(leaderId);
       fetchSupporterCount(leaderId);
@@ -512,16 +513,16 @@ const AspirantDashboard = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       // Call server logout to clear session cookies
       try {
-        await api.post("/users/logout").catch(() => {});
-        await api.post("/leaders/logout").catch(() => {});
-      } catch (e) {}
+        await api.post("/users/logout").catch(() => { });
+        await api.post("/leaders/logout").catch(() => { });
+      } catch (e) { }
 
       // Manual cleanup to ensure only leader session ends
       localStorage.removeItem("leaderToken");
       localStorage.removeItem("leaderData");
       localStorage.removeItem("currentLeaderId");
       localStorage.setItem("was_aspirant", "true");
-      
+
       // Force reload to clear all React states and go to login
       window.location.href = "/login-aspirant";
     }
@@ -532,7 +533,7 @@ const AspirantDashboard = () => {
   if (loading) return <LoadingSpinner>Loading dashboard...</LoadingSpinner>;
   if (!leader) return <LoadingSpinner>No leader data found. Redirecting...</LoadingSpinner>;
 
-  const leaderId = leader.leader_id || leader._id;
+  const leaderId = leader.leader_id || leader._id || leader.id;
 
   const renderContent = () => {
     switch (activeTab) {

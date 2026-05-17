@@ -361,7 +361,8 @@ const ProfileSettingsSection = ({ leader, onUpdate }) => {
           response = await api.put("/profile/me", updateData);
         } catch (secondError) {
           console.log("Second endpoint failed, trying admin endpoint...");
-          response = await api.put(`/leaders/${leader.leader_id}/admin`, updateData);
+          const leaderId = leader.leader_id || leader.id;
+          response = await api.put(`/leaders/${leaderId}/admin`, updateData);
         }
       }
       

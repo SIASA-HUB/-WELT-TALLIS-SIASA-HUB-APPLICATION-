@@ -168,7 +168,8 @@ const AccountBillingSection = ({ leader = null }) => {
   const pr = PRICING[posKey] || PRICING.mca;
 
   useEffect(() => {
-    const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+    const parsed = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+    const u = parsed.leader || parsed;
     if (u.phone) setPhone(u.phone.replace(/^\+?0?/, "254"));
     fetchTx();
   }, []);
@@ -176,7 +177,8 @@ const AccountBillingSection = ({ leader = null }) => {
   const fetchTx = async () => {
     setTxLoading(true);
     try {
-      const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const parsed = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const u = parsed.leader || parsed;
       const uid = u.leader_id || u.user_id || u.id;
       if (uid) {
         const res = await api.get(`/wallet/transactions/${uid}`);
@@ -231,7 +233,8 @@ const AccountBillingSection = ({ leader = null }) => {
     }
     setStep("loading"); setMsg("");
     try {
-      const u = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const parsed = JSON.parse(localStorage.getItem("leaderData") || localStorage.getItem("user_data") || "{}");
+      const u = parsed.leader || parsed;
       const formatted = phone.startsWith("0") ? "254" + phone.slice(1)
         : phone.startsWith("+") ? phone.slice(1) : phone;
       const res = await api.post("/wallet/mpesa/stkpush", {

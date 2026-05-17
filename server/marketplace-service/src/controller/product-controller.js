@@ -39,6 +39,31 @@ const generateSlug = (name, id = null) => {
 const cleanUndefined = (value) => (value === undefined ? null : value);
 
 // ============================================
+// TITLE CLEANER & FORMATTER
+// ============================================
+const cleanProductTitle = (title) => {
+  if (!title) return title;
+  
+  // Basic capitalization helper
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  
+  // List of words to completely filter out or replace
+  let clean = title.replace(/presidential taste/gi, "Premium Edition")
+                   .replace(/aspirant taste/gi, "Classic Edition")
+                   .replace(/sample data/gi, "")
+                   .replace(/campaign taste/gi, "Campaign Edition")
+                   .replace(/rep taste/gi, "Standard Edition");
+
+  // Remove multiple spaces
+  clean = clean.replace(/\s+/g, " ").trim();
+
+  // Capitalize each word properly
+  clean = clean.split(" ").map(capitalize).join(" ");
+  
+  return clean || "Premium Campaign Product";
+};
+
+// ============================================
 // REDIS HELPERS (FIXED: no double-stringify)
 // ============================================
 const getCacheKey = (prefix, params) => `${prefix}:${JSON.stringify(params)}`;
@@ -376,7 +401,11 @@ const createProduct = async (req, res) => {
       });
     }
 
-    let slug = generateSlug(name);
+    // Clean names to prevent junk sample titles
+    const cleanedName = cleanProductTitle(name);
+    const cleanedTitle = title ? cleanProductTitle(title) : cleanedName;
+
+    let slug = generateSlug(cleanedName);
     const existingSlug = await safeQueryOne(`SELECT id FROM products WHERE slug = ?`, [slug]);
     if (existingSlug) slug = `${slug}-${Date.now()}`;
 
@@ -388,8 +417,8 @@ const createProduct = async (req, res) => {
     `;
 
     const result = await safeQuery(sql, [
-      name,
-      cleanUndefined(title),
+      cleanedName,
+      cleanUndefined(cleanedTitle),
       cleanUndefined(description),
       parseFloat(price),
       mrp ? parseFloat(mrp) : null,
@@ -452,12 +481,15 @@ const updateProduct = async (req, res) => {
         else if (field === "featured") values.push(updates[field] ? 1 : 0);
         else if (field === "rating") values.push(parseFloat(updates[field]));
         else if (field === "name") {
-          values.push(updates[field]);
-          let newSlug = generateSlug(updates[field]);
+          const cleanedName = cleanProductTitle(updates[field]);
+          values.push(cleanedName);
+          let newSlug = generateSlug(cleanedName);
           const existing = await safeQueryOne(`SELECT id FROM products WHERE slug = ? AND id != ?`, [newSlug, productId]);
           if (existing) newSlug = `${newSlug}-${productId}`;
           fields.push(`slug = ?`);
           values.push(newSlug);
+        } else if (field === "title") {
+          values.push(cleanUndefined(cleanProductTitle(updates[field])));
         } else {
           values.push(cleanUndefined(updates[field]));
         }
@@ -655,6 +687,33 @@ const getFeaturedProducts = async (req, res) => {
   }
 };
 
+// ============================================
+// GET PERSONALIZED FEED (NEW)
+// ============================================
+const getPersonalizedFeed = async (req, res) => {
+  try {
+    const { limit = 12 } = req.query;
+    // In a real scenario, this would use user_id to query 'recommendations' table or 'user_activity'
+    // For now, we will mix trending products, latest products, and randomly selected products 
+    // to simulate a highly active feed.
+    
+    // Fallback: Just fetch a mix for the personalized feed
+    const products = await safeQuery(
+      `SELECT id, name, title, price, mrp, image, seller, category, slug, rating, stock, featured 
+       FROM products 
+       WHERE status = 'active' 
+       ORDER BY featured DESC, RAND() 
+       LIMIT ?`,
+      [parseInt(limit)]
+    );
+
+    res.json({ success: true, data: products });
+  } catch (error) {
+    Logger.error("Error fetching personalized feed:", error);
+    res.status(500).json({ success: false, message: "Error fetching personalized feed" });
+  }
+};
+
 module.exports = {
   getProducts,
   getLatestProducts,
@@ -667,5 +726,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getCategories,
-  clearProductCache
+  clearProductCache,
+  getPersonalizedFeed
 };

@@ -108,7 +108,8 @@ export const AuthProvider = ({ children }) => {
     const storedLeader = localStorage.getItem("leaderData");
     if (leaderToken || storedLeader) {
       try {
-        const parsed = storedLeader ? JSON.parse(storedLeader) : null;
+        const parsedRaw = storedLeader ? JSON.parse(storedLeader) : null;
+        const parsed = parsedRaw?.leader || parsedRaw;
         setLeader(parsed);
         setIsLeaderAuthenticated(true);
       } catch (e) { }
@@ -125,11 +126,12 @@ export const AuthProvider = ({ children }) => {
 
   const setLeaderSession = useCallback((data) => {
     if (!data) return;
-    setLeader(data);
+    const actualLeader = data.leader || data;
+    setLeader(actualLeader);
     setIsLeaderAuthenticated(true);
-    localStorage.setItem("leaderData", JSON.stringify(data));
+    localStorage.setItem("leaderData", JSON.stringify(actualLeader));
     
-    const token = data.token || data.accessToken;
+    const token = data.token || data.accessToken || actualLeader.token;
     if (token) {
       localStorage.setItem("leaderToken", token);
       localStorage.setItem("access_token", token);

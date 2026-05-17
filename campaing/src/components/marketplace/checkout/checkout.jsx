@@ -98,7 +98,8 @@ const Checkout = () => {
     const leaderData = localStorage.getItem("leaderData");
     if (userData || leaderData) {
       try {
-        const u = userData ? JSON.parse(userData) : JSON.parse(leaderData);
+        const uParsed = userData ? JSON.parse(userData) : JSON.parse(leaderData);
+        const u = uParsed.leader || uParsed;
         setFormData(prev => ({
           ...prev,
           fullName: u.real_name || u.name || "",
@@ -131,8 +132,9 @@ const Checkout = () => {
 
     try {
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      const leaderData = JSON.parse(localStorage.getItem("leaderData") || "{}");
-      const userId = userData.user_id || leaderData.leader_id || null;
+      const leaderDataRaw = JSON.parse(localStorage.getItem("leaderData") || "{}");
+      const leader = leaderDataRaw.leader || leaderDataRaw;
+      const userId = userData.user_id || leader.leader_id || leader.id || null;
 
       const orderPayload = {
         user_id: userId,

@@ -40,7 +40,7 @@ const normalizeProduct = (product) => {
 
 const extractData = (response) => {
   const raw = response?.data ?? response;
-  
+
   if (raw && Array.isArray(raw.data)) {
     return {
       data: raw.data.map(normalizeProduct),
@@ -112,8 +112,31 @@ export const getLatestProducts = async (limit = 10) => {
 };
 
 export const getMarketplaceCategories = async () => {
-  const response = await api.getWithCache("/products/categories");
+  const response = await api.getWithCache("/products/categories?include_subcategories=true");
   return response?.data || [];
+};
+
+export const createCategory = async (data) => {
+  return await api.post("/products/categories", data);
+};
+
+export const updateCategory = async (id, data) => {
+  return await api.put(`/products/categories/${id}`, data);
+};
+
+export const deleteCategory = async (id, fallbackCategoryId = null) => {
+  return await api.delete(`/products/categories/${id}`, {
+    data: { fallback_category_id: fallbackCategoryId }
+  });
+};
+
+export const createSubcategory = async (data) => {
+  return await api.post("/products/subcategories", data);
+};
+
+export const getPersonalizedFeed = async (limit = 12) => {
+  const response = await api.getWithCache(`/products/feed?limit=${limit}`);
+  return extractData(response);
 };
 
 // ============================================

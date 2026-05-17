@@ -12,15 +12,29 @@ const {
   getHotProducts,
   updateProduct,
   deleteProduct,
-  getCategories,
+  getPersonalizedFeed,
 } = require("../controller/product-controller");
+
+const {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  createSubcategory,
+} = require("../controller/category-controller");
 
 // Public routes
 router.get("/", getProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/categories", getCategories);
+router.post("/categories", createCategory);
+router.put("/categories/:id", updateCategory);
+router.delete("/categories/:id", deleteCategory);
+router.post("/subcategories", createSubcategory);
+
 router.get("/latest", getLatestProducts);
 router.get("/hot", getHotProducts);             // Trending store carousel
+router.get("/feed", getPersonalizedFeed);       // Personalized recommendations feed
 router.get("/category/:category", getProductsByCategory);
 router.get("/slug/:slug", getProductBySlug);    // SEO slug route — MUST be before /:id
 router.get("/:id", getProductById);             // Numeric ID or fallback slug lookup

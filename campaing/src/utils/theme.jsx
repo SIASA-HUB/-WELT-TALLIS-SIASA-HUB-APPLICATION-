@@ -4,7 +4,7 @@ export const KENYA_THEME = {
   secondary: "#10b981", // Emerald Green
   text: "#f8fafc", // Off-White Text
   textDim: "#94a3b8", // Muted Blue-Gray
-  muted: "#475569", // Dark Slate
+  muted: "#000000ff", // Dark Slate
   bg: "#000000ff", // Deep Oceanic Dark Background
   card: "#0f172a", // Slate-900 Card
   success: "#10b981",
@@ -20,7 +20,7 @@ export const GRADIENTS = {
   dark: "linear-gradient(135deg, #0f172a 0%, #020617 100%)",
   primary: "linear-gradient(135deg, #e11d48 0%, #9f1239 100%)",
   success: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-  glass: "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)",
+  glass: "linear-gradient(135deg, rgba(0, 0, 0, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)",
   blackToTransparent: "linear-gradient(to bottom, rgba(2, 6, 23, 1), rgba(2, 6, 23, 0))",
 };
 

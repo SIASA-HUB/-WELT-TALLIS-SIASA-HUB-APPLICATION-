@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from "react";
 import styled, { keyframes } from "styled-components";
 import { motion } from "framer-motion";
-import { 
+import {
   ChevronRight, ChevronLeft, MapPin, Star, TrendingUp, Zap,
   Package, Award, ShoppingBag, Crown, Shield, Users
 } from "lucide-react";
@@ -10,10 +10,10 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import MarketplaceHero from "../components/MarketplaceHero";
 import ProductCard from "../components/cards/ProductCard";
-import { 
+import {
   getAllProducts, getProductsByCategory, getProductsBySegment,
   getHotProducts, getFeaturedProducts, getLatestProducts,
-  getMarketplaceCategories
+  getMarketplaceCategories, getPersonalizedFeed
 } from "../components/api";
 import { SEGMENTS } from "../components/utils/data";
 
@@ -132,12 +132,10 @@ const ViewAll = styled.button`
 
 const ProductGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   margin-bottom: 32px;
-  @media (max-width: 1200px) { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  @media (max-width: 500px) { grid-template-columns: 1fr; }
+  @media (max-width: 1024px) { grid-template-columns: 1fr; }
 `;
 
 // Horizontal Scroll Section
@@ -148,7 +146,7 @@ const HorizontalSection = styled.div`
 
 const HorizontalTrack = styled.div`
   display: flex;
-  gap: 20px;
+  gap: 24px;
   overflow-x: auto;
   scroll-behavior: smooth;
   padding: 8px 0 16px 0;
@@ -158,10 +156,10 @@ const HorizontalTrack = styled.div`
 `;
 
 const HorizontalCard = styled.div`
-  min-width: 280px;
-  max-width: 280px;
+  min-width: 480px;
+  max-width: 480px;
   flex-shrink: 0;
-  @media (max-width: 768px) { min-width: 240px; max-width: 240px; }
+  @media (max-width: 768px) { min-width: 320px; max-width: 320px; }
 `;
 
 const ScrollButton = styled.button`
@@ -286,7 +284,7 @@ const HorizontalSlider = memo(({ products, loading }) => {
   if (loading) {
     return (
       <HorizontalTrack>
-        {[1,2,3,4].map(i => (
+        {[1, 2, 3, 4].map(i => (
           <HorizontalCard key={i}>
             <SkeletonCard>
               <div className="skel-img" />
@@ -323,14 +321,16 @@ const Home = () => {
   const [hotProducts, setHotProducts] = useState([]);
   const [latestProducts, setLatestProducts] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [personalizedFeed, setPersonalizedFeed] = useState([]);
   const [segmentData, setSegmentData] = useState({});
   const [categoryProducts, setCategoryProducts] = useState([]);
   const [dynamicCategories, setDynamicCategories] = useState([]);
-  
+
   // Loading states
   const [loadingHot, setLoadingHot] = useState(true);
   const [loadingLatest, setLoadingLatest] = useState(true);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
+  const [loadingFeed, setLoadingFeed] = useState(true);
   const [loadingSegments, setLoadingSegments] = useState({});
   const [loadingCategory, setLoadingCategory] = useState(false);
 
@@ -375,10 +375,11 @@ const Home = () => {
   useEffect(() => {
     const fetchCore = async () => {
       try {
-        const [hot, latest, featured] = await Promise.allSettled([
-          getHotProducts(12),
-          getLatestProducts(12),
-          getFeaturedProducts(8),
+        const [hot, latest, featured, feed] = await Promise.allSettled([
+          getHotProducts(8),
+          getLatestProducts(8),
+          getFeaturedProducts(6),
+          getPersonalizedFeed(12),
         ]);
 
         const extractResult = (r) => {
@@ -393,11 +394,14 @@ const Home = () => {
         setLoadingLatest(false);
         setFeaturedProducts(extractResult(featured));
         setLoadingFeatured(false);
+        setPersonalizedFeed(extractResult(feed));
+        setLoadingFeed(false);
       } catch (e) {
         console.error("Error fetching core products:", e);
         setLoadingHot(false);
         setLoadingLatest(false);
         setLoadingFeatured(false);
+        setLoadingFeed(false);
       }
     };
     fetchCore();
@@ -490,9 +494,9 @@ const Home = () => {
 
       <CategoryNav>
         <CategoryList>
-          {CATEGORIES.filter(c => 
-            c.id === 'all' || 
-            ['presidential', 'governor', 'senator', 'mca'].includes(c.id) || 
+          {CATEGORIES.filter(c =>
+            c.id === 'all' ||
+            ['presidential', 'governor', 'senator', 'mca'].includes(c.id) ||
             dynamicCategories.includes(c.id.toLowerCase())
           ).map(cat => (
             <CategoryPill
@@ -567,7 +571,7 @@ const Home = () => {
             {/* Aspirant Segment Sections - Dynamically Ordered */}
             {(() => {
               const isLeader = Boolean(localStorage.getItem('leaderToken') || localStorage.getItem('currentLeaderId'));
-              
+
               const sortedSegments = [...SEGMENTS].sort((a, b) => {
                 if (isLeader) {
                   // Leaders see premium stuff first
@@ -589,7 +593,7 @@ const Home = () => {
               return sortedSegments.slice(0, 4).map(seg => {
                 const products = segmentData[seg.id] || [];
                 const isLoading = loadingSegments[seg.id] ?? !segmentData[seg.id];
-                
+
                 // Only show if loading OR has products
                 if (!isLoading && products.length === 0) return null;
 
@@ -626,6 +630,24 @@ const Home = () => {
             {loadingLatest ? renderSkeletons(4) : (
               <ProductGrid>
                 {latestProducts.slice(0, 8).map(p => (
+                  <ProductCard key={p._id || p.id} product={p} />
+                ))}
+              </ProductGrid>
+            )}
+
+            {/* Personalized Feed Section */}
+            <SectionHeader ref={addSectionRef}>
+              <SectionTitle>
+                <span><Star size={14} /> For You</span>
+                <h2>Recommended Gear</h2>
+              </SectionTitle>
+              <ViewAll onClick={() => navigate('/marketplace/shop?feed=true')}>
+                View Feed <ChevronRight size={16} />
+              </ViewAll>
+            </SectionHeader>
+            {loadingFeed ? renderSkeletons(4) : (
+              <ProductGrid>
+                {personalizedFeed.slice(0, 8).map(p => (
                   <ProductCard key={p._id || p.id} product={p} />
                 ))}
               </ProductGrid>

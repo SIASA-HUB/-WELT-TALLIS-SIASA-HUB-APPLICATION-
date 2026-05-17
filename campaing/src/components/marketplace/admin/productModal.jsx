@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import * as Icons from "lucide-react";
 import axios from "axios";
-import { adminCreateProduct, adminUpdateProduct } from "../components/api";
+import { adminCreateProduct, adminUpdateProduct, getMarketplaceCategories } from "../components/api";
 import api from "../../../api/api";
 
 const ModalOverlay = styled.div`
@@ -204,10 +204,7 @@ const FileInput = styled.input`
   display: none;
 `;
 
-const categories = [
-  "caps", "tshirts", "hoodies", "posters", "badges",
-  "stickers", "banners", "wristbands", "bags"
-];
+// Removed hardcoded categories
 
 const ProductModal = ({ isOpen, onClose, onSave, product }) => {
   const [formData, setFormData] = useState({
@@ -220,6 +217,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
   const [imagePreview, setImagePreview] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [dynamicCategories, setDynamicCategories] = useState([]);
   const abortControllerRef = useRef(null);
   const isSubmittingRef = useRef(false);
 
@@ -254,6 +252,19 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+    }
+
+    // Fetch dynamic categories
+    const loadCategories = async () => {
+      try {
+        const cats = await getMarketplaceCategories();
+        setDynamicCategories(cats || []);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    };
+    if (isOpen) {
+      loadCategories();
     }
   }, [product, isOpen]);
 
@@ -409,7 +420,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product }) => {
                 <Label>Category *</Label>
                 <Select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required>
                   <option value="">Select category</option>
-                  {categories.map(cat => <option key={cat} value={cat}>{cat.toUpperCase()}</option>)}
+                  {dynamicCategories.map(cat => <option key={cat.id || cat.name} value={cat.name}>{cat.name}</option>)}
                 </Select>
               </FormGroup>
             </FormRow>

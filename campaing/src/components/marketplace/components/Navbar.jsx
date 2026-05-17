@@ -4,13 +4,15 @@ import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import SearchBar from "./SearchBar";
 
 const Nav = styled.div`
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  height: 60px;
+  min-height: 60px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: 1rem;
@@ -23,12 +25,35 @@ const Nav = styled.div`
 const NavbarContainer = styled.div`
   width: 100%;
   max-width: 1400px;
-  padding: 0 0px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 60px;
   @media (max-width: 768px) {
-    padding: 0 10px;
+    padding: 0 16px;
+  }
+`;
+
+const SearchBarWrapper = styled.div`
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+  max-width: 500px;
+  
+  @media screen and (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const MobileSearchContainer = styled.div`
+  display: none;
+  width: 100%;
+  padding: 8px 16px 12px 16px;
+  
+  @media screen and (max-width: 768px) {
+    display: block;
   }
 `;
 
@@ -221,6 +246,10 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
           <Navlink to="/marketplace/cart">Cart</Navlink>
         </NavItems>
 
+        <SearchBarWrapper>
+          <SearchBar />
+        </SearchBarWrapper>
+
         <ButtonContainer>
           {/* Cart icon - always visible */}
           <Navlink to="/marketplace/cart">
@@ -299,6 +328,10 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
 
         </MobileMenu>
       </NavbarContainer>
+      
+      <MobileSearchContainer>
+        <SearchBar />
+      </MobileSearchContainer>
     </Nav>
   );
 };

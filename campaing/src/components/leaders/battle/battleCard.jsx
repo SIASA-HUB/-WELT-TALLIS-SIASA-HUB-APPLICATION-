@@ -16,12 +16,12 @@ const colors = {
   glow: "rgba(255, 71, 87, 0.3)",
 };
 
-// ===== STYLES - NO BACKGROUND, NO PADDING ISSUES =====
+// ===== STYLES =====
 const Card = styled(motion.div)`
   background: transparent;
   width: 100%;
-  min-width: 300px;
-  max-width: 360px;
+  min-width: 320px;
+  max-width: 380px;
   scroll-snap-align: start;
   cursor: pointer;
 `;
@@ -30,11 +30,11 @@ const CardInner = styled.div`
   background: #000000;
   border-radius: 28px;
   overflow: hidden;
-  border: 1px solid ${colors.border};
+ 
   transition: all 0.25s ease;
 
   &:hover {
-    border-color: ${colors.primary};
+
     transform: translateY(-4px);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   }
@@ -91,8 +91,8 @@ const Timer = styled.div`
 `;
 
 const Question = styled.h3`
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   text-align: center;
   padding: 20px 20px 12px;
   margin: 0;
@@ -100,32 +100,36 @@ const Question = styled.h3`
   line-height: 1.4;
 `;
 
-// Hero with two candidates
+// Hero with two candidates - RECTANGULAR IMAGES
 const HeroRow = styled.div`
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 20px;
-  padding: 8px 20px 20px;
+  gap: 12px;
+  padding: 16px 20px 20px;
 `;
 
 const Candidate = styled.div`
   text-align: center;
   flex: 1;
+  display: flex;
+  flex-direction: column;
   
-  .avatar {
-    width: 85px;
-    height: 85px;
-    margin: 0 auto;
-    border-radius: 50%;
+  .image-container {
+    width: 100%;
+    aspect-ratio: 3/4;
+    border-radius: 16px;
     overflow: hidden;
-    border: 3px solid ${props => props.$active ? colors.primary : colors.border};
+    border: 2px solid ${props => props.$active ? colors.primary : colors.border};
     box-shadow: ${props => props.$active ? `0 0 20px ${colors.glow}` : 'none'};
+    background: #1a1a1a;
+    transition: all 0.3s ease;
     
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      object-position: center;
     }
   }
   
@@ -141,6 +145,7 @@ const Candidate = styled.div`
     color: ${colors.textDim};
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin-top: 4px;
   }
   
   .vote-count {
@@ -152,7 +157,7 @@ const Candidate = styled.div`
 `;
 
 const VsCircle = styled.div`
-  width: 40px;
+  min-width: 40px;
   height: 40px;
   background: ${colors.primary}15;
   border-radius: 50%;
@@ -163,12 +168,14 @@ const VsCircle = styled.div`
   font-weight: 800;
   color: ${colors.primary};
   border: 1px solid ${colors.primary}40;
+  margin-top: auto;
+  margin-bottom: auto;
 `;
 
 const VoteRow = styled.div`
   display: flex;
   gap: 12px;
-  padding: 0 20px 16px;
+  padding: 0 20px 20px;
 `;
 
 const SideVoteBtn = styled.button`
@@ -178,8 +185,8 @@ const SideVoteBtn = styled.button`
     : `linear-gradient(135deg, ${colors.secondary}, #4faaff)`};
   border: none;
   padding: 12px;
-  border-radius: 40px;
-  font-size: 11px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 800;
   color: white;
   cursor: pointer;
@@ -195,12 +202,11 @@ const SideVoteBtn = styled.button`
   }
 `;
 
-// Progress bar
 const ProgressSection = styled.div`
-  padding: 0 20px 16px;
+  padding: 0 20px 20px;
   
   .bar {
-    height: 6px;
+    height: 8px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     overflow: hidden;
@@ -220,8 +226,8 @@ const ProgressSection = styled.div`
   .percent-row {
     display: flex;
     justify-content: space-between;
-    margin-top: 8px;
-    font-size: 11px;
+    margin-top: 10px;
+    font-size: 12px;
     font-weight: 600;
     
     .left { color: ${colors.primary}; }
@@ -229,17 +235,16 @@ const ProgressSection = styled.div`
   }
 `;
 
-// Action row
 const Actions = styled.div`
   display: flex;
   gap: 12px;
-  padding: 0 20px 16px;
+  padding: 0 20px 20px;
 `;
 
 const ActionBtn = styled.button`
   flex: 1;
   padding: 10px;
-  border-radius: 40px;
+  border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
   display: flex;
@@ -257,12 +262,11 @@ const ActionBtn = styled.button`
   }
 `;
 
-// Reactions
 const Reactions = styled.div`
   display: flex;
   justify-content: center;
-  gap: 28px;
-  padding: 12px 20px;
+  gap: 32px;
+  padding: 16px 20px;
   border-top: 1px solid ${colors.border};
 `;
 
@@ -272,7 +276,7 @@ const Reaction = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   color: ${colors.textDim};
   transition: all 0.2s;
@@ -283,17 +287,16 @@ const Reaction = styled.button`
   }
   
   span {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: ${colors.textDim};
   }
 `;
 
-// Stats footer
 const Stats = styled.div`
   display: flex;
   justify-content: space-around;
-  padding: 14px 20px;
+  padding: 16px 20px;
   background: rgba(0, 0, 0, 0.3);
 `;
 
@@ -301,13 +304,13 @@ const Stat = styled.div`
   text-align: center;
   
   .value {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 800;
     color: ${colors.text};
   }
   
   .label {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     color: ${colors.textDim};
     text-transform: uppercase;
@@ -336,6 +339,7 @@ const formatTimeLeft = (ms) => {
 // ===== MAIN COMPONENT =====
 const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
   const [reactions, setReactions] = useState({});
+  const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
     if (battle?.reactions) setReactions(battle.reactions);
@@ -352,6 +356,16 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
   const rightPercent = 100 - leftPercent;
   const timeLeft = countdowns?.[battle.id] || 0;
   const isLeftWinning = votesLeft > votesRight;
+
+  const handleImageError = (side) => {
+    setImageErrors(prev => ({ ...prev, [side]: true }));
+  };
+
+  const getImageUrl = (image, side) => {
+    if (imageErrors[side]) return null;
+    const url = buildImageUrl(image);
+    return url || null;
+  };
 
   const handleVote = (e, side, leaderId) => {
     e.stopPropagation();
@@ -400,10 +414,29 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
 
         <HeroRow>
           <Candidate $active={isLeftWinning}>
-            <div className="avatar">
-              <img src={buildImageUrl(left.primary_image)} alt={left.name} />
+            <div className="image-container">
+              {getImageUrl(left.primary_image, 'left') ? (
+                <img
+                  src={getImageUrl(left.primary_image, 'left')}
+                  alt={left.name}
+                  onError={() => handleImageError('left')}
+                />
+              ) : (
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #ff4757, #ff6b81)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '48px',
+                  fontWeight: 'bold'
+                }}>
+                  {left.name?.charAt(0) || '?'}
+                </div>
+              )}
             </div>
-            <div className="name">{left.name?.split(" ")[0] || "A"}</div>
+            <div className="name">{left.name || "Candidate A"}</div>
             <div className="party">{left.party || ""}</div>
             <div className="vote-count">{formatNumber(votesLeft)}</div>
           </Candidate>
@@ -411,10 +444,29 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
           <VsCircle>VS</VsCircle>
 
           <Candidate $active={!isLeftWinning && votesRight > 0}>
-            <div className="avatar">
-              <img src={buildImageUrl(right.primary_image)} alt={right.name} />
+            <div className="image-container">
+              {getImageUrl(right.primary_image, 'right') ? (
+                <img
+                  src={getImageUrl(right.primary_image, 'right')}
+                  alt={right.name}
+                  onError={() => handleImageError('right')}
+                />
+              ) : (
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #1e90ff, #4faaff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '48px',
+                  fontWeight: 'bold'
+                }}>
+                  {right.name?.charAt(0) || '?'}
+                </div>
+              )}
             </div>
-            <div className="name">{right.name?.split(" ")[0] || "B"}</div>
+            <div className="name">{right.name || "Candidate B"}</div>
             <div className="party">{right.party || ""}</div>
             <div className="vote-count">{formatNumber(votesRight)}</div>
           </Candidate>
@@ -422,10 +474,10 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
 
         <VoteRow>
           <SideVoteBtn $side="left" onClick={(e) => handleVote(e, "left", left.leader_id)}>
-            VOTE {left.name?.split(" ")[0]?.toUpperCase()}
+            VOTE {left.name?.split(" ")[0]?.toUpperCase() || "LEFT"}
           </SideVoteBtn>
           <SideVoteBtn $side="right" onClick={(e) => handleVote(e, "right", right.leader_id)}>
-            VOTE {right.name?.split(" ")[0]?.toUpperCase()}
+            VOTE {right.name?.split(" ")[0]?.toUpperCase() || "RIGHT"}
           </SideVoteBtn>
         </VoteRow>
 
@@ -445,7 +497,7 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
             <Share2 size={12} /> Share
           </ActionBtn>
           <ActionBtn $primary onClick={(e) => { e.stopPropagation(); openBattle(); }}>
-            <Eye size={12} /> View
+            <Eye size={12} /> View Details
           </ActionBtn>
         </Actions>
 
@@ -464,17 +516,17 @@ const BattleCard = ({ battle, countdowns, onVote, onAddReaction }) => {
         <Stats>
           <Stat>
             <div className="value">{formatNumber(total)}</div>
-            <div className="label">Total</div>
+            <div className="label">Total Votes</div>
           </Stat>
           <Stat>
             <div className="value">{Math.abs(Math.round(leftPercent - rightPercent))}%</div>
-            <div className="label">Gap</div>
+            <div className="label">Margin</div>
           </Stat>
           <Stat>
             <div className="value">
               {votesLeft > votesRight
-                ? left.name?.split(" ")[0]?.slice(0, 8)
-                : right.name?.split(" ")[0]?.slice(0, 8)}
+                ? left.name?.split(" ")[0]?.slice(0, 8) || "Left"
+                : right.name?.split(" ")[0]?.slice(0, 8) || "Right"}
             </div>
             <div className="label">Leading</div>
           </Stat>

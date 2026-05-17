@@ -401,8 +401,9 @@ const Cart = () => {
 
       // ✅ Get userId from multiple sources
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      const leaderData = JSON.parse(localStorage.getItem("leaderData") || "{}");
-      const userId = user?.user_id || user?.id || leader?.leader_id || leader?.id || userData?.user_id || leaderData?.leader_id || null;
+      const leaderDataRaw = JSON.parse(localStorage.getItem("leaderData") || "{}");
+      const leaderData = leaderDataRaw.leader || leaderDataRaw;
+      const userId = user?.user_id || user?.id || leader?.leader_id || leader?.id || userData?.user_id || leaderData?.leader_id || leaderData?.id || null;
 
       const totalAmount = calculateSubtotal();
 

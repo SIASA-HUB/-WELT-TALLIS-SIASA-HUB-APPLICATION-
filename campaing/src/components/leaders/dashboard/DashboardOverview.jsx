@@ -647,12 +647,13 @@ const DashboardOverview = ({ leader }) => {
   const [growthRate, setGrowthRate] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!leader?.leader_id) return;
+    const leaderId = leader?.leader_id || leader?.id;
+    if (!leaderId) return;
 
     setLoading(true);
     try {
       const dashboardRes = await api.get(`/leaders/analytics/dashboard`, {
-        params: { leader_id: leader.leader_id }
+        params: { leader_id: leaderId }
       });
 
       if (dashboardRes?.success) {
@@ -676,7 +677,7 @@ const DashboardOverview = ({ leader }) => {
       }
 
       const endorsementsRes = await api.get(
-        `/endorsements/leader/${leader.leader_id}/recent?limit=10`
+        `/endorsements/leader/${leaderId}/recent?limit=10`
       );
 
       if (endorsementsRes?.success) {
@@ -688,7 +689,7 @@ const DashboardOverview = ({ leader }) => {
     } finally {
       setLoading(false);
     }
-  }, [leader?.leader_id]);
+  }, [leader]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -1045,7 +1046,7 @@ const DashboardOverview = ({ leader }) => {
                   <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#0c4a6e' }}>Candidates who share their profile on WhatsApp rank 40% higher on Google.</p>
                 </div>
                 <button onClick={() => {
-                  const url = `https://siasahub.co.ke/leaders/${leader?.leader_id}`;
+                  const url = `https://siasahub.co.ke/leaders/${leader?.leader_id || leader?.id}`;
                   navigator.clipboard.writeText(url);
                   alert("Public profile link copied! Share it to boost your SEO.");
                 }} style={{ background: '#0369a1', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>
