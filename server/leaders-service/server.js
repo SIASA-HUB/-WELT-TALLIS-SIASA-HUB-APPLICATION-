@@ -144,33 +144,60 @@ app.use((err, req, res, next) => {
 // ============================================
 
 const knexConfig = require("./knexfile");
-const db = knex(knexConfig[process.env.NODE_ENV || "development"]);
+let db = null;
+
+// Initialize database connection
+async function initializeDatabase() {
+  try {
+    db = knex(knexConfig[process.env.NODE_ENV || "development"]);
+    console.log("✅ Database connection created");
+
+    // Test connection
+    await db.raw('SELECT 1');
+    console.log("✅ Database connection successful");
+
+    return db;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error.message);
+    throw error;
+  }
+}
 
 async function runMigrations() {
   console.log("🔄 Starting database migrations...");
-  let migrationsCompleted = false;
   try {
+    // Clear any stale migration locks
     try {
       await db.migrate.forceFreeMigrationsLock();
-    } catch (e) { }
+    } catch (e) {
+      // Ignore lock clearing errors
+    }
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const [batchNo, log] = await db.migrate.latest();
         console.log(`✅ Migrations completed! Batch: ${batchNo}`);
-        migrationsCompleted = true;
-        break;
+        return true;
       } catch (err) {
+        console.log(`Migration attempt ${attempt} failed:`, err.message);
         if (err.message.includes('locked')) {
-          await db.raw('UPDATE knex_migrations_lock SET is_locked = 0');
+          try {
+            await db.raw('UPDATE knex_migrations_lock SET is_locked = 0');
+          } catch (e) { }
         }
-        await new Promise(r => setTimeout(r, 2000));
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 2000));
+        } else {
+          console.error("❌ Migration failed after 3 attempts");
+          return false;
+        }
       }
     }
   } catch (error) {
     console.error("❌ Migration failed:", error.message);
+    return false;
   }
-  return migrationsCompleted;
+  return false;
 }
 
 // ============================================
@@ -179,46 +206,70 @@ async function runMigrations() {
 
 const PORT = process.env.PORT || 8006;
 
-const server = app.listen(PORT, () => {
-  console.log(` Leaders Service running on port ${PORT}`);
-  Logger.info("Server started", { port: PORT });
+let server = null;
 
-  // Run background tasks AFTER server starts
-  (async () => {
+async function startServer() {
+  try {
+    // Initialize database first
+    await initializeDatabase();
+
+    // Run migrations
+    await runMigrations();
+
+    // Initialize database with seed data
     try {
-      console.log("🔄 Checking migrations...");
-      await runMigrations();
-      console.log("✅ Migrations check complete.");
-
-      console.log("🚀 Initializing Database...");
       await initDB();
-      console.log("✅ Database initialized.");
+      console.log("✅ Database initialized with seed data");
     } catch (err) {
-      console.error("❌ Background startup task failed:", err);
+      console.error("⚠️ Seed data initialization warning:", err.message);
     }
-  })();
-});
 
-// Handle server errors
-server.on('error', (err) => {
-  console.error("❌ Server failed to bind:", err);
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use.`);
+    // Start HTTP server
+    server = app.listen(PORT, () => {
+      console.log(`✅ Leaders Service running on port ${PORT}`);
+      Logger.info("Server started", { port: PORT });
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error("❌ Server error:", err);
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use.`);
+        process.exit(1);
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Failed to start server:", error.message);
+    process.exit(1);
   }
-  process.exit(1);
-});
+}
 
-const shutdown = () => {
-  console.log("Shutting down...");
-  server.close(async () => {
-    await db.destroy();
+// Graceful shutdown
+const shutdown = async () => {
+  console.log("Shutting down gracefully...");
+
+  if (server) {
+    server.close(async () => {
+      console.log("HTTP server closed");
+      if (db) {
+        await db.destroy();
+        console.log("Database pool closed");
+      }
+      process.exit(0);
+    });
+  } else {
+    if (db) {
+      await db.destroy();
+    }
     process.exit(0);
-  });
+  }
 };
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
-console.log("DEBUG: server.js execution reached end of file");
+// Start the server
+startServer();
 
 console.log("DEBUG: server.js execution reached end of file");
