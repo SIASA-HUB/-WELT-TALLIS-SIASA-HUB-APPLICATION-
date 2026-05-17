@@ -399,7 +399,7 @@ const Cart = () => {
         return;
       }
 
-      // ✅ Get userId from multiple sources
+      // Get userId from multiple sources
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
       const leaderDataRaw = JSON.parse(localStorage.getItem("leaderData") || "{}");
       const leaderData = leaderDataRaw.leader || leaderDataRaw;
@@ -425,7 +425,7 @@ const Cart = () => {
 
       toast.info("Placing your order...");
       const orderRes = await placeOrder(token, orderDetails);
-      
+
       if (!orderRes?.success) {
         throw new Error(orderRes?.message || "Failed to place order");
       }
@@ -436,7 +436,7 @@ const Cart = () => {
       if (paymentMethod === "mpesa") {
         try {
           toast.info("Initiating M-Pesa payment... Please check your phone.");
-          
+
           // Call marketplace payment endpoint
           const API_MARKETPLACE = `${localStorage.getItem('VITE_API_URL') || '/api/v1'}/marketplace`;
           const mpesaRes = await axios.post(`${API_MARKETPLACE}/payments/mpesa/stkpush`, {
@@ -448,7 +448,7 @@ const Cart = () => {
 
           if (mpesaRes.data?.success) {
             const checkoutId = mpesaRes.data.data.checkoutRequestId;
-            
+
             // Polling for status
             let attempts = 0;
             const pollInterval = setInterval(async () => {
@@ -474,10 +474,10 @@ const Cart = () => {
                 navigate("/marketplace");
               }
             }, 5000);
-            
+
             return; // Exit handler, polling will handle navigation
           } else {
-             throw new Error(mpesaRes.data?.message || "Failed to initiate M-Pesa payment");
+            throw new Error(mpesaRes.data?.message || "Failed to initiate M-Pesa payment");
           }
         } catch (stkErr) {
           console.error("STK Push error:", stkErr);
@@ -746,22 +746,22 @@ const Cart = () => {
                     </SectionTitle>
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                       <label style={{ flex: 1, cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="payment" 
-                          value="mpesa" 
-                          checked={paymentMethod === 'mpesa'} 
+                        <input
+                          type="radio"
+                          name="payment"
+                          value="mpesa"
+                          checked={paymentMethod === 'mpesa'}
                           onChange={() => setPaymentMethod('mpesa')}
                           style={{ marginRight: '8px' }}
                         />
                         <span style={{ fontSize: '13px', color: paymentMethod === 'mpesa' ? '#fff' : '#94a3b8' }}>M-Pesa</span>
                       </label>
                       <label style={{ flex: 1, cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="payment" 
-                          value="cod" 
-                          checked={paymentMethod === 'cod'} 
+                        <input
+                          type="radio"
+                          name="payment"
+                          value="cod"
+                          checked={paymentMethod === 'cod'}
                           onChange={() => setPaymentMethod('cod')}
                           style={{ marginRight: '8px' }}
                         />

@@ -18,7 +18,7 @@ exports.up = async function (knex) {
       table.index("category_slug");
       table.index("action_type");
     });
-    console.log("✅ User_activity table created");
+
   }
 
   const recommendationsExists = await knex.schema.hasTable("recommendations");

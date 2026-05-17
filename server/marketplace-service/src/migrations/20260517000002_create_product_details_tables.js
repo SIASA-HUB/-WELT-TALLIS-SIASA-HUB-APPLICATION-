@@ -16,7 +16,7 @@ exports.up = async function (knex) {
       table.foreign("product_id").references("id").on("products").onDelete("CASCADE");
       table.index("product_id");
     });
-    console.log("✅ Product_images table created");
+
   }
 
   const productVariantsExists = await knex.schema.hasTable("product_variants");

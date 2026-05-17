@@ -20,22 +20,22 @@ const handleInteraction = asyncHandler(async (req, res) => {
     let updatedStats = {};
 
     if (interactionType === "like") {
-      const action = metadata?.action; 
+      const action = metadata?.action;
 
       if (action === "like") {
-       
+
         await safeQuery(
           `DELETE FROM leader_dislikes WHERE leader_id = ? AND (user_id = ? OR (user_id IS NULL AND ip_address = ?))`,
           [leaderId, user_id, ip],
         );
 
- 
+
         await safeQuery(
           `INSERT INTO leader_likes (leader_id, user_id, ip_address) VALUES (?, ?, ?)`,
           [leaderId, user_id, ip],
         );
       } else if (action === "unlike") {
-  
+
         await safeQuery(
           `DELETE FROM leader_likes WHERE leader_id = ? AND (user_id = ? OR (user_id IS NULL AND ip_address = ?)) LIMIT 1`,
           [leaderId, user_id, ip],
@@ -43,7 +43,7 @@ const handleInteraction = asyncHandler(async (req, res) => {
       }
 
       resultMessage = action === "like" ? "Liked" : "Unliked";
-    } 
+    }
     else if (interactionType === "view" || interactionType === "info_view") {
       // Record view
       await safeQuery(
@@ -51,13 +51,13 @@ const handleInteraction = asyncHandler(async (req, res) => {
          VALUES (?, ?, ?, ?, NOW())`,
         [leaderId, user_id, ip, metadata?.sessionId || null],
       );
-      
+
       // Update aggregate views count in leaders table
       await safeQuery(
         `UPDATE leaders SET views = views + 1 WHERE leader_id = ?`,
         [leaderId]
       );
-      
+
       resultMessage = "Viewed";
     }
     else if (interactionType === "share") {
@@ -67,19 +67,19 @@ const handleInteraction = asyncHandler(async (req, res) => {
          VALUES (?, ?, ?, ?)`,
         [leaderId, user_id, ip, metadata?.platform || 'Direct'],
       );
-      
+
       // Update aggregate shares count in leaders table
       await safeQuery(
         `UPDATE leaders SET shares = shares + 1 WHERE leader_id = ?`,
         [leaderId]
       );
-      
+
       resultMessage = "Shared";
     }
     else if (interactionType === "time_spent") {
       // NEW: Track time spent on profile
       const timeSpent = metadata?.time_spent || 0;
-      
+
       // Only track if time spent is meaningful (>= 3 seconds)
       if (timeSpent >= 3) {
         await safeQuery(
@@ -87,7 +87,7 @@ const handleInteraction = asyncHandler(async (req, res) => {
            VALUES (?, ?, ?, ?, ?, NOW())`,
           [leaderId, user_id, ip, metadata?.sessionId || null, timeSpent],
         );
-        
+
         // Update average time spent in leaders table (optional)
         await safeQuery(
           `UPDATE leaders 
@@ -96,7 +96,7 @@ const handleInteraction = asyncHandler(async (req, res) => {
            WHERE leader_id = ?`,
           [timeSpent, timeSpent, leaderId, leaderId]
         );
-        
+
         resultMessage = "Time tracked";
       }
     }
@@ -121,7 +121,7 @@ const handleInteraction = asyncHandler(async (req, res) => {
         [leaderId],
       ),
     ]);
-    
+
     updatedStats = {
       likes: parseInt(likes?.count) || 0,
       views: parseInt(views?.count) || 0,
@@ -385,7 +385,7 @@ const trackTimeSpent = asyncHandler(async (req, res) => {
 
 const handleSupport = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
-  const { user_id, status } = req.body; // status is true for support, false for remove support
+  const { user_id, status } = req.body;
   const ip = req.ip;
 
   try {
@@ -428,44 +428,17 @@ const trackClick = asyncHandler(async (req, res) => {
 
   try {
     // Optionally log to DB if a table exists, for now just log and return OK
-    Logger.info("Click Tracked", { 
-      element_id, 
-      element_tag, 
-      page_url, 
-      text_content, 
+    Logger.info("Click Tracked", {
+      element_id,
+      element_tag,
+      page_url,
+      text_content,
       user_id,
-      ip 
+      ip
     });
 
     res.status(200).json({ success: true, message: "Click tracked" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-const getSupportedLeaders = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-
-  if (!userId) {
-    return res.status(400).json({ success: false, message: "User ID required" });
-  }
-
-  try {
-    const supported = await safeQuery(
-      `SELECT l.leader_id, l.name, l.county, l.constituency, l.ward, l.position, l.party, l.profile_image, l.slug, ll.created_at as joined_at
-       FROM leader_likes ll
-       JOIN leaders l ON ll.leader_id = l.leader_id
-       WHERE ll.user_id = ?
-       ORDER BY ll.created_at DESC`,
-      [userId]
-    );
-
-    res.status(200).json({
-      success: true,
-      data: Array.isArray(supported) ? supported : []
-    });
-  } catch (error) {
-    Logger.error(`Get supported leaders error: ${error.message}`);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -480,5 +453,4 @@ module.exports = {
   trackTimeSpent,
   handleSupport,
   trackClick,
-  getSupportedLeaders,
 };

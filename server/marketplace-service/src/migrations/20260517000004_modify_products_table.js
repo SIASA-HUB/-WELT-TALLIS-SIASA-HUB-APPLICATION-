@@ -16,8 +16,8 @@ exports.up = async function (knex) {
 
   // Adding foreign keys separately in case the table already exists but lacks them
   // Note: For now, we allow them to be nullable so we can migrate data smoothly.
-  
-  console.log("✅ Products table altered with category_id, subcategory_id, and brand");
+
+  console.log("Products table altered with category_id, subcategory_id, and brand");
 };
 
 /**
