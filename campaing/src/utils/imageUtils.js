@@ -3,32 +3,80 @@
 import API from '../api/config';
 
 /**
- * Utility to build full image URLs from relative paths.
- * Handles production vs development environments and various path formats.
- * 
- * @param {string} imageUrl - The relative or absolute image URL
- * @returns {string|null} - The formatted full URL or null if invalid
+ * Clean corrupted video URLs - removes /api/videos/stream/ garbage
  */
+const fixVideoUrl = (url) => {
+  if (!url) return url;
+
+  let cleanUrl = url;
+
+  // Remove all /api/videos/stream/ occurrences
+  while (cleanUrl.includes('/api/videos/stream/')) {
+    cleanUrl = cleanUrl.replace('/api/videos/stream/', '');
+  }
+
+  // Remove all /api/v1/ occurrences
+  while (cleanUrl.includes('/api/v1/')) {
+    cleanUrl = cleanUrl.replace('/api/v1/', '');
+  }
+
+  // Decode URI encoding
+  try {
+    cleanUrl = decodeURIComponent(cleanUrl);
+  } catch (e) { }
+
+  // Remove query parameters
+  cleanUrl = cleanUrl.split('?')[0];
+
+  // Ensure it starts with /uploads/
+  if (cleanUrl.includes('/uploads/')) {
+    const uploadsIndex = cleanUrl.indexOf('/uploads/');
+    cleanUrl = cleanUrl.substring(uploadsIndex);
+  } else if (!cleanUrl.startsWith('/uploads/') && !cleanUrl.startsWith('uploads/')) {
+    // Add /uploads/ if missing
+    cleanUrl = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+  } else {
+    cleanUrl = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+  }
+
+  return cleanUrl;
+};
+
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
 
   let processedUrl = imageUrl;
 
-  // Fix for production: replace localhost with production domain if detected
+  // Fix for production: replace localhost with production domain
   if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
     processedUrl = processedUrl.replace(/http:\/\/localhost:8006/g, 'https://siasahub.co.ke');
   } else if (typeof processedUrl === 'string' && processedUrl.includes('localhost:5000')) {
     processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
   }
 
-  // If it's already an absolute URL, return as is
+  // If it's already an absolute URL, return as is (but still clean it if it's a video)
   if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
+    // Check if this is a corrupted video URL
+    if (processedUrl.includes('/api/videos/stream/') || processedUrl.includes('%2Fapi%2Fvideos%2Fstream%2F')) {
+      const cleaned = fixVideoUrl(processedUrl);
+      let baseUrl = API.IMAGES || API.UPLOAD_BASE;
+      if (!baseUrl && typeof window !== "undefined") {
+        baseUrl = window.location.origin;
+      }
+      if (baseUrl) {
+        baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
+        return `${baseUrl}${cleaned}`;
+      }
+    }
     return processedUrl;
   }
 
+  // Clean the URL first
+  processedUrl = fixVideoUrl(processedUrl);
+
   let baseUrl = API.IMAGES || API.UPLOAD_BASE;
   if (!baseUrl && typeof window !== "undefined") {
-    baseUrl = window.location.origin; // fallback: same domain
+    baseUrl = window.location.origin;
   }
   if (!baseUrl) return null;
 
@@ -38,84 +86,22 @@ export const buildImageUrl = (imageUrl) => {
   return `${baseUrl}${imagePath}`;
 };
 
-/**
- * Utility to build full video URLs from relative paths.
- * EXACTLY the same logic as buildImageUrl - no streaming, just direct file access.
- * 
- * @param {string} videoUrl - The relative or absolute video URL
- * @returns {string|null} - The formatted full URL or null if invalid
- */
+// buildVideoUrl - just uses the same function
 export const buildVideoUrl = (videoUrl) => {
-  if (!videoUrl || videoUrl === "null" || videoUrl === "" || videoUrl === undefined) return null;
-
-  let processedUrl = videoUrl;
-
-  // Fix for production: replace localhost with production domain if detected
-  if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
-    processedUrl = processedUrl.replace(/http:\/\/localhost:8006/g, 'https://siasahub.co.ke');
-  } else if (typeof processedUrl === 'string' && processedUrl.includes('localhost:5000')) {
-    processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
-  }
-
-  // If it's already an absolute URL, return as is
-  if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
-    return processedUrl;
-  }
-
-  let baseUrl = API.IMAGES || API.UPLOAD_BASE;
-  if (!baseUrl && typeof window !== "undefined") {
-    baseUrl = window.location.origin; // fallback: same domain
-  }
-  if (!baseUrl) return null;
-
-  baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
-
-  // Clean the path - remove any double slashes or encoding
-  let cleanPath = processedUrl;
-  // Remove any /api/videos/stream/ prefix if it exists (from old data)
-  if (cleanPath.includes('/api/videos/stream/')) {
-    cleanPath = cleanPath.split('/api/videos/stream/').pop();
-  }
-  // Remove any double encoding
-  cleanPath = decodeURIComponent(cleanPath);
-
-  const videoPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
-
-  return `${baseUrl}${videoPath}`;
+  return buildImageUrl(videoUrl);
 };
 
-/**
- * Utility to get a consistent avatar fallback
- * 
- * @param {string} name - Name to generate initials for
- * @returns {string} - UI Avatars URL
- */
 export const getAvatarFallback = (name) => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=dc2626&color=fff&size=200&bold=true`;
 };
 
-/**
- * Utility to get video thumbnail/poster URL
- * Can be used if you have separate thumbnail images for videos
- * 
- * @param {string} videoUrl - The video URL
- * @param {string} thumbnailUrl - Optional thumbnail URL
- * @returns {string|null} - The thumbnail URL or null
- */
 export const getVideoThumbnail = (videoUrl, thumbnailUrl = null) => {
   if (thumbnailUrl) {
     return buildImageUrl(thumbnailUrl);
   }
-  // If no thumbnail provided, return null (video will show play button)
   return null;
 };
 
-/**
- * Utility to check if a URL is an image
- * 
- * @param {string} url - The URL to check
- * @returns {boolean} - True if it's an image
- */
 export const isImageUrl = (url) => {
   if (!url) return false;
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
@@ -123,12 +109,6 @@ export const isImageUrl = (url) => {
   return imageExtensions.includes(extension);
 };
 
-/**
- * Utility to check if a URL is a video
- * 
- * @param {string} url - The URL to check
- * @returns {boolean} - True if it's a video
- */
 export const isVideoUrl = (url) => {
   if (!url) return false;
   const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'flv', 'wmv'];
@@ -136,39 +116,19 @@ export const isVideoUrl = (url) => {
   return videoExtensions.includes(extension);
 };
 
-/**
- * Utility to get file extension from URL
- * 
- * @param {string} url - The URL
- * @returns {string} - The file extension
- */
 export const getFileExtension = (url) => {
   if (!url) return '';
   const match = url.match(/\.([^.]+)$/);
   return match ? match[1].toLowerCase() : '';
 };
 
-/**
- * Utility to get optimized image URL with dimensions
- * Useful for responsive images
- * 
- * @param {string} imageUrl - The image URL
- * @param {number} width - Desired width
- * @param {number} height - Desired height
- * @returns {string|null} - Optimized image URL
- */
 export const getOptimizedImageUrl = (imageUrl, width = null, height = null) => {
   const url = buildImageUrl(imageUrl);
   if (!url) return null;
-
-  // If no dimensions requested, return the original URL
   if (!width && !height) return url;
-
-  // Add query parameters for optimization
   const params = new URLSearchParams();
   if (width) params.append('w', width);
   if (height) params.append('h', height);
-
   const queryString = params.toString();
   return queryString ? `${url}?${queryString}` : url;
 };
