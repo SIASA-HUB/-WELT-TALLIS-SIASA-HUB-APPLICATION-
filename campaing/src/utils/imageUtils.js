@@ -21,6 +21,7 @@ export const buildImageUrl = (imageUrl) => {
     processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
   }
 
+  // If it's already an absolute URL, return as is
   if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
     return processedUrl;
   }
@@ -39,7 +40,7 @@ export const buildImageUrl = (imageUrl) => {
 
 /**
  * Utility to build full video URLs from relative paths.
- * Uses the same logic as buildImageUrl for consistency.
+ * EXACTLY the same logic as buildImageUrl - no streaming, just direct file access.
  * 
  * @param {string} videoUrl - The relative or absolute video URL
  * @returns {string|null} - The formatted full URL or null if invalid
@@ -56,6 +57,7 @@ export const buildVideoUrl = (videoUrl) => {
     processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
   }
 
+  // If it's already an absolute URL, return as is
   if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
     return processedUrl;
   }
@@ -67,7 +69,17 @@ export const buildVideoUrl = (videoUrl) => {
   if (!baseUrl) return null;
 
   baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
-  const videoPath = processedUrl.startsWith("/") ? processedUrl : `/${processedUrl}`;
+
+  // Clean the path - remove any double slashes or encoding
+  let cleanPath = processedUrl;
+  // Remove any /api/videos/stream/ prefix if it exists (from old data)
+  if (cleanPath.includes('/api/videos/stream/')) {
+    cleanPath = cleanPath.split('/api/videos/stream/').pop();
+  }
+  // Remove any double encoding
+  cleanPath = decodeURIComponent(cleanPath);
+
+  const videoPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
 
   return `${baseUrl}${videoPath}`;
 };
