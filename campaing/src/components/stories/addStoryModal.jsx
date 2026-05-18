@@ -1,4 +1,5 @@
-// components/AddStoryModal.jsx - Fixed for mobile & no limits
+// components/AddStoryModal.jsx - Fixed for mobile & NO LIMITS
+
 import React, { useState, useRef, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -13,6 +14,8 @@ import {
   AlertCircle,
   Lock,
   User,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import api from "../../api/api";
 import { useAuth } from "../hooks/useAuth";
@@ -26,6 +29,11 @@ const slideUp = keyframes`
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 `;
 
 // Styled Components
@@ -320,6 +328,38 @@ const StatusMessage = styled.div`
   color: ${(props) => (props.$isError ? "#ef4444" : "#22c55e")};
 `;
 
+const NetworkStatus = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  position: absolute;
+  bottom: 80px;
+  left: 20px;
+  color: ${(props) => (props.$online ? "#22c55e" : "#ef4444")};
+`;
+
+const ProgressBar = styled.div`
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+
+  div {
+    height: 100%;
+    background: linear-gradient(90deg, #25d366, #128c7e);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    width: ${(props) => props.$progress}%;
+  }
+`;
+
 // Helper functions
 const getLocalUser = () => {
   try {
@@ -348,13 +388,29 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [maxTextLength] = useState(5000); // Increased for mobile
+  const [maxTextLength] = useState(10000); // Increased to 10,000
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [retryCount, setRetryCount] = useState(0);
 
   const fileInput = useRef(null);
   const contentRef = useRef(null);
 
   const user = authUser || authLeader || getLocalUser();
   const isAuthenticated = authIsAuth || isLeaderAuthenticated || isUserAuthenticatedFromStorage();
+
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const getLeaderId = () => {
     if (!leader) return null;
@@ -383,6 +439,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       setSuccess(null);
       setPostType("text");
       setUploadProgress(0);
+      setRetryCount(0);
     }
   }, [isOpen]);
 
@@ -403,37 +460,15 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       URL.revokeObjectURL(media.preview);
     }
 
-    // Check file size - 500MB for mobile
-    if (file.size > 500 * 1024 * 1024) {
-      setError("File too large (Max 500MB)");
-      return;
-    }
-
-    // Check if it's a valid media type
+    // NO FILE SIZE LIMIT - removed completely
+    // Just check if it's a valid media type
     if (file.type.startsWith("video/")) {
-      // Check video duration for mobile
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        URL.revokeObjectURL(video.src);
-        // No duration limit - allow any length
-        setMedia({
-          file,
-          preview: URL.createObjectURL(file),
-          type: "video",
-        });
-        setError(null);
-      };
-      video.onerror = () => {
-        URL.revokeObjectURL(video.src);
-        setMedia({
-          file,
-          preview: URL.createObjectURL(file),
-          type: "video",
-        });
-        setError(null);
-      };
-      video.src = URL.createObjectURL(file);
+      setMedia({
+        file,
+        preview: URL.createObjectURL(file),
+        type: "video",
+      });
+      setError(null);
     } else if (file.type.startsWith("image/")) {
       setMedia({
         file,
@@ -464,9 +499,9 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           let width = img.width;
           let height = img.height;
 
-          // Max dimensions for mobile
-          const maxWidth = 1200;
-          const maxHeight = 1200;
+          // Max dimensions for mobile - keeps quality but reduces size
+          const maxWidth = 1600;
+          const maxHeight = 1600;
 
           if (width > height) {
             if (width > maxWidth) {
@@ -487,12 +522,35 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
 
           canvas.toBlob((blob) => {
             resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-          }, 'image/jpeg', 0.8);
+          }, 'image/jpeg', 0.85);
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const uploadWithRetry = async (formData, maxRetries = 2) => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const responseData = await api.post("/endorsements/create", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 600000, // 10 minute timeout for large files
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          },
+        });
+        return responseData;
+      } catch (err) {
+        if (attempt === maxRetries) throw err;
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        setRetryCount(attempt + 1);
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -506,10 +564,16 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       return;
     }
 
+    if (!isOnline) {
+      setError("No internet connection. Please check your network and try again.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(null);
     setUploadProgress(0);
+    setRetryCount(0);
 
     const formData = new FormData();
     formData.append("leader_id", leaderId);
@@ -534,7 +598,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
         : "Support message"),
     );
 
-    // Compress image before upload for mobile
+    // Compress image before upload for better performance
     let finalMediaFile = media.file;
     if (media.file && media.type === "image") {
       try {
@@ -548,19 +612,8 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       formData.append("media", finalMediaFile);
     }
 
-    const path = "/endorsements/create";
-
     try {
-      const responseData = await api.post(path, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        timeout: 300000, // 5 minute timeout for large videos
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        },
-      });
+      const responseData = await uploadWithRetry(formData);
 
       if (responseData?.success) {
         setSuccess("Story posted successfully!");
@@ -578,14 +631,18 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     } catch (err) {
       console.error("❌ Post error:", err);
 
-      // Better error messages for mobile
+      // Better error messages
       let errorMessage = "Failed to post story. ";
       if (err.code === 'ECONNABORTED') {
-        errorMessage += "Upload took too long. Please try with a smaller file or better connection.";
+        errorMessage += "Upload took too long. Please try again with a better connection.";
       } else if (err.message === 'Network Error') {
-        errorMessage += "Please check your internet connection.";
+        errorMessage += "Please check your internet connection and try again.";
       } else if (err.response?.status === 413) {
-        errorMessage += "File too large for server. Please compress your file.";
+        errorMessage += "File is too large for the server. Try compressing it.";
+      } else if (err.response?.status === 504) {
+        errorMessage += "Server timeout. Please try again.";
+      } else if (err.response?.status === 500) {
+        errorMessage += "Server error. Please try again later.";
       } else {
         errorMessage += err.response?.data?.message || err.message || "Please try again.";
       }
@@ -594,6 +651,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     } finally {
       setLoading(false);
       setUploadProgress(0);
+      setRetryCount(0);
     }
   };
 
@@ -694,9 +752,9 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           </StatusMessage>
         )}
 
-        {loading && uploadProgress > 0 && uploadProgress < 100 && (
+        {retryCount > 0 && loading && (
           <StatusMessage $isError={false}>
-            <Loader2 size={14} className="spin" /> Uploading: {uploadProgress}%
+            <Loader2 size={14} className="spin" /> Retry attempt {retryCount}...
           </StatusMessage>
         )}
 
@@ -735,7 +793,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
             ) : (
               <Video size={16} />
             )}
-            Upload {postType === "image" ? "Photo" : "Video"} (Max 500MB)
+            Upload {postType === "image" ? "Photo" : "Video"} (No size limit)
           </MediaUploadBtn>
         )}
 
@@ -759,6 +817,17 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           )}
           {loading ? (uploadProgress > 0 ? `UPLOADING ${uploadProgress}%` : "POSTING...") : "🚀 PUBLISH YOUR STORY"}
         </SubmitBtn>
+
+        {loading && uploadProgress > 0 && (
+          <ProgressBar $progress={uploadProgress}>
+            <div />
+          </ProgressBar>
+        )}
+
+        <NetworkStatus $online={isOnline}>
+          {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
+          {isOnline ? "Online" : "Offline"}
+        </NetworkStatus>
 
         <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </Content>

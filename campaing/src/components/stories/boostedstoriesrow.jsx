@@ -1,8 +1,7 @@
-// BoostedStoriesRow.js - Fixed (no duplicate /api/v1)
+// BoostedStoriesRow.js - Fixed (using buildImageUrl for all media)
 
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-import axios from "axios";
 import {
   Heart,
   MessageCircle,
@@ -14,13 +13,7 @@ import {
 } from "lucide-react";
 import EndorsementDetailModal from "./EndorsementDetailModal";
 import { buildImageUrl } from "../../utils/imageUtils";
-
-import API from "../../api/config";
 import api from "../../api/api";
-
-
-// Boosted stories logic
-
 
 // ============================================
 // STYLED COMPONENTS - INSTAGRAM STYLE
@@ -285,12 +278,7 @@ const CardMedia = styled.div`
   justify-content: center;
   overflow: hidden;
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
+  img,
   video {
     width: 100%;
     height: 100%;
@@ -452,7 +440,6 @@ const BoostedStoriesRow = ({
           path = `/endorsements/leader/${leaderId}/boosted?limit=15`;
       }
 
-      
       const responseData = await api.get(path);
 
       let fetchedStories = [];
@@ -464,9 +451,6 @@ const BoostedStoriesRow = ({
       } else if (Array.isArray(responseData)) {
         fetchedStories = responseData;
       }
-
-
-      
 
       // Transform stories to ensure consistent format
       const transformedStories = fetchedStories
@@ -506,7 +490,7 @@ const BoostedStoriesRow = ({
       } else if (error.response) {
         setError(
           error.response.data?.message ||
-            `Server error: ${error.response.status}`,
+          `Server error: ${error.response.status}`
         );
       } else if (error.request) {
         setError("Cannot connect to server. Please check your connection.");
@@ -529,7 +513,7 @@ const BoostedStoriesRow = ({
     fetchStories();
   };
 
-  // FIXED: Get media URL using buildImageUrl helper
+  // SIMPLIFIED: Just use buildImageUrl for everything (images AND videos)
   const getMediaUrl = (story) => {
     if (story.image_url) {
       return buildImageUrl(story.image_url);
@@ -537,12 +521,9 @@ const BoostedStoriesRow = ({
     return null;
   };
 
-  // Check if media is video
+  // Check if media is video based on media_type
   const isVideo = (story) => {
-    return (
-      story.media_type === "video" ||
-      (story.image_url && story.image_url.match(/\.(mp4|webm|mov)$/i))
-    );
+    return story.media_type === "video";
   };
 
   const getTitle = () => {
@@ -698,7 +679,7 @@ const BoostedStoriesRow = ({
                     <CardMedia>
                       {isVideoStory ? (
                         <>
-                          <video src={mediaUrl} preload="metadata" />
+                          <video src={mediaUrl} preload="metadata" controls />
                           <div className="play-icon">
                             <Play size={24} />
                           </div>
