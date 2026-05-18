@@ -885,7 +885,7 @@ const EndorsementDetailModal = ({
                 <video
                   key={current.id}
                   ref={videoRef}
-                  src={mediaUrl}
+                  src={mediaUrl ? `${mediaUrl}#t=0.001` : ''}
                   autoPlay
                   loop
                   playsInline

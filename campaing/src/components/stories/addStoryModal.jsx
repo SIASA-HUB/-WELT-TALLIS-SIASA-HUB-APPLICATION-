@@ -769,7 +769,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
             <PreviewContainer>
               {media.type === "video" ? (
                 <video
-                  src={media.preview}
+                  src={media.preview ? `${media.preview}#t=0.001` : ''}
                   controls
                   autoPlay={false}
                   muted
@@ -803,7 +803,6 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           hidden
           accept={postType === "image" ? "image/*" : "video/*"}
           onChange={handleFileSelect}
-          capture={postType === "image" ? "environment" : undefined}
         />
 
         <SubmitBtn

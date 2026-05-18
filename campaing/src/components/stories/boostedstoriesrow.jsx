@@ -482,7 +482,7 @@ const VideoThumbnail = ({ videoUrl, posterUrl }) => {
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <video
         ref={videoRef}
-        src={videoUrl}
+        src={videoUrl ? `${videoUrl}#t=0.001` : ''}
         poster={posterUrl || undefined}
         muted={false}
         playsInline
