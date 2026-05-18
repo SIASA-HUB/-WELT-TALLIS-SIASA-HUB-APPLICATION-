@@ -3,52 +3,49 @@
 import API from '../api/config';
 
 /**
- * Clean video URL - remove /api/videos/stream/ and fix encoding
- * This restores the original working URL format: /uploads/endorsements/...mp4
+ * Clean and fix video URLs - removes /api/videos/stream/ and returns direct URL
  */
-const cleanVideoUrl = (url) => {
+const fixUrl = (url) => {
   if (!url) return url;
 
   let cleaned = url;
 
-  // Remove ALL /api/videos/stream/ occurrences
-  while (cleaned.includes('/api/videos/stream/')) {
+  // Remove any /api/videos/stream/ prefix
+  if (cleaned.includes('/api/videos/stream/')) {
     cleaned = cleaned.replace('/api/videos/stream/', '');
   }
 
-  // Remove any remaining /api/ prefixes
-  while (cleaned.includes('/api/')) {
-    cleaned = cleaned.replace('/api/', '/');
+  // Decode %2F to /
+  if (cleaned.includes('%2F')) {
+    try {
+      cleaned = decodeURIComponent(cleaned);
+    } catch (e) { }
   }
 
-  // Decode URL encoding (%2F -> /, %2f -> /)
-  try {
-    cleaned = decodeURIComponent(cleaned);
-  } catch (e) { }
+  // Extract the /uploads/ path
+  if (cleaned.includes('/uploads/')) {
+    const match = cleaned.match(/\/uploads\/[^\s?]+/);
+    if (match) {
+      cleaned = match[0];
+    }
+  } else if (cleaned.includes('uploads/')) {
+    const match = cleaned.match(/uploads\/[^\s?]+/);
+    if (match) {
+      cleaned = '/' + match[0];
+    }
+  }
 
   // Remove query parameters
   cleaned = cleaned.split('?')[0];
 
-  // Ensure it starts with /uploads/
-  if (cleaned.includes('/uploads/')) {
-    const uploadsIndex = cleaned.indexOf('/uploads/');
-    cleaned = cleaned.substring(uploadsIndex);
-  }
-
   return cleaned;
 };
 
-/**
- * Build image URL - works for both images and videos
- * Now returns direct /uploads/ paths like before
- */
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
 
-  let processedUrl = imageUrl;
-
-  // Clean the URL first - remove streaming nonsense
-  processedUrl = cleanVideoUrl(processedUrl);
+  // First, clean the URL
+  let processedUrl = fixUrl(imageUrl);
 
   // Fix localhost URLs
   if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
@@ -62,14 +59,8 @@ export const buildImageUrl = (imageUrl) => {
     return processedUrl;
   }
 
-  // Get base URL
-  let baseUrl = API.IMAGES || API.UPLOAD_BASE;
-  if (!baseUrl && typeof window !== "undefined") {
-    baseUrl = window.location.origin;
-  }
-  if (!baseUrl) return null;
-
-  baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
+  // Get base URL (your production domain)
+  let baseUrl = 'https://siasahub.co.ke';
 
   // Ensure path starts with /
   const imagePath = processedUrl.startsWith("/") ? processedUrl : `/${processedUrl}`;
@@ -77,7 +68,6 @@ export const buildImageUrl = (imageUrl) => {
   return `${baseUrl}${imagePath}`;
 };
 
-// buildVideoUrl - same as buildImageUrl
 export const buildVideoUrl = (videoUrl) => {
   return buildImageUrl(videoUrl);
 };
@@ -87,22 +77,20 @@ export const getAvatarFallback = (name) => {
 };
 
 export const getVideoThumbnail = (videoUrl, thumbnailUrl = null) => {
-  if (thumbnailUrl) {
-    return buildImageUrl(thumbnailUrl);
-  }
+  if (thumbnailUrl) return buildImageUrl(thumbnailUrl);
   return null;
 };
 
 export const isImageUrl = (url) => {
   if (!url) return false;
-  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
   const extension = url.split('.').pop()?.toLowerCase();
   return imageExtensions.includes(extension);
 };
 
 export const isVideoUrl = (url) => {
   if (!url) return false;
-  const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'flv', 'wmv'];
+  const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'];
   const extension = url.split('.').pop()?.toLowerCase();
   return videoExtensions.includes(extension);
 };
