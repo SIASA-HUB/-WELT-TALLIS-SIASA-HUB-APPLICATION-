@@ -35,10 +35,18 @@ const isStoryExpired = (createdAt, boostPoints, totalBoostAmount) => {
 class CacheManager {
   constructor() {
     this.defaultTTL = 300;
+    this.memoryCache = new Map();
   }
 
   async get(key) {
-    if (!redis) return null;
+    if (!redis || !redis.client) {
+      const item = this.memoryCache.get(key);
+      if (item && item.expiry > Date.now()) {
+        return item.data;
+      }
+      if (item) this.memoryCache.delete(key); // Cleanup expired
+      return null;
+    }
     try {
       const data = await redis.get(key);
       if (!data) return null;
@@ -51,7 +59,10 @@ class CacheManager {
   }
 
   async set(key, data, ttl = this.defaultTTL) {
-    if (!redis) return false;
+    if (!redis || !redis.client) {
+      this.memoryCache.set(key, { data, expiry: Date.now() + ttl * 1000 });
+      return true;
+    }
     try {
       const stringified = typeof data === 'string' ? data : JSON.stringify(data);
       await redis.set(key, stringified, ttl);
@@ -63,7 +74,10 @@ class CacheManager {
   }
 
   async del(key) {
-    if (!redis) return false;
+    if (!redis || !redis.client) {
+      this.memoryCache.delete(key);
+      return true;
+    }
     try {
       await redis.del(key);
       return true;
@@ -75,7 +89,17 @@ class CacheManager {
 
   // Safe pattern deleter â€“ works with any Redis client, never crashes
   async delPattern(pattern) {
-    if (!redis) return 0;
+    if (!redis || !redis.client) {
+      let deletedCount = 0;
+      const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+      for (const key of this.memoryCache.keys()) {
+        if (regex.test(key)) {
+          this.memoryCache.delete(key);
+          deletedCount++;
+        }
+      }
+      return deletedCount;
+    }
     try {
       let deletedCount = 0;
 

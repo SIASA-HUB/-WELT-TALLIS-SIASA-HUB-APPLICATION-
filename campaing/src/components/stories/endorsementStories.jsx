@@ -428,8 +428,13 @@ const VideoThumbnail = ({ videoUrl, posterUrl, storyId }) => {
               videoRef.current.play()
                 .then(() => setIsPlaying(true))
                 .catch(err => {
-                  console.log("Auto-play prevented:", err);
-                  setIsPlaying(false);
+                  console.log("Auto-play prevented (trying muted fallback):", err);
+                  if (videoRef.current) {
+                    videoRef.current.muted = true;
+                    videoRef.current.play().then(() => setIsPlaying(true)).catch(e => setIsPlaying(false));
+                  } else {
+                    setIsPlaying(false);
+                  }
                 });
             }
           } else {
@@ -466,9 +471,10 @@ const VideoThumbnail = ({ videoUrl, posterUrl, storyId }) => {
         ref={videoRef}
         src={videoUrl}
         poster={posterUrl || undefined}
-        muted={true}
+        muted={false}
         playsInline
         loop={true}
+        preload="metadata"
         style={{
           width: '100%',
           height: '100%',

@@ -589,14 +589,16 @@ const EndorsementDetailModal = ({
     try {
       const response = await api.get(`/endorsements/${storyId}/comments?t=${Date.now()}`);
       let comments = [];
-      if (response.data?.data?.comments) {
-        comments = response.data.data.comments;
-      } else if (response.data?.comments) {
-        comments = response.data.comments;
-      } else if (Array.isArray(response.data?.data)) {
-        comments = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        comments = response.data;
+      const payload = response?.data || response || {};
+      
+      if (payload?.data?.comments) {
+        comments = payload.data.comments;
+      } else if (payload?.comments) {
+        comments = payload.comments;
+      } else if (Array.isArray(payload?.data)) {
+        comments = payload.data;
+      } else if (Array.isArray(payload)) {
+        comments = payload;
       }
       setCommentsState((prev) => ({ ...prev, [storyId]: comments }));
     } catch (error) {
@@ -799,7 +801,7 @@ const EndorsementDetailModal = ({
     if (!current) return;
 
     try {
-      const response = await api.post(`/endorsements/${current.id}/comments/${commentId}/like`, {
+      const response = await api.post(`/endorsements/comments/${commentId}/like`, {
         user_id: currentUser?.id || "anonymous"
       });
 
@@ -881,6 +883,7 @@ const EndorsementDetailModal = ({
             <FullScreenMedia onClick={handlePause}>
               {isVideo ? (
                 <video
+                  key={current.id}
                   ref={videoRef}
                   src={mediaUrl}
                   autoPlay

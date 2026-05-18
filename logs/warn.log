@@ -31,3 +31,13 @@
 2026-05-06 20:59:13 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
 2026-05-06 20:59:13 [WARN] [global-service]: [Redis] Connection closed
 2026-05-06 20:59:13 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-18 20:00:47 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-18 20:00:47 [WARN] [global-service]: [Redis] Connection closed
+2026-05-18 20:00:47 [WARN] [global-service]: [Redis] Initial connection failed — cache disabled.
+2026-05-18 20:00:47 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-18 20:00:47 [WARN] [global-service]: [Redis] Connection closed
+2026-05-18 20:00:48 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-18 20:00:48 [WARN] [global-service]: [Redis] Connection closed
+2026-05-18 20:00:48 [WARN] [global-service]: [Redis] connect ECONNREFUSED 127.0.0.1:6379
+2026-05-18 20:00:48 [WARN] [global-service]: [Redis] max retries reached. Cache disabled.
+2026-05-18 20:00:48 [WARN] [global-service]: [Redis] Connection closed
