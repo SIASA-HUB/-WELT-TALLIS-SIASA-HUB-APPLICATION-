@@ -411,70 +411,44 @@ const SuccessToast = styled.div`
   }
 `;
 
-// ========== VIDEO COMPONENT WITH AUTO-PLAY UNMUTED ==========
 const VideoThumbnail = ({ videoUrl, posterUrl, storyId }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
   const videoRef = useRef(null);
   const containerRef = useRef(null);
-  const observerRef = useRef(null);
 
-  // Auto-play when video comes into view - UNMUTED
+  // Auto-play when video comes into view
   useEffect(() => {
-    if (!containerRef.current || hasAutoPlayed) return;
+    if (!containerRef.current) return;
 
-    observerRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAutoPlayed && videoRef.current) {
-            setTimeout(() => {
-              if (videoRef.current && !isPlaying) {
-                videoRef.current.play()
-                  .then(() => {
-                    setIsPlaying(true);
-                    setHasAutoPlayed(true);
-                  })
-                  .catch(err => {
-                    console.log("Auto-play prevented:", err);
-                    setIsPlaying(false);
-                  });
-              }
-            }, 100);
+          if (entry.isIntersecting) {
+            if (videoRef.current) {
+              videoRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch(err => {
+                  console.log("Auto-play prevented:", err);
+                  setIsPlaying(false);
+                });
+            }
+          } else {
+            if (videoRef.current) {
+              videoRef.current.pause();
+              setIsPlaying(false);
+            }
           }
         });
       },
       { threshold: 0.5 }
     );
 
-    observerRef.current.observe(containerRef.current);
+    observer.observe(containerRef.current);
 
     return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
+      observer.disconnect();
     };
-  }, [hasAutoPlayed, isPlaying]);
-
-  const handlePlay = (e) => {
-    e.stopPropagation();
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        videoRef.current.play()
-          .then(() => {
-            setIsPlaying(true);
-          })
-          .catch(err => console.log("Playback error:", err));
-      }
-    }
-  };
-
-  const handleVideoEnded = () => {
-    setIsPlaying(false);
-    setHasAutoPlayed(false);
-  };
+  }, []);
 
   return (
     <div
@@ -488,44 +462,26 @@ const VideoThumbnail = ({ videoUrl, posterUrl, storyId }) => {
         borderRadius: '50%'
       }}
     >
-      {!isPlaying ? (
-        <>
-          {posterUrl ? (
-            <StoryImage src={posterUrl} alt="Video thumbnail" />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              background: '#1e3c72',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px'
-            }}>
-              🎬
-            </div>
-          )}
-          <VideoPlayIcon onClick={handlePlay}>
-            <Play size={16} />
-          </VideoPlayIcon>
-        </>
-      ) : (
-        <StoryVideo
-          ref={videoRef}
-          src={videoUrl}
-          muted={false}
-          playsInline
-          loop={false}
-          onEnded={handleVideoEnded}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            position: 'absolute',
-            top: 0,
-            left: 0
-          }}
-        />
+      <StoryVideo
+        ref={videoRef}
+        src={videoUrl}
+        poster={posterUrl || undefined}
+        muted={true}
+        playsInline
+        loop={true}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          position: 'absolute',
+          top: 0,
+          left: 0
+        }}
+      />
+      {!isPlaying && (
+        <VideoPlayIcon>
+          <Play size={16} />
+        </VideoPlayIcon>
       )}
     </div>
   );
