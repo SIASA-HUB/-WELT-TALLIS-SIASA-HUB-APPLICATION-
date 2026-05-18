@@ -41,11 +41,27 @@ const fixUrl = (url) => {
   return cleaned;
 };
 
+/**
+ * Check if URL is a video file
+ */
+const isVideoFile = (url) => {
+  if (!url) return false;
+  const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'];
+  const extension = url.split('.').pop()?.toLowerCase();
+  return videoExtensions.includes(extension);
+};
+
+/**
+ * Build URL for images and videos
+ * Videos use streaming endpoint for instant playback
+ */
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
 
   // First, clean the URL
   let processedUrl = fixUrl(imageUrl);
+
+  if (!processedUrl) return null;
 
   // Fix localhost URLs
   if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
@@ -59,7 +75,7 @@ export const buildImageUrl = (imageUrl) => {
     return processedUrl;
   }
 
-  // Get base URL (your production domain)
+  // Get base URL
   let baseUrl = 'https://siasahub.co.ke';
 
   // Ensure path starts with /
@@ -68,19 +84,69 @@ export const buildImageUrl = (imageUrl) => {
   return `${baseUrl}${imagePath}`;
 };
 
+/**
+ * Build video URL with streaming support for instant playback
+ * Uses the streaming endpoint which supports range requests
+ */
 export const buildVideoUrl = (videoUrl) => {
-  return buildImageUrl(videoUrl);
+  if (!videoUrl || videoUrl === "null" || videoUrl === "" || videoUrl === undefined) return null;
+
+  // First, clean the URL
+  let processedUrl = fixUrl(videoUrl);
+
+  if (!processedUrl) return null;
+
+  // Fix localhost URLs
+  if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
+    processedUrl = processedUrl.replace(/http:\/\/localhost:8006/g, 'https://siasahub.co.ke');
+  } else if (typeof processedUrl === 'string' && processedUrl.includes('localhost:5000')) {
+    processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
+  }
+
+  // If it's already a full URL and doesn't need streaming
+  if (processedUrl.startsWith("data:")) {
+    return processedUrl;
+  }
+
+  // If it's already a streaming URL, return as is
+  if (processedUrl.includes('/api/videos/stream/')) {
+    return processedUrl;
+  }
+
+  // Extract just the path for streaming
+  let pathForStreaming = processedUrl;
+
+  // Remove domain if present
+  if (pathForStreaming.startsWith("http://") || pathForStreaming.startsWith("https://")) {
+    const urlObj = new URL(pathForStreaming);
+    pathForStreaming = urlObj.pathname;
+  }
+
+  // Ensure path starts with /
+  const videoPath = pathForStreaming.startsWith("/") ? pathForStreaming : `/${pathForStreaming}`;
+
+  // Return streaming URL for instant playback
+  return `https://siasahub.co.ke/api/videos/stream${videoPath}`;
 };
 
+/**
+ * Get avatar fallback URL
+ */
 export const getAvatarFallback = (name) => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=dc2626&color=fff&size=200&bold=true`;
 };
 
+/**
+ * Get video thumbnail/poster URL
+ */
 export const getVideoThumbnail = (videoUrl, thumbnailUrl = null) => {
   if (thumbnailUrl) return buildImageUrl(thumbnailUrl);
   return null;
 };
 
+/**
+ * Check if URL is an image
+ */
 export const isImageUrl = (url) => {
   if (!url) return false;
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
@@ -88,19 +154,26 @@ export const isImageUrl = (url) => {
   return imageExtensions.includes(extension);
 };
 
+/**
+ * Check if URL is a video
+ */
 export const isVideoUrl = (url) => {
   if (!url) return false;
-  const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'];
-  const extension = url.split('.').pop()?.toLowerCase();
-  return videoExtensions.includes(extension);
+  return isVideoFile(url) || url.includes('/api/videos/stream/');
 };
 
+/**
+ * Get file extension from URL
+ */
 export const getFileExtension = (url) => {
   if (!url) return '';
   const match = url.match(/\.([^.]+)$/);
   return match ? match[1].toLowerCase() : '';
 };
 
+/**
+ * Get optimized image URL with dimensions
+ */
 export const getOptimizedImageUrl = (imageUrl, width = null, height = null) => {
   const url = buildImageUrl(imageUrl);
   if (!url) return null;
@@ -112,6 +185,22 @@ export const getOptimizedImageUrl = (imageUrl, width = null, height = null) => {
   return queryString ? `${url}?${queryString}` : url;
 };
 
+/**
+ * Get media URL (auto-detects image vs video)
+ */
+export const getMediaUrl = (item) => {
+  if (!item) return null;
+
+  const url = item.image_url || item.video_url;
+  if (!url) return null;
+
+  if (isVideoFile(url) || item.media_type === 'video') {
+    return buildVideoUrl(url);
+  }
+
+  return buildImageUrl(url);
+};
+
 export default {
   buildImageUrl,
   buildVideoUrl,
@@ -120,5 +209,6 @@ export default {
   isImageUrl,
   isVideoUrl,
   getFileExtension,
-  getOptimizedImageUrl
+  getOptimizedImageUrl,
+  getMediaUrl,
 };
