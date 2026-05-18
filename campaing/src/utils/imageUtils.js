@@ -3,77 +3,66 @@
 import API from '../api/config';
 
 /**
- * Clean corrupted video URLs - removes /api/videos/stream/ garbage
+ * Clean video URL - remove /api/videos/stream/ and fix encoding
+ * This restores the original working URL format: /uploads/endorsements/...mp4
  */
-const fixVideoUrl = (url) => {
+const cleanVideoUrl = (url) => {
   if (!url) return url;
 
-  let cleanUrl = url;
+  let cleaned = url;
 
-  // Remove all /api/videos/stream/ occurrences
-  while (cleanUrl.includes('/api/videos/stream/')) {
-    cleanUrl = cleanUrl.replace('/api/videos/stream/', '');
+  // Remove ALL /api/videos/stream/ occurrences
+  while (cleaned.includes('/api/videos/stream/')) {
+    cleaned = cleaned.replace('/api/videos/stream/', '');
   }
 
-  // Remove all /api/v1/ occurrences
-  while (cleanUrl.includes('/api/v1/')) {
-    cleanUrl = cleanUrl.replace('/api/v1/', '');
+  // Remove any remaining /api/ prefixes
+  while (cleaned.includes('/api/')) {
+    cleaned = cleaned.replace('/api/', '/');
   }
 
-  // Decode URI encoding
+  // Decode URL encoding (%2F -> /, %2f -> /)
   try {
-    cleanUrl = decodeURIComponent(cleanUrl);
+    cleaned = decodeURIComponent(cleaned);
   } catch (e) { }
 
   // Remove query parameters
-  cleanUrl = cleanUrl.split('?')[0];
+  cleaned = cleaned.split('?')[0];
 
   // Ensure it starts with /uploads/
-  if (cleanUrl.includes('/uploads/')) {
-    const uploadsIndex = cleanUrl.indexOf('/uploads/');
-    cleanUrl = cleanUrl.substring(uploadsIndex);
-  } else if (!cleanUrl.startsWith('/uploads/') && !cleanUrl.startsWith('uploads/')) {
-    // Add /uploads/ if missing
-    cleanUrl = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
-  } else {
-    cleanUrl = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+  if (cleaned.includes('/uploads/')) {
+    const uploadsIndex = cleaned.indexOf('/uploads/');
+    cleaned = cleaned.substring(uploadsIndex);
   }
 
-  return cleanUrl;
+  return cleaned;
 };
 
+/**
+ * Build image URL - works for both images and videos
+ * Now returns direct /uploads/ paths like before
+ */
 export const buildImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === "null" || imageUrl === "" || imageUrl === undefined) return null;
 
   let processedUrl = imageUrl;
 
-  // Fix for production: replace localhost with production domain
+  // Clean the URL first - remove streaming nonsense
+  processedUrl = cleanVideoUrl(processedUrl);
+
+  // Fix localhost URLs
   if (typeof processedUrl === 'string' && processedUrl.includes('localhost:8006')) {
     processedUrl = processedUrl.replace(/http:\/\/localhost:8006/g, 'https://siasahub.co.ke');
   } else if (typeof processedUrl === 'string' && processedUrl.includes('localhost:5000')) {
     processedUrl = processedUrl.replace(/http:\/\/localhost:5000/g, 'https://siasahub.co.ke');
   }
 
-  // If it's already an absolute URL, return as is (but still clean it if it's a video)
+  // If it's already a full URL, return it
   if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://") || processedUrl.startsWith("data:")) {
-    // Check if this is a corrupted video URL
-    if (processedUrl.includes('/api/videos/stream/') || processedUrl.includes('%2Fapi%2Fvideos%2Fstream%2F')) {
-      const cleaned = fixVideoUrl(processedUrl);
-      let baseUrl = API.IMAGES || API.UPLOAD_BASE;
-      if (!baseUrl && typeof window !== "undefined") {
-        baseUrl = window.location.origin;
-      }
-      if (baseUrl) {
-        baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
-        return `${baseUrl}${cleaned}`;
-      }
-    }
     return processedUrl;
   }
 
-  // Clean the URL first
-  processedUrl = fixVideoUrl(processedUrl);
-
+  // Get base URL
   let baseUrl = API.IMAGES || API.UPLOAD_BASE;
   if (!baseUrl && typeof window !== "undefined") {
     baseUrl = window.location.origin;
@@ -81,12 +70,14 @@ export const buildImageUrl = (imageUrl) => {
   if (!baseUrl) return null;
 
   baseUrl = baseUrl.replace(/\/$/, "").replace(/\/api\/v1\/?$/, "");
+
+  // Ensure path starts with /
   const imagePath = processedUrl.startsWith("/") ? processedUrl : `/${processedUrl}`;
 
   return `${baseUrl}${imagePath}`;
 };
 
-// buildVideoUrl - just uses the same function
+// buildVideoUrl - same as buildImageUrl
 export const buildVideoUrl = (videoUrl) => {
   return buildImageUrl(videoUrl);
 };
