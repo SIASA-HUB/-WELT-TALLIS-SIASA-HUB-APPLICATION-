@@ -14,6 +14,7 @@ const {
   getLeaderEndorsementStats,
   cleanupExpiredStories,
   addComment,
+  streamVideo,
   getComments,
   likeComment,
   getEndorsementStats,
@@ -56,6 +57,8 @@ router.post("/:endorsementId/boost", boostEndorsement);
 router.post("/:endorsementId/comments", addComment);
 router.get("/:endorsementId/comments", getComments);
 router.post("/comments/:commentId/like", likeComment);
+
+router.get("/videos/stream/*", streamVideo);
 
 // Get endorsement stats
 router.get("/:endorsementId/stats", getEndorsementStats);

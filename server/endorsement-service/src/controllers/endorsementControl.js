@@ -935,8 +935,76 @@ const cleanupExpiredStories = async () => {
 // ============================================
 // EXPORTS (all functions present)
 // ============================================
+
+// ============================================
+// STREAM VIDEO WITH RANGE SUPPORT (OPTIMIZED)
+// ============================================
+const streamVideo = asyncHandler(async (req, res) => {
+  const { filePath } = req.params;
+
+  if (!filePath) {
+    return res.status(400).json({ success: false, message: "File path required" });
+  }
+
+  try {
+    // Clean and decode the file path
+    let cleanPath = decodeURIComponent(filePath);
+
+    // Remove any /api/videos/stream/ prefix if present
+    if (cleanPath.includes('/api/videos/stream/')) {
+      cleanPath = cleanPath.replace('/api/videos/stream/', '');
+    }
+
+    // Build full file path (adjust based on your uploads directory)
+    const fullPath = path.join(__dirname, '../../../uploads', cleanPath);
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ success: false, message: "Video not found" });
+    }
+
+    const stat = fs.statSync(fullPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    // Set cache headers (1 hour for videos)
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Type', 'video/mp4');
+
+    if (range) {
+      // Parse range header (supports seeking/pausing)
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+
+      const file = fs.createReadStream(fullPath, { start, end });
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Length': chunksize,
+        'Content-Type': 'video/mp4',
+      });
+
+      file.pipe(res);
+    } else {
+      // No range request - send full file
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': 'video/mp4',
+      });
+
+      fs.createReadStream(fullPath).pipe(res);
+    }
+  } catch (error) {
+    Logger.error("Video streaming error:", error);
+    return res.status(500).json({ success: false, message: "Error streaming video" });
+  }
+});
 module.exports = {
   createEndorsement,
+  streamVideo,
   getActiveStories,
   getRecentEndorsements,
   getBoostedEndorsements,
