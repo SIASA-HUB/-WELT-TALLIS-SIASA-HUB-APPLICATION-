@@ -226,7 +226,7 @@ const TopFypHeader = memo(() => {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span>Je uko Kadi?</span>
+          <span>Je uko Kadi ?</span>
         </CTABadge>
 
         <AspirantsTag onClick={() => navigate("/leaders")}>
