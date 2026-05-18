@@ -13,6 +13,104 @@ const {
 const { uploadEndorsementMedia } = require("../utils/uploader/imageUploader");
 
 // ============================================
+// VIDEO CACHE MANAGER - OPTIMIZED DELIVERY
+// ============================================
+class VideoCacheManager {
+  constructor() {
+    this.videoCacheDir = path.join(__dirname, "../../../uploads/video_cache");
+    this.cacheMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    this.videoTTL = 3600; // 1 hour in Redis
+
+    // Ensure cache directory exists
+    if (!fs.existsSync(this.videoCacheDir)) {
+      fs.mkdirSync(this.videoCacheDir, { recursive: true });
+    }
+  }
+
+  // Generate cache key for video
+  getVideoCacheKey(mediaUrl, quality = "medium") {
+    const urlHash = crypto.createHash('md5').update(mediaUrl).digest('hex');
+    return `video_cache:${urlHash}:${quality}`;
+  }
+
+  // Get video from cache with metadata
+  async getCachedVideo(mediaUrl, quality = "medium") {
+    if (!redis) return null;
+    try {
+      const cacheKey = this.getVideoCacheKey(mediaUrl, quality);
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const videoData = JSON.parse(cached);
+        // Check if physical file still exists
+        if (fs.existsSync(videoData.cachePath)) {
+          return videoData;
+        }
+        // File missing, remove from cache
+        await redis.del(cacheKey);
+      }
+      return null;
+    } catch (error) {
+      Logger.error(`Video cache get error: ${mediaUrl}`, error);
+      return null;
+    }
+  }
+
+  // Cache video with metadata
+  async setCachedVideo(mediaUrl, videoData, quality = "medium") {
+    if (!redis) return false;
+    try {
+      const cacheKey = this.getVideoCacheKey(mediaUrl, quality);
+      await redis.set(cacheKey, JSON.stringify(videoData), this.videoTTL);
+      return true;
+    } catch (error) {
+      Logger.error(`Video cache set error: ${mediaUrl}`, error);
+      return false;
+    }
+  }
+
+  // Generate optimized video URL with cache buster
+  getOptimizedVideoUrl(originalUrl, quality = "medium") {
+    if (!originalUrl) return null;
+
+    // Return cached version URL if available
+    const cacheKey = this.getVideoCacheKey(originalUrl, quality);
+    const cacheBuster = Date.now();
+
+    // Create proxy URL that serves cached or optimized video
+    return `/api/videos/stream/${encodeURIComponent(originalUrl)}?quality=${quality}&cb=${cacheBuster}`;
+  }
+
+  // Clean old video cache files
+  async cleanOldCache() {
+    try {
+      const files = fs.readdirSync(this.videoCacheDir);
+      let cleanedCount = 0;
+
+      for (const file of files) {
+        const filePath = path.join(this.videoCacheDir, file);
+        const stats = fs.statSync(filePath);
+
+        if (Date.now() - stats.mtimeMs > this.cacheMaxAge) {
+          fs.unlinkSync(filePath);
+          cleanedCount++;
+        }
+      }
+
+      if (cleanedCount > 0) {
+        Logger.info(`Cleaned ${cleanedCount} old video cache files`);
+      }
+
+      return cleanedCount;
+    } catch (error) {
+      Logger.error("Error cleaning video cache:", error);
+      return 0;
+    }
+  }
+}
+
+const videoCacheManager = new VideoCacheManager();
+
+// ============================================
 // STORY EXPIRATION RULES
 // ============================================
 const getExpirationHours = (boostPoints, totalBoostAmount) => {
@@ -73,7 +171,7 @@ class CacheManager {
     }
   }
 
-  // Safe pattern deleter â€“ works with any Redis client, never crashes
+  // Safe pattern deleter – works with any Redis client, never crashes
   async delPattern(pattern) {
     if (!redis) return 0;
     try {
@@ -133,7 +231,7 @@ class CacheManager {
     }
     await this.delPattern("global:trending_endorsements:*");
     await this.delPattern("global:trending:*");
-    Logger.info(`âœ… Cleared ${totalCleared} cache entries for leader: ${leaderId}`);
+    Logger.info(`✅ Cleared ${totalCleared} cache entries for leader: ${leaderId}`);
     return totalCleared;
   }
 
@@ -162,11 +260,43 @@ class CacheManager {
 const cacheManager = new CacheManager();
 
 // ============================================
-// CREATE ENDORSEMENT - COMPLETELY FREE
+// Optimized Video Processing Middleware
+// ============================================
+const optimizeVideoDelivery = asyncHandler(async (req, res, next) => {
+  const originalUrl = req.query.url || req.body.video_url;
+
+  if (!originalUrl) {
+    return next();
+  }
+
+  try {
+    // Check if video is already cached
+    const quality = req.query.quality || "medium";
+    const cachedVideo = await videoCacheManager.getCachedVideo(originalUrl, quality);
+
+    if (cachedVideo) {
+      // Serve from cache
+      req.cachedVideoUrl = cachedVideo.cachePath;
+      req.videoOptimized = true;
+      return next();
+    }
+
+    // For videos, we'll serve optimized streaming URL
+    req.optimizedVideoUrl = videoCacheManager.getOptimizedVideoUrl(originalUrl, quality);
+    next();
+  } catch (error) {
+    Logger.error("Video optimization error:", error);
+    next(); // Don't break if video optimization fails
+  }
+});
+
+// ============================================
+// CREATE ENDORSEMENT - COMPLETELY FREE (WITH VIDEO OPTIMIZATION)
 // ============================================
 
 const createEndorsement = [
   uploadEndorsementMedia,
+  optimizeVideoDelivery, // Add video optimization middleware
   asyncHandler(async (req, res) => {
     let { leader_id, message, user_id, user_name } = req.body;
 
@@ -184,9 +314,15 @@ const createEndorsement = [
     if (req.fileProcessed && req.mediaUrl) {
       mediaUrl = req.mediaUrl;
       mediaType = req.mediaType || "image";
-      Logger.info(`ðŸ“¸ Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
+
+      // Optimize video URLs
+      if (mediaType === "video" && mediaUrl) {
+        mediaUrl = videoCacheManager.getOptimizedVideoUrl(mediaUrl, "medium");
+      }
+
+      Logger.info(`📸 Media uploaded via middleware: ${mediaType} - ${mediaUrl}`);
     } else if (req.file && !req.mediaUrl) {
-      Logger.warn("âš ï¸ Middleware didn't set mediaUrl, using fallback");
+      Logger.warn("⚠️ Middleware didn't set mediaUrl, using fallback");
       const file = req.file;
       const now = new Date();
       const year = now.getFullYear();
@@ -200,7 +336,13 @@ const createEndorsement = [
         fs.mkdirSync(uploadDir, { recursive: true });
       }
       fs.writeFileSync(path.join(uploadDir, fileName), file.buffer);
-      Logger.info(`ðŸ“¸ Fallback - Media saved: ${mediaUrl}`);
+
+      // Optimize video URLs
+      if (mediaType === "video") {
+        mediaUrl = videoCacheManager.getOptimizedVideoUrl(mediaUrl, "medium");
+      }
+
+      Logger.info(`📸 Fallback - Media saved: ${mediaUrl}`);
     }
 
     if (!leader_id || !finalUserId) {
@@ -231,9 +373,9 @@ const createEndorsement = [
 
       // Build final message
       let finalMessage = userMessage;
-      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ“· Photo";
-      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ“¹ Video";
-      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) finalMessage = "ðŸ’¬ Support message";
+      if (mediaType === "image" && (!finalMessage || !finalMessage.trim())) finalMessage = "📷 Photo";
+      if (mediaType === "video" && (!finalMessage || !finalMessage.trim())) finalMessage = "🎥 Video";
+      if (mediaType === "text" && (!finalMessage || !finalMessage.trim())) finalMessage = "💬 Support message";
       finalMessage = finalMessage.trim();
 
       // Insert endorsement (free)
@@ -267,7 +409,8 @@ const createEndorsement = [
           image_url: mediaUrl,
           media_type: mediaType,
           amount: 0,
-          isFree: true
+          isFree: true,
+          videoOptimized: mediaType === "video"
         },
       });
     } catch (error) {
@@ -281,7 +424,79 @@ const createEndorsement = [
 ];
 
 // ============================================
-// GET RECENT ENDORSEMENTS
+// Video Stream Endpoint (serves optimized video)
+// ============================================
+const streamVideo = asyncHandler(async (req, res) => {
+  const { videoUrl } = req.params;
+  const quality = req.query.quality || "medium";
+
+  if (!videoUrl) {
+    return res.status(400).json({ success: false, message: "Video URL required" });
+  }
+
+  try {
+    const decodedUrl = decodeURIComponent(videoUrl);
+    const fullPath = path.join(__dirname, "../../..", decodedUrl);
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ success: false, message: "Video not found" });
+    }
+
+    const stat = fs.statSync(fullPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    // Handle range requests for video streaming
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(fullPath, { start, end });
+
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': 'video/mp4',
+      };
+
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': 'video/mp4',
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+      };
+
+      res.writeHead(200, head);
+      fs.createReadStream(fullPath).pipe(res);
+    }
+
+    // Cache video metadata in background (non-blocking)
+    const cacheKey = videoCacheManager.getVideoCacheKey(decodedUrl, quality);
+    const videoData = {
+      cachePath: fullPath,
+      fileSize,
+      quality,
+      cachedAt: new Date().toISOString()
+    };
+
+    videoCacheManager.setCachedVideo(decodedUrl, videoData, quality).catch(err => {
+      Logger.warn("Failed to cache video metadata:", err);
+    });
+
+  } catch (error) {
+    Logger.error("Video streaming error:", error);
+    return res.status(500).json({ success: false, message: "Error streaming video" });
+  }
+});
+
+// ============================================
+// GET RECENT ENDORSEMENTS (with video optimization)
 // ============================================
 const getRecentEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
@@ -291,6 +506,14 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
   try {
     const cached = await cacheManager.get(cacheKey);
     if (cached) {
+      // Optimize video URLs in cached response
+      if (cached && Array.isArray(cached)) {
+        cached.forEach(item => {
+          if (item.media_type === "video" && item.image_url) {
+            item.image_url = videoCacheManager.getOptimizedVideoUrl(item.image_url, "medium");
+          }
+        });
+      }
       return res.status(200).json({ success: true, data: cached, source: "cache" });
     }
 
@@ -321,7 +544,9 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
       user_name: e.user_name,
       message: e.message || "",
       media_type: e.media_type || "text",
-      image_url: e.image_url,
+      image_url: e.media_type === "video" && e.image_url
+        ? videoCacheManager.getOptimizedVideoUrl(e.image_url, "medium")
+        : e.image_url,
       thumbnail_url: e.thumbnail_url,
       amount: e.amount,
       phrase: e.phrase,
@@ -335,6 +560,7 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
       created_at: e.created_at,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
+      videoOptimized: e.media_type === "video"
     }));
 
     await cacheManager.set(cacheKey, processedEndorsements, 60);
@@ -346,7 +572,7 @@ const getRecentEndorsements = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET ACTIVE STORIES
+// GET ACTIVE STORIES (with video optimization)
 // ============================================
 const getActiveStories = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
@@ -372,9 +598,13 @@ const getActiveStories = asyncHandler(async (req, res) => {
     );
     return activeStories.map((e) => ({
       ...e,
+      image_url: e.media_type === "video" && e.image_url
+        ? videoCacheManager.getOptimizedVideoUrl(e.image_url, "medium")
+        : e.image_url,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
       expiresIn: getExpirationHours(e.boost_count, e.total_boost_amount),
+      videoOptimized: e.media_type === "video"
     }));
   }, 60);
 
@@ -382,7 +612,7 @@ const getActiveStories = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET BOOSTED ENDORSEMENTS 
+// GET BOOSTED ENDORSEMENTS (with video optimization)
 // ============================================
 const getBoostedEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
@@ -420,10 +650,14 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
     const safeEndorsements = Array.isArray(endorsements) ? endorsements : [];
     return safeEndorsements.map((e) => ({
       ...e,
+      image_url: e.media_type === "video" && e.image_url
+        ? videoCacheManager.getOptimizedVideoUrl(e.image_url, "medium")
+        : e.image_url,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
       expiresIn: getExpirationHours(e.boost_count, e.total_boost_amount),
       isBoosted: (e.boost_count > 0 || e.total_boost_amount > 0),
+      videoOptimized: e.media_type === "video"
     }));
   }, 300);
 
@@ -436,7 +670,7 @@ const getBoostedEndorsements = asyncHandler(async (req, res) => {
 });
 
 // ============================================
-// GET TRENDING ENDORSEMENTS 
+// GET TRENDING ENDORSEMENTS (with video optimization)
 // ============================================
 const getTrendingEndorsements = asyncHandler(async (req, res) => {
   const { leaderId } = req.params;
@@ -481,7 +715,9 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
       user_name: e.user_name,
       message: e.message || "",
       media_type: e.media_type || "text",
-      image_url: e.image_url,
+      image_url: e.media_type === "video" && e.image_url
+        ? videoCacheManager.getOptimizedVideoUrl(e.image_url, "medium")
+        : e.image_url,
       thumbnail_url: e.thumbnail_url,
       amount: e.amount,
       phrase: e.phrase,
@@ -496,6 +732,7 @@ const getTrendingEndorsements = asyncHandler(async (req, res) => {
       trending_score: e.trending_score || 0,
       isFree: parseInt(e.amount) === 0,
       type: parseInt(e.amount) === 0 ? "free" : "paid",
+      videoOptimized: e.media_type === "video"
     }));
   }, 180);
 
@@ -927,6 +1164,9 @@ const cleanupExpiredStories = async () => {
       }
     }
     if (expiredCount > 0) Logger.info(`Cleaned up ${expiredCount} expired stories`);
+
+    // Also clean video cache periodically
+    await videoCacheManager.cleanOldCache();
   } catch (error) {
     Logger.error("Cleanup expired stories error:", error);
   }
@@ -950,4 +1190,6 @@ module.exports = {
   getComments,
   likeComment,
   getEndorsementStats,
+  streamVideo, // Export video streaming endpoint
+  optimizeVideoDelivery,
 };

@@ -1,4 +1,4 @@
-// components/AddStoryModal.jsx 
+// components/AddStoryModal.jsx - Fixed for mobile & no limits
 import React, { useState, useRef, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -46,15 +46,13 @@ const Content = styled.div`
   width: 100%;
   max-width: 480px;
   border-radius: 24px 24px 0 0;
-  padding: 24px;
-  // IMPORTANT FIX: Add enough bottom padding so button clears the nav bar
-  padding-bottom: calc(env(safe-area-inset-bottom, 32px) + 80px);
+  padding: 20px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 70px);
   animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 85vh;
+  max-height: 90vh;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 
-  // Custom scrollbar
   &::-webkit-scrollbar {
     width: 4px;
   }
@@ -71,7 +69,7 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   flex-shrink: 0;
 `;
 
@@ -140,7 +138,7 @@ const Tab = styled.button`
 
   &:hover:not(:disabled) {
     background: ${(props) =>
-      props.$active ? "#25d366" : "rgba(255,255,255,0.05)"};
+    props.$active ? "#25d366" : "rgba(255,255,255,0.05)"};
   }
 `;
 
@@ -162,14 +160,17 @@ const TextArea = styled.textarea`
   background: transparent;
   border: none;
   color: #fff;
-  font-size: 15px;
-  min-height: 80px;
+  font-size: 16px;
+  min-height: 100px;
   outline: none;
-  resize: none;
+  resize: vertical;
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 
   &::placeholder {
     color: #475569;
+    font-size: 14px;
   }
 `;
 
@@ -191,7 +192,7 @@ const PreviewContainer = styled.div`
   video {
     width: 100%;
     display: block;
-    max-height: 280px;
+    max-height: 300px;
     object-fit: contain;
   }
 `;
@@ -200,8 +201,8 @@ const RemoveMediaBtn = styled.button`
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.7);
   border: none;
@@ -220,12 +221,12 @@ const RemoveMediaBtn = styled.button`
 const MediaUploadBtn = styled.button`
   width: 100%;
   margin-top: 12px;
-  padding: 12px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px dashed rgba(255, 255, 255, 0.2);
   border-radius: 14px;
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -244,13 +245,12 @@ const MediaUploadBtn = styled.button`
 const SubmitBtn = styled.button`
   width: 100%;
   margin-top: 24px;
-  // Fixed: Make button proper size, not too big
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-radius: 16px;
   border: none;
   background: #25d366;
   color: #000;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -333,7 +333,6 @@ const getLocalUser = () => {
   }
 };
 
-// Checks purely from localStorage tokens — fallback when context isn't ready
 const isUserAuthenticatedFromStorage = () => {
   const hasUserToken = !!(localStorage.getItem("access_token") || localStorage.getItem("token"));
   const hasLeaderToken = !!localStorage.getItem("leaderToken");
@@ -348,13 +347,13 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [maxTextLength] = useState(5000); // Increased for mobile
 
   const fileInput = useRef(null);
   const contentRef = useRef(null);
 
-  // Resolve active user: normal user > leader > localStorage fallback
   const user = authUser || authLeader || getLocalUser();
-  // Authenticated if either normal user or aspirant/leader session is active
   const isAuthenticated = authIsAuth || isLeaderAuthenticated || isUserAuthenticatedFromStorage();
 
   const getLeaderId = () => {
@@ -372,20 +371,23 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
   const leaderId = getLeaderId();
   const leaderName = getLeaderName();
 
-  // Auto-scroll to show button when keyboard opens
   useEffect(() => {
     if (!isOpen) {
+      // Cleanup preview URLs when modal closes
+      if (media.preview) {
+        URL.revokeObjectURL(media.preview);
+      }
       setText("");
       setMedia({ file: null, preview: null, type: null });
       setError(null);
       setSuccess(null);
       setPostType("text");
+      setUploadProgress(0);
     }
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && contentRef.current) {
-      // Small delay to ensure keyboard is fully shown
       setTimeout(() => {
         contentRef.current.scrollTop = contentRef.current.scrollHeight;
       }, 300);
@@ -396,20 +398,34 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File too large (Max 50MB)");
+    // Clean up old preview
+    if (media.preview) {
+      URL.revokeObjectURL(media.preview);
+    }
+
+    // Check file size - 500MB for mobile
+    if (file.size > 500 * 1024 * 1024) {
+      setError("File too large (Max 500MB)");
       return;
     }
 
+    // Check if it's a valid media type
     if (file.type.startsWith("video/")) {
-      const video = document.createElement("video");
-      video.preload = "metadata";
+      // Check video duration for mobile
+      const video = document.createElement('video');
+      video.preload = 'metadata';
       video.onloadedmetadata = () => {
         URL.revokeObjectURL(video.src);
-        if (video.duration > 60) {
-          setError("Video must be 1 minute or less");
-          return;
-        }
+        // No duration limit - allow any length
+        setMedia({
+          file,
+          preview: URL.createObjectURL(file),
+          type: "video",
+        });
+        setError(null);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
         setMedia({
           file,
           preview: URL.createObjectURL(file),
@@ -418,19 +434,65 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
         setError(null);
       };
       video.src = URL.createObjectURL(file);
-    } else {
+    } else if (file.type.startsWith("image/")) {
       setMedia({
         file,
         preview: URL.createObjectURL(file),
         type: "image",
       });
       setError(null);
+    } else {
+      setError("Unsupported file type. Please upload image or video.");
     }
   };
 
   const handleRemoveMedia = () => {
+    if (media.preview) {
+      URL.revokeObjectURL(media.preview);
+    }
     setMedia({ file: null, preview: null, type: null });
     if (fileInput.current) fileInput.current.value = "";
+  };
+
+  const compressImage = async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Max dimensions for mobile
+          const maxWidth = 1200;
+          const maxHeight = 1200;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.8);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleSubmit = async () => {
@@ -447,10 +509,11 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setUploadProgress(0);
 
     const formData = new FormData();
     formData.append("leader_id", leaderId);
-    formData.append("user_id", user?.user_id || user?.id || user?.leader_id || "anonymous");
+    formData.append("user_id", user?.user_id || user?.id || user?.leader_id || `anonymous_${Date.now()}`);
     formData.append(
       "user_name",
       user?.real_name || user?.username || user?.name || "Supporter",
@@ -463,25 +526,47 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
     formData.append("amount", "0");
     formData.append(
       "phrase",
-      text.trim().slice(0, 50) ||
-        (media.file
-          ? media.type === "video"
-            ? "Video support"
-            : "Photo support"
-          : "Support message"),
+      text.trim().slice(0, 100) ||
+      (media.file
+        ? media.type === "video"
+          ? "Video support"
+          : "Photo support"
+        : "Support message"),
     );
 
-    if (media.file) {
-      formData.append("media", media.file);
+    // Compress image before upload for mobile
+    let finalMediaFile = media.file;
+    if (media.file && media.type === "image") {
+      try {
+        finalMediaFile = await compressImage(media.file);
+      } catch (err) {
+        console.warn("Image compression failed, using original:", err);
+      }
+    }
+
+    if (finalMediaFile) {
+      formData.append("media", finalMediaFile);
     }
 
     const path = "/endorsements/create";
 
     try {
-      const responseData = await api.post(path, formData);
+      const responseData = await api.post(path, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 300000, // 5 minute timeout for large videos
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
+      });
 
       if (responseData?.success) {
         setSuccess("Story posted successfully!");
+        if (media.preview) {
+          URL.revokeObjectURL(media.preview);
+        }
         onComplete?.(responseData.data);
 
         setTimeout(() => {
@@ -492,15 +577,28 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
       }
     } catch (err) {
       console.error("❌ Post error:", err);
-      setError(err.response?.data?.message || "Failed to post story");
+
+      // Better error messages for mobile
+      let errorMessage = "Failed to post story. ";
+      if (err.code === 'ECONNABORTED') {
+        errorMessage += "Upload took too long. Please try with a smaller file or better connection.";
+      } else if (err.message === 'Network Error') {
+        errorMessage += "Please check your internet connection.";
+      } else if (err.response?.status === 413) {
+        errorMessage += "File too large for server. Please compress your file.";
+      } else {
+        errorMessage += err.response?.data?.message || err.message || "Please try again.";
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
   if (!isOpen) return null;
 
-  // Header content based on auth status
   const renderHeader = () => (
     <Header>
       <UserProfile>
@@ -519,7 +617,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
         </div>
       </UserProfile>
       <X
-        size={20}
+        size={22}
         color="#64748b"
         onClick={onClose}
         style={{ cursor: "pointer" }}
@@ -578,41 +676,47 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           </Tab>
         </TabGroup>
 
-        {/* Anonymous hint */}
         {!isAuthenticated && (
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '12px', padding: '6px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '20px' }}>
-            🔒 Anonymous · No login required · Up to 20 stories/day
+            🔒 Anonymous · No login required · Unlimited posts!
           </div>
         )}
+
         {error && (
           <StatusMessage $isError>
             <AlertCircle size={14} /> {error}
           </StatusMessage>
         )}
+
         {success && (
           <StatusMessage $isError={false}>
             <CheckCircle size={14} /> {success}
           </StatusMessage>
         )}
 
+        {loading && uploadProgress > 0 && uploadProgress < 100 && (
+          <StatusMessage $isError={false}>
+            <Loader2 size={14} className="spin" /> Uploading: {uploadProgress}%
+          </StatusMessage>
+        )}
+
         <InputWrapper>
           <TextArea
-            placeholder={`Tell Kenya WHY you support ${leaderName}! What will they do for your community? Share your truth — your voice matters 🇰🇪`}
+            placeholder={`Tell Kenya WHY you support ${leaderName}! What will they do for your community? Share your truth — your voice matters 🇰🇪\n\nYou can write as much as you want. No character limits!`}
             value={text}
-            onChange={(e) => setText(e.target.value.slice(0, 500))}
-            maxLength={500}
+            onChange={(e) => setText(e.target.value.slice(0, maxTextLength))}
           />
-          <CharCounter>{text.length}/500</CharCounter>
+
           {media.preview && (
             <PreviewContainer>
               {media.type === "video" ? (
                 <video
                   src={media.preview}
                   controls
-                  autoPlay
+                  autoPlay={false}
                   muted
-                  loop
                   playsInline
+                  preload="metadata"
                 />
               ) : (
                 <img src={media.preview} alt="Preview" />
@@ -631,7 +735,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
             ) : (
               <Video size={16} />
             )}
-            Upload {postType === "image" ? "Photo" : "Video"} (Max 50MB)
+            Upload {postType === "image" ? "Photo" : "Video"} (Max 500MB)
           </MediaUploadBtn>
         )}
 
@@ -641,6 +745,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           hidden
           accept={postType === "image" ? "image/*" : "video/*"}
           onChange={handleFileSelect}
+          capture={postType === "image" ? "environment" : undefined}
         />
 
         <SubmitBtn
@@ -652,7 +757,7 @@ const AddStoryModal = ({ isOpen, onClose, leader, onComplete }) => {
           ) : (
             <Send size={18} />
           )}
-          {loading ? "POSTING..." : "🚀 PUBLISH YOUR STORY"}
+          {loading ? (uploadProgress > 0 ? `UPLOADING ${uploadProgress}%` : "POSTING...") : "🚀 PUBLISH YOUR STORY"}
         </SubmitBtn>
 
         <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>

@@ -4,7 +4,6 @@ import LogoImg from "./utils/Images/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import SearchBar from "./SearchBar";
 
 const Nav = styled.div`
   background: rgba(255, 255, 255, 0.85);
@@ -32,28 +31,6 @@ const NavbarContainer = styled.div`
   height: 60px;
   @media (max-width: 768px) {
     padding: 0 16px;
-  }
-`;
-
-const SearchBarWrapper = styled.div`
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  padding: 0 20px;
-  max-width: 500px;
-  
-  @media screen and (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const MobileSearchContainer = styled.div`
-  display: none;
-  width: 100%;
-  padding: 8px 16px 12px 16px;
-  
-  @media screen and (max-width: 768px) {
-    display: block;
   }
 `;
 
@@ -246,15 +223,10 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
           <Navlink to="/marketplace/cart">Cart</Navlink>
         </NavItems>
 
-        <SearchBarWrapper>
-          <SearchBar />
-        </SearchBarWrapper>
-
         <ButtonContainer>
           {/* Cart icon - always visible */}
           <Navlink to="/marketplace/cart">
             <div style={{ position: "relative" }}>
-
               <ShoppingCart size={24} color="#1e293b" />
               {cartCount > 0 && <CartBadge>{cartCount}</CartBadge>}
             </div>
@@ -285,7 +257,6 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
               }}
             >
               <ShoppingCart size={26} color="#1e293b" />
-
               {cartCount > 0 && (
                 <span
                   style={{
@@ -325,13 +296,8 @@ const Navbar = ({ currentUser, currentLeader, onLogout }) => {
               <Navlink to="/profile" onClick={() => setIsOpen(false)}>Profile</Navlink>
             </>
           ) : null}
-
         </MobileMenu>
       </NavbarContainer>
-      
-      <MobileSearchContainer>
-        <SearchBar />
-      </MobileSearchContainer>
     </Nav>
   );
 };
