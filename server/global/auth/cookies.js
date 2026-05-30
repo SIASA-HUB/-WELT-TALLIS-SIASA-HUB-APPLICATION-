@@ -13,6 +13,7 @@ const getSecureCookieOptions = () => {
     options.domain = process.env.COOKIE_DOMAIN;
   }
 
+  
   return options;
 };
 
