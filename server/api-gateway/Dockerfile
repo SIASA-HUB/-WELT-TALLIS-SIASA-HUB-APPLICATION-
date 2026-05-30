@@ -6,7 +6,7 @@ COPY global/package*.json ./global/
 COPY api-gateway/package*.json ./api-gateway/
 
 # Install dependencies for both global and service
-RUN cd global && npm install
+RUN npm config set fetch-retry-mintimeout 20000 && npm config set fetch-retry-maxtimeout 120000 && npm config set fetch-retries 10 && cd global && npm install
 RUN cd api-gateway && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \

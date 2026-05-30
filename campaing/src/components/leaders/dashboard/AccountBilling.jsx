@@ -24,11 +24,11 @@ const T = {
 };
 
 const PRICING = {
-  president: { verification: 250000, analytics: 416667, boost: 200000 },
-  governor:  { verification: 70000,  analytics: 15000,  boost: 50000  },
-  senator:   { verification: 50000,  analytics: 15000,  boost: 5000   },
-  mp:        { verification: 60000,  analytics: 15000,  boost: 5000   },
-  womenRep:  { verification: 20000,  analytics: 1000,   boost: 2000   },
+  president: { verification: 100000, analytics: 416667, boost: 100000 },
+  governor:  { verification: 10000,  analytics: 1000,  boost: 10000  },
+  senator:   { verification: 10000,  analytics: 1000,  boost: 1000   },
+  mp:        { verification: 10000,  analytics: 1000,  boost: 1000   },
+  womenRep:  { verification: 10000,  analytics: 1000,   boost: 1000   },
   mca:       { verification: 10000,  analytics: 1000,   boost: 1000   },
 };
 

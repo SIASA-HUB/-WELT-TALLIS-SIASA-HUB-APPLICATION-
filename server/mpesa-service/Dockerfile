@@ -6,7 +6,6 @@ COPY global/package*.json ./global/
 COPY mpesa-service/package*.json ./mpesa-service/
 
 # Install dependencies
-RUN cd global && npm install
 RUN cd mpesa-service && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \

@@ -1,62 +1,32 @@
-import { initiateBilling, handleMpesaWebhook, initiateB2B } from '../services/index.js';
-import { queryStkStatus } from '../services/stkQuery.js';
+import { initiateStkPush } from '../services/stkPush.js';
+import { handleMpesaWebhook } from '../services/webhookHandler.js';
+import { getLedgerHistory, getLatestEvent } from '../services/ledger.js';
 import Logger from '../utils/logger.js';
 
-/**
- * Handle STK Push Request from other services
- */
 export const stkPushRequest = async (req, res) => {
-  Logger.info('[M-Pesa Controller] STK Push Request:', JSON.stringify(req.body, null, 2));
+  Logger.info('[Controller] STK Push request:', req.body);
   try {
-    const result = await initiateBilling(req.body);
+    const result = await initiateStkPush(req.body);
     res.status(200).json(result);
-  } catch (error) {
-    Logger.error('[M-Pesa Controller] STK Push Error:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+  } catch (err) {
+    Logger.error('[Controller] STK Push error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Handle B2B Payment Request
- */
-export const b2bPaymentRequest = async (req, res) => {
-  try {
-    const result = await initiateB2B(req.body);
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-/**
- * Handle Callback from M-Pesa
- */
 export const handleCallback = async (req, res) => {
   await handleMpesaWebhook(req, res);
 };
 
-/**
- * Query Transaction Status from Safaricom
- * This is critical for local dev where callbacks can't reach localhost
- */
-export const queryTransactionStatus = async (req, res) => {
+export const getPaymentHistory = async (req, res) => {
   const { checkoutRequestId } = req.params;
-
-  if (!checkoutRequestId) {
-    return res.status(400).json({ success: false, message: 'CheckoutRequestID is required' });
-  }
+  if (!checkoutRequestId) return res.status(400).json({ success: false, message: 'checkoutRequestId required' });
 
   try {
-    const result = await queryStkStatus(checkoutRequestId);
-    res.status(200).json(result);
-  } catch (error) {
-    Logger.error('[M-Pesa Controller] Status Query Error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    const history = await getLedgerHistory(checkoutRequestId);
+    const latest  = history.at(-1);
+    res.status(200).json({ success: true, status: latest?.event || 'unknown', history });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -6,7 +6,7 @@ COPY global/package*.json ./global/
 COPY marketplace-service/package*.json ./marketplace-service/
 
 # Install dependencies for both global and service
-RUN cd global && npm install
+RUN npm config set fetch-retry-mintimeout 20000 && npm config set fetch-retry-maxtimeout 120000 && npm config set fetch-retries 10 && cd global && npm install
 RUN cd marketplace-service && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \

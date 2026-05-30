@@ -1,27 +1,30 @@
-/**
- * @param { import("knex").Knex } knex
- * @returns { Promise<void> }
- */
-export const up = function(knex) {
-  return knex.schema.createTable('payments', (table) => {
-    table.increments('id').primary();
-    table.string('transaction_id').unique().notNullable();
-    table.string('phone_number').notNullable();
-    table.decimal('amount', 15, 2).notNullable();
-    table.string('payment_type').notNullable(); // wallet, marketplace, boost
-    table.integer('aspirant_id').nullable();
-    table.string('order_id').nullable();
-    table.string('status').defaultTo('pending'); // pending, completed, failed
-    table.string('receipt_number').nullable();
-    table.text('message').nullable();
-    table.timestamps(true, true);
-  });
-};
+export const up = (knex) =>
+  knex.schema.createTable('payment_ledger', (t) => {
+    t.increments('id').primary();
 
-/**
- * @param { import("knex").Knex } knex
- * @returns { Promise<void> }
- */
-export const down = function(knex) {
-  return knex.schema.dropTable('payments');
-};
+    // Links all events for one payment together
+    t.string('checkout_request_id').notNullable().index();
+
+    // Event type: initiated | pending | completed | failed | cancelled | refunded
+    t.string('event').notNullable();
+
+    // Core payment info (repeated per row for full auditability)
+    t.string('phone_number').notNullable();
+    t.decimal('amount', 15, 2).notNullable();
+    t.string('payment_type').notNullable();   // wallet | marketplace | billing | boost
+    t.string('account_reference').nullable();
+    t.string('user_id').nullable();
+    t.string('order_id').nullable();
+    t.string('aspirant_id').nullable();
+
+    // Safaricom response fields
+    t.string('merchant_request_id').nullable();
+    t.string('mpesa_receipt_number').nullable();  // populated on completed
+    t.integer('result_code').nullable();
+    t.text('result_desc').nullable();
+
+    // Each row is immutable — no updates ever
+    t.timestamp('created_at').defaultTo(knex.fn.now());
+  });
+
+export const down = (knex) => knex.schema.dropTable('payment_ledger');

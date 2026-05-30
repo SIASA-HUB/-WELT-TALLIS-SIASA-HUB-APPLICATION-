@@ -226,11 +226,16 @@ services:
       - "8011:8011"
     env_file:
       - .env
+      - mpesa-service/.env
     environment:
       - NODE_ENV=production
       - DB_HOST=db
       - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
+      redis:
+        condition: service_started
       db:
         condition: service_healthy
     volumes:
